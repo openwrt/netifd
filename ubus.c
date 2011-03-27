@@ -8,19 +8,6 @@ static struct blob_buf b;
 
 /* global object */
 
-static const struct ubus_signature main_object_sig[] = {
-	UBUS_METHOD_START("add_device"),
-	UBUS_FIELD(STRING, "name"),
-	UBUS_METHOD_END(),
-
-	UBUS_METHOD_START("del_device"),
-	UBUS_FIELD(STRING, "name"),
-	UBUS_METHOD_END(),
-};
-
-static struct ubus_object_type main_object_type =
-	UBUS_OBJECT_TYPE("netifd", main_object_sig);
-
 enum {
 	DEV_NAME,
 	DEV_FORCE,
@@ -58,9 +45,12 @@ static int netifd_handle_device(struct ubus_context *ctx, struct ubus_object *ob
 }
 
 static struct ubus_method main_object_methods[] = {
-	{ .name = "add_device", .handler = netifd_handle_device },
-	{ .name = "del_device", .handler = netifd_handle_device },
+	UBUS_METHOD("add_device", netifd_handle_device, dev_policy),
+	UBUS_METHOD("del_device", netifd_handle_device, dev_policy),
 };
+
+static struct ubus_object_type main_object_type =
+	UBUS_OBJECT_TYPE("netifd", main_object_methods);
 
 static struct ubus_object main_object = {
 	.name = "network.interface",
@@ -95,20 +85,6 @@ void netifd_ubus_done(void)
 
 
 /* per-interface object */
-static const struct ubus_signature iface_object_sig[] = {
-	UBUS_METHOD_START("up"),
-	UBUS_METHOD_END(),
-
-	UBUS_METHOD_START("down"),
-	UBUS_METHOD_END(),
-
-	UBUS_METHOD_START("status"),
-	UBUS_METHOD_END(),
-};
-
-static struct ubus_object_type iface_object_type =
-	UBUS_OBJECT_TYPE("netifd_iface", iface_object_sig);
-
 
 static int netifd_handle_up(struct ubus_context *ctx, struct ubus_object *obj,
 			    struct ubus_request_data *req, const char *method,
@@ -171,11 +147,15 @@ static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *ob
 	return 0;
 }
 
+
 static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
 	{ .name = "status", .handler = netifd_handle_status },
 };
+
+static struct ubus_object_type iface_object_type =
+	UBUS_OBJECT_TYPE("netifd_iface", iface_object_methods);
 
 
 void netifd_ubus_add_interface(struct interface *iface)
