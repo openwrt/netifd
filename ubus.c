@@ -103,7 +103,7 @@ static const struct ubus_signature iface_object_sig[] = {
 };
 
 static struct ubus_object_type iface_object_type =
-	UBUS_OBJECT_TYPE("netifd", iface_object_sig);
+	UBUS_OBJECT_TYPE("netifd_iface", iface_object_sig);
 
 
 static int netifd_handle_up(struct ubus_context *ctx, struct ubus_object *obj,
