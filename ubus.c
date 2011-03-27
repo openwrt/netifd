@@ -101,6 +101,9 @@ static const struct ubus_signature iface_object_sig[] = {
 
 	UBUS_METHOD_START("down"),
 	UBUS_METHOD_END(),
+
+	UBUS_METHOD_START("status"),
+	UBUS_METHOD_END(),
 };
 
 static struct ubus_object_type iface_object_type =
