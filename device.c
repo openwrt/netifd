@@ -85,29 +85,36 @@ int check_device_state(struct device *dev)
 	return dev->type->check_state(dev);
 }
 
+void init_virtual_device(struct device *dev, const struct device_type *type, const char *name)
+{
+	assert(dev);
+	assert(type);
+
+	fprintf(stderr, "Initialize interface '%s'\n", dev->ifname);
+	INIT_LIST_HEAD(&dev->users);
+	dev->type = type;
+
+	if (name)
+		strncpy(dev->ifname, name, IFNAMSIZ);
+}
+
 int init_device(struct device *dev, const struct device_type *type, const char *ifname)
 {
 	int ret;
 
-	assert(dev);
-	assert(type);
-
-	if (ifname)
-		strncpy(dev->ifname, ifname, IFNAMSIZ);
+	init_virtual_device(dev, type, ifname);
 
 	if (!dev->set_state)
 		dev->set_state = set_device_state;
 
-	fprintf(stderr, "Initialize interface '%s'\n", dev->ifname);
-	INIT_LIST_HEAD(&dev->users);
 	dev->avl.key = dev->ifname;
-	dev->type = type;
 
 	ret = avl_insert(&devices, &dev->avl);
 	if (ret < 0)
 		return ret;
 
 	check_device_state(dev);
+
 	return 0;
 }
 
@@ -149,7 +156,8 @@ void cleanup_device(struct device *dev)
 		dep->cb(dep, DEV_EVENT_REMOVE);
 	}
 
-	avl_delete(&devices, &dev->avl);
+	if (dev->avl.key)
+		avl_delete(&devices, &dev->avl);
 }
 
 void set_device_present(struct device *dev, bool state)
