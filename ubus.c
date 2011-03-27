@@ -151,6 +151,9 @@ static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *ob
 		else
 			/* use a different field for virtual devices */
 			blobmsg_add_string(&b, "link", dev->ifname);
+
+		if (dev->type->dump_status)
+			dev->type->dump_status(dev, &b);
 	}
 
 	ubus_send_reply(ctx, req, b.head);

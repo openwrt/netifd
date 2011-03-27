@@ -11,6 +11,7 @@ typedef int (*device_state_cb)(struct device *, bool up);
 struct device_type {
 	const char *name;
 
+	void (*dump_status)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
 	void (*free)(struct device *);
 };
