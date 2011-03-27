@@ -292,12 +292,29 @@ bridge_free(struct device *dev)
 	free(bst);
 }
 
+static void
+bridge_dump_status(struct device *dev, struct blob_buf *b)
+{
+	struct bridge_state *bst;
+	struct bridge_member *bm;
+	void *list;
+
+	bst = container_of(dev, struct bridge_state, dev);
+
+	list = blobmsg_open_array(b, "bridge-members");
+	list_for_each_entry(bm, &bst->members, list) {
+		blobmsg_add_string(b, NULL, bm->dev.dev->ifname);
+	}
+	blobmsg_close_array(b, list);
+}
+
 struct device *
 bridge_create(const char *name, struct uci_section *s)
 {
 	static const struct device_type bridge_type = {
 		.name = "Bridge",
 		.free = bridge_free,
+		.dump_status = bridge_dump_status,
 	};
 	struct bridge_state *bst;
 	struct device *dev;
