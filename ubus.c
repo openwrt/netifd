@@ -145,15 +145,22 @@ static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *ob
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
 	if (iface->main_dev.dev) {
 		struct device *dev = iface->main_dev.dev;
+		const char *field;
+		void *devinfo;
 
+		/* use a different field for virtual devices */
 		if (dev->avl.key)
-			blobmsg_add_string(&b, "device", dev->ifname);
+			field = "device";
 		else
-			/* use a different field for virtual devices */
-			blobmsg_add_string(&b, "link", dev->ifname);
+			field = "link";
+
+		devinfo = blobmsg_open_table(&b, field);
+		blobmsg_add_string(&b, "name", dev->ifname);
 
 		if (dev->type->dump_status)
 			dev->type->dump_status(dev, &b);
+
+		blobmsg_close_table(&b, devinfo);
 	}
 
 	ubus_send_reply(ctx, req, b.head);
