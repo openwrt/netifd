@@ -19,6 +19,14 @@ struct interface_proto_state {
 	void (*free)(struct interface *, struct interface_proto_state *);
 };
 
+struct interface_error {
+	struct list_head list;
+
+	const char *subsystem;
+	const char *code;
+	const char *data[];
+};
+
 /*
  * interface configuration
  */
@@ -45,6 +53,9 @@ struct interface {
 	/* primary protocol state */
 	struct interface_proto_state *state;
 
+	/* errors/warnings while trying to bring up the interface */
+	struct list_head errors;
+
 	struct ubus_object ubus;
 };
 
@@ -57,6 +68,9 @@ int set_interface_down(struct interface *iface);
 
 int interface_add_link(struct interface *iface, struct device *llif);
 void interface_remove_link(struct interface *iface, struct device *llif);
+
+void interface_add_error(struct interface *iface, const char *subsystem,
+			 const char *code, const char **data, int n_data);
 
 int interface_attach_bridge(struct interface *iface, struct uci_section *s);
 

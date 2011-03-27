@@ -7,7 +7,53 @@
 
 LIST_HEAD(interfaces);
 
-static int interface_event(struct interface *iface, enum interface_event ev)
+static void
+clear_interface_errors(struct interface *iface)
+{
+	struct interface_error *error, *tmp;
+
+	list_for_each_entry_safe(error, tmp, &iface->errors, list) {
+		list_del(&error->list);
+		free(error);
+	}
+}
+
+void interface_add_error(struct interface *iface, const char *subsystem,
+			 const char *code, const char **data, int n_data)
+{
+	struct interface_error *error;
+	int i, len = 0;
+	int *datalen;
+	char *dest;
+
+	if (n_data) {
+		len = n_data * sizeof(char *);
+		datalen = alloca(len);
+		for (i = 0; i < n_data; i++) {
+			datalen[i] = strlen(data[i]) + 1;
+			len += datalen[i];
+		}
+	}
+
+	error = calloc(1, sizeof(*error) + sizeof(char *) + len);
+	if (!error)
+		return;
+
+	list_add_tail(&error->list, &iface->errors);
+	error->subsystem = subsystem;
+	error->code = code;
+
+	dest = (char *) &error->data[n_data + 1];
+	for (i = 0; i < n_data; i++) {
+		error->data[i] = dest;
+		memcpy(dest, data[i], datalen[i]);
+		dest += datalen[i];
+	}
+	error->data[n_data] = NULL;
+}
+
+static int
+interface_event(struct interface *iface, enum interface_event ev)
 {
 	if (!iface->state || !iface->state->event)
 		return 0;
@@ -35,6 +81,8 @@ __set_interface_up(struct interface *iface)
 static void
 __set_interface_down(struct interface *iface)
 {
+	clear_interface_errors(iface);
+
 	if (!iface->up)
 		return;
 
@@ -87,6 +135,8 @@ alloc_interface(const char *name)
 	iface->l3_iface = &iface->main_dev;
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	list_add(&iface->list, &interfaces);
+	INIT_LIST_HEAD(&iface->errors);
+
 	netifd_ubus_add_interface(iface);
 
 	return iface;
@@ -148,6 +198,11 @@ set_interface_up(struct interface *iface)
 {
 	iface->autostart = true;
 
+	if (!iface->active) {
+		interface_add_error(iface, "interface", "NO_DEVICE", NULL, 0);
+		return -1;
+	}
+
 	if (iface->up || !iface->active)
 		return -1;
 
@@ -159,10 +214,6 @@ int
 set_interface_down(struct interface *iface)
 {
 	iface->autostart = false;
-
-	if (!iface->up)
-		return -1;
-
 	__set_interface_down(iface);
 
 	return 0;

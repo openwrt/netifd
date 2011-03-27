@@ -110,6 +110,30 @@ static int netifd_handle_down(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+static void netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
+{
+	struct interface_error *error;
+	void *e, *e2, *e3;
+	int i;
+
+	e = blobmsg_open_array(b, "errors");
+	list_for_each_entry(error, &iface->errors, list) {
+		e2 = blobmsg_open_table(b, NULL);
+
+		blobmsg_add_string(b, "subsystem", error->subsystem);
+		blobmsg_add_string(b, "code", error->code);
+		if (error->data[0]) {
+			e3 = blobmsg_open_array(b, "data");
+			for (i = 0; error->data[i]; i++)
+				blobmsg_add_string(b, NULL, error->data[i]);
+			blobmsg_close_array(b, e3);
+		}
+
+		blobmsg_close_table(b, e2);
+	}
+	blobmsg_close_array(b, e);
+}
+
 static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 				struct ubus_request_data *req, const char *method,
 				struct blob_attr *msg)
@@ -141,6 +165,9 @@ static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *ob
 
 		blobmsg_close_table(&b, devinfo);
 	}
+
+	if (!list_is_empty(&iface->errors))
+		netifd_add_interface_errors(&b, iface);
 
 	ubus_send_reply(ctx, req, b.head);
 
