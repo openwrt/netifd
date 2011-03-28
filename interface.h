@@ -35,13 +35,8 @@ struct interface {
 
 	char name[IFNAMSIZ];
 
-	/* interface is up and running */
 	bool up;
-
-	/* interface can be brought up */
 	bool active;
-
-	/* interface will be brought up when available */
 	bool autostart;
 
 	/* main interface that the interface is bound to */
