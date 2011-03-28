@@ -33,7 +33,7 @@ struct interface_error {
 struct interface {
 	struct list_head list;
 
-	char name[IFNAMSIZ - 2];
+	char name[IFNAMSIZ];
 
 	/* interface is up and running */
 	bool up;
