@@ -104,4 +104,33 @@ to be set up as slave to another protocol handler if necessary (useful for
 PPPoE or PPTP).
 
 
-## TODO: Protocol handlers, Configuration management, ubus callbacks
+
+Protocol handlers
+-----------------
+
+A protocol handler can be attached to anything that provides a callback
+for state changes. For the simple case it is usually attached to an interface
+directly.
+
+The state of a protocol handler is tracked in a struct interface_proto_state,
+and it depends on the state of the entity that's controlling it.
+
+It responds to PROTO_CMD_SETUP and PROTO_SETUP_TEARDOWN commands, which
+should not block at any point in time. Completion is signalled back to the
+master by sending IFPEV_UP and IFPEV_DOWN events.
+
+If the setup can be done fast without blocking for a noticeable amount of
+time, the callback can do it and send back those events immediately.
+If the setup can take longer, it should use uloop to schedule its actions
+asynchronously and (if necessary) fork.
+
+The protocol handler must be able to abort a setup request that's being
+processed when it encounters a teardown command.
+
+When a PROTO_SETUP_TEARDOWN call is issued and the 'force' parameter is
+set, the protocol handler needs to clean up immediately as good as possible,
+without waiting for its pending actions to complete. If it has spawned
+any child processes, it needs to kill them and clean up their mess.
+
+
+## TODO: Configuration management, ubus callbacks
