@@ -40,28 +40,15 @@ struct device {
 
 /* events broadcasted to all users of a device */
 enum device_event {
-	/* device has been added to the system and can be brought up */
 	DEV_EVENT_ADD,
-
-	/* device has been removed */
 	DEV_EVENT_REMOVE,
 
-	/* device is being brought up */
 	DEV_EVENT_SETUP,
-
-	/* device is being brought down */
 	DEV_EVENT_TEARDOWN,
-
-	/* device has been brought up */
 	DEV_EVENT_UP,
-
-	/* device has been brought down */
 	DEV_EVENT_DOWN,
 
-	/* device has changed its link state to up */
 	DEV_EVENT_LINK_UP,
-
-	/* device has changed its link state to down */
 	DEV_EVENT_LINK_DOWN,
 };
 
