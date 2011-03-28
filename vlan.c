@@ -105,7 +105,7 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	return &vldev->dev;
 }
 
-static inline char *split_vlan(char *s)
+static char *split_vlan(char *s)
 {
 	s = strchr(s, '.');
 	if (!s)
