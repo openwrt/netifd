@@ -59,6 +59,13 @@ interface_event(struct interface *iface, enum interface_event ev)
 	/* TODO */
 }
 
+static void
+mark_interface_down(struct interface *iface)
+{
+	release_device(iface->main_dev.dev);
+	iface->state = IFS_DOWN;
+}
+
 static int
 __set_interface_up(struct interface *iface)
 {
@@ -69,20 +76,17 @@ __set_interface_up(struct interface *iface)
 
 	ret = claim_device(iface->main_dev.dev);
 	if (ret)
-		goto out;
+		return ret;
 
 	iface->state = IFS_SETUP;
 	ret = iface->proto->handler(iface->proto, PROTO_CMD_SETUP, false);
-	if (ret)
-		goto release;
+	if (ret) {
+		mark_interface_down(iface);
+		return ret;
+	}
 
 	return 0;
 
-release:
-	release_device(iface->main_dev.dev);
-out:
-	iface->state = IFS_DOWN;
-	return ret;
 }
 
 static void
@@ -145,7 +149,10 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		interface_event(iface, IFEV_UP);
 		break;
 	case IFPEV_DOWN:
-		iface->state = IFS_DOWN;
+		if (iface->state == IFS_DOWN)
+			return;
+
+		mark_interface_down(iface);
 		break;
 	}
 }
