@@ -83,13 +83,20 @@ An interface always has the following state information:
 active:
   The interface can be brought up (its main device is available)
 
-up:
-  The interface has been brought up.
-
 autostart:
   If the interface switches from inactive to active, netifd will attempt
   to bring it up immediately. Manually setting an interface to up (regardless
   of whether that was successful or not) will set this flag.
+
+state:
+  IFS_SETUP:
+    The interface is currently being configured by the protocol handler
+  IFS_UP:
+    The interface is fully configured
+  IFS_TEARDOWN:
+    The interface is being deconfigured
+  IFS_DOWN:
+    The interface is down
 
 An interface references only one protocol handler state, modular protocol
 handlers such as PPP are expected to be written in a way that allows them
