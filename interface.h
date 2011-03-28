@@ -2,31 +2,18 @@
 #define __NETIFD_INTERFACE_H
 
 struct interface;
-struct interface_proto;
 struct interface_proto_state;
-
-extern struct list_head interfaces;
 
 enum interface_event {
 	IFEV_UP,
 	IFEV_DOWN,
 };
 
-enum interface_proto_event {
-	PROTO_UP,
-	PROTO_DOWN,
-};
-
-struct interface_proto_state {
-	struct interface *iface;
-	const struct interface_proto *proto;
-
-	/* filled in by the protocol user */
-	int (*proto_event)(struct interface_proto_state *, enum interface_proto_event ev);
-
-	/* filled in by the protocol handler */
-	int (*event)(struct interface_proto_state *, enum interface_event ev);
-	void (*free)(struct interface_proto_state *);
+enum interface_state {
+	IFS_SETUP,
+	IFS_UP,
+	IFS_TEARDOWN,
+	IFS_DOWN,
 };
 
 struct interface_error {
@@ -45,9 +32,10 @@ struct interface {
 
 	char name[IFNAMSIZ];
 
-	bool up;
 	bool active;
 	bool autostart;
+
+	enum interface_state state;
 
 	/* main interface that the interface is bound to */
 	struct device_user main_dev;
@@ -56,7 +44,7 @@ struct interface {
 	struct device_user *l3_iface;
 
 	/* primary protocol state */
-	struct interface_proto_state *state;
+	struct interface_proto_state *proto;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;

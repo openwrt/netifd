@@ -138,12 +138,18 @@ static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *ob
 				struct ubus_request_data *req, const char *method,
 				struct blob_attr *msg)
 {
+	static const char *iface_state[] = {
+		[IFS_SETUP] = "setup",
+		[IFS_UP] = "up",
+		[IFS_TEARDOWN] = "teardown",
+		[IFS_DOWN] = "down",
+	};
 	struct interface *iface;
 
 	iface = container_of(obj, struct interface, ubus);
 
 	blob_buf_init(&b, 0);
-	blobmsg_add_u8(&b, "up", iface->up);
+	blobmsg_add_string(&b, "state", iface_state[iface->state]);
 	blobmsg_add_u8(&b, "active", iface->active);
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
 	if (iface->main_dev.dev) {

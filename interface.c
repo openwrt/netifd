@@ -3,9 +3,10 @@
 #include <stdio.h>
 
 #include "netifd.h"
+#include "proto.h"
 #include "ubus.h"
 
-LIST_HEAD(interfaces);
+static LIST_HEAD(interfaces);
 
 static void
 clear_interface_errors(struct interface *iface)
@@ -52,42 +53,51 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 	error->data[n_data] = NULL;
 }
 
-static int
+static void
 interface_event(struct interface *iface, enum interface_event ev)
 {
-	if (!iface->state || !iface->state->event)
-		return 0;
-
-	return iface->state->event(iface->state, ev);
+	/* TODO */
 }
 
-static void
+static int
 __set_interface_up(struct interface *iface)
 {
-	if (iface->up)
-		return;
+	int ret;
 
-	if (claim_device(iface->main_dev.dev) < 0)
-		return;
+	if (iface->state != IFS_DOWN)
+		return 0;
 
-	if (interface_event(iface, IFEV_UP) < 0) {
-		release_device(iface->main_dev.dev);
-		return;
-	}
+	ret = claim_device(iface->main_dev.dev);
+	if (ret)
+		goto out;
 
-	iface->up = true;
+	iface->state = IFS_SETUP;
+	ret = iface->proto->handler(iface->proto, PROTO_CMD_SETUP, false);
+	if (ret)
+		goto release;
+
+	return 0;
+
+release:
+	release_device(iface->main_dev.dev);
+out:
+	iface->state = IFS_DOWN;
+	return ret;
 }
 
 static void
-__set_interface_down(struct interface *iface)
+__set_interface_down(struct interface *iface, bool force)
 {
 	clear_interface_errors(iface);
 
-	if (!iface->up)
+	if (iface->state == IFS_DOWN ||
+		iface->state == IFS_TEARDOWN)
 		return;
 
-	iface->up = false;
+	iface->state = IFS_TEARDOWN;
 	interface_event(iface, IFEV_DOWN);
+
+	iface->proto->handler(iface->proto, PROTO_CMD_TEARDOWN, force);
 	release_device(iface->main_dev.dev);
 }
 
@@ -116,9 +126,44 @@ interface_cb(struct device_user *dep, enum device_event ev)
 
 	if (new_state) {
 		if (iface->autostart)
-			__set_interface_up(iface);
+			set_interface_up(iface);
 	} else
-		__set_interface_down(iface);
+		__set_interface_down(iface, true);
+}
+
+static void
+interface_proto_cb(struct interface_proto_state *state, enum interface_proto_event ev)
+{
+	struct interface *iface = state->iface;
+
+	switch (ev) {
+	case IFPEV_UP:
+		if (iface->state != IFS_SETUP)
+			return;
+
+		iface->state = IFS_UP;
+		interface_event(iface, IFEV_UP);
+		break;
+	case IFPEV_DOWN:
+		iface->state = IFS_DOWN;
+		break;
+	}
+}
+
+void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state)
+{
+	if (iface->proto) {
+		iface->proto->handler(iface->proto, PROTO_CMD_TEARDOWN, true);
+		iface->proto->free(iface->proto);
+		iface->proto = NULL;
+	}
+	iface->state = IFS_DOWN;
+	iface->proto = state;
+	if (!state)
+		return;
+
+	state->proto_event = interface_proto_cb;
+	state->iface = iface;
 }
 
 struct interface *
@@ -131,6 +176,13 @@ alloc_interface(const char *name)
 		return iface;
 
 	iface = calloc(1, sizeof(*iface));
+
+	interface_set_proto_state(iface, get_default_proto());
+	if (!iface->proto) {
+		free(iface);
+		return NULL;
+	}
+
 	iface->main_dev.cb = interface_cb;
 	iface->l3_iface = &iface->main_dev;
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
@@ -147,8 +199,8 @@ free_interface(struct interface *iface)
 {
 	netifd_ubus_remove_interface(iface);
 	list_del(&iface->list);
-	if (iface->state && iface->state->free)
-		iface->state->free(iface->state);
+	if (iface->proto->free)
+		iface->proto->free(iface->proto);
 	free(iface);
 }
 
@@ -203,18 +255,17 @@ set_interface_up(struct interface *iface)
 		return -1;
 	}
 
-	if (iface->up)
-		return -1;
+	if (iface->state != IFS_DOWN)
+		return 0;
 
-	__set_interface_up(iface);
-	return 0;
+	return __set_interface_up(iface);
 }
 
 int
 set_interface_down(struct interface *iface)
 {
 	iface->autostart = false;
-	__set_interface_down(iface);
+	__set_interface_down(iface, false);
 
 	return 0;
 }
