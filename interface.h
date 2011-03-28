@@ -12,11 +12,21 @@ enum interface_event {
 	IFEV_DOWN,
 };
 
+enum interface_proto_event {
+	PROTO_UP,
+	PROTO_DOWN,
+};
+
 struct interface_proto_state {
+	struct interface *iface;
 	const struct interface_proto *proto;
 
-	int (*event)(struct interface *, struct interface_proto_state *, enum interface_event ev);
-	void (*free)(struct interface *, struct interface_proto_state *);
+	/* filled in by the protocol user */
+	int (*proto_event)(struct interface_proto_state *, enum interface_proto_event ev);
+
+	/* filled in by the protocol handler */
+	int (*event)(struct interface_proto_state *, enum interface_event ev);
+	void (*free)(struct interface_proto_state *);
 };
 
 struct interface_error {

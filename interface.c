@@ -58,7 +58,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 	if (!iface->state || !iface->state->event)
 		return 0;
 
-	return iface->state->event(iface, iface->state, ev);
+	return iface->state->event(iface->state, ev);
 }
 
 static void
@@ -148,7 +148,7 @@ free_interface(struct interface *iface)
 	netifd_ubus_remove_interface(iface);
 	list_del(&iface->list);
 	if (iface->state && iface->state->free)
-		iface->state->free(iface, iface->state);
+		iface->state->free(iface->state);
 	free(iface);
 }
 
