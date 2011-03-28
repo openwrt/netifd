@@ -203,7 +203,7 @@ set_interface_up(struct interface *iface)
 		return -1;
 	}
 
-	if (iface->up || !iface->active)
+	if (iface->up)
 		return -1;
 
 	__set_interface_up(iface);
