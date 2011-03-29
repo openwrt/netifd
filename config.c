@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "netifd.h"
+#include "interface.h"
 
 struct uci_context *uci_ctx;
 

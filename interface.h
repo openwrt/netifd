@@ -1,6 +1,8 @@
 #ifndef __NETIFD_INTERFACE_H
 #define __NETIFD_INTERFACE_H
 
+#include "device.h"
+
 struct interface;
 struct interface_proto_state;
 

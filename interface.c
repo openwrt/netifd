@@ -3,6 +3,8 @@
 #include <stdio.h>
 
 #include "netifd.h"
+#include "device.h"
+#include "interface.h"
 #include "proto.h"
 #include "ubus.h"
 

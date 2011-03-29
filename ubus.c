@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "netifd.h"
+#include "interface.h"
 #include "ubus.h"
 
 static struct ubus_context *ctx = NULL;

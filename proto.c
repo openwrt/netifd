@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "netifd.h"
+#include "interface.h"
 #include "proto.h"
 
 static void

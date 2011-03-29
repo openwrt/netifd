@@ -13,14 +13,14 @@
 #include <libubus.h>
 #include <uci.h>
 
-#include "device.h"
-#include "interface.h"
-
 #ifdef DEBUG
 #define DPRINTF(format, ...) fprintf(stderr, "%s(%d): " format, __func__, __LINE__, ## __VA_ARGS__)
 #else
 #define DPRINTF(...) do {} while(0)
 #endif
+
+struct device;
+struct interface;
 
 extern struct uci_context *uci_ctx;
 

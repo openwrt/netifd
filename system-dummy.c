@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "netifd.h"
+#include "device.h"
 
 int system_bridge_addbr(struct device *bridge)
 {

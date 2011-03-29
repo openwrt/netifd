@@ -5,6 +5,8 @@
 #include <errno.h>
 
 #include "netifd.h"
+#include "device.h"
+#include "interface.h"
 #include "system.h"
 
 struct bridge_state {
