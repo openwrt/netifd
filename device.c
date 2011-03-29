@@ -40,15 +40,11 @@ static void broadcast_device_event(struct device *dev, enum device_event ev)
 
 static int set_device_state(struct device *dev, bool state)
 {
-	if (state) {
-		broadcast_device_event(dev, DEV_EVENT_SETUP);
+	if (state)
 		system_if_up(dev);
-		broadcast_device_event(dev, DEV_EVENT_UP);
-	} else {
-		broadcast_device_event(dev, DEV_EVENT_TEARDOWN);
+	else
 		system_if_down(dev);
-		broadcast_device_event(dev, DEV_EVENT_DOWN);
-	}
+
 	return 0;
 }
 
@@ -60,8 +56,11 @@ int claim_device(struct device *dev)
 	if (++dev->active != 1)
 		return 0;
 
+	broadcast_device_event(dev, DEV_EVENT_SETUP);
 	ret = dev->set_state(dev, true);
-	if (ret != 0)
+	if (ret == 0)
+		broadcast_device_event(dev, DEV_EVENT_UP);
+	else
 		dev->active = 0;
 
 	return ret;
@@ -73,8 +72,12 @@ void release_device(struct device *dev)
 	DPRINTF("release device %s, new refcount: %d\n", dev->ifname, dev->active);
 	assert(dev->active >= 0);
 
-	if (!dev->active)
-		dev->set_state(dev, false);
+	if (dev->active)
+		return;
+
+	broadcast_device_event(dev, DEV_EVENT_TEARDOWN);
+	dev->set_state(dev, false);
+	broadcast_device_event(dev, DEV_EVENT_DOWN);
 }
 
 int check_device_state(struct device *dev)
