@@ -226,12 +226,12 @@ get_interface(const char *name)
 }
 
 void
-interface_remove_link(struct interface *iface, struct device *llif)
+interface_remove_link(struct interface *iface, struct device *dev)
 {
-	struct device *dev = iface->main_dev.dev;
+	struct device *mdev = iface->main_dev.dev;
 
-	if (dev && dev->hotplug_ops) {
-		dev->hotplug_ops->del(dev, llif);
+	if (mdev && mdev->hotplug_ops) {
+		mdev->hotplug_ops->del(mdev, dev);
 		return;
 	}
 
@@ -239,17 +239,17 @@ interface_remove_link(struct interface *iface, struct device *llif)
 }
 
 int
-interface_add_link(struct interface *iface, struct device *llif)
+interface_add_link(struct interface *iface, struct device *dev)
 {
-	struct device *dev = iface->main_dev.dev;
+	struct device *mdev = iface->main_dev.dev;
 
-	if (dev && dev->hotplug_ops)
-		return dev->hotplug_ops->add(dev, llif);
+	if (mdev && mdev->hotplug_ops)
+		return mdev->hotplug_ops->add(mdev, dev);
 
 	if (iface->main_dev.dev)
 		interface_remove_link(iface, NULL);
 
-	add_device_user(&iface->main_dev, llif);
+	add_device_user(&iface->main_dev, dev);
 
 	return 0;
 }
