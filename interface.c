@@ -104,7 +104,6 @@ __set_interface_down(struct interface *iface, bool force)
 	interface_event(iface, IFEV_DOWN);
 
 	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
-	release_device(iface->main_dev.dev);
 }
 
 static void
