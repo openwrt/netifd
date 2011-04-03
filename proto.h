@@ -13,8 +13,13 @@ enum interface_proto_cmd {
 	PROTO_CMD_TEARDOWN,
 };
 
+enum {
+	PROTO_FLAG_IMMEDIATE = (1 << 0),
+};
+
 struct interface_proto_state {
 	struct interface *iface;
+	unsigned int flags;
 
 	/* filled in by the protocol user */
 	void (*proto_event)(struct interface_proto_state *, enum interface_proto_event ev);
@@ -25,5 +30,7 @@ struct interface_proto_state {
 };
 
 struct interface_proto_state *get_default_proto(void);
+int interface_proto_event(struct interface_proto_state *proto,
+			  enum interface_proto_cmd cmd, bool force);
 
 #endif

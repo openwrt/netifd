@@ -81,7 +81,7 @@ __set_interface_up(struct interface *iface)
 		return ret;
 
 	iface->state = IFS_SETUP;
-	ret = iface->proto->handler(iface->proto, PROTO_CMD_SETUP, false);
+	ret = interface_proto_event(iface->proto, PROTO_CMD_SETUP, false);
 	if (ret) {
 		mark_interface_down(iface);
 		return ret;
@@ -103,7 +103,7 @@ __set_interface_down(struct interface *iface, bool force)
 	iface->state = IFS_TEARDOWN;
 	interface_event(iface, IFEV_DOWN);
 
-	iface->proto->handler(iface->proto, PROTO_CMD_TEARDOWN, force);
+	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
 	release_device(iface->main_dev.dev);
 }
 
@@ -162,7 +162,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state)
 {
 	if (iface->proto) {
-		iface->proto->handler(iface->proto, PROTO_CMD_TEARDOWN, true);
+		interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, true);
 		iface->proto->free(iface->proto);
 		iface->proto = NULL;
 	}
