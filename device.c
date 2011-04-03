@@ -93,12 +93,12 @@ void init_virtual_device(struct device *dev, const struct device_type *type, con
 	assert(dev);
 	assert(type);
 
+	if (name)
+		strncpy(dev->ifname, name, IFNAMSIZ);
+
 	fprintf(stderr, "Initialize interface '%s'\n", dev->ifname);
 	INIT_LIST_HEAD(&dev->users);
 	dev->type = type;
-
-	if (name)
-		strncpy(dev->ifname, name, IFNAMSIZ);
 }
 
 int init_device(struct device *dev, const struct device_type *type, const char *ifname)
