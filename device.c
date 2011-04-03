@@ -96,7 +96,7 @@ void init_virtual_device(struct device *dev, const struct device_type *type, con
 	if (name)
 		strncpy(dev->ifname, name, IFNAMSIZ);
 
-	fprintf(stderr, "Initialize interface '%s'\n", dev->ifname);
+	fprintf(stderr, "Initialize device '%s'\n", dev->ifname);
 	INIT_LIST_HEAD(&dev->users);
 	dev->type = type;
 }
@@ -151,7 +151,7 @@ void cleanup_device(struct device *dev)
 {
 	struct device_user *dep, *tmp;
 
-	fprintf(stderr, "Clean up interface '%s'\n", dev->ifname);
+	fprintf(stderr, "Clean up device '%s'\n", dev->ifname);
 	list_for_each_entry_safe(dep, tmp, &dev->users, list) {
 		if (!dep->cb)
 			continue;
@@ -191,7 +191,7 @@ void remove_device_user(struct device_user *dep)
 	list_del(&dep->list);
 
 	if (list_empty(&dev->users)) {
-		/* all references have gone away, remove this interface */
+		/* all references have gone away, remove this device */
 		dev->type->free(dev);
 	}
 
