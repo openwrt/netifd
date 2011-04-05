@@ -69,4 +69,6 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 
 int interface_attach_bridge(struct interface *iface, struct uci_section *s);
 
+void start_pending_interfaces(void);
+
 #endif

@@ -6,6 +6,7 @@
 #include "interface.h"
 
 struct uci_context *uci_ctx;
+bool config_init = false;
 
 static void config_parse_interface(struct uci_section *s)
 {
@@ -40,6 +41,7 @@ void config_init_interfaces(const char *name)
 		return;
 	}
 
+	config_init = true;
 	uci_foreach_element(&p->sections, e) {
 		struct uci_section *s = uci_to_section(e);
 
@@ -49,4 +51,7 @@ void config_init_interfaces(const char *name)
 		if (!strcmp(s->type, "interface"))
 			config_parse_interface(s);
 	}
+	config_init = false;
+
+	start_pending_interfaces();
 }

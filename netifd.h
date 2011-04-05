@@ -23,6 +23,7 @@ struct device;
 struct interface;
 
 extern struct uci_context *uci_ctx;
+extern bool config_init;
 
 void config_init_interfaces(const char *name);
 

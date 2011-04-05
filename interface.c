@@ -130,7 +130,7 @@ interface_cb(struct device_user *dep, enum device_event ev)
 	iface->active = new_state;
 
 	if (new_state) {
-		if (iface->autostart)
+		if (iface->autostart && !config_init)
 			set_interface_up(iface);
 	} else
 		__set_interface_down(iface, true);
@@ -276,4 +276,15 @@ set_interface_down(struct interface *iface)
 	__set_interface_down(iface, false);
 
 	return 0;
+}
+
+void
+start_pending_interfaces(void)
+{
+	struct interface *iface;
+
+	list_for_each_entry(iface, &interfaces, list) {
+		if (iface->active && iface->autostart)
+			set_interface_up(iface);
+	}
 }
