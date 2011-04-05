@@ -10,7 +10,7 @@
 #include "interface.h"
 
 struct uci_context *uci_ctx;
-struct uci_package *uci_network;
+static struct uci_package *uci_network;
 bool config_init = false;
 
 enum {
