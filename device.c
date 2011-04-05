@@ -20,7 +20,7 @@ static void API_CTOR dev_init(void)
 	avl_init(&devices, avl_strcmp, false, NULL);
 }
 
-static void free_device(struct device *dev)
+static void free_simple_device(struct device *dev)
 {
 	cleanup_device(dev);
 	free(dev);
@@ -126,7 +126,7 @@ struct device *get_device(const char *name, bool create)
 	static const struct device_type simple_type = {
 		.name = "Device",
 		.check_state = system_if_check,
-		.free = free_device,
+		.free = free_simple_device,
 	};
 	struct device *dev;
 
@@ -192,7 +192,7 @@ void remove_device_user(struct device_user *dep)
 
 	if (list_empty(&dev->users)) {
 		/* all references have gone away, remove this device */
-		dev->type->free(dev);
+		free_device(dev);
 	}
 
 	dep->dev = NULL;

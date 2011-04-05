@@ -82,6 +82,12 @@ struct device_hotplug_ops {
 	int (*del)(struct device *main, struct device *member);
 };
 
+static inline void
+free_device(struct device *dev)
+{
+	dev->type->free(dev);
+}
+
 void init_virtual_device(struct device *dev, const struct device_type *type, const char *name);
 int init_device(struct device *iface, const struct device_type *type, const char *ifname);
 void cleanup_device(struct device *iface);
