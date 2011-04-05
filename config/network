@@ -6,9 +6,23 @@ config interface loopback
 	option ipaddr	127.0.0.1
 	option netmask	255.0.0.0
 
-config interface lan
-	option ifname	'eth0.1 eth0.2'
+config device
+	option name		br-lan
 	option type 	bridge
+	option ifname	"eth0.1 eth0.2"
+	option mtu		1500
+
+config interface lan
+	option ifname	'br-lan'
 	option proto	static
 	option ipaddr	192.168.1.1
 	option netmask	255.255.255.0
+
+
+config interface lan2
+	option ifname	eth0.3
+	option type		bridge
+	option proto	static
+	option ipaddr	192.168.1.1
+	option netmask	255.255.255.0
+

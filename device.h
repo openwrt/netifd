@@ -16,6 +16,12 @@ struct device_type {
 	void (*free)(struct device *);
 };
 
+enum {
+	DEV_OPT_MTU		= (1 << 0),
+	DEV_OPT_MACADDR		= (1 << 1),
+	DEV_OPT_TXQUEUELEN	= (1 << 2)
+};
+
 /* 
  * link layer device. typically represents a linux network device.
  * can be used to support VLANs as well
@@ -36,6 +42,15 @@ struct device {
 	device_state_cb set_state;
 
 	const struct device_hotplug_ops *hotplug_ops;
+
+	/* settings */
+	unsigned int flags;
+
+	unsigned int mtu;
+	unsigned int txqueuelen;
+	uint8_t macaddr[6];
+
+	uint32_t config_hash;
 };
 
 /* events broadcasted to all users of a device */
@@ -80,5 +95,6 @@ void release_device(struct device *dev);
 int check_device_state(struct device *dev);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);
+struct device *bridge_create(const char *name, struct uci_section *s);
 
 #endif
