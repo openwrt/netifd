@@ -12,6 +12,9 @@ config device
 	option ifname	"eth0.1 eth0.2"
 	option mtu		1500
 
+config device
+	option name		dummy
+
 config interface lan
 	option ifname	'br-lan'
 	option proto	static

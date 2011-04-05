@@ -180,6 +180,7 @@ config_init_interfaces(const char *name)
 		if (!strcmp(s->type, "interface"))
 			config_parse_interface(s);
 	}
+	cleanup_devices();
 	config_init = false;
 
 	start_pending_interfaces();

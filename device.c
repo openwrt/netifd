@@ -197,3 +197,16 @@ void remove_device_user(struct device_user *dep)
 
 	dep->dev = NULL;
 }
+
+void
+cleanup_devices(void)
+{
+	struct device *dev, *tmp;
+
+	avl_for_each_element_safe(&devices, dev, avl, tmp) {
+		if (!list_empty(&dev->users))
+			continue;
+
+		free_device(dev);
+	}
+}
