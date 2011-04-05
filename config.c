@@ -13,22 +13,49 @@ struct uci_context *uci_ctx;
 struct uci_package *uci_network;
 bool config_init = false;
 
+enum {
+	SIF_TYPE,
+	SIF_IFNAME,
+	__SIF_MAX,
+};
+
+static const struct uci_parse_option if_opts[__SIF_MAX] = {
+	[SIF_TYPE] = { "type", UCI_TYPE_STRING },
+	[SIF_IFNAME] = { "ifname", UCI_TYPE_STRING },
+};
+
 static void
 config_parse_interface(struct uci_section *s)
 {
+	struct uci_option *opts[__SIF_MAX];
 	struct interface *iface;
+	struct device *dev;
 	const char *type;
 
 	DPRINTF("Create interface '%s'\n", s->e.name);
 
 	iface = alloc_interface(s->e.name);
-	type = uci_lookup_option_string(uci_ctx, s, "type");
+	if (!iface)
+		return;
 
-	if (!type)
-		type = "";
+	uci_parse_section(s, if_opts, __SIF_MAX, opts);
 
-	if (!strcmp(type, "bridge"))
-		interface_attach_bridge(iface, s);
+	if (opts[SIF_TYPE]) {
+		type = opts[SIF_TYPE]->v.string;
+
+		if (!strcmp(type, "bridge")) {
+			interface_attach_bridge(iface, s);
+			return;
+		}
+	}
+
+	if (opts[SIF_IFNAME]) {
+		dev = get_device(opts[SIF_IFNAME]->v.string, true);
+		if (!dev)
+			return;
+
+		add_device_user(&iface->main_dev, dev);
+	}
 }
 
 enum {
@@ -40,7 +67,7 @@ enum {
 	__SDEV_MAX,
 };
 
-struct uci_parse_option dev_opts[__SDEV_MAX] = {
+static const struct uci_parse_option dev_opts[__SDEV_MAX] = {
 	[SDEV_NAME] = { "name", UCI_TYPE_STRING },
 	[SDEV_TYPE] = { "type", UCI_TYPE_STRING },
 	[SDEV_MTU] = { "mtu", UCI_TYPE_STRING },
