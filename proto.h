@@ -1,7 +1,9 @@
 #ifndef __NETIFD_PROTO_H
 #define __NETIFD_PROTO_H
 
+struct interface;
 struct interface_proto_state;
+struct proto_handler;
 
 enum interface_proto_event {
 	IFPEV_UP,
@@ -29,11 +31,15 @@ struct interface_proto_state {
 	void (*free)(struct interface_proto_state *);
 };
 
+typedef struct interface_proto_state *
+	(*proto_attach_cb)(struct proto_handler *h, struct interface *,
+			   struct uci_section *s);
+
 struct proto_handler {
 	struct avl_node avl;
 
 	const char *name;
-	struct interface_proto_state * (*attach)(struct proto_handler *h, struct interface *);
+	proto_attach_cb attach;
 };
 
 void add_proto_handler(struct proto_handler *p);

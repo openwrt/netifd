@@ -78,7 +78,7 @@ void proto_attach_interface(struct interface *iface, struct uci_section *s)
 		goto error;
 	}
 
-	state = proto->attach(proto, iface);
+	state = proto->attach(proto, iface, s);
 
 error:
 	if (error) {
