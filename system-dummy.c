@@ -61,3 +61,31 @@ int system_if_check(struct device *dev)
 
 	return 0;
 }
+
+int system_add_address(struct device *dev, int family, void *addr, int prefixlen)
+{
+	uint8_t *a = addr;
+
+	if (family == AF_INET) {
+		DPRINTF("ifconfig %s add %d.%d.%d.%d/%d\n",
+			dev->ifname, a[0], a[1], a[2], a[3], prefixlen);
+	} else {
+		return -1;
+	}
+
+	return 0;
+}
+
+int system_del_address(struct device *dev, int family, void *addr)
+{
+	uint8_t *a = addr;
+
+	if (family == AF_INET) {
+		DPRINTF("ifconfig %s del %d.%d.%d.%d\n",
+			dev->ifname, a[0], a[1], a[2], a[3]);
+	} else {
+		return -1;
+	}
+
+	return 0;
+}

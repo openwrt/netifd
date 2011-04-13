@@ -1,6 +1,7 @@
 #ifndef __NETIFD_SYSTEM_H
 #define __NETIFD_SYSTEM_H
 
+#include <sys/socket.h>
 #include "device.h"
 
 int system_bridge_addbr(struct device *bridge);
@@ -14,5 +15,8 @@ int system_vlan_del(struct device *dev);
 int system_if_up(struct device *dev);
 int system_if_down(struct device *dev);
 int system_if_check(struct device *dev);
+
+int system_add_address(struct device *dev, int family, void *addr, int prefixlen);
+int system_del_address(struct device *dev, int family, void *addr);
 
 #endif
