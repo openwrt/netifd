@@ -21,6 +21,9 @@ config interface lan
 	option ipaddr	192.168.1.1
 	option netmask	255.255.255.0
 
+config interface dummy
+	option ifname	eth0.4
+	option proto	none
 
 config interface lan2
 	option ifname	eth0.3

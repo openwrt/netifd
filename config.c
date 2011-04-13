@@ -34,7 +34,7 @@ config_parse_interface(struct uci_section *s)
 
 	DPRINTF("Create interface '%s'\n", s->e.name);
 
-	iface = alloc_interface(s->e.name);
+	iface = alloc_interface(s->e.name, s);
 	if (!iface)
 		return;
 

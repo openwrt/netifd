@@ -55,8 +55,10 @@ struct interface {
 };
 
 struct interface *get_interface(const char *name);
-struct interface *alloc_interface(const char *name);
+struct interface *alloc_interface(const char *name, struct uci_section *s);
 void free_interface(struct interface *iface);
+
+void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);
 
 int set_interface_up(struct interface *iface);
 int set_interface_down(struct interface *iface);

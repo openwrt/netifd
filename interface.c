@@ -175,7 +175,7 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 }
 
 struct interface *
-alloc_interface(const char *name)
+alloc_interface(const char *name, struct uci_section *s)
 {
 	struct interface *iface;
 
@@ -184,18 +184,13 @@ alloc_interface(const char *name)
 		return iface;
 
 	iface = calloc(1, sizeof(*iface));
-
-	interface_set_proto_state(iface, get_default_proto());
-	if (!iface->proto) {
-		free(iface);
-		return NULL;
-	}
-
 	iface->main_dev.cb = interface_cb;
 	iface->l3_iface = &iface->main_dev;
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	list_add(&iface->list, &interfaces);
 	INIT_LIST_HEAD(&iface->errors);
+
+	proto_attach_interface(iface, s);
 
 	netifd_ubus_add_interface(iface);
 

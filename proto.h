@@ -29,7 +29,15 @@ struct interface_proto_state {
 	void (*free)(struct interface_proto_state *);
 };
 
-struct interface_proto_state *get_default_proto(void);
+struct proto_handler {
+	struct avl_node avl;
+
+	const char *name;
+	struct interface_proto_state * (*attach)(struct proto_handler *h, struct interface *);
+};
+
+void add_proto_handler(struct proto_handler *p);
+void proto_attach_interface(struct interface *iface, struct uci_section *s);
 int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
 
