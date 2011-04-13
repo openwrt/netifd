@@ -40,7 +40,8 @@ no_proto_handler(struct interface_proto_state *proto,
 	return 0;
 }
 
-static struct interface_proto_state *get_default_proto(void)
+static struct interface_proto_state *
+get_default_proto(void)
 {
 	struct interface_proto_state *proto;
 
@@ -51,7 +52,19 @@ static struct interface_proto_state *get_default_proto(void)
 	return proto;
 }
 
-void proto_attach_interface(struct interface *iface, struct uci_section *s)
+struct proto_handler *
+get_proto_handler(const char *name)
+{
+	struct proto_handler *proto;
+
+	if (!handlers.comp)
+		return NULL;
+
+	return avl_find_element(&handlers, name, proto, avl);
+}
+
+void
+proto_attach_interface(struct interface *iface, struct uci_section *s)
 {
 	struct interface_proto_state *state = NULL;
 	struct proto_handler *proto = NULL;
@@ -70,9 +83,7 @@ void proto_attach_interface(struct interface *iface, struct uci_section *s)
 		goto out;
 	}
 
-	if (handlers.comp)
-		proto = avl_find_element(&handlers, proto_name, proto, avl);
-
+	proto = get_proto_handler(proto_name);
 	if (!proto) {
 		error = "INVALID_PROTO";
 		goto error;
@@ -92,8 +103,9 @@ out:
 }
 
 
-int interface_proto_event(struct interface_proto_state *proto,
-			  enum interface_proto_cmd cmd, bool force)
+int
+interface_proto_event(struct interface_proto_state *proto,
+		      enum interface_proto_cmd cmd, bool force)
 {
 	enum interface_event ev;
 	int ret;

@@ -43,6 +43,7 @@ struct proto_handler {
 };
 
 void add_proto_handler(struct proto_handler *p);
+struct proto_handler *get_proto_handler(const char *name);
 void proto_attach_interface(struct interface *iface, struct uci_section *s);
 int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
