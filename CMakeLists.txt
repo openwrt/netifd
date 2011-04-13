@@ -9,5 +9,5 @@ IF(DEBUG)
   ADD_DEFINITIONS(-DDEBUG -O0)
 ENDIF()
 
-ADD_EXECUTABLE(netifd main.c interface.c proto.c config.c device.c bridge.c vlan.c ubus.c system-dummy.c)
+ADD_EXECUTABLE(netifd main.c interface.c proto.c proto-static.c config.c device.c bridge.c vlan.c ubus.c system-dummy.c)
 TARGET_LINK_LIBRARIES(netifd ubox ubus uci)
