@@ -25,6 +25,7 @@ struct interface;
 extern struct uci_context *uci_ctx;
 extern bool config_init;
 
+int avl_strcmp(const void *k1, const void *k2, void *ptr);
 void config_init_interfaces(const char *name);
 
 #endif

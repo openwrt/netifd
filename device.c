@@ -10,11 +10,6 @@
 
 static struct avl_tree devices;
 
-static int avl_strcmp(const void *k1, const void *k2, void *ptr)
-{
-	return strcmp(k1, k2);
-}
-
 static void API_CTOR dev_init(void)
 {
 	avl_init(&devices, avl_strcmp, false, NULL);

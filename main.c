@@ -6,6 +6,11 @@
 #include "netifd.h"
 #include "ubus.h"
 
+int avl_strcmp(const void *k1, const void *k2, void *ptr)
+{
+	return strcmp(k1, k2);
+}
+
 static int usage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s [options]\n"
