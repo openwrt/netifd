@@ -3,14 +3,12 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include <libubox/uapi.h>
-
 #include "netifd.h"
 #include "system.h"
 
 static struct avl_tree devices;
 
-static void API_CTOR dev_init(void)
+static void __init dev_init(void)
 {
 	avl_init(&devices, avl_strcmp, false, NULL);
 }

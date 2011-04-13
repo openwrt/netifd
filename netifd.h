@@ -19,6 +19,8 @@
 #define DPRINTF(...) do {} while(0)
 #endif
 
+#define __init __attribute__((constructor))
+
 struct device;
 struct interface;
 
