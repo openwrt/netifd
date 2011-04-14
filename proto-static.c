@@ -123,6 +123,18 @@ parse_v6(const char *str, struct v6_addr *v6, int netmask)
 	return parse_ip_and_netmask(AF_INET6, str, &v6->addr, &v6->prefix);
 }
 
+static int
+count_list_entries(struct uci_option *o)
+{
+	struct uci_element *e;
+	int n = 0;
+
+	uci_foreach_element(&o->v.list, e)
+		n++;
+
+	return n;
+}
+
 enum {
 	OPT_IPADDR,
 	OPT_IP6ADDR,
@@ -172,10 +184,8 @@ static_attach(struct proto_handler *h, struct interface *iface,
 			if (!parse_v4(tb[OPT_IPADDR]->v.string, v4, netmask))
 				goto invalid_addr;
 		} else {
-			uci_foreach_element(&tb[OPT_IPADDR]->v.list, e)
-				n_v4++;
-
 			i = 0;
+			n_v4 = count_list_entries(tb[OPT_IPADDR]);
 			v4 = alloca(sizeof(*v4) * n_v4);
 			uci_foreach_element(&tb[OPT_IPADDR]->v.list, e) {
 				if (!parse_v4(e->name, &v4[i++], netmask))
@@ -192,10 +202,8 @@ static_attach(struct proto_handler *h, struct interface *iface,
 			if (!parse_v6(tb[OPT_IP6ADDR]->v.string, v6, netmask))
 				goto invalid_addr;
 		} else {
-			uci_foreach_element(&tb[OPT_IP6ADDR]->v.list, e)
-				n_v6++;
-
 			i = 0;
+			n_v6 = count_list_entries(tb[OPT_IP6ADDR]);
 			v6 = alloca(sizeof(*v6) * n_v6);
 			uci_foreach_element(&tb[OPT_IP6ADDR]->v.list, e) {
 				if (!parse_v6(e->name, &v6[i++], netmask))
