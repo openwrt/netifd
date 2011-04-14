@@ -26,7 +26,7 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 {
 	struct interface_error *error;
 	int i, len = 0;
-	int *datalen;
+	int *datalen = NULL;
 	char *dest;
 
 	if (n_data) {
