@@ -8,19 +8,21 @@
 #include "netifd.h"
 #include "interface.h"
 #include "proto.h"
+#include "system.h"
 
 struct v4_addr {
-	struct in_addr addr;
 	unsigned int prefix;
+	struct in_addr addr;
 };
 
 struct v6_addr {
-	struct in6_addr addr;
 	unsigned int prefix;
+	struct in6_addr addr;
 };
 
 struct static_proto_state {
     struct interface_proto_state proto;
+	struct interface *iface;
 
 	int n_v4;
 	struct v4_addr *v4;
@@ -33,7 +35,44 @@ static int
 static_handler(struct interface_proto_state *proto,
 	       enum interface_proto_cmd cmd, bool force)
 {
-	return 0;
+	struct static_proto_state *state;
+	struct device *dev;
+	int ret = 0;
+	int i;
+
+	state = container_of(proto, struct static_proto_state, proto);
+	dev = state->iface->main_dev.dev;
+
+	switch (cmd) {
+	case PROTO_CMD_SETUP:
+		for (i = 0; i < state->n_v4; i++) {
+			if (ret)
+				break;
+			ret = system_add_address(dev, AF_INET,
+				&state->v4[i].addr, state->v4[i].prefix);
+		}
+		for (i = 0; i < state->n_v6; i++) {
+			if (ret)
+				break;
+			ret = system_add_address(dev, AF_INET6,
+				&state->v6[i].addr, state->v6[i].prefix);
+		}
+
+		if (!ret)
+			return 0;
+
+		interface_add_error(state->iface, "proto-static",
+			"SET_ADDRESS_FAILED", NULL, 0);
+		/* fall through */
+
+	case PROTO_CMD_TEARDOWN:
+		for (i = 0; i < state->n_v4; i++)
+			system_del_address(dev, AF_INET, &state->v4[i].addr);
+		for (i = 0; i < state->n_v6; i++)
+			system_del_address(dev, AF_INET6, &state->v6[i].addr);
+		break;
+	}
+	return ret;
 }
 
 static void
@@ -46,7 +85,7 @@ static_free(struct interface_proto_state *proto)
 }
 
 struct interface_proto_state *
-static_create_state(struct v4_addr *v4, int n_v4, struct v6_addr *v6, int n_v6)
+static_create_state(struct interface *iface, struct v4_addr *v4, int n_v4, struct v6_addr *v6, int n_v6)
 {
 	struct static_proto_state *state;
 	int v4_len = sizeof(struct v4_addr) * n_v4;
@@ -54,18 +93,21 @@ static_create_state(struct v4_addr *v4, int n_v4, struct v6_addr *v6, int n_v6)
 	void *next;
 
 	state = calloc(1, sizeof(*state) + v4_len + v6_len);
+	state->iface = iface;
 	state->proto.free = static_free;
 	state->proto.handler = static_handler;
 	state->proto.flags = PROTO_FLAG_IMMEDIATE;
-	next = (void *) state + 1;
+	next = (void *) (state + 1);
 
 	if (n_v4) {
+		state->n_v4 = n_v4;
 		state->v4 = next;
 		memcpy(state->v4, v4, sizeof(*v4) * n_v4);
 		next = state->v4 + n_v4;
 	}
 
 	if (n_v6) {
+		state->n_v6 = n_v6;
 		state->v6 = next;
 		memcpy(state->v6, v6, sizeof(*v6) * n_v6);
 	}
@@ -218,7 +260,7 @@ static_attach(struct proto_handler *h, struct interface *iface,
 		goto error;
 	}
 
-	return static_create_state(v4, n_v4, v6, n_v6);
+	return static_create_state(iface, v4, n_v4, v6, n_v6);
 
 invalid_addr:
 	error = "INVALID_ADDRESS";
