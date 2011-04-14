@@ -20,15 +20,29 @@ struct v6_addr {
 	struct in6_addr addr;
 };
 
-struct static_proto_state {
-    struct interface_proto_state proto;
-	struct interface *iface;
+enum static_proto_flags {
+	STATIC_F_IPV4GW		= (1 << 0),
+	STATIC_F_IPV6GW		= (1 << 1),
+};
+
+struct static_proto_settings {
+	uint32_t flags;
 
 	int n_v4;
 	struct v4_addr *v4;
 
 	int n_v6;
-	struct v4_addr *v6;
+	struct v6_addr *v6;
+
+	struct in_addr ipv4gw;
+	struct in6_addr ipv6gw;
+};
+
+struct static_proto_state {
+    struct interface_proto_state proto;
+	struct interface *iface;
+
+	struct static_proto_settings s;
 };
 
 static int
@@ -36,26 +50,28 @@ static_handler(struct interface_proto_state *proto,
 	       enum interface_proto_cmd cmd, bool force)
 {
 	struct static_proto_state *state;
+	struct static_proto_settings *ps;
 	struct device *dev;
 	int ret = 0;
 	int i;
 
 	state = container_of(proto, struct static_proto_state, proto);
+	ps = &state->s;
 	dev = state->iface->main_dev.dev;
 
 	switch (cmd) {
 	case PROTO_CMD_SETUP:
-		for (i = 0; i < state->n_v4; i++) {
+		for (i = 0; i < state->s.n_v4; i++) {
 			if (ret)
 				break;
 			ret = system_add_address(dev, AF_INET,
-				&state->v4[i].addr, state->v4[i].prefix);
+				&ps->v4[i].addr, ps->v4[i].prefix);
 		}
-		for (i = 0; i < state->n_v6; i++) {
+		for (i = 0; i < state->s.n_v6; i++) {
 			if (ret)
 				break;
 			ret = system_add_address(dev, AF_INET6,
-				&state->v6[i].addr, state->v6[i].prefix);
+				&ps->v6[i].addr, ps->v6[i].prefix);
 		}
 
 		if (!ret)
@@ -66,10 +82,10 @@ static_handler(struct interface_proto_state *proto,
 		/* fall through */
 
 	case PROTO_CMD_TEARDOWN:
-		for (i = 0; i < state->n_v4; i++)
-			system_del_address(dev, AF_INET, &state->v4[i].addr);
-		for (i = 0; i < state->n_v6; i++)
-			system_del_address(dev, AF_INET6, &state->v6[i].addr);
+		for (i = 0; i < ps->n_v4; i++)
+			system_del_address(dev, AF_INET, &ps->v4[i].addr);
+		for (i = 0; i < ps->n_v6; i++)
+			system_del_address(dev, AF_INET6, &ps->v6[i].addr);
 		break;
 	}
 	return ret;
@@ -85,11 +101,11 @@ static_free(struct interface_proto_state *proto)
 }
 
 struct interface_proto_state *
-static_create_state(struct interface *iface, struct v4_addr *v4, int n_v4, struct v6_addr *v6, int n_v6)
+static_create_state(struct interface *iface, struct static_proto_settings *ps)
 {
 	struct static_proto_state *state;
-	int v4_len = sizeof(struct v4_addr) * n_v4;
-	int v6_len = sizeof(struct v6_addr) * n_v6;
+	int v4_len = sizeof(struct v4_addr) * ps->n_v4;
+	int v6_len = sizeof(struct v6_addr) * ps->n_v6;
 	void *next;
 
 	state = calloc(1, sizeof(*state) + v4_len + v6_len);
@@ -97,19 +113,20 @@ static_create_state(struct interface *iface, struct v4_addr *v4, int n_v4, struc
 	state->proto.free = static_free;
 	state->proto.handler = static_handler;
 	state->proto.flags = PROTO_FLAG_IMMEDIATE;
+	memcpy(&state->s, ps, sizeof(state->s));
+
 	next = (void *) (state + 1);
 
-	if (n_v4) {
-		state->n_v4 = n_v4;
-		state->v4 = next;
-		memcpy(state->v4, v4, sizeof(*v4) * n_v4);
-		next = state->v4 + n_v4;
+	if (ps->n_v4) {
+		ps->v4 = next;
+		memcpy(next, ps->v4, sizeof(struct v4_addr) * ps->n_v4);
+
+		next = ps->v4 + ps->n_v4;
 	}
 
-	if (n_v6) {
-		state->n_v6 = n_v6;
-		state->v6 = next;
-		memcpy(state->v6, v6, sizeof(*v6) * n_v6);
+	if (ps->n_v6) {
+		ps->v6 = next;
+		memcpy(next, ps->v6, sizeof(struct v6_addr) * ps->n_v6);
 	}
 
 	return &state->proto;
@@ -182,6 +199,7 @@ enum {
 	OPT_IP6ADDR,
 	OPT_NETMASK,
 	OPT_GATEWAY,
+	OPT_IP6GW,
 	OPT_DNS,
 	__OPT_MAX,
 };
@@ -191,6 +209,7 @@ static const struct uci_parse_option opts[__OPT_MAX] = {
 	[OPT_IP6ADDR] = { .name = "ip6addr" },
 	[OPT_NETMASK] = { .name = "netmask", .type = UCI_TYPE_STRING },
 	[OPT_GATEWAY] = { .name = "gateway", .type = UCI_TYPE_STRING },
+	[OPT_IP6GW] = { .name = "ip6gw", .type = UCI_TYPE_STRING },
 	[OPT_DNS] = { .name = "dns" },
 };
 
@@ -200,14 +219,13 @@ static_attach(struct proto_handler *h, struct interface *iface,
 {
 	struct uci_option *tb[__OPT_MAX];
 	struct uci_element *e;
-	struct v4_addr *v4 = NULL;
-	struct v6_addr *v6 = NULL;
-	int n_v4 = 0, n_v6 = 0;
 	struct in_addr ina = {};
 	const char *error = NULL;
 	int netmask = 32;
 	int i;
+	struct static_proto_settings ps;
 
+	memset(&ps, 0, sizeof(ps));
 	uci_parse_section(s, opts, __OPT_MAX, tb);
 
 	if (tb[OPT_NETMASK]) {
@@ -221,16 +239,16 @@ static_attach(struct proto_handler *h, struct interface *iface,
 
 	if (tb[OPT_IPADDR]) {
 		if (tb[OPT_IPADDR]->type == UCI_TYPE_STRING) {
-			n_v4 = 1;
-			v4 = alloca(sizeof(*v4));
-			if (!parse_v4(tb[OPT_IPADDR]->v.string, v4, netmask))
+			ps.n_v4 = 1;
+			ps.v4 = alloca(sizeof(struct v4_addr));
+			if (!parse_v4(tb[OPT_IPADDR]->v.string, ps.v4, netmask))
 				goto invalid_addr;
 		} else {
 			i = 0;
-			n_v4 = count_list_entries(tb[OPT_IPADDR]);
-			v4 = alloca(sizeof(*v4) * n_v4);
+			ps.n_v4 = count_list_entries(tb[OPT_IPADDR]);
+			ps.v4 = alloca(sizeof(struct v4_addr) * ps.n_v4);
 			uci_foreach_element(&tb[OPT_IPADDR]->v.list, e) {
-				if (!parse_v4(e->name, &v4[i++], netmask))
+				if (!parse_v4(e->name, &ps.v4[i++], netmask))
 					goto invalid_addr;
 			}
 		}
@@ -238,29 +256,44 @@ static_attach(struct proto_handler *h, struct interface *iface,
 
 	if (tb[OPT_IP6ADDR]) {
 		if (tb[OPT_IP6ADDR]->type == UCI_TYPE_STRING) {
-			n_v6 = 1;
-			v6 = alloca(sizeof(*v6));
-			v6->prefix = netmask;
-			if (!parse_v6(tb[OPT_IP6ADDR]->v.string, v6, netmask))
+			ps.n_v6 = 1;
+			ps.v6 = alloca(sizeof(struct v6_addr));
+			ps.v6->prefix = netmask;
+			if (!parse_v6(tb[OPT_IP6ADDR]->v.string, ps.v6, netmask))
 				goto invalid_addr;
 		} else {
 			i = 0;
-			n_v6 = count_list_entries(tb[OPT_IP6ADDR]);
-			v6 = alloca(sizeof(*v6) * n_v6);
+			ps.n_v6 = count_list_entries(tb[OPT_IP6ADDR]);
+			ps.v6 = alloca(sizeof(struct v6_addr) * ps.n_v6);
 			uci_foreach_element(&tb[OPT_IP6ADDR]->v.list, e) {
-				if (!parse_v6(e->name, &v6[i++], netmask))
+				if (!parse_v6(e->name, &ps.v6[i++], netmask))
 					goto invalid_addr;
 			}
 		}
 	}
 
-
-	if (!n_v4 && !n_v6) {
+	if (!ps.n_v4 && !ps.n_v6) {
 		error = "NO_ADDRESS";
 		goto error;
 	}
 
-	return static_create_state(iface, v4, n_v4, v6, n_v6);
+	if (ps.n_v4 && tb[OPT_GATEWAY]) {
+		if (!inet_pton(AF_INET, tb[OPT_GATEWAY]->v.string, &ps.ipv4gw)) {
+			error = "INVALID_GATEWAY";
+			goto error;
+		}
+		ps.flags |= STATIC_F_IPV4GW;
+	}
+
+	if (ps.n_v6 && tb[OPT_IP6GW]) {
+		if (!inet_pton(AF_INET6, tb[OPT_IP6GW]->v.string, &ps.ipv6gw)) {
+			error = "INVALID_GATEWAY";
+			goto error;
+		}
+		ps.flags |= STATIC_F_IPV6GW;
+	}
+
+	return static_create_state(iface, &ps);
 
 invalid_addr:
 	error = "INVALID_ADDRESS";
