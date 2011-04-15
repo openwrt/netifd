@@ -200,7 +200,6 @@ enum {
 	OPT_NETMASK,
 	OPT_GATEWAY,
 	OPT_IP6GW,
-	OPT_DNS,
 	__OPT_MAX,
 };
 
@@ -210,7 +209,6 @@ static const struct uci_parse_option opts[__OPT_MAX] = {
 	[OPT_NETMASK] = { .name = "netmask", .type = UCI_TYPE_STRING },
 	[OPT_GATEWAY] = { .name = "gateway", .type = UCI_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = UCI_TYPE_STRING },
-	[OPT_DNS] = { .name = "dns" },
 };
 
 struct interface_proto_state *
