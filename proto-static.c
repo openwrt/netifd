@@ -56,11 +56,11 @@ parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 static bool
 parse_addr(struct static_proto_state *state, const char *str, bool v6, int mask)
 {
-	struct interface_addr *addr;
+	struct device_addr *addr;
 	int af = v6 ? AF_INET6 : AF_INET;
 
 	addr = calloc(1, sizeof(*addr));
-	addr->flags = v6 ? IFADDR_INET6 : IFADDR_INET4;
+	addr->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
 	addr->ctx = state;
 	addr->mask = mask;
 	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask)) {

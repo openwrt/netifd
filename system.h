@@ -16,7 +16,7 @@ int system_if_up(struct device *dev);
 int system_if_down(struct device *dev);
 int system_if_check(struct device *dev);
 
-int system_add_address(struct device *dev, int family, void *addr, int prefixlen);
-int system_del_address(struct device *dev, int family, void *addr);
+int system_add_address(struct device *dev, struct device_addr *addr);
+int system_del_address(struct device *dev, struct device_addr *addr);
 
 #endif
