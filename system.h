@@ -19,4 +19,7 @@ int system_if_check(struct device *dev);
 int system_add_address(struct device *dev, struct device_addr *addr);
 int system_del_address(struct device *dev, struct device_addr *addr);
 
+int system_add_route(struct device *dev, struct device_route *route);
+int system_del_route(struct device *dev, struct device_route *route);
+
 #endif

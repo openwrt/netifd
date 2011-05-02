@@ -93,6 +93,27 @@ parse_address_option(struct static_proto_state *state, struct uci_option *o, boo
 	return n_addr;
 }
 
+static bool
+parse_gateway_option(struct static_proto_state *state, struct uci_option *o, bool v6)
+{
+	struct device_route *route;
+	const char *str = o->v.string;
+	int af = v6 ? AF_INET6 : AF_INET;
+
+	route = calloc(1, sizeof(*route));
+	if (!inet_pton(af, str, &route->nexthop)) {
+		interface_add_error(state->iface, "proto-static",
+				"INVALID_GATEWAY", &str, 1);
+		free(route);
+		return false;
+	}
+	route->mask = 0;
+	route->flags = DEVADDR_DEVICE | (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
+	interface_add_route(state->iface, route);
+
+	return true;
+}
+
 enum {
 	OPT_IPADDR,
 	OPT_IP6ADDR,
@@ -144,23 +165,15 @@ static_proto_setup(struct static_proto_state *state)
 	if (n_v4 < 0 || n_v6 < 0)
 		goto out;
 
-#if 0
-	if (ps.n_v4 && tb[OPT_GATEWAY]) {
-		if (!inet_pton(AF_INET, tb[OPT_GATEWAY]->v.string, &ps.ipv4gw)) {
-			error = "INVALID_GATEWAY";
-			goto error;
-		}
-		ps.flags |= STATIC_F_IPV4GW;
+	if (n_v4 && tb[OPT_GATEWAY]) {
+		if (!parse_gateway_option(state, tb[OPT_GATEWAY], false))
+			goto out;
 	}
 
-	if (ps.n_v6 && tb[OPT_IP6GW]) {
-		if (!inet_pton(AF_INET6, tb[OPT_IP6GW]->v.string, &ps.ipv6gw)) {
-			error = "INVALID_GATEWAY";
-			goto error;
-		}
-		ps.flags |= STATIC_F_IPV6GW;
+	if (n_v6 && tb[OPT_IP6GW]) {
+		if (!parse_gateway_option(state, tb[OPT_IP6GW], true))
+			goto out;
 	}
-#endif
 
 	return true;
 

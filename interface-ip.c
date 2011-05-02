@@ -46,3 +46,23 @@ void interface_del_ctx_addr(struct interface *iface, void *ctx)
 		interface_del_address(iface, addr);
 	}
 }
+
+int interface_add_route(struct interface *iface, struct device_route *route)
+{
+	list_add(&route->list, &iface->routes);
+	return system_add_route(iface->l3_iface->dev, route);
+}
+
+void interface_del_route(struct interface *iface, struct device_route *route)
+{
+	list_del(&route->list);
+	system_del_route(iface->l3_iface->dev, route);
+}
+
+void interface_del_all_routes(struct interface *iface)
+{
+	struct device_route *route, *tmp;
+
+	list_for_each_entry_safe(route, tmp, &iface->routes, list)
+		interface_del_route(iface, route);
+}

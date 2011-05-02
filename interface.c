@@ -104,6 +104,7 @@ __set_interface_down(struct interface *iface, bool force)
 	iface->state = IFS_TEARDOWN;
 	interface_event(iface, IFEV_DOWN);
 
+	interface_del_all_routes(iface);
 	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
 }
 
