@@ -40,7 +40,7 @@ void interface_del_ctx_addr(struct interface *iface, void *ctx)
 	struct interface_addr *addr, *tmp;
 
 	list_for_each_entry_safe(addr, tmp, &iface->address, list) {
-		if (addr->ctx != ctx)
+		if (ctx && addr->ctx != ctx)
 			continue;
 
 		interface_del_address(iface, addr);
