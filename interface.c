@@ -189,6 +189,8 @@ alloc_interface(const char *name, struct uci_section *s)
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	list_add(&iface->list, &interfaces);
 	INIT_LIST_HEAD(&iface->errors);
+	INIT_LIST_HEAD(&iface->address);
+	INIT_LIST_HEAD(&iface->routes);
 
 	proto_attach_interface(iface, s);
 

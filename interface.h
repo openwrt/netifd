@@ -1,6 +1,7 @@
 #ifndef __NETIFD_INTERFACE_H
 #define __NETIFD_INTERFACE_H
 
+#include <netinet/in.h>
 #include "device.h"
 
 struct interface;
@@ -26,6 +27,42 @@ struct interface_error {
 	const char *data[];
 };
 
+enum interface_addr_flags {
+	/* address family for routes and addresses */
+	IFADDR_INET4	= (0 << 0),
+	IFADDR_INET6	= (1 << 0),
+	IFADDR_FAMILY	= IFADDR_INET4 | IFADDR_INET6,
+
+	/* device route (no gateway) */
+	IFADDR_DEVICE	= (1 << 1),
+};
+
+union if_addr {
+	struct in_addr in;
+	struct in6_addr in6;
+};
+
+struct interface_addr {
+	struct list_head list;
+	void *ctx;
+
+	enum interface_addr_flags flags;
+
+	unsigned int mask;
+	union if_addr addr;
+};
+
+struct interface_route {
+	struct list_head list;
+	void *ctx;
+
+	enum interface_addr_flags flags;
+
+	unsigned int mask;
+	union if_addr addr;
+	union if_addr nexthop;
+};
+
 /*
  * interface configuration
  */
@@ -47,6 +84,8 @@ struct interface {
 
 	/* primary protocol state */
 	struct interface_proto_state *proto;
+
+	struct list_head address, routes;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
@@ -70,6 +109,10 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 			 const char *code, const char **data, int n_data);
 
 int interface_attach_bridge(struct interface *iface, struct uci_section *s);
+
+int interface_add_address(struct interface *iface, struct interface_addr *addr);
+void interface_del_address(struct interface *iface, struct interface_addr *addr);
+void interface_del_ctx_addr(struct interface *iface, void *ctx);
 
 void start_pending_interfaces(void);
 
