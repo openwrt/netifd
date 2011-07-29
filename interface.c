@@ -203,7 +203,7 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 }
 
 struct interface *
-alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr)
+interface_alloc(const char *name, struct uci_section *s, struct blob_attr *attr)
 {
 	struct interface *iface;
 	struct blob_attr *tb[IFACE_ATTR_MAX];

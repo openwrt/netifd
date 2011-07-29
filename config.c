@@ -114,7 +114,7 @@ config_parse_interface(struct uci_section *s)
 
 	blob_buf_init(&b, 0);
 	uci_to_blob(&b, s, &interface_attr_list);
-	alloc_interface(s->e.name, s, b.head);
+	interface_alloc(s->e.name, s, b.head);
 }
 
 void
