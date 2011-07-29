@@ -168,5 +168,5 @@ config_init_interfaces(const char *name)
 	device_free_all();
 	config_init = false;
 
-	start_pending_interfaces();
+	interface_start_pending();
 }

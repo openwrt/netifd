@@ -84,6 +84,6 @@ int interface_add_route(struct interface *iface, struct device_route *route);
 void interface_del_route(struct interface *iface, struct device_route *route);
 void interface_del_all_routes(struct interface *iface);
 
-void start_pending_interfaces(void);
+void interface_start_pending(void);
 
 #endif

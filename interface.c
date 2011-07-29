@@ -321,7 +321,7 @@ interface_set_down(struct interface *iface)
 }
 
 void
-start_pending_interfaces(void)
+interface_start_pending(void)
 {
 	struct interface *iface;
 
