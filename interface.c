@@ -238,7 +238,7 @@ alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr)
 	if ((cur = tb[IFACE_ATTR_IFNAME])) {
 		dev = get_device(blobmsg_data(cur), true);
 		if (dev)
-			add_device_user(&iface->main_dev, dev);
+			device_add_user(&iface->main_dev, dev);
 	}
 
 	return iface;
@@ -290,7 +290,7 @@ interface_add_link(struct interface *iface, struct device *dev)
 	if (iface->main_dev.dev)
 		interface_remove_link(iface, NULL);
 
-	add_device_user(&iface->main_dev, dev);
+	device_add_user(&iface->main_dev, dev);
 
 	return 0;
 }

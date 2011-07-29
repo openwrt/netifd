@@ -133,7 +133,7 @@ void init_virtual_device(struct device *dev, const struct device_type *type, con
 int init_device(struct device *iface, const struct device_type *type, const char *ifname);
 void cleanup_device(struct device *iface);
 struct device *get_device(const char *name, bool create);
-void add_device_user(struct device_user *dep, struct device *iface);
+void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
 
 void set_device_present(struct device *dev, bool state);

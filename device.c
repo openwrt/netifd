@@ -249,7 +249,7 @@ void set_device_present(struct device *dev, bool state)
 	broadcast_device_event(dev, state ? DEV_EVENT_ADD : DEV_EVENT_REMOVE);
 }
 
-void add_device_user(struct device_user *dep, struct device *dev)
+void device_add_user(struct device_user *dep, struct device *dev)
 {
 	dep->dev = dev;
 	list_add(&dep->list, &dev->users);

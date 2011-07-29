@@ -169,7 +169,7 @@ bridge_create_member(struct bridge_state *bst, struct device *dev)
 	bm = calloc(1, sizeof(*bm));
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
-	add_device_user(&bm->dev, dev);
+	device_add_user(&bm->dev, dev);
 
 	list_add(&bm->list, &bst->members);
 
@@ -357,6 +357,6 @@ interface_attach_bridge(struct interface *iface, struct uci_section *s)
 	if (!dev)
 		return -1;
 
-	add_device_user(&iface->main_dev, dev);
+	device_add_user(&iface->main_dev, dev);
 	return 0;
 }
