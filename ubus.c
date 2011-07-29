@@ -94,7 +94,7 @@ static int netifd_handle_up(struct ubus_context *ctx, struct ubus_object *obj,
 	struct interface *iface;
 
 	iface = container_of(obj, struct interface, ubus);
-	set_interface_up(iface);
+	interface_set_up(iface);
 
 	return 0;
 }

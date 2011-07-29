@@ -96,7 +96,7 @@ mark_interface_down(struct interface *iface)
 }
 
 static int
-__set_interface_up(struct interface *iface)
+__interface_set_up(struct interface *iface)
 {
 	int ret;
 
@@ -159,7 +159,7 @@ interface_cb(struct device_user *dep, enum device_event ev)
 
 	if (new_state) {
 		if (iface->autostart && !config_init)
-			set_interface_up(iface);
+			interface_set_up(iface);
 	} else
 		__set_interface_down(iface, true);
 }
@@ -296,7 +296,7 @@ interface_add_link(struct interface *iface, struct device *dev)
 }
 
 int
-set_interface_up(struct interface *iface)
+interface_set_up(struct interface *iface)
 {
 	iface->autostart = true;
 
@@ -308,7 +308,7 @@ set_interface_up(struct interface *iface)
 	if (iface->state != IFS_DOWN)
 		return 0;
 
-	return __set_interface_up(iface);
+	return __interface_set_up(iface);
 }
 
 int
@@ -327,6 +327,6 @@ start_pending_interfaces(void)
 
 	list_for_each_entry(iface, &interfaces, list) {
 		if (iface->active && iface->autostart)
-			set_interface_up(iface);
+			interface_set_up(iface);
 	}
 }
