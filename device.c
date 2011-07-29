@@ -102,7 +102,7 @@ static void free_simple_device(struct device *dev)
 	free(dev);
 }
 
-static void broadcast_device_event(struct device *dev, enum device_event ev)
+static void device_broadcast_event(struct device *dev, enum device_event ev)
 {
 	struct device_user *dep, *tmp;
 
@@ -132,10 +132,10 @@ int device_claim(struct device *dev)
 	if (++dev->active != 1)
 		return 0;
 
-	broadcast_device_event(dev, DEV_EVENT_SETUP);
+	device_broadcast_event(dev, DEV_EVENT_SETUP);
 	ret = dev->set_state(dev, true);
 	if (ret == 0)
-		broadcast_device_event(dev, DEV_EVENT_UP);
+		device_broadcast_event(dev, DEV_EVENT_UP);
 	else
 		dev->active = 0;
 
@@ -151,9 +151,9 @@ void device_release(struct device *dev)
 	if (dev->active)
 		return;
 
-	broadcast_device_event(dev, DEV_EVENT_TEARDOWN);
+	device_broadcast_event(dev, DEV_EVENT_TEARDOWN);
 	dev->set_state(dev, false);
-	broadcast_device_event(dev, DEV_EVENT_DOWN);
+	device_broadcast_event(dev, DEV_EVENT_DOWN);
 }
 
 int check_device_state(struct device *dev)
@@ -246,7 +246,7 @@ void device_set_present(struct device *dev, bool state)
 
 	DPRINTF("Device '%s' %s present\n", dev->ifname, state ? "is now" : "is no longer" );
 	dev->present = state;
-	broadcast_device_event(dev, state ? DEV_EVENT_ADD : DEV_EVENT_REMOVE);
+	device_broadcast_event(dev, state ? DEV_EVENT_ADD : DEV_EVENT_REMOVE);
 }
 
 void device_add_user(struct device_user *dep, struct device *dev)
