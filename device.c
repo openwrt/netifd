@@ -98,7 +98,7 @@ static void __init dev_init(void)
 
 static void free_simple_device(struct device *dev)
 {
-	cleanup_device(dev);
+	device_cleanup(dev);
 	free(dev);
 }
 
@@ -223,7 +223,7 @@ struct device *get_device(const char *name, bool create)
 	return dev;
 }
 
-void cleanup_device(struct device *dev)
+void device_cleanup(struct device *dev)
 {
 	struct device_user *dep, *tmp;
 
