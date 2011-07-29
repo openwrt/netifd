@@ -329,7 +329,7 @@ bridge_create(const char *name, struct uci_section *s)
 	if (!bst)
 		return NULL;
 
-	init_device(&bst->dev, &bridge_type, name);
+	device_init(&bst->dev, &bridge_type, name);
 
 	bst->set_state = bst->dev.set_state;
 	bst->dev.set_state = bridge_set_state;

@@ -118,7 +118,7 @@ config_parse_interface(struct uci_section *s)
 }
 
 void
-config_init_devices(void)
+config_device_inits(void)
 {
 	struct uci_element *e;
 
@@ -154,7 +154,7 @@ config_init_interfaces(const char *name)
 	uci_network = p;
 	config_init = true;
 
-	config_init_devices();
+	config_device_inits();
 
 	uci_foreach_element(&p->sections, e) {
 		struct uci_section *s = uci_to_section(e);

@@ -177,7 +177,7 @@ void init_virtual_device(struct device *dev, const struct device_type *type, con
 	dev->type = type;
 }
 
-int init_device(struct device *dev, const struct device_type *type, const char *ifname)
+int device_init(struct device *dev, const struct device_type *type, const char *ifname)
 {
 	int ret;
 
@@ -218,7 +218,7 @@ struct device *device_get(const char *name, bool create)
 		return NULL;
 
 	dev = calloc(1, sizeof(*dev));
-	init_device(dev, &simple_type, name);
+	device_init(dev, &simple_type, name);
 
 	return dev;
 }
