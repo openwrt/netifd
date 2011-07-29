@@ -49,7 +49,7 @@ bridge_enable_member(struct bridge_member *bm)
 	if (!bm->present)
 		return 0;
 
-	ret = claim_device(bm->dev.dev);
+	ret = device_claim(bm->dev.dev);
 	if (ret < 0)
 		goto error;
 

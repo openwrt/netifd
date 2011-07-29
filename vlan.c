@@ -36,7 +36,7 @@ static int vlan_set_device_state(struct device *dev, bool up)
 		return 0;
 	}
 
-	ret = claim_device(vldev->dep.dev);
+	ret = device_claim(vldev->dep.dev);
 	if (ret)
 		return ret;
 

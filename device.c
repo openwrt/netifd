@@ -124,7 +124,7 @@ static int set_device_state(struct device *dev, bool state)
 	return 0;
 }
 
-int claim_device(struct device *dev)
+int device_claim(struct device *dev)
 {
 	int ret;
 

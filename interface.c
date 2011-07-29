@@ -103,7 +103,7 @@ __set_interface_up(struct interface *iface)
 	if (iface->state != IFS_DOWN)
 		return 0;
 
-	ret = claim_device(iface->main_dev.dev);
+	ret = device_claim(iface->main_dev.dev);
 	if (ret)
 		return ret;
 
