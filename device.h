@@ -120,7 +120,7 @@ struct device_hotplug_ops {
 };
 
 static inline void
-free_device(struct device *dev)
+device_free(struct device *dev)
 {
 	dev->type->free(dev);
 }

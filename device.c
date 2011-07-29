@@ -268,7 +268,7 @@ void remove_device_user(struct device_user *dep)
 
 	if (list_empty(&dev->users)) {
 		/* all references have gone away, remove this device */
-		free_device(dev);
+		device_free(dev);
 	}
 
 	dep->dev = NULL;
@@ -283,6 +283,6 @@ device_free_all(void)
 		if (!list_empty(&dev->users))
 			continue;
 
-		free_device(dev);
+		device_free(dev);
 	}
 }
