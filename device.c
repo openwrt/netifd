@@ -239,7 +239,7 @@ void cleanup_device(struct device *dev)
 		avl_delete(&devices, &dev->avl);
 }
 
-void set_device_present(struct device *dev, bool state)
+void device_set_present(struct device *dev, bool state)
 {
 	if (dev->present == state)
 		return;

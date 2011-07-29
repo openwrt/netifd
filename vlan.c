@@ -55,10 +55,10 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 	vldev = container_of(dep, struct vlan_device, dep);
 	switch(ev) {
 	case DEV_EVENT_ADD:
-		set_device_present(&vldev->dev, true);
+		device_set_present(&vldev->dev, true);
 		break;
 	case DEV_EVENT_REMOVE:
-		set_device_present(&vldev->dev, false);
+		device_set_present(&vldev->dev, false);
 		break;
 	default:
 		break;

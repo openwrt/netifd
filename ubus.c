@@ -38,7 +38,7 @@ static int netifd_handle_device(struct ubus_context *ctx, struct ubus_object *ob
 		return UBUS_STATUS_NOT_FOUND;
 
 	if (!add || (tb[DEV_FORCE] && blobmsg_get_u8(tb[DEV_FORCE])))
-		set_device_present(dev, add);
+		device_set_present(dev, add);
 	else
 		check_device_state(dev);
 

@@ -136,7 +136,7 @@ struct device *get_device(const char *name, bool create);
 void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
 
-void set_device_present(struct device *dev, bool state);
+void device_set_present(struct device *dev, bool state);
 int claim_device(struct device *dev);
 void release_device(struct device *dev);
 int check_device_state(struct device *dev);

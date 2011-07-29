@@ -57,7 +57,7 @@ int system_if_check(struct device *dev)
 	dev->ifindex = 0;
 
 	if (!strcmp(dev->ifname, "eth0"))
-		set_device_present(dev, true);
+		device_set_present(dev, true);
 
 	return 0;
 }

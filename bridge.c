@@ -81,7 +81,7 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 		if (bst->dev.active)
 			bridge_enable_member(bm);
 		else if (bst->n_present == 1)
-			set_device_present(&bst->dev, true);
+			device_set_present(&bst->dev, true);
 
 		break;
 	case DEV_EVENT_REMOVE:
@@ -94,7 +94,7 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 		bm->present = false;
 		bm->bst->n_present--;
 		if (bst->n_present == 0)
-			set_device_present(&bst->dev, false);
+			device_set_present(&bst->dev, false);
 
 		break;
 	default:
@@ -136,7 +136,7 @@ bridge_set_up(struct bridge_state *bst)
 	if (!bst->n_present) {
 		/* initialization of all member interfaces failed */
 		system_bridge_delbr(&bst->dev);
-		set_device_present(&bst->dev, false);
+		device_set_present(&bst->dev, false);
 		return -ENOENT;
 	}
 
