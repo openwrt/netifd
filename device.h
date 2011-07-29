@@ -119,12 +119,6 @@ struct device_hotplug_ops {
 	int (*del)(struct device *main, struct device *member);
 };
 
-static inline void
-device_free(struct device *dev)
-{
-	dev->type->free(dev);
-}
-
 extern const struct config_param_list device_attr_list;
 
 struct device *device_create(struct blob_attr *attr, struct uci_section *s);
@@ -140,6 +134,12 @@ void device_set_present(struct device *dev, bool state);
 int device_claim(struct device *dev);
 void device_release(struct device *dev);
 int check_device_state(struct device *dev);
+
+static inline void
+device_free(struct device *dev)
+{
+	dev->type->free(dev);
+}
 
 void device_free_all(void);
 
