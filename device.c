@@ -260,7 +260,7 @@ void add_device_user(struct device_user *dep, struct device *dev)
 	}
 }
 
-void remove_device_user(struct device_user *dep)
+void device_remove_user(struct device_user *dep)
 {
 	struct device *dev = dep->dev;
 

@@ -276,7 +276,7 @@ interface_remove_link(struct interface *iface, struct device *dev)
 		return;
 	}
 
-	remove_device_user(&iface->main_dev);
+	device_remove_user(&iface->main_dev);
 }
 
 int

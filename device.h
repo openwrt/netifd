@@ -134,7 +134,7 @@ int init_device(struct device *iface, const struct device_type *type, const char
 void cleanup_device(struct device *iface);
 struct device *get_device(const char *name, bool create);
 void add_device_user(struct device_user *dep, struct device *iface);
-void remove_device_user(struct device_user *dep);
+void device_remove_user(struct device_user *dep);
 
 void set_device_present(struct device *dev, bool state);
 int claim_device(struct device *dev);

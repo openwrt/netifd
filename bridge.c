@@ -190,7 +190,7 @@ bridge_free_member(struct bridge_member *bm)
 	}
 
 	list_del(&bm->list);
-	remove_device_user(&bm->dev);
+	device_remove_user(&bm->dev);
 	free(bm);
 }
 

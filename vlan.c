@@ -18,7 +18,7 @@ static void free_vlan_if(struct device *iface)
 	struct vlan_device *vldev;
 
 	vldev = container_of(iface, struct vlan_device, dev);
-	remove_device_user(&vldev->dep);
+	device_remove_user(&vldev->dep);
 	cleanup_device(&vldev->dev);
 	free(vldev);
 }
