@@ -3,10 +3,93 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/ethernet.h>
+
 #include "netifd.h"
 #include "system.h"
+#include "config.h"
 
 static struct avl_tree devices;
+
+enum {
+	DEV_ATTR_NAME,
+	DEV_ATTR_TYPE,
+	DEV_ATTR_MTU,
+	DEV_ATTR_MACADDR,
+	DEV_ATTR_TXQUEUELEN,
+	__DEV_ATTR_MAX,
+};
+
+static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
+	[DEV_ATTR_NAME] = { "name", BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_MTU] = { "mtu", BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_MACADDR] = { "macaddr", BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_TXQUEUELEN] = { "txqueuelen", BLOBMSG_TYPE_INT32 },
+};
+
+const struct config_param_list device_attr_list = {
+	.n_params = __DEV_ATTR_MAX,
+	.params = dev_attrs,
+};
+
+static void
+device_init_settings(struct device *dev, struct blob_attr **tb)
+{
+	struct blob_attr *cur;
+	struct ether_addr *ea;
+
+	dev->flags = 0;
+
+	if ((cur = tb[DEV_ATTR_MTU])) {
+		dev->mtu = blobmsg_get_u32(cur);
+		dev->flags |= DEV_OPT_MTU;
+	}
+
+	if ((cur = tb[DEV_ATTR_TXQUEUELEN])) {
+		dev->txqueuelen = blobmsg_get_u32(cur);
+		dev->flags |= DEV_OPT_TXQUEUELEN;
+	}
+
+	if ((cur = tb[DEV_ATTR_MACADDR])) {
+		ea = ether_aton(blob_data(cur));
+		if (ea) {
+			memcpy(dev->macaddr, ea, sizeof(dev->macaddr));
+			dev->flags |= DEV_OPT_MACADDR;
+		}
+	}
+}
+
+struct device *
+device_create(struct blob_attr *attr, struct uci_section *s)
+{
+	struct blob_attr *tb[__DEV_ATTR_MAX];
+	struct blob_attr *cur;
+	struct device *dev = NULL;
+	const char *name;
+
+	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb, blob_data(attr), blob_len(attr));
+	if (!tb[DEV_ATTR_NAME])
+		return NULL;
+
+	name = blobmsg_data(tb[DEV_ATTR_NAME]);
+	if ((cur = tb[DEV_ATTR_TYPE])) {
+		if (!strcmp(blobmsg_data(cur), "bridge"))
+			dev = bridge_create(name, s);
+	} else {
+		dev = get_device(name, true);
+	}
+
+	if (!dev)
+		return NULL;
+
+	device_init_settings(dev, tb);
+
+	return dev;
+}
+
 
 static void __init dev_init(void)
 {
