@@ -210,7 +210,7 @@ alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr)
 	struct blob_attr *cur;
 	struct device *dev;
 
-	iface = get_interface(name);
+	iface = interface_get(name);
 	if (iface)
 		return iface;
 
@@ -255,7 +255,7 @@ free_interface(struct interface *iface)
 }
 
 struct interface *
-get_interface(const char *name)
+interface_get(const char *name)
 {
 	struct interface *iface;
 
