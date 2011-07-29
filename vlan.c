@@ -129,7 +129,7 @@ struct device *get_vlan_device_chain(const char *ifname, bool create)
 		return NULL;
 
 	s = split_vlan(buf);
-	iface = get_device(buf, create);
+	iface = device_get(buf, create);
 	if (!iface && !create)
 		goto error;
 

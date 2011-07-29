@@ -236,7 +236,7 @@ alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr)
 	}
 
 	if ((cur = tb[IFACE_ATTR_IFNAME])) {
-		dev = get_device(blobmsg_data(cur), true);
+		dev = device_get(blobmsg_data(cur), true);
 		if (dev)
 			device_add_user(&iface->main_dev, dev);
 	}

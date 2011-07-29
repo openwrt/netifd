@@ -199,7 +199,7 @@ bridge_add_member(struct bridge_state *bst, const char *name)
 {
 	struct device *dev;
 
-	dev = get_device(name, true);
+	dev = device_get(name, true);
 	if (!dev)
 		return;
 
@@ -321,7 +321,7 @@ bridge_create(const char *name, struct uci_section *s)
 	struct bridge_state *bst;
 	struct device *dev;
 
-	dev = get_device(name, false);
+	dev = device_get(name, false);
 	if (dev)
 		return NULL;
 

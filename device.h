@@ -132,7 +132,7 @@ struct device *device_create(struct blob_attr *attr, struct uci_section *s);
 void init_virtual_device(struct device *dev, const struct device_type *type, const char *name);
 int init_device(struct device *iface, const struct device_type *type, const char *ifname);
 void device_cleanup(struct device *iface);
-struct device *get_device(const char *name, bool create);
+struct device *device_get(const char *name, bool create);
 void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
 

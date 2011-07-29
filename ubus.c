@@ -33,7 +33,7 @@ static int netifd_handle_device(struct ubus_context *ctx, struct ubus_object *ob
 	if (!tb[DEV_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	dev = get_device(blobmsg_data(tb[DEV_NAME]), false);
+	dev = device_get(blobmsg_data(tb[DEV_NAME]), false);
 	if (!dev)
 		return UBUS_STATUS_NOT_FOUND;
 

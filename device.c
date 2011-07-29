@@ -79,7 +79,7 @@ device_create(struct blob_attr *attr, struct uci_section *s)
 		if (!strcmp(blobmsg_data(cur), "bridge"))
 			dev = bridge_create(name, s);
 	} else {
-		dev = get_device(name, true);
+		dev = device_get(name, true);
 	}
 
 	if (!dev)
@@ -197,7 +197,7 @@ int init_device(struct device *dev, const struct device_type *type, const char *
 	return 0;
 }
 
-struct device *get_device(const char *name, bool create)
+struct device *device_get(const char *name, bool create)
 {
 	static const struct device_type simple_type = {
 		.name = "Device",
