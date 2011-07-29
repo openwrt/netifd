@@ -245,7 +245,7 @@ alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr)
 }
 
 void
-free_interface(struct interface *iface)
+interface_free(struct interface *iface)
 {
 	netifd_ubus_remove_interface(iface);
 	list_del(&iface->list);

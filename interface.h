@@ -61,7 +61,7 @@ extern const struct config_param_list interface_attr_list;
 
 struct interface *interface_get(const char *name);
 struct interface *alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr);
-void free_interface(struct interface *iface);
+void interface_free(struct interface *iface);
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);
 
