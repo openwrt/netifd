@@ -275,7 +275,7 @@ void remove_device_user(struct device_user *dep)
 }
 
 void
-cleanup_devices(void)
+device_free_all(void)
 {
 	struct device *dev, *tmp;
 

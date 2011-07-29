@@ -141,7 +141,7 @@ int claim_device(struct device *dev);
 void release_device(struct device *dev);
 int check_device_state(struct device *dev);
 
-void cleanup_devices(void);
+void device_free_all(void);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);
 struct device *bridge_create(const char *name, struct uci_section *s);
