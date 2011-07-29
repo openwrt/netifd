@@ -106,7 +106,7 @@ static int netifd_handle_down(struct ubus_context *ctx, struct ubus_object *obj,
 	struct interface *iface;
 
 	iface = container_of(obj, struct interface, ubus);
-	set_interface_down(iface);
+	interface_set_down(iface);
 
 	return 0;
 }

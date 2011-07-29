@@ -66,7 +66,7 @@ void free_interface(struct interface *iface);
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);
 
 int interface_set_up(struct interface *iface);
-int set_interface_down(struct interface *iface);
+int interface_set_down(struct interface *iface);
 
 int interface_add_link(struct interface *iface, struct device *llif);
 void interface_remove_link(struct interface *iface, struct device *llif);

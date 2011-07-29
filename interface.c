@@ -119,7 +119,7 @@ __interface_set_up(struct interface *iface)
 }
 
 static void
-__set_interface_down(struct interface *iface, bool force)
+__interface_set_down(struct interface *iface, bool force)
 {
 	clear_interface_errors(iface);
 
@@ -161,7 +161,7 @@ interface_cb(struct device_user *dep, enum device_event ev)
 		if (iface->autostart && !config_init)
 			interface_set_up(iface);
 	} else
-		__set_interface_down(iface, true);
+		__interface_set_down(iface, true);
 }
 
 static void
@@ -312,10 +312,10 @@ interface_set_up(struct interface *iface)
 }
 
 int
-set_interface_down(struct interface *iface)
+interface_set_down(struct interface *iface)
 {
 	iface->autostart = false;
-	__set_interface_down(iface, false);
+	__interface_set_down(iface, false);
 
 	return 0;
 }
