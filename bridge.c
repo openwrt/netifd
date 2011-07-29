@@ -35,7 +35,7 @@ bridge_disable_member(struct bridge_member *bm)
 		return 0;
 
 	system_bridge_delif(&bst->dev, bm->dev.dev);
-	release_device(bm->dev.dev);
+	device_release(bm->dev.dev);
 
 	return 0;
 }

@@ -91,7 +91,7 @@ static void
 mark_interface_down(struct interface *iface)
 {
 	interface_del_ctx_addr(iface, NULL);
-	release_device(iface->main_dev.dev);
+	device_release(iface->main_dev.dev);
 	iface->state = IFS_DOWN;
 }
 

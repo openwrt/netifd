@@ -142,7 +142,7 @@ int device_claim(struct device *dev)
 	return ret;
 }
 
-void release_device(struct device *dev)
+void device_release(struct device *dev)
 {
 	dev->active--;
 	DPRINTF("release device %s, new refcount: %d\n", dev->ifname, dev->active);
