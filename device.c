@@ -164,7 +164,7 @@ int check_device_state(struct device *dev)
 	return dev->type->check_state(dev);
 }
 
-void init_virtual_device(struct device *dev, const struct device_type *type, const char *name)
+void device_init_virtual(struct device *dev, const struct device_type *type, const char *name)
 {
 	assert(dev);
 	assert(type);
@@ -181,7 +181,7 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 {
 	int ret;
 
-	init_virtual_device(dev, type, ifname);
+	device_init_virtual(dev, type, ifname);
 
 	if (!dev->set_state)
 		dev->set_state = set_device_state;
