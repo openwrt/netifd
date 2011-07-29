@@ -2,6 +2,7 @@
 #define __NETIFD_INTERFACE_H
 
 #include "device.h"
+#include "config.h"
 
 struct interface;
 struct interface_proto_state;
@@ -56,8 +57,10 @@ struct interface {
 	struct ubus_object ubus;
 };
 
+extern const struct config_param_list interface_attr_list;
+
 struct interface *get_interface(const char *name);
-struct interface *alloc_interface(const char *name, struct uci_section *s);
+struct interface *alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr);
 void free_interface(struct interface *iface);
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);

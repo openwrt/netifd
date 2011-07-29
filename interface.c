@@ -7,8 +7,34 @@
 #include "interface.h"
 #include "proto.h"
 #include "ubus.h"
+#include "config.h"
 
 static LIST_HEAD(interfaces);
+
+enum {
+	IFACE_ATTR_TYPE,
+	IFACE_ATTR_IFNAME,
+	IFACE_ATTR_PROTO,
+	IFACE_ATTR_AUTO,
+	IFACE_ATTR_MAX
+};
+
+static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
+	[IFACE_ATTR_IFNAME].type = BLOBMSG_TYPE_STRING,
+};
+
+static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
+	[IFACE_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_ARRAY },
+	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
+};
+
+const struct config_param_list interface_attr_list = {
+	.n_params = IFACE_ATTR_MAX,
+	.params = iface_attrs,
+	.info = iface_attr_info,
+};
 
 static void
 clear_interface_errors(struct interface *iface)
@@ -177,9 +203,12 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 }
 
 struct interface *
-alloc_interface(const char *name, struct uci_section *s)
+alloc_interface(const char *name, struct uci_section *s, struct blob_attr *attr)
 {
 	struct interface *iface;
+	struct blob_attr *tb[IFACE_ATTR_MAX];
+	struct blob_attr *cur;
+	struct device *dev;
 
 	iface = get_interface(name);
 	if (iface)
@@ -197,6 +226,20 @@ alloc_interface(const char *name, struct uci_section *s)
 	proto_attach_interface(iface, s);
 
 	netifd_ubus_add_interface(iface);
+
+	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
+		      blob_data(attr), blob_len(attr));
+
+	if ((cur = tb[IFACE_ATTR_TYPE])) {
+		if (!strcmp(blobmsg_data(cur), "bridge"))
+			interface_attach_bridge(iface, s);
+	}
+
+	if ((cur = tb[IFACE_ATTR_IFNAME])) {
+		dev = get_device(blobmsg_data(cur), true);
+		if (dev)
+			add_device_user(&iface->main_dev, dev);
+	}
 
 	return iface;
 }
