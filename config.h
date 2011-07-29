@@ -15,10 +15,12 @@ union config_param_info {
 };
 
 struct config_param_list {
-	const struct config_param_list *next;
-	int n_params;
+	int n_params, n_next;
+
 	const struct blobmsg_policy *params;
 	const union config_param_info *info;
+
+	const struct config_param_list *next[];
 };
 
 #endif

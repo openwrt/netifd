@@ -69,8 +69,8 @@ static void uci_array_to_blob(struct blob_buf *b, struct uci_option *o,
 	free(str);
 }
 
-static void uci_to_blob(struct blob_buf *b, struct uci_section *s,
-			const struct config_param_list *p)
+static void __uci_to_blob(struct blob_buf *b, struct uci_section *s,
+			  const struct config_param_list *p)
 {
 	const struct blobmsg_policy *attr;
 	struct uci_element *e;
@@ -105,6 +105,16 @@ static void uci_to_blob(struct blob_buf *b, struct uci_section *s,
 
 		uci_attr_to_blob(b, o->v.string, attr->name, attr->type);
 	}
+}
+
+static void uci_to_blob(struct blob_buf *b, struct uci_section *s,
+			const struct config_param_list *p)
+{
+	int i;
+
+	__uci_to_blob(b, s, p);
+	for (i = 0; i < p->n_next; i++)
+		uci_to_blob(b, s, p->next[i]);
 }
 
 static void
