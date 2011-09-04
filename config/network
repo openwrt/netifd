@@ -26,7 +26,7 @@ config interface dummy
 	option proto	none
 
 config interface lan2
-	option ifname	eth0.3
+	option ifname	"eth0.3 eth0.5"
 	option type		bridge
 	option proto	static
 	option ipaddr	192.168.1.1
