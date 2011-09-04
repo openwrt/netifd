@@ -120,10 +120,15 @@ static int set_device_state(struct device *dev, bool state)
 	return 0;
 }
 
-int device_claim(struct device *dev)
+int device_claim(struct device_user *dep)
 {
+	struct device *dev = dep->dev;
 	int ret;
 
+	if (dep->claimed)
+		return 0;
+
+	dep->claimed = true;
 	DPRINTF("claim device %s, new refcount: %d\n", dev->ifname, dev->active + 1);
 	if (++dev->active != 1)
 		return 0;
@@ -138,8 +143,14 @@ int device_claim(struct device *dev)
 	return ret;
 }
 
-void device_release(struct device *dev)
+void device_release(struct device_user *dep)
 {
+	struct device *dev = dep->dev;
+
+	if (!dep->claimed)
+		return;
+
+	dep->claimed = false;
 	dev->active--;
 	DPRINTF("release device %s, new refcount: %d\n", dev->ifname, dev->active);
 	assert(dev->active >= 0);
@@ -253,6 +264,9 @@ void device_add_user(struct device_user *dep, struct device *dev)
 void device_remove_user(struct device_user *dep)
 {
 	struct device *dev = dep->dev;
+
+	if (dep->claimed)
+		device_release(dep);
 
 	list_del(&dep->list);
 

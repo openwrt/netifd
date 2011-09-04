@@ -72,7 +72,7 @@ bridge_disable_member(struct bridge_member *bm)
 		return 0;
 
 	system_bridge_delif(&bst->dev, bm->dev.dev);
-	device_release(bm->dev.dev);
+	device_release(&bm->dev);
 
 	return 0;
 }
@@ -86,7 +86,7 @@ bridge_enable_member(struct bridge_member *bm)
 	if (!bm->present)
 		return 0;
 
-	ret = device_claim(bm->dev.dev);
+	ret = device_claim(&bm->dev);
 	if (ret < 0)
 		goto error;
 

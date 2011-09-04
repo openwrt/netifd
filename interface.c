@@ -89,7 +89,7 @@ static void
 mark_interface_down(struct interface *iface)
 {
 	interface_del_ctx_addr(iface, NULL);
-	device_release(iface->main_dev.dev);
+	device_release(&iface->main_dev);
 	iface->state = IFS_DOWN;
 }
 
@@ -101,7 +101,7 @@ __interface_set_up(struct interface *iface)
 	if (iface->state != IFS_DOWN)
 		return 0;
 
-	ret = device_claim(iface->main_dev.dev);
+	ret = device_claim(&iface->main_dev);
 	if (ret)
 		return ret;
 

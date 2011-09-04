@@ -124,6 +124,7 @@ enum device_event {
 struct device_user {
 	struct list_head list;
 
+	bool claimed;
 	struct device *dev;
 	void (*cb)(struct device_user *, enum device_event);
 };
@@ -147,8 +148,8 @@ void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
 
 void device_set_present(struct device *dev, bool state);
-int device_claim(struct device *dev);
-void device_release(struct device *dev);
+int device_claim(struct device_user *dep);
+void device_release(struct device_user *dep);
 int check_device_state(struct device *dev);
 
 static inline void
