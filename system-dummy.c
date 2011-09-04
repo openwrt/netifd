@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef DEBUG
+#define DEBUG
+#endif
+
 #include "netifd.h"
 #include "device.h"
 

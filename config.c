@@ -73,7 +73,7 @@ static void uci_array_to_blob(struct blob_buf *b, struct uci_option *o,
 static void __uci_to_blob(struct blob_buf *b, struct uci_section *s,
 			  const struct config_param_list *p)
 {
-	const struct blobmsg_policy *attr;
+	const struct blobmsg_policy *attr = NULL;
 	struct uci_element *e;
 	struct uci_option *o;
 	void *array;
