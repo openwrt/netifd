@@ -208,7 +208,7 @@ bridge_create_member(struct bridge_state *bst, struct device *dev)
 	bm->dev.cb = bridge_member_cb;
 	device_add_user(&bm->dev, dev);
 
-	list_add(&bm->list, &bst->members);
+	list_add_tail(&bm->list, &bst->members);
 
 	if (bst->dev.active)
 		bridge_enable_member(bm);
