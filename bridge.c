@@ -9,6 +9,43 @@
 #include "interface.h"
 #include "system.h"
 
+enum {
+	BRIDGE_ATTR_IFNAME,
+	BRIDGE_ATTR_STP,
+	__BRIDGE_ATTR_MAX
+};
+
+static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
+	[BRIDGE_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_ARRAY },
+	[BRIDGE_ATTR_STP] = { "stp", BLOBMSG_TYPE_BOOL },
+};
+
+static const union config_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
+	[BRIDGE_ATTR_IFNAME] = { .type = BLOBMSG_TYPE_STRING },
+};
+
+static const struct config_param_list bridge_attr_list = {
+	.n_params = __BRIDGE_ATTR_MAX,
+	.params = bridge_attrs,
+	.info = bridge_attr_info,
+
+	.n_next = 1,
+	.next = { &device_attr_list },
+};
+
+static struct device *bridge_create(struct blob_attr *attr);
+static void bridge_free(struct device *dev);
+static void bridge_dump_status(struct device *dev, struct blob_buf *b);
+
+const struct device_type bridge_device_type = {
+	.name = "Bridge",
+	.config_params = &bridge_attr_list,
+
+	.create = bridge_create,
+	.free = bridge_free,
+	.dump_status = bridge_dump_status,
+};
+
 struct bridge_state {
 	struct device dev;
 	device_state_cb set_state;
@@ -239,48 +276,6 @@ static const struct device_hotplug_ops bridge_ops = {
 };
 
 static void
-bridge_parse_config(struct bridge_state *bst, struct uci_section *s)
-{
-	struct uci_element *e;
-	struct uci_option *o;
-	char buf[IFNAMSIZ + 1];
-	char *p, *end;
-	int len;
-
-	o = uci_lookup_option(uci_ctx, s, "ifname");
-	if (!o)
-		return;
-
-	if (o->type == UCI_TYPE_LIST) {
-		uci_foreach_element(&o->v.list, e)
-			bridge_add_member(bst, e->name);
-	} else {
-		p = o->v.string;
-		do {
-			if (!*p)
-				break;
-
-			if (*p == ' ')
-				continue;
-
-			end = strchr(p, ' ');
-			if (!end) {
-				bridge_add_member(bst, p);
-				break;
-			}
-
-			len = end - p;
-			if (len <= IFNAMSIZ) {
-				memcpy(buf, p, len);
-				buf[len] = 0;
-				bridge_add_member(bst, buf);
-			}
-			p = end;
-		} while (p++);
-	}
-}
-
-static void
 bridge_free(struct device *dev)
 {
 	struct bridge_state *bst;
@@ -310,53 +305,50 @@ bridge_dump_status(struct device *dev, struct blob_buf *b)
 	blobmsg_close_array(b, list);
 }
 
-struct device *
-bridge_create(const char *name, struct uci_section *s)
+static struct device *
+bridge_create(struct blob_attr *attr)
 {
-	static const struct device_type bridge_type = {
-		.name = "Bridge",
-		.free = bridge_free,
-		.dump_status = bridge_dump_status,
-	};
+	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
+	struct blob_attr *tb_br[__BRIDGE_ATTR_MAX];
+	struct blob_attr *cur;
 	struct bridge_state *bst;
-	struct device *dev;
+	struct device *dev = NULL;
+	const char *name;
+	int rem;
 
-	dev = device_get(name, false);
-	if (dev)
+	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
+		blob_data(attr), blob_len(attr));
+	blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, tb_br,
+		blob_data(attr), blob_len(attr));
+
+	if (!tb_dev[DEV_ATTR_NAME])
 		return NULL;
+
+	if (!tb_br[BRIDGE_ATTR_IFNAME])
+		return NULL;
+
+	name = blobmsg_data(tb_dev[DEV_ATTR_NAME]);
 
 	bst = calloc(1, sizeof(*bst));
 	if (!bst)
 		return NULL;
 
-	device_init(&bst->dev, &bridge_type, name);
+	dev = &bst->dev;
+	device_init(dev, &bridge_device_type, name);
+	device_init_settings(dev, tb_dev);
 
-	bst->set_state = bst->dev.set_state;
-	bst->dev.set_state = bridge_set_state;
+	bst->set_state = dev->set_state;
+	dev->set_state = bridge_set_state;
 
-	bst->dev.hotplug_ops = &bridge_ops;
+	dev->hotplug_ops = &bridge_ops;
 
 	INIT_LIST_HEAD(&bst->members);
 
-	if (s)
-		bridge_parse_config(bst, s);
+	blobmsg_for_each_attr(cur, tb_br[BRIDGE_ATTR_IFNAME], rem) {
+		bridge_add_member(bst, blobmsg_data(cur));
+	}
 
-	return &bst->dev;
+	return dev;
 }
 
-int
-interface_attach_bridge(struct interface *iface, struct uci_section *s)
-{
-	struct device *dev;
-	char brname[IFNAMSIZ];
 
-	snprintf(brname, IFNAMSIZ - 1, "br-%s", iface->name);
-	brname[IFNAMSIZ - 1] = 0;
-
-	dev = bridge_create(brname, s);
-	if (!dev)
-		return -1;
-
-	device_add_user(&iface->main_dev, dev);
-	return 0;
-}

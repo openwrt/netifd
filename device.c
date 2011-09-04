@@ -13,18 +13,10 @@
 
 static struct avl_tree devices;
 
-enum {
-	DEV_ATTR_NAME,
-	DEV_ATTR_TYPE,
-	DEV_ATTR_MTU,
-	DEV_ATTR_MACADDR,
-	DEV_ATTR_TXQUEUELEN,
-	__DEV_ATTR_MAX,
-};
-
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
-	[DEV_ATTR_NAME] = { "name", BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_NAME] = { "name", BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_MTU] = { "mtu", BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MACADDR] = { "macaddr", BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_TXQUEUELEN] = { "txqueuelen", BLOBMSG_TYPE_INT32 },
@@ -35,7 +27,46 @@ const struct config_param_list device_attr_list = {
 	.params = dev_attrs,
 };
 
-static void
+static struct device *
+simple_device_create(struct blob_attr *attr)
+{
+	struct blob_attr *tb[__DEV_ATTR_MAX];
+	struct device *dev = NULL;
+	const char *name;
+
+	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb, blob_data(attr), blob_len(attr));
+	if (!tb[DEV_ATTR_NAME])
+		return NULL;
+
+	name = blobmsg_data(tb[DEV_ATTR_NAME]);
+	if (!name)
+		return NULL;
+
+	dev = device_get(name, true);
+	if (!dev)
+		return NULL;
+
+	device_init_settings(dev, tb);
+
+	return dev;
+}
+
+static void simple_device_free(struct device *dev)
+{
+	device_cleanup(dev);
+	free(dev);
+}
+
+const struct device_type simple_device_type = {
+	.name = "Network device",
+	.config_params = &device_attr_list,
+
+	.create = simple_device_create,
+	.check_state = system_if_check,
+	.free = simple_device_free,
+};
+
+void
 device_init_settings(struct device *dev, struct blob_attr **tb)
 {
 	struct blob_attr *cur;
@@ -62,44 +93,9 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	}
 }
 
-struct device *
-device_create(struct blob_attr *attr, struct uci_section *s)
-{
-	struct blob_attr *tb[__DEV_ATTR_MAX];
-	struct blob_attr *cur;
-	struct device *dev = NULL;
-	const char *name;
-
-	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb, blob_data(attr), blob_len(attr));
-	if (!tb[DEV_ATTR_NAME])
-		return NULL;
-
-	name = blobmsg_data(tb[DEV_ATTR_NAME]);
-	if ((cur = tb[DEV_ATTR_TYPE])) {
-		if (!strcmp(blobmsg_data(cur), "bridge"))
-			dev = bridge_create(name, s);
-	} else {
-		dev = device_get(name, true);
-	}
-
-	if (!dev)
-		return NULL;
-
-	device_init_settings(dev, tb);
-
-	return dev;
-}
-
-
 static void __init dev_init(void)
 {
 	avl_init(&devices, avl_strcmp, false, NULL);
-}
-
-static void free_simple_device(struct device *dev)
-{
-	device_cleanup(dev);
-	free(dev);
 }
 
 static void device_broadcast_event(struct device *dev, enum device_event ev)
@@ -199,13 +195,7 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 
 struct device *device_get(const char *name, bool create)
 {
-	static const struct device_type simple_type = {
-		.name = "Device",
-		.check_state = system_if_check,
-		.free = free_simple_device,
-	};
 	struct device *dev;
-
 
 	if (strchr(name, '.'))
 		return get_vlan_device_chain(name, create);
@@ -218,7 +208,7 @@ struct device *device_get(const char *name, bool create)
 		return NULL;
 
 	dev = calloc(1, sizeof(*dev));
-	device_init(dev, &simple_type, name);
+	device_init(dev, &simple_device_type, name);
 
 	return dev;
 }

@@ -9,9 +9,23 @@ struct device_hotplug_ops;
 
 typedef int (*device_state_cb)(struct device *, bool up);
 
+enum {
+	DEV_ATTR_TYPE,
+	DEV_ATTR_NAME,
+	DEV_ATTR_IFNAME,
+	DEV_ATTR_MTU,
+	DEV_ATTR_MACADDR,
+	DEV_ATTR_TXQUEUELEN,
+	__DEV_ATTR_MAX,
+};
+
 struct device_type {
+	struct list_head list;
 	const char *name;
 
+	const struct config_param_list *config_params;
+
+	struct device *(*create)(struct blob_attr *attr);
 	void (*dump_status)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
 	void (*free)(struct device *);
@@ -120,8 +134,10 @@ struct device_hotplug_ops {
 };
 
 extern const struct config_param_list device_attr_list;
+extern const struct device_type simple_device_type;
+extern const struct device_type bridge_device_type;
 
-struct device *device_create(struct blob_attr *attr, struct uci_section *s);
+void device_init_settings(struct device *dev, struct blob_attr **tb);
 
 void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);
 int device_init(struct device *iface, const struct device_type *type, const char *ifname);
@@ -144,6 +160,5 @@ device_free(struct device *dev)
 void device_free_all(void);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);
-struct device *bridge_create(const char *name, struct uci_section *s);
 
 #endif

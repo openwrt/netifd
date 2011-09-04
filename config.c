@@ -117,12 +117,39 @@ static void uci_to_blob(struct blob_buf *b, struct uci_section *s,
 		uci_to_blob(b, s, p->next[i]);
 }
 
+static int
+config_parse_bridge_interface(struct uci_section *s)
+{
+	char *name;
+
+	name = alloca(strlen(s->e.name) + 4);
+	sprintf(name, "br-%s", s->e.name);
+	blobmsg_add_string(&b, "name", name);
+
+	uci_to_blob(&b, s, bridge_device_type.config_params);
+	if (!bridge_device_type.create(b.head)) {
+		DPRINTF("Failed to create bridge for interface '%s'\n", s->e.name);
+		return -EINVAL;
+	}
+
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "ifname", name);
+	return 0;
+}
+
 static void
 config_parse_interface(struct uci_section *s)
 {
+	const char *type;
 	DPRINTF("Create interface '%s'\n", s->e.name);
 
 	blob_buf_init(&b, 0);
+
+	type = uci_lookup_option_string(uci_ctx, s, "type");
+	if (type && !strcmp(type, "bridge"))
+		if (config_parse_bridge_interface(s))
+			return;
+
 	uci_to_blob(&b, s, &interface_attr_list);
 	interface_alloc(s->e.name, s, b.head);
 }
@@ -134,13 +161,21 @@ config_init_devices(void)
 
 	uci_foreach_element(&uci_network->sections, e) {
 		struct uci_section *s = uci_to_section(e);
+		const struct device_type *devtype;
+		const char *type;
 
 		if (strcmp(s->type, "device") != 0)
 			continue;
 
 		blob_buf_init(&b, 0);
-		uci_to_blob(&b, s, &device_attr_list);
-		device_create(b.head, s);
+		type = uci_lookup_option_string(uci_ctx, s, "type");
+		if (type && !strcmp(type, "bridge"))
+			devtype = &bridge_device_type;
+		else
+			devtype = &simple_device_type;
+
+		uci_to_blob(&b, s, devtype->config_params);
+		devtype->create(b.head);
 	}
 }
 

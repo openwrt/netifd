@@ -12,7 +12,6 @@
 static LIST_HEAD(interfaces);
 
 enum {
-	IFACE_ATTR_TYPE,
 	IFACE_ATTR_IFNAME,
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
@@ -24,7 +23,6 @@ static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
 };
 
 static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
-	[IFACE_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
@@ -229,11 +227,6 @@ interface_alloc(const char *name, struct uci_section *s, struct blob_attr *attr)
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(attr), blob_len(attr));
-
-	if ((cur = tb[IFACE_ATTR_TYPE])) {
-		if (!strcmp(blobmsg_data(cur), "bridge"))
-			interface_attach_bridge(iface, s);
-	}
 
 	if ((cur = tb[IFACE_ATTR_IFNAME])) {
 		dev = device_get(blobmsg_data(cur), true);

@@ -74,8 +74,6 @@ void interface_remove_link(struct interface *iface, struct device *llif);
 void interface_add_error(struct interface *iface, const char *subsystem,
 			 const char *code, const char **data, int n_data);
 
-int interface_attach_bridge(struct interface *iface, struct uci_section *s);
-
 int interface_add_address(struct interface *iface, struct device_addr *addr);
 void interface_del_address(struct interface *iface, struct device_addr *addr);
 void interface_del_ctx_addr(struct interface *iface, void *ctx);
