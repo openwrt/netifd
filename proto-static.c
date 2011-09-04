@@ -10,10 +10,38 @@
 #include "proto.h"
 #include "system.h"
 
+enum {
+	OPT_IPADDR,
+	OPT_IP6ADDR,
+	OPT_NETMASK,
+	OPT_GATEWAY,
+	OPT_IP6GW,
+	__OPT_MAX,
+};
+
+static const struct blobmsg_policy static_attrs[__OPT_MAX] = {
+	[OPT_IPADDR] = { .name = "ipaddr", .type = BLOBMSG_TYPE_ARRAY },
+	[OPT_IP6ADDR] = { .name = "ip6addr", .type = BLOBMSG_TYPE_ARRAY },
+	[OPT_NETMASK] = { .name = "netmask", .type = BLOBMSG_TYPE_STRING },
+	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
+	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
+};
+
+static const union config_param_info static_attr_info[__OPT_MAX] = {
+	[OPT_IPADDR] = { .type = BLOBMSG_TYPE_STRING },
+	[OPT_IP6ADDR] = { .type = BLOBMSG_TYPE_STRING },
+};
+
+static const struct config_param_list static_attr_list = {
+	.n_params = __OPT_MAX,
+	.params = static_attrs,
+	.info = static_attr_info,
+};
+
 struct static_proto_state {
 	struct interface_proto_state proto;
 
-	struct uci_section *section;
+	struct blob_attr *config;
 	struct interface *iface;
 };
 
@@ -73,31 +101,26 @@ parse_addr(struct static_proto_state *state, const char *str, bool v6, int mask)
 }
 
 static int
-parse_address_option(struct static_proto_state *state, struct uci_option *o, bool v6, int netmask)
+parse_address_option(struct static_proto_state *state, struct blob_attr *attr, bool v6, int netmask)
 {
-	struct uci_element *e;
+	struct blob_attr *cur;
 	int n_addr = 0;
+	int rem;
 
-	if (o->type == UCI_TYPE_STRING) {
+	blobmsg_for_each_attr(cur, attr, rem) {
 		n_addr++;
-		if (!parse_addr(state, o->v.string, v6, netmask))
+		if (!parse_addr(state, blobmsg_data(cur), v6, netmask))
 			return -1;
-	} else {
-		uci_foreach_element(&o->v.list, e) {
-			n_addr++;
-			if (!parse_addr(state, e->name, v6, netmask))
-				return -1;
-		}
 	}
 
 	return n_addr;
 }
 
 static bool
-parse_gateway_option(struct static_proto_state *state, struct uci_option *o, bool v6)
+parse_gateway_option(struct static_proto_state *state, struct blob_attr *attr, bool v6)
 {
 	struct device_route *route;
-	const char *str = o->v.string;
+	const char *str = blobmsg_data(attr);
 	int af = v6 ? AF_INET6 : AF_INET;
 
 	route = calloc(1, sizeof(*route));
@@ -114,36 +137,20 @@ parse_gateway_option(struct static_proto_state *state, struct uci_option *o, boo
 	return true;
 }
 
-enum {
-	OPT_IPADDR,
-	OPT_IP6ADDR,
-	OPT_NETMASK,
-	OPT_GATEWAY,
-	OPT_IP6GW,
-	__OPT_MAX,
-};
-
-static const struct uci_parse_option opts[__OPT_MAX] = {
-	[OPT_IPADDR] = { .name = "ipaddr" },
-	[OPT_IP6ADDR] = { .name = "ip6addr" },
-	[OPT_NETMASK] = { .name = "netmask", .type = UCI_TYPE_STRING },
-	[OPT_GATEWAY] = { .name = "gateway", .type = UCI_TYPE_STRING },
-	[OPT_IP6GW] = { .name = "ip6gw", .type = UCI_TYPE_STRING },
-};
-
 static bool
 static_proto_setup(struct static_proto_state *state)
 {
-	struct uci_option *tb[__OPT_MAX];
+	struct blob_attr *tb[__OPT_MAX];
 	struct in_addr ina;
 	const char *error;
 	int netmask = 32;
 	int n_v4 = 0, n_v6 = 0;
 
-	uci_parse_section(state->section, opts, __OPT_MAX, tb);
+	blobmsg_parse(static_attrs, __OPT_MAX, tb, blob_data(state->config),
+		blob_len(state->config));
 
 	if (tb[OPT_NETMASK]) {
-		if (!inet_aton(tb[OPT_NETMASK]->v.string, &ina)) {
+		if (!inet_aton(blobmsg_data(tb[OPT_NETMASK]), &ina)) {
 			error = "INVALID_NETMASK";
 			goto error;
 		}
@@ -211,27 +218,40 @@ static_free(struct interface_proto_state *proto)
 	struct static_proto_state *state;
 
 	state = container_of(proto, struct static_proto_state, proto);
+	free(state->config);
 	free(state);
 }
 
 struct interface_proto_state *
 static_attach(const struct proto_handler *h, struct interface *iface,
-	      struct uci_section *s)
+	      struct blob_attr *attr)
 {
 	struct static_proto_state *state;
 
 	state = calloc(1, sizeof(*state));
+	if (!state)
+		return NULL;
+
 	state->iface = iface;
-	state->section = s;
+	state->config = malloc(blob_pad_len(attr));
+	if (!state->config)
+		goto error;
+
+	memcpy(state->config, attr, blob_pad_len(attr));
 	state->proto.free = static_free;
 	state->proto.handler = static_handler;
 	state->proto.flags = PROTO_FLAG_IMMEDIATE;
 
 	return &state->proto;
+
+error:
+	free(state);
+	return NULL;
 }
 
 static struct proto_handler static_proto = {
 	.name = "static",
+	.config_params = &static_attr_list,
 	.attach = static_attach,
 };
 

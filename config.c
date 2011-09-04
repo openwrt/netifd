@@ -158,7 +158,11 @@ config_parse_interface(struct uci_section *s)
 	if (!iface)
 		return;
 
-	proto_init_interface(iface, s);
+	blob_buf_init(&b, 0);
+	if (iface->proto_handler && iface->proto_handler->config_params)
+		uci_to_blob(&b, s, iface->proto_handler->config_params);
+
+	proto_init_interface(iface, b.head);
 }
 
 void

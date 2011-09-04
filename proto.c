@@ -35,15 +35,14 @@ invalid_proto_handler(struct interface_proto_state *proto,
 
 static int
 no_proto_handler(struct interface_proto_state *proto,
-		      enum interface_proto_cmd cmd, bool force)
+		 enum interface_proto_cmd cmd, bool force)
 {
 	return 0;
 }
 
 static struct interface_proto_state *
 default_proto_attach(const struct proto_handler *h,
-		     struct interface *iface,
-		     struct uci_section *s)
+		     struct interface *iface, struct blob_attr *attr)
 {
 	struct interface_proto_state *proto;
 
@@ -75,16 +74,16 @@ get_proto_handler(const char *name)
 }
 
 void
-proto_init_interface(struct interface *iface, struct uci_section *s)
+proto_init_interface(struct interface *iface, struct blob_attr *attr)
 {
 	const struct proto_handler *proto = iface->proto_handler;
 	struct interface_proto_state *state = NULL;
 
 	if (proto)
-		state = proto->attach(proto, iface, s);
+		state = proto->attach(proto, iface, attr);
 
 	if (!state) {
-		state = no_proto.attach(&no_proto, iface, s);
+		state = no_proto.attach(&no_proto, iface, attr);
 		state->handler = invalid_proto_handler;
 	}
 

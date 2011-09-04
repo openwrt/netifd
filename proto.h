@@ -36,13 +36,14 @@ struct proto_handler {
 	struct avl_node avl;
 
 	const char *name;
+	const struct config_param_list *config_params;
 
 	struct interface_proto_state *(*attach)(const struct proto_handler *h,
-		struct interface *, struct uci_section *s);
+		struct interface *iface, struct blob_attr *attr);
 };
 
 void add_proto_handler(struct proto_handler *p);
-void proto_init_interface(struct interface *iface, struct uci_section *s);
+void proto_init_interface(struct interface *iface, struct blob_attr *attr);
 void proto_attach_interface(struct interface *iface, const char *proto_name);
 int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
