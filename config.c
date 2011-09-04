@@ -4,6 +4,7 @@
 
 #include "netifd.h"
 #include "interface.h"
+#include "proto.h"
 
 struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
@@ -140,7 +141,9 @@ config_parse_bridge_interface(struct uci_section *s)
 static void
 config_parse_interface(struct uci_section *s)
 {
+	struct interface *iface;
 	const char *type;
+
 	DPRINTF("Create interface '%s'\n", s->e.name);
 
 	blob_buf_init(&b, 0);
@@ -151,7 +154,11 @@ config_parse_interface(struct uci_section *s)
 			return;
 
 	uci_to_blob(&b, s, &interface_attr_list);
-	interface_alloc(s->e.name, s, b.head);
+	iface = interface_alloc(s->e.name, b.head);
+	if (!iface)
+		return;
+
+	proto_init_interface(iface, s);
 }
 
 void

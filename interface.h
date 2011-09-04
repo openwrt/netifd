@@ -47,6 +47,7 @@ struct interface {
 	struct device_user *l3_iface;
 
 	/* primary protocol state */
+	const struct proto_handler *proto_handler;
 	struct interface_proto_state *proto;
 
 	struct list_head address, routes;
@@ -60,7 +61,7 @@ struct interface {
 extern const struct config_param_list interface_attr_list;
 
 struct interface *interface_get(const char *name);
-struct interface *interface_alloc(const char *name, struct uci_section *s, struct blob_attr *attr);
+struct interface *interface_alloc(const char *name, struct blob_attr *attr);
 void interface_free(struct interface *iface);
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);

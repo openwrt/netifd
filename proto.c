@@ -41,21 +41,32 @@ no_proto_handler(struct interface_proto_state *proto,
 }
 
 static struct interface_proto_state *
-get_default_proto(void)
+default_proto_attach(const struct proto_handler *h,
+		     struct interface *iface,
+		     struct uci_section *s)
 {
 	struct interface_proto_state *proto;
 
 	proto = calloc(1, sizeof(*proto));
 	proto->free = default_proto_free;
 	proto->flags = PROTO_FLAG_IMMEDIATE;
+	proto->handler = no_proto_handler;
 
 	return proto;
 }
 
-struct proto_handler *
+static const struct proto_handler no_proto = {
+	.name = "none",
+	.attach = default_proto_attach,
+};
+
+static const struct proto_handler *
 get_proto_handler(const char *name)
 {
 	struct proto_handler *proto;
+
+	if (!strcmp(name, "none"))
+	    return &no_proto;
 
 	if (!handlers.comp)
 		return NULL;
@@ -64,44 +75,38 @@ get_proto_handler(const char *name)
 }
 
 void
-proto_attach_interface(struct interface *iface, struct uci_section *s)
+proto_init_interface(struct interface *iface, struct uci_section *s)
 {
+	const struct proto_handler *proto = iface->proto_handler;
 	struct interface_proto_state *state = NULL;
-	struct proto_handler *proto = NULL;
-	const char *proto_name;
-	const char *error = NULL;
 
-	proto_name = uci_lookup_option_string(uci_ctx, s, "proto");
-	if (!proto_name) {
-		error = "NO_PROTO";
-		goto error;
-	}
+	if (proto)
+		state = proto->attach(proto, iface, s);
 
-	if (!strcmp(proto_name, "none")) {
-		state = get_default_proto();
-		state->handler = no_proto_handler;
-		goto out;
-	}
-
-	proto = get_proto_handler(proto_name);
-	if (!proto) {
-		error = "INVALID_PROTO";
-		goto error;
-	}
-
-	state = proto->attach(proto, iface, s);
-
-error:
-	if (error) {
-		interface_add_error(iface, "proto", error, NULL, 0);
-		state = get_default_proto();
+	if (!state) {
+		state = no_proto.attach(&no_proto, iface, s);
 		state->handler = invalid_proto_handler;
 	}
 
-out:
 	interface_set_proto_state(iface, state);
 }
 
+void
+proto_attach_interface(struct interface *iface, const char *proto_name)
+{
+	const struct proto_handler *proto = NULL;
+
+	if (!proto_name) {
+		interface_add_error(iface, "proto", "NO_PROTO", NULL, 0);
+		return;
+	}
+
+	proto = get_proto_handler(proto_name);
+	if (!proto)
+		interface_add_error(iface, "proto", "INVALID_PROTO", NULL, 0);
+
+	iface->proto_handler = proto;
+}
 
 int
 interface_proto_event(struct interface_proto_state *proto,

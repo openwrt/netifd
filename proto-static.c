@@ -215,7 +215,7 @@ static_free(struct interface_proto_state *proto)
 }
 
 struct interface_proto_state *
-static_attach(struct proto_handler *h, struct interface *iface,
+static_attach(const struct proto_handler *h, struct interface *iface,
 	      struct uci_section *s)
 {
 	struct static_proto_state *state;

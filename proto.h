@@ -32,7 +32,7 @@ struct interface_proto_state {
 };
 
 typedef struct interface_proto_state *
-	(*proto_attach_cb)(struct proto_handler *h, struct interface *,
+	(*proto_attach_cb)(const struct proto_handler *h, struct interface *,
 			   struct uci_section *s);
 
 struct proto_handler {
@@ -43,8 +43,8 @@ struct proto_handler {
 };
 
 void add_proto_handler(struct proto_handler *p);
-struct proto_handler *get_proto_handler(const char *name);
-void proto_attach_interface(struct interface *iface, struct uci_section *s);
+void proto_init_interface(struct interface *iface, struct uci_section *s);
+void proto_attach_interface(struct interface *iface, const char *proto_name);
 int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
 

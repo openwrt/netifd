@@ -201,12 +201,13 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 }
 
 struct interface *
-interface_alloc(const char *name, struct uci_section *s, struct blob_attr *attr)
+interface_alloc(const char *name, struct blob_attr *attr)
 {
 	struct interface *iface;
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
 	struct device *dev;
+	const char *proto_name = NULL;
 
 	iface = interface_get(name);
 	if (iface)
@@ -221,18 +222,21 @@ interface_alloc(const char *name, struct uci_section *s, struct blob_attr *attr)
 	INIT_LIST_HEAD(&iface->address);
 	INIT_LIST_HEAD(&iface->routes);
 
-	proto_attach_interface(iface, s);
-
-	netifd_ubus_add_interface(iface);
-
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(attr), blob_len(attr));
+
+	if ((cur = tb[IFACE_ATTR_PROTO]))
+		proto_name = blobmsg_data(cur);
+
+	proto_attach_interface(iface, proto_name);
 
 	if ((cur = tb[IFACE_ATTR_IFNAME])) {
 		dev = device_get(blobmsg_data(cur), true);
 		if (dev)
 			device_add_user(&iface->main_dev, dev);
 	}
+
+	netifd_ubus_add_interface(iface);
 
 	return iface;
 }
