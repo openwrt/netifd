@@ -216,7 +216,7 @@ interface_alloc(const char *name, struct uci_section *s, struct blob_attr *attr)
 	iface->main_dev.cb = interface_cb;
 	iface->l3_iface = &iface->main_dev;
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
-	list_add(&iface->list, &interfaces);
+	list_add_tail(&iface->list, &interfaces);
 	INIT_LIST_HEAD(&iface->errors);
 	INIT_LIST_HEAD(&iface->address);
 	INIT_LIST_HEAD(&iface->routes);

@@ -242,7 +242,7 @@ void device_set_present(struct device *dev, bool state)
 void device_add_user(struct device_user *dep, struct device *dev)
 {
 	dep->dev = dev;
-	list_add(&dep->list, &dev->users);
+	list_add_tail(&dep->list, &dev->users);
 	if (dep->cb && dev->present) {
 		dep->cb(dep, DEV_EVENT_ADD);
 		if (dev->active)

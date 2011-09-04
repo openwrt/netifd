@@ -18,7 +18,7 @@ int interface_add_address(struct interface *iface, struct device_addr *addr)
 	else
 		family = AF_INET;
 
-	list_add(&addr->list, &iface->address);
+	list_add_tail(&addr->list, &iface->address);
 	return system_add_address(iface->l3_iface->dev, addr);
 }
 
@@ -49,7 +49,7 @@ void interface_del_ctx_addr(struct interface *iface, void *ctx)
 
 int interface_add_route(struct interface *iface, struct device_route *route)
 {
-	list_add(&route->list, &iface->routes);
+	list_add_tail(&route->list, &iface->routes);
 	return system_add_route(iface->l3_iface->dev, route);
 }
 
