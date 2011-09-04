@@ -31,15 +31,14 @@ struct interface_proto_state {
 	void (*free)(struct interface_proto_state *);
 };
 
-typedef struct interface_proto_state *
-	(*proto_attach_cb)(const struct proto_handler *h, struct interface *,
-			   struct uci_section *s);
 
 struct proto_handler {
 	struct avl_node avl;
 
 	const char *name;
-	proto_attach_cb attach;
+
+	struct interface_proto_state *(*attach)(const struct proto_handler *h,
+		struct interface *, struct uci_section *s);
 };
 
 void add_proto_handler(struct proto_handler *p);
