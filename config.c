@@ -10,6 +10,7 @@ struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
 bool config_init = false;
 static struct blob_buf b;
+static unsigned int config_version = 1;
 
 
 static void uci_attr_to_blob(struct blob_buf *b, const char *str,
@@ -138,6 +139,16 @@ config_parse_bridge_interface(struct uci_section *s)
 	return 0;
 }
 
+void
+config_set_state(struct config_state *state, struct blob_attr *attr)
+{
+	state->data = malloc(blob_pad_len(attr));
+	if (!state->data)
+		return;
+
+	memcpy(state->data, attr, blob_pad_len(attr));
+}
+
 static void
 config_parse_interface(struct uci_section *s)
 {
@@ -163,6 +174,7 @@ config_parse_interface(struct uci_section *s)
 		uci_to_blob(&b, s, iface->proto_handler->config_params);
 
 	proto_init_interface(iface, b.head);
+	iface->config.version = config_version;
 }
 
 void

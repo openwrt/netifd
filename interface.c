@@ -238,6 +238,7 @@ interface_alloc(const char *name, struct blob_attr *attr)
 	}
 
 	netifd_ubus_add_interface(iface);
+	config_set_state(&iface->config, attr);
 
 	return iface;
 }

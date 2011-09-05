@@ -23,4 +23,12 @@ struct config_param_list {
 	const struct config_param_list *next[];
 };
 
+struct config_state {
+	struct blob_attr *data;
+	unsigned int version;
+};
+
+void config_set_state(struct config_state *state, struct blob_attr *attr);
+
+
 #endif

@@ -46,6 +46,8 @@ struct interface {
 	/* interface that layer 3 communication will go through */
 	struct device_user *l3_iface;
 
+	struct config_state config;
+
 	/* primary protocol state */
 	const struct proto_handler *proto_handler;
 	struct interface_proto_state *proto;
