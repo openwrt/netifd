@@ -207,31 +207,33 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!tb[DEV_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	dev = device_get(blobmsg_data(tb[DEV_NAME]), add);
-	if (!dev)
-		return UBUS_STATUS_NOT_FOUND;
-
 	main_dev = iface->main_dev.dev;
 	if (!main_dev)
 		return UBUS_STATUS_NOT_FOUND;
 
-	if (main_dev == dev)
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
 	if (!main_dev->hotplug_ops)
 		return UBUS_STATUS_NOT_SUPPORTED;
 
+	dev = device_get(blobmsg_data(tb[DEV_NAME]), add);
+	if (!dev)
+		return UBUS_STATUS_NOT_FOUND;
+
+	if (main_dev != dev) {
+		if (add)
+			ret = main_dev->hotplug_ops->add(main_dev, dev);
+		else
+			ret = main_dev->hotplug_ops->del(main_dev, dev);
+		if (ret)
+			ret = UBUS_STATUS_UNKNOWN_ERROR;
+	} else {
+		ret = UBUS_STATUS_INVALID_ARGUMENT;
+	}
+
 	if (add)
-		ret = main_dev->hotplug_ops->add(main_dev, dev);
-	else
-		ret = main_dev->hotplug_ops->del(main_dev, dev);
+		device_free_unused(dev);
 
-	if (ret)
-		return UBUS_STATUS_UNKNOWN_ERROR;
-
-	return 0;
+	return ret;
 }
-
 
 
 static struct ubus_method iface_object_methods[] = {
