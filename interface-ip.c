@@ -34,6 +34,7 @@ void interface_del_address(struct interface *iface, struct device_addr *addr)
 
 	list_del(&addr->list);
 	system_del_address(iface->l3_iface->dev, addr);
+	free(addr);
 }
 
 void interface_del_ctx_addr(struct interface *iface, void *ctx)
@@ -58,6 +59,8 @@ void interface_del_route(struct interface *iface, struct device_route *route)
 {
 	list_del(&route->list);
 	system_del_route(iface->l3_iface->dev, route);
+	if (!route->keep)
+		free(route);
 }
 
 void interface_del_all_routes(struct interface *iface)

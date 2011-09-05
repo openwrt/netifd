@@ -31,6 +31,7 @@ struct device_route {
 	void *ctx;
 
 	enum device_addr_flags flags;
+	bool keep;
 
 	unsigned int mask;
 	union if_addr addr;
