@@ -177,7 +177,7 @@ config_parse_interface(struct uci_section *s)
 	iface->config.version = config_version;
 }
 
-void
+static void
 config_init_devices(void)
 {
 	struct uci_element *e;
