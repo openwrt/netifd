@@ -278,15 +278,23 @@ void device_remove_user(struct device_user *dep)
 	dep->dev = NULL;
 }
 
-void
-device_free_all(void)
+static void
+__device_free_unused(struct device *dev)
 {
-	struct device *dev, *tmp;
+	if (!list_empty(&dev->users))
+		return;
 
-	avl_for_each_element_safe(&devices, dev, avl, tmp) {
-		if (!list_empty(&dev->users))
-			continue;
+	device_free(dev);
+}
 
-		device_free(dev);
-	}
+void
+device_free_unused(struct device *dev)
+{
+	struct device *tmp;
+
+	if (dev)
+		return __device_free_unused(dev);
+
+	avl_for_each_element_safe(&devices, dev, avl, tmp)
+		__device_free_unused(dev);
 }

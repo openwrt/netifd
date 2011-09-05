@@ -158,7 +158,7 @@ device_free(struct device *dev)
 	dev->type->free(dev);
 }
 
-void device_free_all(void);
+void device_free_unused(struct device *dev);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);
 

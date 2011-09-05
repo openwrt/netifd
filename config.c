@@ -221,7 +221,7 @@ config_init_interfaces(const char *name)
 		if (!strcmp(s->type, "interface"))
 			config_parse_interface(s);
 	}
-	device_free_all();
+	device_free_unused(NULL);
 	config_init = false;
 
 	interface_start_pending();
