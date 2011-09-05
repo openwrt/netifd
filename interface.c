@@ -5,6 +5,7 @@
 #include "netifd.h"
 #include "device.h"
 #include "interface.h"
+#include "interface-ip.h"
 #include "proto.h"
 #include "ubus.h"
 #include "config.h"

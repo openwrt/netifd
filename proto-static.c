@@ -7,6 +7,7 @@
 
 #include "netifd.h"
 #include "interface.h"
+#include "interface-ip.h"
 #include "proto.h"
 #include "system.h"
 

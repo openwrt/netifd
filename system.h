@@ -3,6 +3,7 @@
 
 #include <sys/socket.h>
 #include "device.h"
+#include "interface-ip.h"
 
 int system_bridge_addbr(struct device *bridge);
 int system_bridge_delbr(struct device *bridge);
