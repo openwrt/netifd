@@ -261,6 +261,15 @@ void device_add_user(struct device_user *dep, struct device *dev)
 	}
 }
 
+static void
+__device_free_unused(struct device *dev)
+{
+	if (!list_empty(&dev->users))
+		return;
+
+	device_free(dev);
+}
+
 void device_remove_user(struct device_user *dep)
 {
 	struct device *dev = dep->dev;
@@ -269,22 +278,8 @@ void device_remove_user(struct device_user *dep)
 		device_release(dep);
 
 	list_del(&dep->list);
-
-	if (list_empty(&dev->users)) {
-		/* all references have gone away, remove this device */
-		device_free(dev);
-	}
-
 	dep->dev = NULL;
-}
-
-static void
-__device_free_unused(struct device *dev)
-{
-	if (!list_empty(&dev->users))
-		return;
-
-	device_free(dev);
+	__device_free_unused(dev);
 }
 
 void
