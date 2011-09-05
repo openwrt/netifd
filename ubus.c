@@ -12,23 +12,25 @@ static struct blob_buf b;
 enum {
 	DEV_NAME,
 	DEV_FORCE,
-	DEV_LAST,
+	__DEV_MAX,
+	__DEV_MAX_NOFORCE = __DEV_MAX - 1,
 };
 
-static const struct blobmsg_policy dev_policy[] = {
+static const struct blobmsg_policy dev_policy[__DEV_MAX] = {
 	[DEV_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
 	[DEV_FORCE] = { .name = "force", .type = BLOBMSG_TYPE_INT8 },
 };
 
-static int netifd_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
-				struct ubus_request_data *req, const char *method,
-				struct blob_attr *msg)
+static int
+netifd_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
+		     struct ubus_request_data *req, const char *method,
+		     struct blob_attr *msg)
 {
 	struct device *dev;
-	struct blob_attr *tb[DEV_LAST];
+	struct blob_attr *tb[__DEV_MAX];
 	bool add = !strncmp(method, "add", 3);
 
-	blobmsg_parse(dev_policy, ARRAY_SIZE(dev_policy), tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(msg), blob_len(msg));
 
 	if (!tb[DEV_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
@@ -47,7 +49,7 @@ static int netifd_handle_device(struct ubus_context *ctx, struct ubus_object *ob
 
 static struct ubus_method main_object_methods[] = {
 	UBUS_METHOD("add_device", netifd_handle_device, dev_policy),
-	UBUS_METHOD("del_device", netifd_handle_device, dev_policy),
+	UBUS_METHOD("remove_device", netifd_handle_device, dev_policy),
 };
 
 static struct ubus_object_type main_object_type =
@@ -60,7 +62,8 @@ static struct ubus_object main_object = {
 	.n_methods = ARRAY_SIZE(main_object_methods),
 };
 
-int netifd_ubus_init(const char *path)
+int
+netifd_ubus_init(const char *path)
 {
 	int ret;
 
@@ -79,7 +82,8 @@ int netifd_ubus_init(const char *path)
 	return 0;
 }
 
-void netifd_ubus_done(void)
+void
+netifd_ubus_done(void)
 {
 	ubus_free(ctx);
 }
@@ -87,9 +91,10 @@ void netifd_ubus_done(void)
 
 /* per-interface object */
 
-static int netifd_handle_up(struct ubus_context *ctx, struct ubus_object *obj,
-			    struct ubus_request_data *req, const char *method,
-			    struct blob_attr *msg)
+static int
+netifd_handle_up(struct ubus_context *ctx, struct ubus_object *obj,
+		 struct ubus_request_data *req, const char *method,
+		 struct blob_attr *msg)
 {
 	struct interface *iface;
 
@@ -99,9 +104,10 @@ static int netifd_handle_up(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
-static int netifd_handle_down(struct ubus_context *ctx, struct ubus_object *obj,
-			      struct ubus_request_data *req, const char *method,
-			      struct blob_attr *msg)
+static int
+netifd_handle_down(struct ubus_context *ctx, struct ubus_object *obj,
+		   struct ubus_request_data *req, const char *method,
+		   struct blob_attr *msg)
 {
 	struct interface *iface;
 
@@ -111,7 +117,8 @@ static int netifd_handle_down(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
-static void netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
+static void
+netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
 {
 	struct interface_error *error;
 	void *e, *e2, *e3;
@@ -135,9 +142,10 @@ static void netifd_add_interface_errors(struct blob_buf *b, struct interface *if
 	blobmsg_close_array(b, e);
 }
 
-static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
-				struct ubus_request_data *req, const char *method,
-				struct blob_attr *msg)
+static int
+netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
+		     struct ubus_request_data *req, const char *method,
+		     struct blob_attr *msg)
 {
 	static const char *iface_state[] = {
 		[IFS_SETUP] = "setup",
@@ -181,18 +189,67 @@ static int netifd_handle_status(struct ubus_context *ctx, struct ubus_object *ob
 	return 0;
 }
 
+static int
+netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
+			   struct ubus_request_data *req, const char *method,
+			   struct blob_attr *msg)
+{
+	struct interface *iface;
+	struct device *dev, *main_dev;
+	struct blob_attr *tb[__DEV_MAX];
+	bool add = !strncmp(method, "add", 3);
+	int ret;
+
+	iface = container_of(obj, struct interface, ubus);
+
+	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(msg), blob_len(msg));
+
+	if (!tb[DEV_NAME])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	dev = device_get(blobmsg_data(tb[DEV_NAME]), add);
+	if (!dev)
+		return UBUS_STATUS_NOT_FOUND;
+
+	main_dev = iface->main_dev.dev;
+	if (!main_dev)
+		return UBUS_STATUS_NOT_FOUND;
+
+	if (main_dev == dev)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	if (!main_dev->hotplug_ops)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	if (add)
+		ret = main_dev->hotplug_ops->add(main_dev, dev);
+	else
+		ret = main_dev->hotplug_ops->del(main_dev, dev);
+
+	if (ret)
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
+	return 0;
+}
+
+
 
 static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
 	{ .name = "status", .handler = netifd_handle_status },
+	{ .name = "add_device", .handler = netifd_iface_handle_device,
+	  .policy = dev_policy, .n_policy = __DEV_MAX_NOFORCE },
+	{ .name = "remove_device", .handler = netifd_iface_handle_device,
+	  .policy = dev_policy, .n_policy = __DEV_MAX_NOFORCE },
 };
 
 static struct ubus_object_type iface_object_type =
 	UBUS_OBJECT_TYPE("netifd_iface", iface_object_methods);
 
 
-void netifd_ubus_add_interface(struct interface *iface)
+void
+netifd_ubus_add_interface(struct interface *iface)
 {
 	struct ubus_object *obj = &iface->ubus;
 	char *name;
@@ -213,7 +270,8 @@ void netifd_ubus_add_interface(struct interface *iface)
 	}
 }
 
-void netifd_ubus_remove_interface(struct interface *iface)
+void
+netifd_ubus_remove_interface(struct interface *iface)
 {
 	if (!iface->ubus.name)
 		return;
