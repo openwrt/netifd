@@ -89,6 +89,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 static void
 mark_interface_down(struct interface *iface)
 {
+	interface_del_all_routes(iface);
 	interface_del_ctx_addr(iface, NULL);
 	device_release(&iface->main_dev);
 	iface->state = IFS_DOWN;
