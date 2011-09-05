@@ -28,7 +28,7 @@ struct config_state {
 	unsigned int version;
 };
 
-void config_set_state(struct config_state *state, struct blob_attr *attr);
+void config_set_state(struct config_state *state, const struct blob_attr *attr);
 
 
 #endif

@@ -140,7 +140,7 @@ config_parse_bridge_interface(struct uci_section *s)
 }
 
 void
-config_set_state(struct config_state *state, struct blob_attr *attr)
+config_set_state(struct config_state *state, const struct blob_attr *attr)
 {
 	state->data = malloc(blob_pad_len(attr));
 	if (!state->data)
