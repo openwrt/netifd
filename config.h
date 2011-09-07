@@ -3,6 +3,8 @@
 
 #include <libubox/blobmsg.h>
 
+extern bool config_init;
+
 enum config_param_type {
 	CONFIG_PARAM_TYPE_SIMPLE,
 	CONFIG_PARAM_TYPE_LIST,
@@ -28,7 +30,7 @@ struct config_state {
 	unsigned int version;
 };
 
+void config_init_interfaces(const char *name);
 void config_set_state(struct config_state *state, const struct blob_attr *attr);
-
 
 #endif

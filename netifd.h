@@ -10,16 +10,10 @@
 #include <libubox/uloop.h>
 
 #include <libubus.h>
-#include <uci.h>
 
 #include "utils.h"
 
 struct device;
 struct interface;
-
-extern struct uci_context *uci_ctx;
-extern bool config_init;
-
-void config_init_interfaces(const char *name);
 
 #endif

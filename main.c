@@ -5,6 +5,7 @@
 
 #include "netifd.h"
 #include "ubus.h"
+#include "config.h"
 
 static int usage(const char *progname)
 {

@@ -2,16 +2,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <uci.h>
+
 #include "netifd.h"
 #include "interface.h"
 #include "proto.h"
+#include "config.h"
 
-struct uci_context *uci_ctx;
-static struct uci_package *uci_network;
 bool config_init = false;
+
+static struct uci_context *uci_ctx;
+static struct uci_package *uci_network;
 static struct blob_buf b;
 static unsigned int config_version = 1;
-
 
 static void uci_attr_to_blob(struct blob_buf *b, const char *str,
 			     const char *name, enum blobmsg_type type)
