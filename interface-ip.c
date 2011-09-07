@@ -10,63 +10,60 @@
 #include "ubus.h"
 #include "system.h"
 
-int interface_add_address(struct interface *iface, struct device_addr *addr)
+static void
+interface_update_proto_addr(struct vlist_tree *tree,
+			    struct vlist_node *node_new,
+			    struct vlist_node *node_old)
 {
-	int family;
+	struct interface *iface;
+	struct device *dev;
+	struct device_addr *addr;
 
-	if (addr->flags & DEVADDR_INET6)
-		family = AF_INET6;
-	else
-		family = AF_INET;
+	iface = container_of(tree, struct interface, proto_addr);
+	dev = iface->l3_iface->dev;
 
-	list_add_tail(&addr->list, &iface->address);
-	return system_add_address(iface->l3_iface->dev, addr);
-}
+	if (node_old) {
+		addr = container_of(node_old, struct device_addr, node);
+		system_del_address(dev, addr);
+		free(addr);
+	}
 
-void interface_del_address(struct interface *iface, struct device_addr *addr)
-{
-	int family;
-
-	if (addr->flags & DEVADDR_INET6)
-		family = AF_INET6;
-	else
-		family = AF_INET;
-
-	list_del(&addr->list);
-	system_del_address(iface->l3_iface->dev, addr);
-	free(addr);
-}
-
-void interface_del_ctx_addr(struct interface *iface, void *ctx)
-{
-	struct device_addr *addr, *tmp;
-
-	list_for_each_entry_safe(addr, tmp, &iface->address, list) {
-		if (ctx && addr->ctx != ctx)
-			continue;
-
-		interface_del_address(iface, addr);
+	if (node_new) {
+		addr = container_of(node_new, struct device_addr, node);
+		system_add_address(dev, addr);
 	}
 }
 
-int interface_add_route(struct interface *iface, struct device_route *route)
+static void
+interface_update_proto_route(struct vlist_tree *tree,
+			     struct vlist_node *node_new,
+			     struct vlist_node *node_old)
 {
-	list_add_tail(&route->list, &iface->routes);
-	return system_add_route(iface->l3_iface->dev, route);
-}
+	struct interface *iface;
+	struct device *dev;
+	struct device_route *route;
 
-void interface_del_route(struct interface *iface, struct device_route *route)
-{
-	list_del(&route->list);
-	system_del_route(iface->l3_iface->dev, route);
-	if (!route->keep)
+	iface = container_of(tree, struct interface, proto_route);
+	dev = iface->l3_iface->dev;
+
+	if (node_old) {
+		route = container_of(node_old, struct device_route, node);
+		system_del_route(dev, route);
 		free(route);
+	}
+
+	if (node_new) {
+		route = container_of(node_new, struct device_route, node);
+		system_add_route(dev, route);
+	}
 }
 
-void interface_del_all_routes(struct interface *iface)
+void
+interface_ip_init(struct interface *iface)
 {
-	struct device_route *route, *tmp;
-
-	list_for_each_entry_safe(route, tmp, &iface->routes, list)
-		interface_del_route(iface, route);
+	vlist_init(&iface->proto_route, interface_update_proto_route,
+		   struct device_route, node, mask, addr);
+	vlist_init(&iface->proto_addr, interface_update_proto_addr,
+		   struct device_addr, node, mask, addr);
 }
+

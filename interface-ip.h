@@ -17,8 +17,7 @@ union if_addr {
 };
 
 struct device_addr {
-	struct list_head list;
-	void *ctx;
+	struct vlist_node node;
 
 	enum device_addr_flags flags;
 
@@ -27,8 +26,7 @@ struct device_addr {
 };
 
 struct device_route {
-	struct list_head list;
-	void *ctx;
+	struct vlist_node node;
 
 	enum device_addr_flags flags;
 	bool keep;
@@ -38,12 +36,6 @@ struct device_route {
 	union if_addr nexthop;
 };
 
-int interface_add_address(struct interface *iface, struct device_addr *addr);
-void interface_del_address(struct interface *iface, struct device_addr *addr);
-void interface_del_ctx_addr(struct interface *iface, void *ctx);
-
-int interface_add_route(struct interface *iface, struct device_route *route);
-void interface_del_route(struct interface *iface, struct device_route *route);
-void interface_del_all_routes(struct interface *iface);
+void interface_ip_init(struct interface *iface);
 
 #endif

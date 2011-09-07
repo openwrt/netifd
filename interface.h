@@ -52,7 +52,8 @@ struct interface {
 	const struct proto_handler *proto_handler;
 	struct interface_proto_state *proto;
 
-	struct list_head address, routes;
+	struct vlist_tree proto_addr;
+	struct vlist_tree proto_route;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;

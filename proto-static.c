@@ -89,14 +89,13 @@ parse_addr(struct interface_proto_state *state, const char *str, bool v6, int ma
 
 	addr = calloc(1, sizeof(*addr));
 	addr->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
-	addr->ctx = state;
 	addr->mask = mask;
 	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask)) {
 		interface_add_error(state->iface, "proto-static", "INVALID_ADDRESS", &str, 1);
 		free(addr);
 		return false;
 	}
-	interface_add_address(state->iface, addr);
+	vlist_add(&state->iface->proto_addr, &addr->node);
 	return true;
 }
 
@@ -132,7 +131,7 @@ parse_gateway_option(struct interface_proto_state *state, struct blob_attr *attr
 	}
 	route->mask = 0;
 	route->flags = DEVADDR_DEVICE | (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
-	interface_add_route(state->iface, route);
+	vlist_add(&state->iface->proto_route, &route->node);
 
 	return true;
 }
@@ -211,7 +210,6 @@ static_handler(struct interface_proto_state *proto,
 
 		/* fall through */
 	case PROTO_CMD_TEARDOWN:
-		interface_del_ctx_addr(state->proto.iface, proto);
 		break;
 	}
 	return ret;

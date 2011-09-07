@@ -2,6 +2,7 @@
 #define __NETIFD_UTILS_H
 
 #include <libubox/list.h>
+#include <libubox/avl.h>
 
 #ifdef DEBUG
 #define DPRINTF(format, ...) fprintf(stderr, "%s(%d): " format, __func__, __LINE__, ## __VA_ARGS__)
@@ -14,6 +15,40 @@ static inline void no_debug(const char *fmt, ...)
 }
 
 #define __init __attribute__((constructor))
+
+struct vlist_tree;
+struct vlist_node;
+
+typedef void (*vlist_update_cb)(struct vlist_tree *tree,
+				struct vlist_node *node_new,
+				struct vlist_node *node_old);
+
+struct vlist_tree {
+	struct avl_tree avl;
+
+	vlist_update_cb update;
+
+	int data_offset;
+	int data_len;
+
+	int version;
+};
+
+struct vlist_node {
+	struct avl_node avl;
+	int version;
+};
+
+void __vlist_init(struct vlist_tree *tree, vlist_update_cb update, int offset, int len);
+
+#define vlist_init(tree, update, type, vlist, first, last) \
+	__vlist_init(tree, update, offsetof(type, first) - offsetof(type, vlist), \
+		     offsetof(type, last) - offsetof(type, first) + sizeof(((type *) 0)->last))
+
+void vlist_add(struct vlist_tree *tree, struct vlist_node *node);
+void vlist_delete(struct vlist_tree *tree, struct vlist_node *node);
+void vlist_flush(struct vlist_tree *tree);
+void vlist_flush_all(struct vlist_tree *tree);
 
 #ifdef __linux__
 static inline int fls(int x)

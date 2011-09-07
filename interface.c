@@ -89,8 +89,8 @@ interface_event(struct interface *iface, enum interface_event ev)
 static void
 mark_interface_down(struct interface *iface)
 {
-	interface_del_all_routes(iface);
-	interface_del_ctx_addr(iface, NULL);
+	vlist_flush_all(&iface->proto_addr);
+	vlist_flush_all(&iface->proto_route);
 	device_release(&iface->main_dev);
 	iface->state = IFS_DOWN;
 }
@@ -129,8 +129,6 @@ __interface_set_down(struct interface *iface, bool force)
 
 	iface->state = IFS_TEARDOWN;
 	interface_event(iface, IFEV_DOWN);
-
-	interface_del_all_routes(iface);
 	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
 }
 
@@ -221,8 +219,8 @@ interface_alloc(const char *name, struct blob_attr *attr)
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	list_add_tail(&iface->list, &interfaces);
 	INIT_LIST_HEAD(&iface->errors);
-	INIT_LIST_HEAD(&iface->address);
-	INIT_LIST_HEAD(&iface->routes);
+
+	interface_ip_init(iface);
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(attr), blob_len(attr));
