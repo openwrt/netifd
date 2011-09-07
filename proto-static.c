@@ -43,7 +43,6 @@ struct static_proto_state {
 	struct interface_proto_state proto;
 
 	struct blob_attr *config;
-	struct interface *iface;
 };
 
 static bool
@@ -83,7 +82,7 @@ parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 }
 
 static bool
-parse_addr(struct static_proto_state *state, const char *str, bool v6, int mask)
+parse_addr(struct interface_proto_state *state, const char *str, bool v6, int mask)
 {
 	struct device_addr *addr;
 	int af = v6 ? AF_INET6 : AF_INET;
@@ -102,7 +101,7 @@ parse_addr(struct static_proto_state *state, const char *str, bool v6, int mask)
 }
 
 static int
-parse_address_option(struct static_proto_state *state, struct blob_attr *attr, bool v6, int netmask)
+parse_address_option(struct interface_proto_state *state, struct blob_attr *attr, bool v6, int netmask)
 {
 	struct blob_attr *cur;
 	int n_addr = 0;
@@ -118,7 +117,7 @@ parse_address_option(struct static_proto_state *state, struct blob_attr *attr, b
 }
 
 static bool
-parse_gateway_option(struct static_proto_state *state, struct blob_attr *attr, bool v6)
+parse_gateway_option(struct interface_proto_state *state, struct blob_attr *attr, bool v6)
 {
 	struct device_route *route;
 	const char *str = blobmsg_data(attr);
@@ -138,8 +137,8 @@ parse_gateway_option(struct static_proto_state *state, struct blob_attr *attr, b
 	return true;
 }
 
-static bool
-static_proto_setup(struct static_proto_state *state)
+int
+proto_apply_static_settings(struct interface_proto_state *state, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__OPT_MAX];
 	struct in_addr ina;
@@ -147,8 +146,7 @@ static_proto_setup(struct static_proto_state *state)
 	int netmask = 32;
 	int n_v4 = 0, n_v6 = 0;
 
-	blobmsg_parse(static_attrs, __OPT_MAX, tb, blob_data(state->config),
-		blob_len(state->config));
+	blobmsg_parse(static_attrs, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
 
 	if (tb[OPT_NETMASK]) {
 		if (!inet_aton(blobmsg_data(tb[OPT_NETMASK]), &ina)) {
@@ -183,12 +181,18 @@ static_proto_setup(struct static_proto_state *state)
 			goto out;
 	}
 
-	return true;
+	return 0;
 
 error:
 	interface_add_error(state->iface, "proto-static", error, NULL, 0);
 out:
-	return false;
+	return -1;
+}
+
+static bool
+static_proto_setup(struct static_proto_state *state)
+{
+	return proto_apply_static_settings(&state->proto, state->config) == 0;
 }
 
 static int
@@ -207,7 +211,7 @@ static_handler(struct interface_proto_state *proto,
 
 		/* fall through */
 	case PROTO_CMD_TEARDOWN:
-		interface_del_ctx_addr(state->iface, state);
+		interface_del_ctx_addr(state->proto.iface, proto);
 		break;
 	}
 	return ret;
@@ -233,7 +237,6 @@ static_attach(const struct proto_handler *h, struct interface *iface,
 	if (!state)
 		return NULL;
 
-	state->iface = iface;
 	state->config = malloc(blob_pad_len(attr));
 	if (!state->config)
 		goto error;
