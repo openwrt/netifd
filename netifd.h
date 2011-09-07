@@ -16,8 +16,12 @@
 #ifdef DEBUG
 #define DPRINTF(format, ...) fprintf(stderr, "%s(%d): " format, __func__, __LINE__, ## __VA_ARGS__)
 #else
-#define DPRINTF(...) do {} while(0)
+#define DPRINTF(format, ...) no_debug(format, ## __VA_ARGS__)
 #endif
+
+static inline void no_debug(const char *fmt, ...)
+{
+}
 
 #define __init __attribute__((constructor))
 
