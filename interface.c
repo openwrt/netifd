@@ -238,6 +238,11 @@ interface_alloc(const char *name, struct blob_attr *attr)
 			device_add_user(&iface->main_dev, dev);
 	}
 
+	if ((cur = tb[IFACE_ATTR_AUTO]))
+		iface->autostart = blobmsg_get_bool(cur);
+	else
+		iface->autostart = true;
+
 	netifd_ubus_add_interface(iface);
 	config_set_state(&iface->config, attr);
 
