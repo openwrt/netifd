@@ -154,7 +154,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	blob_buf_init(&b, 0);
 	blobmsg_add_u8(&b, "up", iface->state == IFS_UP);
 	blobmsg_add_u8(&b, "pending", iface->state == IFS_SETUP);
-	blobmsg_add_u8(&b, "active", iface->active);
+	blobmsg_add_u8(&b, "available", iface->available);
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
 	if (iface->main_dev.dev) {
 		struct device *dev = iface->main_dev.dev;

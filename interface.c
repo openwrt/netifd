@@ -150,10 +150,10 @@ interface_cb(struct device_user *dep, enum device_event ev)
 		return;
 	}
 
-	if (iface->active == new_state)
+	if (iface->available == new_state)
 		return;
 
-	iface->active = new_state;
+	iface->available = new_state;
 
 	if (new_state) {
 		if (iface->autostart && !config_init)
@@ -303,7 +303,7 @@ interface_set_up(struct interface *iface)
 {
 	iface->autostart = true;
 
-	if (!iface->active) {
+	if (!iface->available) {
 		interface_add_error(iface, "interface", "NO_DEVICE", NULL, 0);
 		return -1;
 	}
@@ -329,7 +329,7 @@ interface_start_pending(void)
 	struct interface *iface;
 
 	list_for_each_entry(iface, &interfaces, list) {
-		if (iface->active && iface->autostart)
+		if (iface->available && iface->autostart)
 			interface_set_up(iface);
 	}
 }

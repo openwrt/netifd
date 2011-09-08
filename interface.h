@@ -35,7 +35,7 @@ struct interface {
 
 	char name[IFNAMSIZ];
 
-	bool active;
+	bool available;
 	bool autostart;
 
 	enum interface_state state;
