@@ -16,4 +16,6 @@
 struct device;
 struct interface;
 
+void netifd_restart(void);
+
 #endif

@@ -7,6 +7,22 @@
 #include "ubus.h"
 #include "config.h"
 
+static char **global_argv;
+
+static void netifd_do_restart(struct uloop_timeout *timeout)
+{
+	execvp(global_argv[0], global_argv);
+}
+
+static struct uloop_timeout restart_timer = {
+	.cb = netifd_do_restart,
+};
+
+void netifd_restart(void)
+{
+	uloop_timeout_set(&restart_timer, 1000);
+}
+
 static int usage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s [options]\n"
@@ -21,6 +37,8 @@ int main(int argc, char **argv)
 {
 	const char *socket = NULL;
 	int ch;
+
+	global_argv = argv;
 
 	while ((ch = getopt(argc, argv, "s:")) != -1) {
 		switch(ch) {

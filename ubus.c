@@ -47,9 +47,19 @@ netifd_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+static int
+netifd_handle_restart(struct ubus_context *ctx, struct ubus_object *obj,
+		      struct ubus_request_data *req, const char *method,
+		      struct blob_attr *msg)
+{
+	netifd_restart();
+	return 0;
+}
+
 static struct ubus_method main_object_methods[] = {
 	UBUS_METHOD("add_device", netifd_handle_device, dev_policy),
 	UBUS_METHOD("remove_device", netifd_handle_device, dev_policy),
+	{ .name = "restart", .handler = netifd_handle_restart },
 };
 
 static struct ubus_object_type main_object_type =
