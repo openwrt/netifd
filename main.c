@@ -7,6 +7,7 @@
 #include "ubus.h"
 #include "config.h"
 
+const char *main_path = ".";
 static char **global_argv;
 
 static void netifd_do_restart(struct uloop_timeout *timeout)
@@ -28,7 +29,8 @@ static int usage(const char *progname)
 	fprintf(stderr, "Usage: %s [options]\n"
 		"Options:\n"
 		" -s <path>:		Path to the ubus socket\n"
-		"\n", progname);
+		" -p <path>:		Path to netifd addons (default: %s)\n"
+		"\n", progname, main_path);
 
 	return 1;
 }
@@ -44,6 +46,9 @@ int main(int argc, char **argv)
 		switch(ch) {
 		case 's':
 			socket = optarg;
+			break;
+		case 'p':
+			main_path = optarg;
 			break;
 		default:
 			return usage(argv[0]);

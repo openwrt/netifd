@@ -16,6 +16,7 @@
 struct device;
 struct interface;
 
+extern const char *main_path;
 void netifd_restart(void);
 
 #endif
