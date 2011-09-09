@@ -19,10 +19,6 @@ enum {
 	IFACE_ATTR_MAX
 };
 
-static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
-	[IFACE_ATTR_IFNAME].type = BLOBMSG_TYPE_STRING,
-};
-
 static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
@@ -32,7 +28,6 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 const struct config_param_list interface_attr_list = {
 	.n_params = IFACE_ATTR_MAX,
 	.params = iface_attrs,
-	.info = iface_attr_info,
 };
 
 static void
