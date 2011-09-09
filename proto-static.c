@@ -205,10 +205,10 @@ static_handler(struct interface_proto_state *proto,
 
 	switch (cmd) {
 	case PROTO_CMD_SETUP:
-		if (static_proto_setup(state))
-			break;
+		if (!static_proto_setup(state))
+			return -1;
 
-		/* fall through */
+		break;
 	case PROTO_CMD_TEARDOWN:
 		break;
 	}
