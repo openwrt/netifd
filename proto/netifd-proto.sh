@@ -1,15 +1,22 @@
 . /usr/share/libubox/jshn.sh
 
+proto_config_add_generic() {
+	json_add_array ""
+	json_add_string "" "$1"
+	json_add_int "" "$2"
+	json_close_array
+}
+
 proto_config_add_int() {
-	json_add_int "$1" 5
+	proto_config_add_generic "$1" 5
 }
 
 proto_config_add_string() {
-	json_add_int "$1" 3
+	proto_config_add_generic "$1" 3
 }
 
 proto_config_add_boolean() {
-	json_add_int "$1" 7
+	proto_config_add_generic "$1" 7
 }
 
 add_default_handler() {
@@ -30,9 +37,9 @@ case "$1" in
 			json_add_string "name" "$1"
 			eval "$1_init"
 			json_add_boolean immediate "$immediate"
-			json_add_object "config"
+			json_add_array "config"
 			eval "$1_init_config"
-			json_close_object
+			json_close_array
 			json_dump
 		}
 	;;

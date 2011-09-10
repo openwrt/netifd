@@ -8,6 +8,14 @@ ppp_init_config() {
 	proto_config_add_int "keepalive"
 }
 
+ppp_setup() {
+	return
+}
+
+ppp_teardown() {
+	return
+}
+
 ppp_init() {
 	return
 }
