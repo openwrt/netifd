@@ -20,7 +20,6 @@ struct proto_shell_handler {
 	struct proto_handler proto;
 };
 
-#define DUMP_PREFIX	"./"
 #define DUMP_SUFFIX	" dump"
 
 static void proto_shell_add_handler(const char *script, struct json_object *obj)
@@ -40,8 +39,8 @@ static void proto_shell_add_script(const char *name)
 	FILE *f;
 	int buflen, len;
 
-	cmd = alloca(strlen(name) + 1 + sizeof(DUMP_PREFIX) + sizeof(DUMP_SUFFIX));
-	sprintf(cmd, DUMP_PREFIX "%s" DUMP_SUFFIX, name);
+	cmd = alloca(strlen(name) + 1 + sizeof(DUMP_SUFFIX));
+	sprintf(cmd, "%s" DUMP_SUFFIX, name);
 
 	f = popen(cmd, "r");
 	if (!f)
@@ -104,7 +103,7 @@ void __init proto_shell_init(void)
 	if (proto_fd < 0)
 		goto close_cur;
 
-	glob("*.sh", 0, NULL, &g);
+	glob("./*.sh", 0, NULL, &g);
 	for (i = 0; i < g.gl_pathc; i++)
 		proto_shell_add_script(g.gl_pathv[i]);
 
