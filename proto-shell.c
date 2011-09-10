@@ -29,8 +29,6 @@ struct proto_shell_state {
 	struct blob_attr *config;
 };
 
-#define DUMP_SUFFIX	" '' dump"
-
 static int run_script(const char **argv)
 {
 	int pid, ret;
@@ -230,6 +228,8 @@ static void proto_shell_add_script(const char *name)
 	char *start, *end, *cmd;
 	FILE *f;
 	int buflen, len;
+
+#define DUMP_SUFFIX	" '' dump"
 
 	cmd = alloca(strlen(name) + 1 + sizeof(DUMP_SUFFIX));
 	sprintf(cmd, "%s" DUMP_SUFFIX, name);
