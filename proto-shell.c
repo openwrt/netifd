@@ -13,7 +13,7 @@
 #include "proto.h"
 
 static LIST_HEAD(handlers);
-static int proto_fd, main_fd;
+static int proto_fd;
 
 struct proto_shell_handler {
 	struct list_head list;
@@ -25,21 +25,69 @@ struct proto_shell_handler {
 
 struct proto_shell_state {
 	struct interface_proto_state proto;
+	struct proto_shell_handler *handler;
 	struct blob_attr *config;
 };
 
-#define DUMP_SUFFIX	" dump"
+#define DUMP_SUFFIX	" '' dump"
+
+static int run_script(const char **argv)
+{
+	int pid, ret;
+
+	if ((pid = fork()) < 0)
+		return -1;
+
+	if (!pid) {
+		fchdir(proto_fd);
+		execvp(argv[0], (char **) argv);
+		exit(127);
+	}
+
+	if (waitpid(pid, &ret, 0) == -1)
+		ret = -1;
+
+	if (ret > 0)
+		return -ret;
+
+	return 0;
+}
 
 static int
 proto_shell_handler(struct interface_proto_state *proto,
 		    enum interface_proto_cmd cmd, bool force)
 {
+	struct proto_shell_state *state;
+	struct proto_shell_handler *handler;
+	const char *argv[5];
+	char *config;
+	int ret;
+
+	state = container_of(proto, struct proto_shell_state, proto);
+	handler = state->handler;
+
+	config = blobmsg_format_json(state->config, true);
+	if (!config)
+		return -1;
+
+	argv[0] = handler->script_name;
+	argv[1] = handler->proto.name;
+	argv[2] = "teardown";
+	argv[3] = config;
+	argv[4] = NULL;
+
 	switch(cmd) {
 	case PROTO_CMD_SETUP:
+		argv[2] = "setup";
+		/* fall through */
 	case PROTO_CMD_TEARDOWN:
+		ret = run_script(argv);
 		break;
 	}
-	return 0;
+
+	free(config);
+
+	return ret;
 }
 
 static void
@@ -66,6 +114,7 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	memcpy(state->config, attr, blob_pad_len(attr));
 	state->proto.free = proto_shell_free;
 	state->proto.handler = proto_shell_handler;
+	state->handler = container_of(h, struct proto_shell_handler, proto);
 
 	return &state->proto;
 
@@ -228,6 +277,7 @@ static void proto_shell_add_script(const char *name)
 void __init proto_shell_init(void)
 {
 	glob_t g;
+	int main_fd;
 	int i;
 
 	main_fd = open(".", O_RDONLY | O_DIRECTORY);
@@ -250,11 +300,7 @@ void __init proto_shell_init(void)
 	for (i = 0; i < g.gl_pathc; i++)
 		proto_shell_add_script(g.gl_pathv[i]);
 
-	if (list_empty(&handlers))
-		close(proto_fd);
-
 close_cur:
 	fchdir(main_fd);
-	if (list_empty(&handlers))
-		close(main_fd);
+	close(main_fd);
 }

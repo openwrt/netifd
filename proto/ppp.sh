@@ -9,7 +9,7 @@ ppp_init_config() {
 }
 
 ppp_setup() {
-	return
+	echo "ppp_setup: $1"
 }
 
 ppp_teardown() {
@@ -27,6 +27,14 @@ pppoe_init_config() {
 }
 
 pppoe_init() {
+	return
+}
+
+pppoe_setup() {
+	echo "pppoe_setup: $1"
+}
+
+pppoe_teardown() {
 	return
 }
 

@@ -21,4 +21,4 @@ ADD_EXECUTABLE(netifd
 	config.c device.c bridge.c vlan.c ubus.c
 	system-dummy.c)
 
-TARGET_LINK_LIBRARIES(netifd ubox ubus uci json)
+TARGET_LINK_LIBRARIES(netifd ubox ubus uci json blobmsg_json)

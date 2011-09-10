@@ -26,7 +26,11 @@ add_default_handler() {
 	esac
 }
 
-case "$1" in
+proto="$1"
+cmd="$2"
+data="$3"
+
+case "$cmd" in
 	dump)
 		add_protocol() {
 			immediate=0
@@ -45,7 +49,13 @@ case "$1" in
 	;;
 	*)
 		add_protocol() {
-			return;
+			[[ "$proto" == "$1" ]] || return 0
+
+			case "$cmd" in
+				setup) eval "$1_setup \"\$data\"" ;;
+				teardown) eval "$1_teardown \"\$data\"" ;;
+				*) return 1 ;;
+			esac
 		}
 	;;
 esac
