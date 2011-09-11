@@ -70,7 +70,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 
 	argv[0] = handler->script_name;
 	argv[1] = handler->proto.name;
-	argv[2] = "teardown";
+	argv[2] = "setup";
 	argv[3] = config;
 	argv[4] = NULL;
 	if (proto->iface->main_dev.dev) {
@@ -79,10 +79,10 @@ proto_shell_handler(struct interface_proto_state *proto,
 	}
 
 	switch(cmd) {
-	case PROTO_CMD_SETUP:
-		argv[2] = "setup";
-		/* fall through */
 	case PROTO_CMD_TEARDOWN:
+		argv[2] = "teardown";
+		/* fall through */
+	case PROTO_CMD_SETUP:
 		ret = run_script(argv);
 		break;
 	}
