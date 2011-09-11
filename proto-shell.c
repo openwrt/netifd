@@ -29,6 +29,7 @@ struct proto_shell_state {
 	struct proto_shell_handler *handler;
 	struct blob_attr *config;
 
+	struct uloop_timeout setup_timeout;
 	struct uloop_process setup_task;
 	struct uloop_process teardown_task;
 	bool teardown_pending;
@@ -79,6 +80,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		action = "teardown";
 		proc = &state->teardown_task;
 		if (state->setup_task.pending) {
+			uloop_timeout_set(&state->setup_timeout, 1000);
 			kill(state->setup_task.pid, SIGINT);
 			state->teardown_pending = true;
 			return 0;
@@ -105,11 +107,21 @@ proto_shell_handler(struct interface_proto_state *proto,
 }
 
 static void
+proto_shell_setup_timeout_cb(struct uloop_timeout *timeout)
+{
+	struct proto_shell_state *state;
+
+	state = container_of(timeout, struct proto_shell_state, setup_timeout);
+	kill(state->setup_task.pid, SIGKILL);
+}
+
+static void
 proto_shell_setup_cb(struct uloop_process *p, int ret)
 {
 	struct proto_shell_state *state;
 
 	state = container_of(p, struct proto_shell_state, setup_task);
+	uloop_timeout_cancel(&state->setup_timeout);
 	if (state->teardown_pending) {
 		state->teardown_pending = 0;
 		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
@@ -149,6 +161,7 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	memcpy(state->config, attr, blob_pad_len(attr));
 	state->proto.free = proto_shell_free;
 	state->proto.cb = proto_shell_handler;
+	state->setup_timeout.cb = proto_shell_setup_timeout_cb;
 	state->setup_task.cb = proto_shell_setup_cb;
 	state->teardown_task.cb = proto_shell_teardown_cb;
 	state->handler = container_of(h, struct proto_shell_handler, proto);
