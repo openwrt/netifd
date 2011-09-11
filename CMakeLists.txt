@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
 PROJECT(netifd C)
-ADD_DEFINITIONS(-Os -Wall -Werror --std=gnu99 -g3)
+ADD_DEFINITIONS(-Os -Wall -Werror)
 
 SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 
@@ -11,7 +11,7 @@ IF(APPLE)
 ENDIF()
 
 IF(DEBUG)
-  ADD_DEFINITIONS(-DDEBUG -O0)
+  ADD_DEFINITIONS(-DDEBUG -O0 --std=gnu99 -g3)
 ENDIF()
 
 
