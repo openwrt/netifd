@@ -185,6 +185,13 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 
 		mark_interface_down(iface);
 		break;
+	case IFPEV_LINK_LOST:
+		if (iface->state != IFS_UP)
+			return;
+
+		iface->state = IFS_SETUP;
+		interface_event(iface, IFEV_DOWN);
+		break;
 	}
 }
 

@@ -60,15 +60,6 @@ run_script(const char **argv, struct uloop_process *proc)
 	return 0;
 }
 
-static void
-proto_shell_set_down(struct proto_shell_state *state)
-{
-	if (!state->l3_dev.dev)
-		return;
-
-	device_remove_user(&state->l3_dev);
-}
-
 static int
 proto_shell_handler(struct interface_proto_state *proto,
 		    enum interface_proto_cmd cmd, bool force)
@@ -145,8 +136,8 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 	struct proto_shell_state *state;
 
 	state = container_of(p, struct proto_shell_state, teardown_task);
-	proto_shell_set_down(state);
 	state->proto.proto_event(&state->proto, IFPEV_DOWN);
+	device_remove_user(&state->l3_dev);
 }
 
 static void
@@ -194,7 +185,7 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 		state->proto.iface->l3_dev = &state->l3_dev;
 		state->proto.proto_event(&state->proto, IFPEV_UP);
 	} else {
-		proto_shell_set_down(state);
+		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 	}
 
 	return 0;

@@ -8,6 +8,7 @@ struct proto_handler;
 enum interface_proto_event {
 	IFPEV_UP,
 	IFPEV_DOWN,
+	IFPEV_LINK_LOST,
 };
 
 enum interface_proto_cmd {
