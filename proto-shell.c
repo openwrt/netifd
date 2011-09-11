@@ -4,6 +4,7 @@
 #include <glob.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include <libubox/blobmsg_json.h>
 
@@ -27,11 +28,16 @@ struct proto_shell_state {
 	struct interface_proto_state proto;
 	struct proto_shell_handler *handler;
 	struct blob_attr *config;
+
+	struct uloop_process setup_task;
+	struct uloop_process teardown_task;
+	bool teardown_pending;
 };
 
-static int run_script(const char **argv)
+static int
+run_script(const char **argv, struct uloop_process *proc)
 {
-	int pid, ret;
+	int pid;
 
 	if ((pid = fork()) < 0)
 		return -1;
@@ -42,11 +48,11 @@ static int run_script(const char **argv)
 		exit(127);
 	}
 
-	if (waitpid(pid, &ret, 0) == -1)
-		ret = -1;
+	if (pid < 0)
+		return -1;
 
-	if (ret > 0)
-		return -ret;
+	proc->pid = pid;
+	uloop_process_add(proc);
 
 	return 0;
 }
@@ -57,12 +63,27 @@ proto_shell_handler(struct interface_proto_state *proto,
 {
 	struct proto_shell_state *state;
 	struct proto_shell_handler *handler;
+	struct uloop_process *proc;
 	const char *argv[6];
+	const char *action;
 	char *config;
 	int ret, i = 0;
 
 	state = container_of(proto, struct proto_shell_state, proto);
 	handler = state->handler;
+
+	if (cmd == PROTO_CMD_SETUP) {
+		action = "setup";
+		proc = &state->setup_task;
+	} else {
+		action = "teardown";
+		proc = &state->teardown_task;
+		if (state->setup_task.pending) {
+			kill(state->setup_task.pid, SIGINT);
+			state->teardown_pending = true;
+			return 0;
+		}
+	}
 
 	config = blobmsg_format_json(state->config, true);
 	if (!config)
@@ -70,17 +91,38 @@ proto_shell_handler(struct interface_proto_state *proto,
 
 	argv[i++] = handler->script_name;
 	argv[i++] = handler->proto.name;
-	argv[i++] = cmd == PROTO_CMD_SETUP ? "setup" : "teardown";
+	argv[i++] = action;
 	argv[i++] = proto->iface->name;
 	argv[i++] = config;
 	if (proto->iface->main_dev.dev)
 		argv[i++] = proto->iface->main_dev.dev->ifname;
 	argv[i] = NULL;
 
-	ret = run_script(argv);
+	ret = run_script(argv, proc);
 	free(config);
 
 	return ret;
+}
+
+static void
+proto_shell_setup_cb(struct uloop_process *p, int ret)
+{
+	struct proto_shell_state *state;
+
+	state = container_of(p, struct proto_shell_state, setup_task);
+	if (state->teardown_pending) {
+		state->teardown_pending = 0;
+		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
+	}
+}
+
+static void
+proto_shell_teardown_cb(struct uloop_process *p, int ret)
+{
+	struct proto_shell_state *state;
+
+	state = container_of(p, struct proto_shell_state, teardown_task);
+	state->proto.proto_event(&state->proto, IFPEV_DOWN);
 }
 
 static void
@@ -107,6 +149,8 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	memcpy(state->config, attr, blob_pad_len(attr));
 	state->proto.free = proto_shell_free;
 	state->proto.cb = proto_shell_handler;
+	state->setup_task.cb = proto_shell_setup_cb;
+	state->teardown_task.cb = proto_shell_teardown_cb;
 	state->handler = container_of(h, struct proto_shell_handler, proto);
 
 	return &state->proto;
