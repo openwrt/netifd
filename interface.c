@@ -219,7 +219,7 @@ interface_alloc(const char *name, struct blob_attr *attr)
 
 	iface = calloc(1, sizeof(*iface));
 	iface->main_dev.cb = interface_cb;
-	iface->l3_iface = &iface->main_dev;
+	iface->l3_dev = &iface->main_dev;
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	list_add_tail(&iface->list, &interfaces);
 	INIT_LIST_HEAD(&iface->errors);

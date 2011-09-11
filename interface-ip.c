@@ -20,7 +20,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	struct device_addr *addr;
 
 	iface = container_of(tree, struct interface, proto_addr);
-	dev = iface->l3_iface->dev;
+	dev = iface->l3_dev->dev;
 
 	if (node_old) {
 		addr = container_of(node_old, struct device_addr, node);
@@ -44,7 +44,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 	struct device_route *route;
 
 	iface = container_of(tree, struct interface, proto_route);
-	dev = iface->l3_iface->dev;
+	dev = iface->l3_dev->dev;
 
 	if (node_old) {
 		route = container_of(node_old, struct device_route, node);

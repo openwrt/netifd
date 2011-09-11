@@ -29,6 +29,8 @@ struct proto_shell_state {
 	struct proto_shell_handler *handler;
 	struct blob_attr *config;
 
+	struct device_user l3_dev;
+
 	struct uloop_timeout setup_timeout;
 	struct uloop_process setup_task;
 	struct uloop_process teardown_task;
@@ -56,6 +58,15 @@ run_script(const char **argv, struct uloop_process *proc)
 	uloop_process_add(proc);
 
 	return 0;
+}
+
+static void
+proto_shell_set_down(struct proto_shell_state *state)
+{
+	if (!state->l3_dev.dev)
+		return;
+
+	device_remove_user(&state->l3_dev);
 }
 
 static int
@@ -134,6 +145,7 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 	struct proto_shell_state *state;
 
 	state = container_of(p, struct proto_shell_state, teardown_task);
+	proto_shell_set_down(state);
 	state->proto.proto_event(&state->proto, IFPEV_DOWN);
 }
 
@@ -145,6 +157,47 @@ proto_shell_free(struct interface_proto_state *proto)
 	state = container_of(proto, struct proto_shell_state, proto);
 	free(state->config);
 	free(state);
+}
+
+enum {
+	NOTIFY_LINK_UP,
+	NOTIFY_IFNAME,
+	__NOTIFY_LAST
+};
+
+static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
+	[NOTIFY_LINK_UP] = { .name = "link-up", .type = BLOBMSG_TYPE_BOOL },
+	[NOTIFY_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
+};
+
+static int
+proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
+{
+	struct proto_shell_state *state;
+	struct blob_attr *tb[__NOTIFY_LAST];
+	bool up;
+
+	state = container_of(proto, struct proto_shell_state, proto);
+
+	blobmsg_parse(notify_attr, __NOTIFY_LAST, tb, blob_data(attr), blob_len(attr));
+	if (!tb[NOTIFY_LINK_UP])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	up = blobmsg_get_bool(tb[NOTIFY_LINK_UP]);
+	if (up) {
+		if (!tb[NOTIFY_IFNAME])
+			return UBUS_STATUS_INVALID_ARGUMENT;
+
+		device_add_user(&state->l3_dev,
+			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
+		device_claim(&state->l3_dev);
+		state->proto.iface->l3_dev = &state->l3_dev;
+		state->proto.proto_event(&state->proto, IFPEV_UP);
+	} else {
+		proto_shell_set_down(state);
+	}
+
+	return 0;
 }
 
 struct interface_proto_state *
@@ -160,6 +213,7 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 
 	memcpy(state->config, attr, blob_pad_len(attr));
 	state->proto.free = proto_shell_free;
+	state->proto.notify = proto_shell_notify;
 	state->proto.cb = proto_shell_handler;
 	state->setup_timeout.cb = proto_shell_setup_timeout_cb;
 	state->setup_task.cb = proto_shell_setup_cb;

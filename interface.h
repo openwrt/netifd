@@ -44,7 +44,7 @@ struct interface {
 	struct device_user main_dev;
 
 	/* interface that layer 3 communication will go through */
-	struct device_user *l3_iface;
+	struct device_user *l3_dev;
 
 	struct config_state config;
 
