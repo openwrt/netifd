@@ -6,6 +6,7 @@
 #include "netifd.h"
 #include "ubus.h"
 #include "config.h"
+#include "interface.h"
 
 const char *main_path = ".";
 static char **global_argv;
@@ -21,6 +22,7 @@ static struct uloop_timeout restart_timer = {
 
 void netifd_restart(void)
 {
+	interface_set_down(NULL);
 	uloop_timeout_set(&restart_timer, 1000);
 }
 

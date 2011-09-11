@@ -312,8 +312,13 @@ interface_set_up(struct interface *iface)
 int
 interface_set_down(struct interface *iface)
 {
-	iface->autostart = false;
-	__interface_set_down(iface, false);
+	if (!iface) {
+		list_for_each_entry(iface, &interfaces, list)
+			__interface_set_down(iface, false);
+	} else {
+		iface->autostart = false;
+		__interface_set_down(iface, false);
+	}
 
 	return 0;
 }
