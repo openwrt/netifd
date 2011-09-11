@@ -26,10 +26,11 @@ add_default_handler() {
 	esac
 }
 
-proto="$1"
-cmd="$2"
-data="$3"
-ifname="$4"
+proto="$1"; shift
+cmd="$1"; shift
+interface="$1"; shift
+data="$1"; shift
+ifname="$1"; shift
 
 case "$cmd" in
 	dump)
@@ -55,8 +56,8 @@ case "$cmd" in
 			[[ "$proto" == "$1" ]] || return 0
 
 			case "$cmd" in
-				setup) eval "$1_setup \"\$data\" \"\$ifname\"" ;;
-				teardown) eval "$1_teardown \"\$data\" \"\$ifname\"" ;;
+				setup) eval "$1_setup \"\$interface\" \"\$data\" \"\$ifname\"" ;;
+				teardown) eval "$1_teardown \"\$interface\" \"\$data\" \"\$ifname\"" ;;
 				*) return 1 ;;
 			esac
 		}

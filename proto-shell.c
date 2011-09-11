@@ -59,7 +59,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 	struct proto_shell_handler *handler;
 	const char *argv[6];
 	char *config;
-	int ret;
+	int ret, i = 0;
 
 	state = container_of(proto, struct proto_shell_state, proto);
 	handler = state->handler;
@@ -68,25 +68,16 @@ proto_shell_handler(struct interface_proto_state *proto,
 	if (!config)
 		return -1;
 
-	argv[0] = handler->script_name;
-	argv[1] = handler->proto.name;
-	argv[2] = "setup";
-	argv[3] = config;
-	argv[4] = NULL;
-	if (proto->iface->main_dev.dev) {
-		argv[4] = proto->iface->main_dev.dev->ifname;
-		argv[5] = NULL;
-	}
+	argv[i++] = handler->script_name;
+	argv[i++] = handler->proto.name;
+	argv[i++] = cmd == PROTO_CMD_SETUP ? "setup" : "teardown";
+	argv[i++] = proto->iface->name;
+	argv[i++] = config;
+	if (proto->iface->main_dev.dev)
+		argv[i++] = proto->iface->main_dev.dev->ifname;
+	argv[i] = NULL;
 
-	switch(cmd) {
-	case PROTO_CMD_TEARDOWN:
-		argv[2] = "teardown";
-		/* fall through */
-	case PROTO_CMD_SETUP:
-		ret = run_script(argv);
-		break;
-	}
-
+	ret = run_script(argv);
 	free(config);
 
 	return ret;
