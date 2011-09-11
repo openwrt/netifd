@@ -230,6 +230,10 @@ proto_shell_add_handler(const char *script, json_object *obj)
 	proto->config_params = &handler->config;
 	proto->attach = proto_shell_attach;
 
+	tmp = get_field(obj, "no-device", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_NODEV;
+
 	config = get_field(obj, "config", json_type_array);
 	if (config)
 		handler->config_buf = proto_shell_parse_config(&handler->config, config);

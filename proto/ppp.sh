@@ -17,7 +17,8 @@ ppp_teardown() {
 }
 
 ppp_init() {
-	return
+	no_device=1
+	available=1
 }
 
 add_protocol ppp
