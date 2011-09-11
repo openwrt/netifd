@@ -180,10 +180,12 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 		if (!tb[NOTIFY_IFNAME])
 			return UBUS_STATUS_INVALID_ARGUMENT;
 
-		device_add_user(&state->l3_dev,
-			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
-		device_claim(&state->l3_dev);
-		state->proto.iface->l3_dev = &state->l3_dev;
+		if (!state->l3_dev.dev) {
+			device_add_user(&state->l3_dev,
+				device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
+			device_claim(&state->l3_dev);
+			state->proto.iface->l3_dev = &state->l3_dev;
+		}
 		state->proto.proto_event(&state->proto, IFPEV_UP);
 	} else {
 		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
