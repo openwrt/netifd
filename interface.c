@@ -234,7 +234,8 @@ interface_alloc(const char *name, struct blob_attr *attr)
 
 	proto_attach_interface(iface, proto_name);
 
-	if ((cur = tb[IFACE_ATTR_IFNAME])) {
+	if (!(iface->proto_handler->flags & PROTO_FLAG_NODEV) &&
+	    (cur = tb[IFACE_ATTR_IFNAME])) {
 		dev = device_get(blobmsg_data(cur), true);
 		if (dev)
 			device_add_user(&iface->main_dev, dev);
