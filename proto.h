@@ -17,23 +17,26 @@ enum interface_proto_cmd {
 
 enum {
 	PROTO_FLAG_IMMEDIATE = (1 << 0),
+	PROTO_FLAG_NODEV = (1 << 1),
 };
 
 struct interface_proto_state {
+	const struct proto_handler *handler;
 	struct interface *iface;
-	unsigned int flags;
 
 	/* filled in by the protocol user */
 	void (*proto_event)(struct interface_proto_state *, enum interface_proto_event ev);
 
 	/* filled in by the protocol handler */
-	int (*handler)(struct interface_proto_state *, enum interface_proto_cmd cmd, bool force);
+	int (*cb)(struct interface_proto_state *, enum interface_proto_cmd cmd, bool force);
 	void (*free)(struct interface_proto_state *);
 };
 
 
 struct proto_handler {
 	struct avl_node avl;
+
+	unsigned int flags;
 
 	const char *name;
 	const struct config_param_list *config_params;

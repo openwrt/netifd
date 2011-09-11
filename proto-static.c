@@ -241,8 +241,7 @@ static_attach(const struct proto_handler *h, struct interface *iface,
 
 	memcpy(state->config, attr, blob_pad_len(attr));
 	state->proto.free = static_free;
-	state->proto.handler = static_handler;
-	state->proto.flags = PROTO_FLAG_IMMEDIATE;
+	state->proto.cb = static_handler;
 
 	return &state->proto;
 
@@ -253,6 +252,7 @@ error:
 
 static struct proto_handler static_proto = {
 	.name = "static",
+	.flags = PROTO_FLAG_IMMEDIATE,
 	.config_params = &static_attr_list,
 	.attach = static_attach,
 };

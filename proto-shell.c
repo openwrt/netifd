@@ -111,7 +111,7 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 
 	memcpy(state->config, attr, blob_pad_len(attr));
 	state->proto.free = proto_shell_free;
-	state->proto.handler = proto_shell_handler;
+	state->proto.cb = proto_shell_handler;
 	state->handler = container_of(h, struct proto_shell_handler, proto);
 
 	return &state->proto;

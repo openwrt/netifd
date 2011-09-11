@@ -48,14 +48,14 @@ default_proto_attach(const struct proto_handler *h,
 
 	proto = calloc(1, sizeof(*proto));
 	proto->free = default_proto_free;
-	proto->flags = PROTO_FLAG_IMMEDIATE;
-	proto->handler = no_proto_handler;
+	proto->cb = no_proto_handler;
 
 	return proto;
 }
 
 static const struct proto_handler no_proto = {
 	.name = "none",
+	.flags = PROTO_FLAG_IMMEDIATE,
 	.attach = default_proto_attach,
 };
 
@@ -84,9 +84,10 @@ proto_init_interface(struct interface *iface, struct blob_attr *attr)
 
 	if (!state) {
 		state = no_proto.attach(&no_proto, iface, attr);
-		state->handler = invalid_proto_handler;
+		state->cb = invalid_proto_handler;
 	}
 
+	state->handler = proto;
 	interface_set_proto_state(iface, state);
 }
 
@@ -114,8 +115,8 @@ interface_proto_event(struct interface_proto_state *proto,
 	enum interface_event ev;
 	int ret;
 
-	ret = proto->handler(proto, cmd, force);
-	if (ret || !(proto->flags & PROTO_FLAG_IMMEDIATE))
+	ret = proto->cb(proto, cmd, force);
+	if (ret || !(proto->handler->flags & PROTO_FLAG_IMMEDIATE))
 		goto out;
 
 	switch(cmd) {
