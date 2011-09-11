@@ -121,8 +121,26 @@ error:
 	return NULL;
 }
 
+static json_object *
+check_type(json_object *obj, json_type type)
+{
+	if (!obj)
+		return NULL;
+
+	if (json_object_get_type(obj) != type)
+		return NULL;
+
+	return obj;
+}
+
+static inline json_object *
+get_field(json_object *obj, const char *name, json_type type)
+{
+	return check_type(json_object_object_get(obj, name), type);
+}
+
 static char *
-proto_shell_parse_config(struct config_param_list *config, struct json_object *obj)
+proto_shell_parse_config(struct config_param_list *config, json_object *obj)
 {
 	struct blobmsg_policy *attrs;
 	char *str_buf, *str_cur;
@@ -136,18 +154,18 @@ proto_shell_parse_config(struct config_param_list *config, struct json_object *o
 	config->n_params = json_object_array_length(obj);
 	config->params = attrs;
 	for (i = 0; i < config->n_params; i++) {
-		struct json_object *cur, *name, *type;
+		json_object *cur, *name, *type;
 
-		cur = json_object_array_get_idx(obj, i);
-		if (!cur || json_object_get_type(cur) != json_type_array)
+		cur = check_type(json_object_array_get_idx(obj, i), json_type_array);
+		if (!cur)
 			goto error;
 
-		name = json_object_array_get_idx(cur, 0);
-		if (!name || json_object_get_type(name) != json_type_string)
+		name = check_type(json_object_array_get_idx(cur, 0), json_type_string);
+		if (!name)
 			goto error;
 
-		type = json_object_array_get_idx(cur, 1);
-		if (!type || json_object_get_type(type) != json_type_int)
+		type = check_type(json_object_array_get_idx(cur, 1), json_type_int);
+		if (!type)
 			goto error;
 
 		attrs[i].name = json_object_get_string(name);
@@ -179,7 +197,7 @@ error:
 }
 
 static void
-proto_shell_add_handler(const char *script, struct json_object *obj)
+proto_shell_add_handler(const char *script, json_object *obj)
 {
 	struct proto_shell_handler *handler;
 	struct proto_handler *proto;
@@ -187,11 +205,11 @@ proto_shell_add_handler(const char *script, struct json_object *obj)
 	const char *name;
 	char *str;
 
-	if (json_object_get_type(obj) != json_type_object)
+	if (!check_type(obj, json_type_object))
 		return;
 
-	tmp = json_object_object_get(obj, "name");
-	if (!tmp || json_object_get_type(tmp) != json_type_string)
+	tmp = get_field(obj, "name", json_type_string);
+	if (!tmp)
 		return;
 
 	name = json_object_get_string(tmp);
@@ -212,8 +230,8 @@ proto_shell_add_handler(const char *script, struct json_object *obj)
 	proto->config_params = &handler->config;
 	proto->attach = proto_shell_attach;
 
-	config = json_object_object_get(obj, "config");
-	if (config && json_object_get_type(config) == json_type_array)
+	config = get_field(obj, "config", json_type_array);
+	if (config)
 		handler->config_buf = proto_shell_parse_config(&handler->config, config);
 
 	DPRINTF("Add handler for script %s: %s\n", script, proto->name);
@@ -223,7 +241,7 @@ proto_shell_add_handler(const char *script, struct json_object *obj)
 static void proto_shell_add_script(const char *name)
 {
 	struct json_tokener *tok = NULL;
-	struct json_object *obj;
+	json_object *obj;
 	static char buf[512];
 	char *start, *end, *cmd;
 	FILE *f;
