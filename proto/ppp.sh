@@ -32,7 +32,7 @@ pppoe_init() {
 }
 
 pppoe_setup() {
-	echo "pppoe_setup: $1"
+	echo "pppoe_setup($2): $1"
 }
 
 pppoe_teardown() {

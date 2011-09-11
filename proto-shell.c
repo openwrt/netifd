@@ -57,7 +57,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 {
 	struct proto_shell_state *state;
 	struct proto_shell_handler *handler;
-	const char *argv[5];
+	const char *argv[6];
 	char *config;
 	int ret;
 
@@ -73,6 +73,10 @@ proto_shell_handler(struct interface_proto_state *proto,
 	argv[2] = "teardown";
 	argv[3] = config;
 	argv[4] = NULL;
+	if (proto->iface->main_dev.dev) {
+		argv[4] = proto->iface->main_dev.dev->ifname;
+		argv[5] = NULL;
+	}
 
 	switch(cmd) {
 	case PROTO_CMD_SETUP:

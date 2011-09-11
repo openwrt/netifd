@@ -29,6 +29,7 @@ add_default_handler() {
 proto="$1"
 cmd="$2"
 data="$3"
+ifname="$4"
 
 case "$cmd" in
 	dump)
@@ -54,8 +55,8 @@ case "$cmd" in
 			[[ "$proto" == "$1" ]] || return 0
 
 			case "$cmd" in
-				setup) eval "$1_setup \"\$data\"" ;;
-				teardown) eval "$1_teardown \"\$data\"" ;;
+				setup) eval "$1_setup \"\$data\" \"\$ifname\"" ;;
+				teardown) eval "$1_teardown \"\$data\" \"\$ifname\"" ;;
 				*) return 1 ;;
 			esac
 		}
