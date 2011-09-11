@@ -125,7 +125,7 @@ proto_shell_setup_cb(struct uloop_process *p, int ret)
 	state = container_of(p, struct proto_shell_state, setup_task);
 	uloop_timeout_cancel(&state->setup_timeout);
 	if (state->teardown_pending) {
-		state->teardown_pending = 0;
+		state->teardown_pending = false;
 		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
 	}
 }
