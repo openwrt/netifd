@@ -69,6 +69,7 @@ void interface_free(struct interface *iface);
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);
 
+void interface_set_available(struct interface *iface, bool new_state);
 int interface_set_up(struct interface *iface);
 int interface_set_down(struct interface *iface);
 

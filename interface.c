@@ -86,7 +86,8 @@ mark_interface_down(struct interface *iface)
 {
 	vlist_flush_all(&iface->proto_addr);
 	vlist_flush_all(&iface->proto_route);
-	device_release(&iface->main_dev);
+	if (iface->main_dev.dev)
+		device_release(&iface->main_dev);
 	iface->state = IFS_DOWN;
 }
 
@@ -98,9 +99,11 @@ __interface_set_up(struct interface *iface)
 	if (iface->state != IFS_DOWN)
 		return 0;
 
-	ret = device_claim(&iface->main_dev);
-	if (ret)
-		return ret;
+	if (iface->main_dev.dev) {
+		ret = device_claim(&iface->main_dev);
+		if (ret)
+			return ret;
+	}
 
 	iface->state = IFS_SETUP;
 	ret = interface_proto_event(iface->proto, PROTO_CMD_SETUP, false);
@@ -145,6 +148,12 @@ interface_cb(struct device_user *dep, enum device_event ev)
 		return;
 	}
 
+	interface_set_available(iface, new_state);
+}
+
+void
+interface_set_available(struct interface *iface, bool new_state)
+{
 	if (iface->available == new_state)
 		return;
 
