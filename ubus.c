@@ -2,6 +2,7 @@
 
 #include "netifd.h"
 #include "interface.h"
+#include "proto.h"
 #include "ubus.h"
 
 static struct ubus_context *ctx = NULL;
@@ -241,6 +242,21 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 }
 
 
+static int
+netifd_iface_notify_proto(struct ubus_context *ctx, struct ubus_object *obj,
+			  struct ubus_request_data *req, const char *method,
+			  struct blob_attr *msg)
+{
+	struct interface *iface;
+
+	iface = container_of(obj, struct interface, ubus);
+
+	if (!iface->proto || !iface->proto->notify)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	return iface->proto->notify(iface->proto, msg);
+}
+
 static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
@@ -249,6 +265,7 @@ static struct ubus_method iface_object_methods[] = {
 	  .policy = dev_policy, .n_policy = __DEV_MAX_NOFORCE },
 	{ .name = "remove_device", .handler = netifd_iface_handle_device,
 	  .policy = dev_policy, .n_policy = __DEV_MAX_NOFORCE },
+	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },
 };
 
 static struct ubus_object_type iface_object_type =

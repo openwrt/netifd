@@ -28,6 +28,7 @@ struct interface_proto_state {
 	void (*proto_event)(struct interface_proto_state *, enum interface_proto_event ev);
 
 	/* filled in by the protocol handler */
+	int (*notify)(struct interface_proto_state *, struct blob_attr *data);
 	int (*cb)(struct interface_proto_state *, enum interface_proto_cmd cmd, bool force);
 	void (*free)(struct interface_proto_state *);
 };
