@@ -179,7 +179,7 @@ void device_init_virtual(struct device *dev, const struct device_type *type, con
 	if (name)
 		strncpy(dev->ifname, name, IFNAMSIZ);
 
-	fprintf(stderr, "Initialize device '%s'\n", dev->ifname);
+	DPRINTF("Initialize device '%s'\n", dev->ifname);
 	INIT_LIST_HEAD(&dev->users);
 	dev->type = type;
 }
@@ -228,7 +228,7 @@ void device_cleanup(struct device *dev)
 {
 	struct device_user *dep, *tmp;
 
-	fprintf(stderr, "Clean up device '%s'\n", dev->ifname);
+	DPRINTF("Clean up device '%s'\n", dev->ifname);
 	list_for_each_entry_safe(dep, tmp, &dev->users, list) {
 		if (!dep->cb)
 			continue;
