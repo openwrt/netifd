@@ -151,22 +151,57 @@ proto_shell_free(struct interface_proto_state *proto)
 	free(state);
 }
 
+static void
+proto_shell_parse_addr_list(struct interface *iface, struct blob_attr *attr,
+			    bool v6, bool external)
+{
+	struct device_addr *addr;
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING) {
+			DPRINTF("Ignore wrong address type: %d\n", blobmsg_type(cur));
+			continue;
+		}
+
+		addr = proto_parse_ip_addr_string(blobmsg_data(cur), v6, v6 ? 32 : 128);
+		if (!addr) {
+			DPRINTF("Failed to parse IP address string: %s\n", (char *) blobmsg_data(cur));
+			continue;
+		}
+
+		if (external)
+			addr->flags |= DEVADDR_EXTERNAL;
+
+		vlist_add(&iface->proto_addr, &addr->node);
+	}
+}
+
+
 enum {
 	NOTIFY_LINK_UP,
 	NOTIFY_IFNAME,
+	NOTIFY_ADDR_EXT,
+	NOTIFY_IPADDR,
+	NOTIFY_IP6ADDR,
 	__NOTIFY_LAST
 };
 
 static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_LINK_UP] = { .name = "link-up", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
+	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
+	[NOTIFY_IPADDR] = { .name = "ipaddr", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_IP6ADDR] = { .name = "ip6addr", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static int
 proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
-	struct blob_attr *tb[__NOTIFY_LAST];
+	struct blob_attr *tb[__NOTIFY_LAST], *cur;
+	bool addr_ext = false;
 	bool up;
 
 	state = container_of(proto, struct proto_shell_state, proto);
@@ -190,6 +225,15 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 	} else {
 		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 	}
+
+	if ((cur = tb[NOTIFY_ADDR_EXT]) != NULL)
+		addr_ext = blobmsg_get_bool(cur);
+
+	if ((cur = tb[NOTIFY_IPADDR]) != NULL)
+		proto_shell_parse_addr_list(state->proto.iface, cur, false, addr_ext);
+
+	if ((cur = tb[NOTIFY_IP6ADDR]) != NULL)
+		proto_shell_parse_addr_list(state->proto.iface, cur, true, addr_ext);
 
 	return 0;
 }
