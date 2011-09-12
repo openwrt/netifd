@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <arpa/inet.h>
+
 #ifndef DEBUG
 #define DEBUG
 #endif
@@ -70,11 +72,15 @@ int system_if_check(struct device *dev)
 int system_add_address(struct device *dev, struct device_addr *addr)
 {
 	uint8_t *a = (uint8_t *) &addr->addr.in;
+	char ipaddr[64];
 
 	if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) {
 		DPRINTF("ifconfig %s add %d.%d.%d.%d/%d\n",
 			dev->ifname, a[0], a[1], a[2], a[3], addr->mask);
 	} else {
+		inet_ntop(AF_INET6, &addr->addr.in6, ipaddr, sizeof(struct in6_addr));
+		DPRINTF("ifconfig %s add %s/%d\n",
+			dev->ifname, ipaddr, addr->mask);
 		return -1;
 	}
 
@@ -84,11 +90,15 @@ int system_add_address(struct device *dev, struct device_addr *addr)
 int system_del_address(struct device *dev, struct device_addr *addr)
 {
 	uint8_t *a = (uint8_t *) &addr->addr.in;
+	char ipaddr[64];
 
 	if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) {
 		DPRINTF("ifconfig %s del %d.%d.%d.%d\n",
 			dev->ifname, a[0], a[1], a[2], a[3]);
 	} else {
+		inet_ntop(AF_INET6, &addr->addr.in6, ipaddr, sizeof(struct in6_addr));
+		DPRINTF("ifconfig %s del %s/%d\n",
+			dev->ifname, ipaddr, addr->mask);
 		return -1;
 	}
 
