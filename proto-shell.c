@@ -13,7 +13,6 @@
 #include "interface-ip.h"
 #include "proto.h"
 
-static LIST_HEAD(handlers);
 static int proto_fd;
 
 struct proto_shell_handler {
