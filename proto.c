@@ -2,11 +2,68 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
 #include "netifd.h"
 #include "interface.h"
+#include "interface-ip.h"
 #include "proto.h"
 
 static struct avl_tree handlers;
+
+static bool
+split_netmask(char *str, unsigned int *netmask)
+{
+	char *delim, *err = NULL;
+
+	delim = strchr(str, '/');
+	if (delim) {
+		*(delim++) = 0;
+
+		*netmask = strtoul(delim, &err, 10);
+		if (err && *err)
+			return false;
+	}
+	return true;
+}
+
+static int
+parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
+{
+	char *astr = alloca(strlen(str) + 1);
+
+	strcpy(astr, str);
+	if (!split_netmask(astr, netmask))
+		return 0;
+
+	if (af == AF_INET6) {
+		if (*netmask > 128)
+			return 0;
+	} else {
+		if (*netmask > 32)
+			return 0;
+	}
+
+	return inet_pton(af, str, addr);
+}
+
+struct device_addr *
+proto_parse_ip_addr_string(const char *str, bool v6, int mask)
+{
+	struct device_addr *addr;
+	int af = v6 ? AF_INET6 : AF_INET;
+
+	addr = calloc(1, sizeof(*addr));
+	addr->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
+	addr->mask = mask;
+	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask)) {
+		free(addr);
+		return NULL;
+	}
+	return addr;
+}
+
 
 void add_proto_handler(struct proto_handler *p)
 {
