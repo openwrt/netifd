@@ -45,7 +45,7 @@ parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 			return 0;
 	}
 
-	return inet_pton(af, str, addr);
+	return inet_pton(af, astr, addr);
 }
 
 struct device_addr *
