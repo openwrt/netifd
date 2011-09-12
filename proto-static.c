@@ -82,7 +82,7 @@ parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 }
 
 static bool
-parse_addr(struct interface_proto_state *state, const char *str, bool v6, int mask)
+parse_addr(struct interface *iface, const char *str, bool v6, int mask)
 {
 	struct device_addr *addr;
 	int af = v6 ? AF_INET6 : AF_INET;
@@ -91,16 +91,16 @@ parse_addr(struct interface_proto_state *state, const char *str, bool v6, int ma
 	addr->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
 	addr->mask = mask;
 	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask)) {
-		interface_add_error(state->iface, "proto-static", "INVALID_ADDRESS", &str, 1);
+		interface_add_error(iface, "proto-static", "INVALID_ADDRESS", &str, 1);
 		free(addr);
 		return false;
 	}
-	vlist_add(&state->iface->proto_addr, &addr->node);
+	vlist_add(&iface->proto_addr, &addr->node);
 	return true;
 }
 
 static int
-parse_address_option(struct interface_proto_state *state, struct blob_attr *attr, bool v6, int netmask)
+parse_address_option(struct interface *iface, struct blob_attr *attr, bool v6, int netmask)
 {
 	struct blob_attr *cur;
 	int n_addr = 0;
@@ -108,7 +108,7 @@ parse_address_option(struct interface_proto_state *state, struct blob_attr *attr
 
 	blobmsg_for_each_attr(cur, attr, rem) {
 		n_addr++;
-		if (!parse_addr(state, blobmsg_data(cur), v6, netmask))
+		if (!parse_addr(iface, blobmsg_data(cur), v6, netmask))
 			return -1;
 	}
 
@@ -116,7 +116,7 @@ parse_address_option(struct interface_proto_state *state, struct blob_attr *attr
 }
 
 static bool
-parse_gateway_option(struct interface_proto_state *state, struct blob_attr *attr, bool v6)
+parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 {
 	struct device_route *route;
 	const char *str = blobmsg_data(attr);
@@ -124,20 +124,20 @@ parse_gateway_option(struct interface_proto_state *state, struct blob_attr *attr
 
 	route = calloc(1, sizeof(*route));
 	if (!inet_pton(af, str, &route->nexthop)) {
-		interface_add_error(state->iface, "proto-static",
+		interface_add_error(iface, "proto-static",
 				"INVALID_GATEWAY", &str, 1);
 		free(route);
 		return false;
 	}
 	route->mask = 0;
 	route->flags = DEVADDR_DEVICE | (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
-	vlist_add(&state->iface->proto_route, &route->node);
+	vlist_add(&iface->proto_route, &route->node);
 
 	return true;
 }
 
-int
-proto_apply_static_settings(struct interface_proto_state *state, struct blob_attr *attr)
+static int
+proto_apply_static_settings(struct interface *iface, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__OPT_MAX];
 	struct in_addr ina;
@@ -157,10 +157,10 @@ proto_apply_static_settings(struct interface_proto_state *state, struct blob_att
 	}
 
 	if (tb[OPT_IPADDR])
-		n_v4 = parse_address_option(state, tb[OPT_IPADDR], false, netmask);
+		n_v4 = parse_address_option(iface, tb[OPT_IPADDR], false, netmask);
 
 	if (tb[OPT_IP6ADDR])
-		n_v6 = parse_address_option(state, tb[OPT_IP6ADDR], true, netmask);
+		n_v6 = parse_address_option(iface, tb[OPT_IP6ADDR], true, netmask);
 
 	if (!n_v4 && !n_v6) {
 		error = "NO_ADDRESS";
@@ -171,19 +171,19 @@ proto_apply_static_settings(struct interface_proto_state *state, struct blob_att
 		goto out;
 
 	if (n_v4 && tb[OPT_GATEWAY]) {
-		if (!parse_gateway_option(state, tb[OPT_GATEWAY], false))
+		if (!parse_gateway_option(iface, tb[OPT_GATEWAY], false))
 			goto out;
 	}
 
 	if (n_v6 && tb[OPT_IP6GW]) {
-		if (!parse_gateway_option(state, tb[OPT_IP6GW], true))
+		if (!parse_gateway_option(iface, tb[OPT_IP6GW], true))
 			goto out;
 	}
 
 	return 0;
 
 error:
-	interface_add_error(state->iface, "proto-static", error, NULL, 0);
+	interface_add_error(iface, "proto-static", error, NULL, 0);
 out:
 	return -1;
 }
@@ -191,7 +191,7 @@ out:
 static bool
 static_proto_setup(struct static_proto_state *state)
 {
-	return proto_apply_static_settings(&state->proto, state->config) == 0;
+	return proto_apply_static_settings(state->proto.iface, state->config) == 0;
 }
 
 static int

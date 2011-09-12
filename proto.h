@@ -52,7 +52,5 @@ void proto_init_interface(struct interface *iface, struct blob_attr *attr);
 void proto_attach_interface(struct interface *iface, const char *proto_name);
 int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
-int proto_apply_static_settings(struct interface_proto_state *state,
-				struct blob_attr *attr);
 
 #endif
