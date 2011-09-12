@@ -24,13 +24,15 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 	if (node_old) {
 		addr = container_of(node_old, struct device_addr, node);
-		system_del_address(dev, addr);
+		if (!(addr->flags & DEVADDR_EXTERNAL))
+			system_del_address(dev, addr);
 		free(addr);
 	}
 
 	if (node_new) {
 		addr = container_of(node_new, struct device_addr, node);
-		system_add_address(dev, addr);
+		if (!(addr->flags & DEVADDR_EXTERNAL))
+			system_add_address(dev, addr);
 	}
 }
 
@@ -48,13 +50,15 @@ interface_update_proto_route(struct vlist_tree *tree,
 
 	if (node_old) {
 		route = container_of(node_old, struct device_route, node);
-		system_del_route(dev, route);
+		if (!(route->flags & DEVADDR_EXTERNAL))
+			system_del_route(dev, route);
 		free(route);
 	}
 
 	if (node_new) {
 		route = container_of(node_new, struct device_route, node);
-		system_add_route(dev, route);
+		if (!(route->flags & DEVADDR_EXTERNAL))
+			system_add_route(dev, route);
 	}
 }
 

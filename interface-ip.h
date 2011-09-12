@@ -3,12 +3,15 @@
 
 enum device_addr_flags {
 	/* address family for routes and addresses */
-	DEVADDR_INET4	= (0 << 0),
-	DEVADDR_INET6	= (1 << 0),
-	DEVADDR_FAMILY	= DEVADDR_INET4 | DEVADDR_INET6,
+	DEVADDR_INET4		= (0 << 0),
+	DEVADDR_INET6		= (1 << 0),
+	DEVADDR_FAMILY		= DEVADDR_INET4 | DEVADDR_INET6,
 
 	/* device route (no gateway) */
-	DEVADDR_DEVICE	= (1 << 1),
+	DEVADDR_DEVICE		= (1 << 1),
+
+	/* externally added address */
+	DEVADDR_EXTERNAL	= (1 << 2),
 };
 
 union if_addr {
