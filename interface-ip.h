@@ -37,6 +37,7 @@ struct device_route {
 	unsigned int mask;
 	union if_addr addr;
 	union if_addr nexthop;
+	struct device *device;
 };
 
 void interface_ip_init(struct interface *iface);
