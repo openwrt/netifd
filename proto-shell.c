@@ -6,6 +6,9 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
 #include <libubox/blobmsg_json.h>
 
 #include "netifd.h"
@@ -177,6 +180,85 @@ proto_shell_parse_addr_list(struct interface *iface, struct blob_attr *attr,
 	}
 }
 
+enum {
+	ROUTE_TARGET,
+	ROUTE_MASK,
+	ROUTE_GATEWAY,
+	ROUTE_DEVICE,
+	__ROUTE_LAST
+};
+
+static const struct blobmsg_policy route_attr[__ROUTE_LAST] = {
+	[ROUTE_TARGET] = { .name = "target", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_MASK] = { .name = "mask", .type = BLOBMSG_TYPE_INT32 },
+	[ROUTE_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_DEVICE] = { .name = "device", .type = BLOBMSG_TYPE_STRING },
+};
+
+static void
+parse_route(struct interface *iface, struct blob_attr *attr, bool v6)
+{
+	struct blob_attr *tb[__ROUTE_LAST], *cur;
+	struct device_route *route;
+	int af = v6 ? AF_INET6 : AF_INET;
+
+	blobmsg_parse(route_attr, __ROUTE_LAST, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+
+	if (!tb[ROUTE_GATEWAY] && !tb[ROUTE_DEVICE])
+		return;
+
+	route = calloc(1, sizeof(*route));
+	if (!route)
+		return;
+
+	route->mask = v6 ? 128 : 32;
+	if ((cur = tb[ROUTE_MASK]) != NULL) {
+		route->mask = blobmsg_get_u32(cur);
+		if (route->mask > v6 ? 128 : 32)
+			goto error;
+	}
+
+	if ((cur = tb[ROUTE_TARGET]) != NULL) {
+		if (!inet_pton(af, blobmsg_data(cur), &route->addr)) {
+			DPRINTF("Failed to parse route target: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+	}
+
+	if ((cur = tb[ROUTE_GATEWAY]) != NULL) {
+		if (!inet_pton(af, blobmsg_data(cur), &route->nexthop)) {
+			DPRINTF("Failed to parse route gateway: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+	}
+
+	if ((cur = tb[ROUTE_DEVICE]) != NULL)
+		route->device = device_get(blobmsg_data(cur), true);
+
+	vlist_add(&iface->proto_route, &route->node);
+	return;
+
+error:
+	free(route);
+}
+
+static void
+proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
+			     bool v6)
+{
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
+			DPRINTF("Ignore wrong route type: %d\n", blobmsg_type(cur));
+			continue;
+		}
+
+		parse_route(iface, cur, v6);
+	}
+}
+
 
 enum {
 	NOTIFY_LINK_UP,
@@ -184,6 +266,8 @@ enum {
 	NOTIFY_ADDR_EXT,
 	NOTIFY_IPADDR,
 	NOTIFY_IP6ADDR,
+	NOTIFY_ROUTES,
+	NOTIFY_ROUTES6,
 	__NOTIFY_LAST
 };
 
@@ -193,6 +277,8 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_IPADDR] = { .name = "ipaddr", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_IP6ADDR] = { .name = "ip6addr", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_ROUTES] = { .name = "routes", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_ROUTES6] = { .name = "routes6", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static int
@@ -233,6 +319,12 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 
 	if ((cur = tb[NOTIFY_IP6ADDR]) != NULL)
 		proto_shell_parse_addr_list(state->proto.iface, cur, true, addr_ext);
+
+	if ((cur = tb[NOTIFY_ROUTES]) != NULL)
+		proto_shell_parse_route_list(state->proto.iface, cur, false);
+
+	if ((cur = tb[NOTIFY_ROUTES6]) != NULL)
+		proto_shell_parse_route_list(state->proto.iface, cur, true);
 
 	return 0;
 }
