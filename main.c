@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <unistd.h>
 
 #include "netifd.h"
 #include "ubus.h"
@@ -57,7 +58,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (netifd_ubus_init(NULL) < 0) {
+	if (netifd_ubus_init(socket) < 0) {
 		fprintf(stderr, "Failed to connect to ubus\n");
 		return 1;
 	}
