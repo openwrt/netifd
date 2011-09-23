@@ -7,6 +7,7 @@
 #include "netifd.h"
 #include "ubus.h"
 #include "config.h"
+#include "system.h"
 #include "interface.h"
 
 const char *main_path = ".";
@@ -60,6 +61,11 @@ int main(int argc, char **argv)
 
 	if (netifd_ubus_init(socket) < 0) {
 		fprintf(stderr, "Failed to connect to ubus\n");
+		return 1;
+	}
+
+	if (system_init()) {
+		fprintf(stderr, "Failed to initialize system control\n");
 		return 1;
 	}
 

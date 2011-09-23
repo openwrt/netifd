@@ -19,7 +19,7 @@
 static int sock_ioctl = -1;
 static struct nl_sock *sock_rtnl = NULL;
 
-static void __init system_init(void)
+int system_init(void)
 {
 	sock_ioctl = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
@@ -30,12 +30,14 @@ static void __init system_init(void)
 			sock_rtnl = NULL;
 		}
 	}
+
+	return -(sock_ioctl < 0 || !sock_rtnl);
 }
 
 static int system_rtnl_call(struct nl_msg *msg)
 {
-	return -!!(!sock_rtnl || nl_send_auto_complete(sock_rtnl, msg)
-					|| nl_wait_for_ack(sock_rtnl));
+	return -(nl_send_auto_complete(sock_rtnl, msg)
+			|| nl_wait_for_ack(sock_rtnl));
 }
 
 int system_bridge_addbr(struct device *bridge)

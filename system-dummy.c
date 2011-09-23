@@ -11,6 +11,11 @@
 #include "device.h"
 #include "system.h"
 
+int system_init(void)
+{
+	return 0;
+}
+
 int system_bridge_addbr(struct device *bridge)
 {
 	DPRINTF("brctl addbr %s\n", bridge->ifname);
