@@ -36,8 +36,10 @@ int system_init(void)
 
 static int system_rtnl_call(struct nl_msg *msg)
 {
-	return -(nl_send_auto_complete(sock_rtnl, msg)
+	int s = -(nl_send_auto_complete(sock_rtnl, msg)
 			|| nl_wait_for_ack(sock_rtnl));
+	nlmsg_free(msg);
+	return s;
 }
 
 int system_bridge_addbr(struct device *bridge)
