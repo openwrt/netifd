@@ -5,12 +5,11 @@
 #include <linux/sockios.h>
 #include <linux/if_vlan.h>
 
-#include <stddef.h>
 #include <string.h>
 #include <fcntl.h>
-#include <errno.h>
 
 #include <netlink/msg.h>
+#include <libubox/uloop.h>
 
 #include "netifd.h"
 #include "device.h"
@@ -18,12 +17,18 @@
 
 static int sock_ioctl = -1;
 static struct nl_sock *sock_rtnl = NULL;
+static struct nl_sock *sock_rtnl_event = NULL;
+
+static void handler_rtnl_event(struct uloop_fd *u, unsigned int events);
+static int cb_rtnl_event(struct nl_msg *msg, void *arg);
+static struct uloop_fd rtnl_event = {.cb = handler_rtnl_event};
 
 int system_init(void)
 {
 	sock_ioctl = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
 
+	// Prepare socket for routing / address control
 	if ((sock_rtnl = nl_socket_alloc())) {
 		if (nl_connect(sock_rtnl, NETLINK_ROUTE)) {
 			nl_socket_free(sock_rtnl);
@@ -31,7 +36,66 @@ int system_init(void)
 		}
 	}
 
+	// Prepare socket for link events
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (cb)
+		nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_rtnl_event, NULL);
+
+	if (cb && (sock_rtnl_event = nl_socket_alloc_cb(cb))) {
+		if (nl_connect(sock_rtnl_event, NETLINK_ROUTE)) {
+			nl_socket_free(sock_rtnl_event);
+			sock_rtnl_event = NULL;
+		}
+		// Receive network link events form kernel
+		nl_socket_add_membership(sock_rtnl_event, RTNLGRP_LINK);
+
+		// Synthesize initial link messages
+		struct nl_msg *m = nlmsg_alloc_simple(RTM_GETLINK, NLM_F_DUMP);
+		if (m && nlmsg_reserve(m, sizeof(struct ifinfomsg), 0)) {
+			nl_send_auto_complete(sock_rtnl_event, m);
+			nlmsg_free(m);
+		}
+
+#ifdef NLA_PUT_DATA
+		rtnl_event.fd = nl_socket_get_fd(sock_rtnl_event);
+#else
+		rtnl_event.fd = sock_rtnl_event->s_fd; // libnl-tiny hack...
+#endif
+		uloop_fd_add(&rtnl_event, ULOOP_READ | ULOOP_EDGE_TRIGGER);
+	}
+
 	return -(sock_ioctl < 0 || !sock_rtnl);
+}
+
+// If socket is ready for reading parse netlink events
+static void handler_rtnl_event(struct uloop_fd *u, unsigned int events)
+{
+	nl_recvmsgs(sock_rtnl_event, NULL);
+}
+
+// Evaluate netlink messages
+static int cb_rtnl_event(struct nl_msg *msg, void *arg)
+{
+	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
+	struct nlattr *nla[__IFLA_MAX];
+
+	if (nh->nlmsg_type != RTM_DELLINK && nh->nlmsg_type != RTM_NEWLINK)
+		goto out;
+
+	nlmsg_parse(nh, sizeof(*ifi), nla, __IFLA_MAX - 1, NULL);
+	if (!nla[IFLA_IFNAME])
+		goto out;
+
+	struct device *dev = device_get(RTA_DATA(nla[IFLA_IFNAME]), false);
+	if (!dev)
+		goto out;
+
+	dev->ifindex = ifi->ifi_index;
+	device_set_present(dev, (nh->nlmsg_type == RTM_NEWLINK));
+
+out:
+	return 0;
 }
 
 static int system_rtnl_call(struct nl_msg *msg)
