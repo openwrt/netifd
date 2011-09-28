@@ -22,6 +22,7 @@ static struct nl_sock *sock_rtnl_event = NULL;
 static void handler_rtnl_event(struct uloop_fd *u, unsigned int events);
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 static struct uloop_fd rtnl_event = {.cb = handler_rtnl_event};
+static struct nl_cb *nl_cb_rtnl_event;
 
 int system_init(void)
 {
@@ -37,11 +38,11 @@ int system_init(void)
 	}
 
 	// Prepare socket for link events
-	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
-	if (cb)
-		nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_rtnl_event, NULL);
+	if ((nl_cb_rtnl_event = nl_cb_alloc(NL_CB_DEFAULT)))
+		nl_cb_set(nl_cb_rtnl_event, NL_CB_VALID, NL_CB_CUSTOM,
+							cb_rtnl_event, NULL);
 
-	if (cb && (sock_rtnl_event = nl_socket_alloc_cb(cb))) {
+	if (nl_cb_rtnl_event && (sock_rtnl_event = nl_socket_alloc())) {
 		if (nl_connect(sock_rtnl_event, NETLINK_ROUTE)) {
 			nl_socket_free(sock_rtnl_event);
 			sock_rtnl_event = NULL;
@@ -70,7 +71,7 @@ int system_init(void)
 // If socket is ready for reading parse netlink events
 static void handler_rtnl_event(struct uloop_fd *u, unsigned int events)
 {
-	nl_recvmsgs(sock_rtnl_event, NULL);
+	nl_recvmsgs(sock_rtnl_event, nl_cb_rtnl_event);
 }
 
 // Evaluate netlink messages
