@@ -203,7 +203,7 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 		return -1;
 
 	nlmsg_append(msg, &ifa, sizeof(ifa), 0);
-	nla_put(msg, IFA_ADDRESS, alen, &addr->addr);
+	nla_put(msg, IFA_LOCAL, alen, &addr->addr);
 	return system_rtnl_call(msg);
 }
 
