@@ -167,6 +167,31 @@ interface_set_available(struct interface *iface, bool new_state)
 }
 
 static void
+interface_do_free(struct interface *iface)
+{
+	interface_set_proto_state(iface, NULL);
+	free(iface->config);
+	netifd_ubus_remove_interface(iface);
+	free(iface);
+}
+
+static void
+interface_handle_config_change(struct interface *iface)
+{
+	switch(iface->config_state) {
+	case IFC_NORMAL:
+		break;
+	case IFC_RELOAD:
+		if (iface->autostart)
+			interface_set_up(iface);
+		break;
+	case IFC_REMOVE:
+		interface_do_free(iface);
+		break;
+	}
+}
+
+static void
 interface_proto_cb(struct interface_proto_state *state, enum interface_proto_event ev)
 {
 	struct interface *iface = state->iface;
@@ -184,6 +209,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 			return;
 
 		mark_interface_down(iface);
+		interface_handle_config_change(iface);
 		break;
 	case IFPEV_LINK_LOST:
 		if (iface->state != IFS_UP)
@@ -198,7 +224,6 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state)
 {
 	if (iface->proto) {
-		interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, true);
 		iface->proto->free(iface->proto);
 		iface->proto = NULL;
 	}
@@ -217,7 +242,6 @@ interface_init(struct interface *iface, const char *name,
 {
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
-	struct device *dev;
 	const char *proto_name = NULL;
 
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
@@ -234,23 +258,34 @@ interface_init(struct interface *iface, const char *name,
 
 	proto_attach_interface(iface, proto_name);
 
-	if (iface->proto_handler &&
-	    !(iface->proto_handler->flags & PROTO_FLAG_NODEV) &&
-	    (cur = tb[IFACE_ATTR_IFNAME])) {
-		dev = device_get(blobmsg_data(cur), true);
-		if (dev)
-			device_add_user(&iface->main_dev, dev);
-	}
-
 	if ((cur = tb[IFACE_ATTR_AUTO]))
 		iface->autostart = blobmsg_get_bool(cur);
 	else
 		iface->autostart = true;
+	iface->config_autostart = iface->autostart;
 }
 
 void
 interface_add(struct interface *iface, struct blob_attr *config)
 {
+	struct blob_attr *tb[IFACE_ATTR_MAX];
+	struct blob_attr *cur;
+	struct device *dev;
+
+	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
+		      blob_data(config), blob_len(config));
+
+	if ((cur = tb[IFACE_ATTR_IFNAME])) {
+		iface->ifname = blobmsg_data(cur);
+
+		if (iface->proto_handler &&
+		    !(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
+			dev = device_get(iface->ifname, true);
+			if (dev)
+				device_add_user(&iface->main_dev, dev);
+		}
+	}
+
 	iface->config = config;
 	vlist_add(&interfaces, &iface->node);
 }
@@ -326,21 +361,43 @@ interface_start_pending(void)
 }
 
 static void
+set_config_state(struct interface *iface, enum interface_config_state s)
+{
+	iface->config_state = s;
+	if (iface->state == IFS_DOWN)
+		interface_handle_config_change(iface);
+	else
+		interface_set_down(iface);
+}
+
+static void
+interface_change_config(struct interface *if_old, struct interface *if_new)
+{
+	struct blob_attr *old_config = if_old->config;
+
+	if_old->config = if_new->config;
+	if (!if_old->config_autostart && if_new->config_autostart)
+		if_old->autostart = true;
+
+	if_old->config_autostart = if_new->config_autostart;
+	if_old->ifname = if_new->ifname;
+
+	set_config_state(if_old, IFC_RELOAD);
+	free(old_config);
+}
+
+static void
 interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		 struct vlist_node *node_old)
 {
 	struct interface *if_old = container_of(node_old, struct interface, node);
 	struct interface *if_new = container_of(node_new, struct interface, node);
 
-	if (node_old) {
-		free(if_old->config);
-		netifd_ubus_remove_interface(if_old);
-		if (if_old->proto->free)
-			if_old->proto->free(if_old->proto);
-		free(if_old);
-	}
-
-	if (node_new) {
+	if (node_old && node_new)
+		interface_change_config(if_old, if_new);
+	else if (node_old)
+		set_config_state(if_old, IFC_REMOVE);
+	else if (node_new) {
 		proto_init_interface(if_new, if_new->config);
 		interface_ip_init(if_new);
 		netifd_ubus_add_interface(if_new);

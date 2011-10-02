@@ -19,6 +19,12 @@ enum interface_state {
 	IFS_DOWN,
 };
 
+enum interface_config_state {
+	IFC_NORMAL,
+	IFC_RELOAD,
+	IFC_REMOVE
+};
+
 struct interface_error {
 	struct list_head list;
 
@@ -34,11 +40,14 @@ struct interface {
 	struct vlist_node node;
 
 	char name[IFNAMSIZ];
+	const char *ifname;
 
 	bool available;
 	bool autostart;
+	bool config_autostart;
 
 	enum interface_state state;
+	enum interface_config_state config_state;
 
 	/* main interface that the interface is bound to */
 	struct device_user main_dev;
@@ -58,9 +67,11 @@ struct interface {
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
 
+	struct uloop_timeout remove_timer;
 	struct ubus_object ubus;
 };
 
+extern struct vlist_tree interfaces;
 extern const struct config_param_list interface_attr_list;
 
 void interface_init(struct interface *iface, const char *name,
