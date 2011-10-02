@@ -37,11 +37,16 @@ vlist_add(struct vlist_tree *tree, struct vlist_node *node)
 
 	anode = avl_find(&tree->avl, key);
 	if (anode) {
+		if (tree->keep_old)
+			goto update_only;
+
 		old_node = container_of(anode, struct vlist_node, avl);
 		avl_delete(&tree->avl, anode);
 	}
 
 	avl_insert(&tree->avl, &node->avl);
+
+update_only:
 	tree->update(tree, node, old_node);
 }
 
