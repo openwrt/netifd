@@ -21,7 +21,8 @@ __vlist_init(struct vlist_tree *tree, avl_tree_comp cmp,
 void
 vlist_delete(struct vlist_tree *tree, struct vlist_node *node)
 {
-	avl_delete(&tree->avl, &node->avl);
+	if (!tree->no_delete)
+		avl_delete(&tree->avl, &node->avl);
 	tree->update(tree, NULL, node);
 }
 
@@ -37,7 +38,7 @@ vlist_add(struct vlist_tree *tree, struct vlist_node *node)
 
 	anode = avl_find(&tree->avl, key);
 	if (anode) {
-		if (tree->keep_old)
+		if (tree->keep_old || !tree->no_delete)
 			goto update_only;
 
 		old_node = container_of(anode, struct vlist_node, avl);

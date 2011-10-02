@@ -29,6 +29,7 @@ struct vlist_tree {
 	vlist_update_cb update;
 	int key_offset;
 	bool keep_old;
+	bool no_delete;
 
 	int version;
 };
