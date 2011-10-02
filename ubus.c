@@ -257,6 +257,31 @@ netifd_iface_notify_proto(struct ubus_context *ctx, struct ubus_object *obj,
 	return iface->proto->notify(iface->proto, msg);
 }
 
+static void
+netifd_iface_do_remove(struct uloop_timeout *timeout)
+{
+	struct interface *iface;
+
+	iface = container_of(timeout, struct interface, remove_timer);
+	vlist_delete(&interfaces, &iface->node);
+}
+
+static int
+netifd_iface_remove(struct ubus_context *ctx, struct ubus_object *obj,
+		    struct ubus_request_data *req, const char *method,
+		    struct blob_attr *msg)
+{
+	struct interface *iface;
+
+	iface = container_of(obj, struct interface, ubus);
+	if (iface->remove_timer.cb)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	iface->remove_timer.cb = netifd_iface_do_remove;
+	uloop_timeout_set(&iface->remove_timer, 100);
+	return 0;
+}
+
 static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
@@ -266,6 +291,7 @@ static struct ubus_method iface_object_methods[] = {
 	{ .name = "remove_device", .handler = netifd_iface_handle_device,
 	  .policy = dev_policy, .n_policy = __DEV_MAX_NOFORCE },
 	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },
+	{ .name = "remove", .handler = netifd_iface_remove }
 };
 
 static struct ubus_object_type iface_object_type =
