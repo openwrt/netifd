@@ -13,19 +13,15 @@
 static int
 addr_cmp(const void *k1, const void *k2, void *ptr)
 {
-	const struct device_addr *a1 = k1, *a2 = k2;
-
-	return memcmp(&a1->mask, &a2->mask,
-		sizeof(*a1) - offsetof(struct device_addr, mask));
+	return memcmp(k1, k2, sizeof(struct device_addr) -
+		      offsetof(struct device_addr, mask));
 }
 
 static int
 route_cmp(const void *k1, const void *k2, void *ptr)
 {
-	const struct device_route *r1 = k1, *r2 = k2;
-
-	return memcmp(&r1->mask, &r2->mask,
-		sizeof(*r1) - offsetof(struct device_route, mask));
+	return memcmp(k1, k2, sizeof(struct device_route) -
+		      offsetof(struct device_route, mask));
 }
 
 static void
@@ -84,7 +80,7 @@ void
 interface_ip_init(struct interface *iface)
 {
 	vlist_init(&iface->proto_route, route_cmp, interface_update_proto_route,
-		   struct device_route, node);
+		   struct device_route, node, mask);
 	vlist_init(&iface->proto_addr, addr_cmp, interface_update_proto_addr,
-		   struct device_addr, node);
+		   struct device_addr, node, mask);
 }

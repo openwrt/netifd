@@ -11,7 +11,7 @@ void
 __vlist_init(struct vlist_tree *tree, avl_tree_comp cmp,
 	     vlist_update_cb update, int offset)
 {
-	tree->node_offset = offset;
+	tree->key_offset = offset;
 	tree->update = update;
 	tree->version = 1;
 
@@ -30,7 +30,7 @@ vlist_add(struct vlist_tree *tree, struct vlist_node *node)
 {
 	struct vlist_node *old_node = NULL;
 	struct avl_node *anode;
-	void *key = (char *) node - tree->node_offset;
+	void *key = (char *) node + tree->key_offset;
 
 	node->avl.key = key;
 	node->version = tree->version;
