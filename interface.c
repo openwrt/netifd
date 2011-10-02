@@ -10,7 +10,7 @@
 #include "ubus.h"
 #include "config.h"
 
-static LIST_HEAD(interfaces);
+struct vlist_tree interfaces;
 
 enum {
 	IFACE_ATTR_IFNAME,
@@ -211,30 +211,23 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 	state->iface = iface;
 }
 
-struct interface *
-interface_alloc(const char *name, struct blob_attr *attr)
+void
+interface_init(struct interface *iface, const char *name,
+	       struct blob_attr *config)
 {
-	struct interface *iface;
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
 	struct device *dev;
 	const char *proto_name = NULL;
 
-	iface = interface_get(name);
-	if (iface)
-		return iface;
-
-	iface = calloc(1, sizeof(*iface));
-	iface->main_dev.cb = interface_cb;
-	iface->l3_dev = &iface->main_dev;
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
-	list_add_tail(&iface->list, &interfaces);
 	INIT_LIST_HEAD(&iface->errors);
 
-	interface_ip_init(iface);
+	iface->main_dev.cb = interface_cb;
+	iface->l3_dev = &iface->main_dev;
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
-		      blob_data(attr), blob_len(attr));
+		      blob_data(config), blob_len(config));
 
 	if ((cur = tb[IFACE_ATTR_PROTO]))
 		proto_name = blobmsg_data(cur);
@@ -253,33 +246,13 @@ interface_alloc(const char *name, struct blob_attr *attr)
 		iface->autostart = blobmsg_get_bool(cur);
 	else
 		iface->autostart = true;
-
-	netifd_ubus_add_interface(iface);
-	config_set_state(&iface->config, attr);
-
-	return iface;
 }
 
 void
-interface_free(struct interface *iface)
+interface_add(struct interface *iface, struct blob_attr *config)
 {
-	netifd_ubus_remove_interface(iface);
-	list_del(&iface->list);
-	if (iface->proto->free)
-		iface->proto->free(iface->proto);
-	free(iface);
-}
-
-struct interface *
-interface_get(const char *name)
-{
-	struct interface *iface;
-
-	list_for_each_entry(iface, &interfaces, list) {
-		if (!strcmp(iface->name, name))
-			return iface;
-	}
-	return NULL;
+	iface->config = config;
+	vlist_add(&interfaces, &iface->node);
 }
 
 void
@@ -331,7 +304,7 @@ int
 interface_set_down(struct interface *iface)
 {
 	if (!iface) {
-		list_for_each_entry(iface, &interfaces, list)
+		vlist_for_each_element(&interfaces, iface, node)
 			__interface_set_down(iface, false);
 	} else {
 		iface->autostart = false;
@@ -346,8 +319,38 @@ interface_start_pending(void)
 {
 	struct interface *iface;
 
-	list_for_each_entry(iface, &interfaces, list) {
+	vlist_for_each_element(&interfaces, iface, node) {
 		if (iface->available && iface->autostart)
 			interface_set_up(iface);
 	}
+}
+
+static void
+interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
+		 struct vlist_node *node_old)
+{
+	struct interface *if_old = container_of(node_old, struct interface, node);
+	struct interface *if_new = container_of(node_new, struct interface, node);
+
+	if (node_old) {
+		free(if_old->config);
+		netifd_ubus_remove_interface(if_old);
+		if (if_old->proto->free)
+			if_old->proto->free(if_old->proto);
+		free(if_old);
+	}
+
+	if (node_new) {
+		proto_init_interface(if_new, if_new->config);
+		interface_ip_init(if_new);
+		netifd_ubus_add_interface(if_new);
+	}
+}
+
+
+static void __init
+interface_init_list(void)
+{
+	vlist_init(&interfaces, avl_strcmp, interface_update,
+		   struct interface, node, name);
 }

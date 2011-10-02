@@ -31,7 +31,7 @@ struct interface_error {
  * interface configuration
  */
 struct interface {
-	struct list_head list;
+	struct vlist_node node;
 
 	char name[IFNAMSIZ];
 
@@ -46,7 +46,7 @@ struct interface {
 	/* interface that layer 3 communication will go through */
 	struct device_user *l3_dev;
 
-	struct config_state config;
+	struct blob_attr *config;
 
 	/* primary protocol state */
 	const struct proto_handler *proto_handler;
@@ -63,9 +63,10 @@ struct interface {
 
 extern const struct config_param_list interface_attr_list;
 
-struct interface *interface_get(const char *name);
-struct interface *interface_alloc(const char *name, struct blob_attr *attr);
-void interface_free(struct interface *iface);
+void interface_init(struct interface *iface, const char *name,
+		    struct blob_attr *config);
+
+void interface_add(struct interface *iface, struct blob_attr *config);
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);
 

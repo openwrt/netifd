@@ -14,7 +14,6 @@ bool config_init = false;
 static struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
 static struct blob_buf b;
-static unsigned int config_version = 1;
 
 static void uci_attr_to_blob(struct blob_buf *b, const char *str,
 			     const char *name, enum blobmsg_type type)
@@ -142,21 +141,12 @@ config_parse_bridge_interface(struct uci_section *s)
 	return 0;
 }
 
-void
-config_set_state(struct config_state *state, const struct blob_attr *attr)
-{
-	state->data = malloc(blob_pad_len(attr));
-	if (!state->data)
-		return;
-
-	memcpy(state->data, attr, blob_pad_len(attr));
-}
-
 static void
 config_parse_interface(struct uci_section *s)
 {
 	struct interface *iface;
 	const char *type;
+	struct blob_attr *config;
 
 	DPRINTF("Create interface '%s'\n", s->e.name);
 
@@ -168,16 +158,23 @@ config_parse_interface(struct uci_section *s)
 			return;
 
 	uci_to_blob(&b, s, &interface_attr_list);
-	iface = interface_alloc(s->e.name, b.head);
+	iface = calloc(1, sizeof(*iface));
 	if (!iface)
 		return;
 
-	blob_buf_init(&b, 0);
+	interface_init(iface, s->e.name, b.head);
+
 	if (iface->proto_handler && iface->proto_handler->config_params)
 		uci_to_blob(&b, s, iface->proto_handler->config_params);
 
-	proto_init_interface(iface, b.head);
-	iface->config.version = config_version;
+	config = malloc(blob_pad_len(b.head));
+	if (!config) {
+		free(iface);
+		return;
+	}
+
+	memcpy(config, b.head, blob_pad_len(b.head));
+	interface_add(iface, config);
 }
 
 static void
