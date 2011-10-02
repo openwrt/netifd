@@ -274,6 +274,46 @@ config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
 	return true;
 }
 
+struct blob_attr *
+config_memdup(struct blob_attr *attr)
+{
+	struct blob_attr *ret;
+	int size = blob_pad_len(attr);
+
+	ret = malloc(size);
+	if (!ret)
+		return NULL;
+
+	memcpy(ret, attr, size);
+	return ret;
+}
+
+static struct uci_package *
+config_init_package(const char *config)
+{
+	struct uci_context *ctx = uci_ctx;
+	struct uci_package *p = NULL;
+
+	if (!ctx) {
+		ctx = uci_alloc_context();
+		uci_ctx = ctx;
+
+#ifdef DUMMY_MODE
+		uci_set_confdir(ctx, "./config");
+		uci_set_savedir(ctx, "./tmp");
+#endif
+	} else {
+		p = uci_lookup_package(ctx, config);
+		if (p)
+			uci_unload(ctx, p);
+	}
+
+	if (uci_load(ctx, "network", &p))
+		return NULL;
+
+	return p;
+}
+
 void
 config_init_interfaces(const char *name)
 {
@@ -281,15 +321,9 @@ config_init_interfaces(const char *name)
 	struct uci_package *p = NULL;
 	struct uci_element *e;
 
-	ctx = uci_alloc_context();
-	uci_ctx = ctx;
-
-#ifdef DUMMY_MODE
-	uci_set_confdir(ctx, "./config");
-	uci_set_savedir(ctx, "./tmp");
-#endif
-
-	if (uci_load(ctx, "network", &p)) {
+	p = config_init_package("network");
+	ctx = uci_ctx;
+	if (!p) {
 		fprintf(stderr, "Failed to load network config\n");
 		return;
 	}

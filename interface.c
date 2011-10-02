@@ -384,6 +384,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	set_config_state(if_old, IFC_RELOAD);
 	free(old_config);
+	free(if_new);
 }
 
 static void
@@ -410,4 +411,6 @@ interface_init_list(void)
 {
 	vlist_init(&interfaces, avl_strcmp, interface_update,
 		   struct interface, node, name);
+	interfaces.keep_old = true;
+	interfaces.no_delete = true;
 }

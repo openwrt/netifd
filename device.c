@@ -298,15 +298,81 @@ device_free_unused(struct device *dev)
 		__device_free_unused(dev);
 }
 
+enum dev_change_type
+device_reload_config(struct device *dev, struct blob_attr *attr)
+{
+	struct blob_attr *tb[__DEV_ATTR_MAX], *tb1[__DEV_ATTR_MAX];
+
+	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb,
+		blob_data(attr), blob_len(attr));
+	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb1,
+		blob_data(dev->config), blob_len(dev->config));
+
+	if (!config_diff(tb, tb1, &device_attr_list, NULL))
+		return DEV_CONFIG_NO_CHANGE;
+
+	device_init_settings(dev, tb);
+	return DEV_CONFIG_APPLIED;
+}
+
+static enum dev_change_type
+device_check_config(struct device *dev, struct blob_attr *attr)
+{
+	if (dev->type->reload)
+		return dev->type->reload(dev, attr);
+
+	return device_reload_config(dev, attr);
+}
+
+static void
+device_replace(struct device *dev, struct device *odev)
+{
+	struct device_user *dep, *tmp;
+	bool present = odev->present;
+
+	if (present)
+		device_set_present(odev, false);
+
+	list_for_each_entry_safe(dep, tmp, &odev->users, list) {
+		list_move_tail(&dep->list, &dev->users);
+		dep->dev = dev;
+	}
+	device_free(odev);
+
+	if (present)
+		device_set_present(dev, true);
+}
+
 struct device *
 device_create(const char *name, const struct device_type *type,
 	      struct blob_attr *config)
 {
-	struct device *dev;
+	struct device *odev = NULL, *dev;
+	enum dev_change_type change;
 
-	dev = device_get(name, false);
-	if (dev)
-		return dev;
+	odev = device_get(name, false);
+	if (odev) {
+		change = device_check_config(odev, config);
+		switch (change) {
+		case DEV_CONFIG_APPLIED:
+			free(odev->config);
+			odev->config = config_memdup(config);
+			if (odev->present) {
+				device_set_present(odev, false);
+				device_set_present(odev, true);
+			}
+			/* fall through */
+		case DEV_CONFIG_NO_CHANGE:
+			return odev;
+		case DEV_CONFIG_RECREATE:
+			break;
+		}
+	}
 
-	return type->create(config);
+	dev = type->create(config);
+	dev->config = config_memdup(config);
+	if (odev)
+		device_replace(dev, odev);
+
+	return dev;
 }

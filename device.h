@@ -19,6 +19,12 @@ enum {
 	__DEV_ATTR_MAX,
 };
 
+enum dev_change_type {
+	DEV_CONFIG_NO_CHANGE,
+	DEV_CONFIG_APPLIED,
+	DEV_CONFIG_RECREATE,
+};
+
 struct device_type {
 	struct list_head list;
 	const char *name;
@@ -26,6 +32,7 @@ struct device_type {
 	const struct config_param_list *config_params;
 
 	struct device *(*create)(struct blob_attr *attr);
+	enum dev_change_type (*reload)(struct device *, struct blob_attr *);
 	void (*dump_status)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
 	void (*free)(struct device *);
@@ -50,6 +57,7 @@ struct device {
 	char ifname[IFNAMSIZ + 1];
 	int ifindex;
 
+	struct blob_attr *config;
 	bool present;
 	int active;
 
@@ -64,8 +72,6 @@ struct device {
 	unsigned int mtu;
 	unsigned int txqueuelen;
 	uint8_t macaddr[6];
-
-	uint32_t config_hash;
 };
 
 /* events broadcasted to all users of a device */
