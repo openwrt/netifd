@@ -218,6 +218,7 @@ config_init_interfaces(const char *name)
 
 #ifdef DUMMY_MODE
 	uci_set_confdir(ctx, "./config");
+	uci_set_savedir(ctx, "./tmp");
 #endif
 
 	if (uci_load(ctx, "network", &p)) {
