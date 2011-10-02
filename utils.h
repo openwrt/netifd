@@ -48,6 +48,9 @@ void vlist_delete(struct vlist_tree *tree, struct vlist_node *node);
 void vlist_flush(struct vlist_tree *tree);
 void vlist_flush_all(struct vlist_tree *tree);
 
+#define vlist_for_each_element(tree, element, node_member) \
+	avl_for_each_element(&(tree)->avl, element, node_member.avl)
+
 #ifdef __linux__
 static inline int fls(int x)
 {
