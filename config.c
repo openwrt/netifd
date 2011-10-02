@@ -215,7 +215,9 @@ config_init_interfaces(const char *name)
 	ctx = uci_alloc_context();
 	uci_ctx = ctx;
 
+#ifdef DUMMY_MODE
 	uci_set_confdir(ctx, "./config");
+#endif
 
 	if (uci_load(ctx, "network", &p)) {
 		fprintf(stderr, "Failed to load network config\n");
