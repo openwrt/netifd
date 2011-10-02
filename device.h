@@ -102,6 +102,8 @@ extern const struct config_param_list device_attr_list;
 extern const struct device_type simple_device_type;
 extern const struct device_type bridge_device_type;
 
+struct device *device_create(const char *name, const struct device_type *type,
+			     struct blob_attr *config);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
 
 void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);

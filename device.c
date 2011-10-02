@@ -297,3 +297,16 @@ device_free_unused(struct device *dev)
 	avl_for_each_element_safe(&devices, dev, avl, tmp)
 		__device_free_unused(dev);
 }
+
+struct device *
+device_create(const char *name, const struct device_type *type,
+	      struct blob_attr *config)
+{
+	struct device *dev;
+
+	dev = device_get(name, false);
+	if (dev)
+		return dev;
+
+	return type->create(config);
+}

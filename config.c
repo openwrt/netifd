@@ -131,7 +131,7 @@ config_parse_bridge_interface(struct uci_section *s)
 	blobmsg_add_string(&b, "name", name);
 
 	uci_to_blob(&b, s, bridge_device_type.config_params);
-	if (!bridge_device_type.create(b.head)) {
+	if (!device_create(name, &bridge_device_type, b.head)) {
 		DPRINTF("Failed to create bridge for interface '%s'\n", s->e.name);
 		return -EINVAL;
 	}
@@ -185,20 +185,24 @@ config_init_devices(void)
 	uci_foreach_element(&uci_network->sections, e) {
 		struct uci_section *s = uci_to_section(e);
 		const struct device_type *devtype;
-		const char *type;
+		const char *type, *name;
 
 		if (strcmp(s->type, "device") != 0)
 			continue;
 
-		blob_buf_init(&b, 0);
+		name = uci_lookup_option_string(uci_ctx, s, "name");
+		if (!name)
+			continue;
+
 		type = uci_lookup_option_string(uci_ctx, s, "type");
 		if (type && !strcmp(type, "bridge"))
 			devtype = &bridge_device_type;
 		else
 			devtype = &simple_device_type;
 
+		blob_buf_init(&b, 0);
 		uci_to_blob(&b, s, devtype->config_params);
-		devtype->create(b.head);
+		device_create(name, devtype, b.head);
 	}
 }
 
