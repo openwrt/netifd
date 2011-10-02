@@ -18,7 +18,7 @@ SET(SOURCES
 SET(LIBS
 	ubox ubus uci json blobmsg_json)
 
-IF("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
+IF("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" AND NOT DUMMY_MODE)
 	SET(SOURCES ${SOURCES} system-linux.c)
 	SET(LIBS ${LIBS} nl)
 ELSE()
