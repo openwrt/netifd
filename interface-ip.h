@@ -24,6 +24,7 @@ struct device_addr {
 
 	enum device_addr_flags flags;
 
+	/* must be last */
 	unsigned int mask;
 	union if_addr addr;
 };
@@ -34,10 +35,12 @@ struct device_route {
 	enum device_addr_flags flags;
 	bool keep;
 
-	unsigned int mask;
-	union if_addr addr;
 	union if_addr nexthop;
 	struct device *device;
+
+	/* must be last */
+	unsigned int mask;
+	union if_addr addr;
 };
 
 void interface_ip_init(struct interface *iface);

@@ -7,22 +7,15 @@ avl_strcmp(const void *k1, const void *k2, void *ptr)
 	return strcmp(k1, k2);
 }
 
-static int
-vlist_cmp(const void *k1, const void *k2, void *ptr)
-{
-	struct vlist_tree *vl = ptr;
-	return memcmp(k1, k2, vl->data_len);
-}
-
 void
-__vlist_init(struct vlist_tree *tree, vlist_update_cb update, int offset, int len)
+__vlist_init(struct vlist_tree *tree, avl_tree_comp cmp,
+	     vlist_update_cb update, int offset)
 {
-	tree->data_offset = offset;
-	tree->data_len = len;
+	tree->node_offset = offset;
 	tree->update = update;
 	tree->version = 1;
 
-	avl_init(&tree->avl, vlist_cmp, 0, tree);
+	avl_init(&tree->avl, cmp, 0, tree);
 }
 
 void
@@ -37,11 +30,12 @@ vlist_add(struct vlist_tree *tree, struct vlist_node *node)
 {
 	struct vlist_node *old_node = NULL;
 	struct avl_node *anode;
+	void *key = (char *) node - tree->node_offset;
 
-	node->avl.key = (char *) node + tree->data_offset;
+	node->avl.key = key;
 	node->version = tree->version;
 
-	anode = avl_find(&tree->avl, (char *) node + tree->data_offset);
+	anode = avl_find(&tree->avl, key);
 	if (anode) {
 		old_node = container_of(anode, struct vlist_node, avl);
 		avl_delete(&tree->avl, anode);

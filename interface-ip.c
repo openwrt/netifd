@@ -10,6 +10,24 @@
 #include "ubus.h"
 #include "system.h"
 
+static int
+addr_cmp(const void *k1, const void *k2, void *ptr)
+{
+	const struct device_addr *a1 = k1, *a2 = k2;
+
+	return memcmp(&a1->mask, &a2->mask,
+		sizeof(*a1) - offsetof(struct device_addr, mask));
+}
+
+static int
+route_cmp(const void *k1, const void *k2, void *ptr)
+{
+	const struct device_route *r1 = k1, *r2 = k2;
+
+	return memcmp(&r1->mask, &r2->mask,
+		sizeof(*r1) - offsetof(struct device_route, mask));
+}
+
 static void
 interface_update_proto_addr(struct vlist_tree *tree,
 			    struct vlist_node *node_new,
@@ -65,9 +83,8 @@ interface_update_proto_route(struct vlist_tree *tree,
 void
 interface_ip_init(struct interface *iface)
 {
-	vlist_init(&iface->proto_route, interface_update_proto_route,
-		   struct device_route, node, mask, addr);
-	vlist_init(&iface->proto_addr, interface_update_proto_addr,
-		   struct device_addr, node, mask, addr);
+	vlist_init(&iface->proto_route, route_cmp, interface_update_proto_route,
+		   struct device_route, node);
+	vlist_init(&iface->proto_addr, addr_cmp, interface_update_proto_addr,
+		   struct device_addr, node);
 }
-

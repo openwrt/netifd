@@ -27,9 +27,7 @@ struct vlist_tree {
 	struct avl_tree avl;
 
 	vlist_update_cb update;
-
-	int data_offset;
-	int data_len;
+	int node_offset;
 
 	int version;
 };
@@ -39,11 +37,10 @@ struct vlist_node {
 	int version;
 };
 
-void __vlist_init(struct vlist_tree *tree, vlist_update_cb update, int offset, int len);
+void __vlist_init(struct vlist_tree *tree, avl_tree_comp cmp, vlist_update_cb update, int offset);
 
-#define vlist_init(tree, update, type, vlist, first, last) \
-	__vlist_init(tree, update, offsetof(type, first) - offsetof(type, vlist), \
-		     offsetof(type, last) - offsetof(type, first) + sizeof(((type *) 0)->last))
+#define vlist_init(tree, cmp, update, type, node) \
+	__vlist_init(tree, cmp, update, offsetof(type, node))
 
 void vlist_add(struct vlist_tree *tree, struct vlist_node *node);
 void vlist_delete(struct vlist_tree *tree, struct vlist_node *node);
