@@ -206,6 +206,74 @@ config_init_devices(void)
 	}
 }
 
+bool
+config_diff(struct blob_attr **tb1, struct blob_attr **tb2,
+	    const struct config_param_list *config, unsigned long *diff)
+{
+	bool ret = false;
+	int i;
+
+	for (i = 0; i < config->n_params; i++) {
+		if (!tb1[i] && !tb2[i])
+			continue;
+
+		if (!!tb1[i] != !!tb2[i])
+			goto mark;
+
+		if (blob_len(tb1[i]) != blob_len(tb2[i]))
+			goto mark;
+
+		if (memcmp(tb1[i], tb2[i], blob_pad_len(tb1[i])) != 0)
+			goto mark;
+
+		continue;
+
+mark:
+		ret = true;
+		if (diff)
+			set_bit(diff, i);
+		else
+			return ret;
+	}
+
+	return ret;
+}
+
+
+static bool
+__config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
+		     const struct config_param_list *config)
+{
+	struct blob_attr **tb1, **tb2;
+
+	tb1 = alloca(config->n_params * sizeof(struct blob_attr *));
+	blobmsg_parse(config->params, config->n_params, tb1,
+		blob_data(c1), blob_len(c1));
+
+	tb2 = alloca(config->n_params * sizeof(struct blob_attr *));
+	blobmsg_parse(config->params, config->n_params, tb2,
+		blob_data(c2), blob_len(c2));
+
+	return !config_diff(tb1, tb2, config, NULL);
+}
+
+bool
+config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
+		   const struct config_param_list *config)
+{
+	int i;
+
+	if (!__config_check_equal(c1, c2, config))
+		return false;
+
+	for (i = 0; i < config->n_next; i++) {
+		if (!__config_check_equal(c1, c2, config->next[i]))
+			return false;
+	}
+
+	return true;
+}
+
 void
 config_init_interfaces(const char *name)
 {

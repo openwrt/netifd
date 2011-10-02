@@ -25,6 +25,24 @@ struct config_param_list {
 	const struct config_param_list *next[];
 };
 
+#ifndef BITS_PER_LONG
+#define BITS_PER_LONG (8 * sizeof(unsigned long))
+#endif
+
+static inline void set_bit(unsigned long *bits, int bit)
+{
+	bits[bit / BITS_PER_LONG] |= (1UL << (bit % BITS_PER_LONG));
+}
+
+static inline bool test_bit(unsigned long *bits, int bit)
+{
+	return !!(bits[bit / BITS_PER_LONG] & (1UL << (bit % BITS_PER_LONG)));
+}
+
 void config_init_interfaces(const char *name);
+bool config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
+			const struct config_param_list *config);
+bool config_diff(struct blob_attr **tb1, struct blob_attr **tb2,
+		 const struct config_param_list *config, unsigned long *diff);
 
 #endif
