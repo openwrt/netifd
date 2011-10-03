@@ -18,5 +18,6 @@ struct interface;
 
 extern const char *main_path;
 void netifd_restart(void);
+void netifd_reload(void);
 
 #endif
