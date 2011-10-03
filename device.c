@@ -305,8 +305,11 @@ device_reload_config(struct device *dev, struct blob_attr *attr)
 
 	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb,
 		blob_data(attr), blob_len(attr));
-	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb1,
-		blob_data(dev->config), blob_len(dev->config));
+	if (dev->config)
+		blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb1,
+			blob_data(dev->config), blob_len(dev->config));
+	else
+		memset(tb1, 0, sizeof(tb1));
 
 	if (!config_diff(tb, tb1, &device_attr_list, NULL))
 		return DEV_CONFIG_NO_CHANGE;
