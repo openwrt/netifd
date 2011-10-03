@@ -281,6 +281,7 @@ bridge_free(struct device *dev)
 	struct bridge_state *bst;
 	struct bridge_member *bm;
 
+	device_cleanup(dev);
 	bst = container_of(dev, struct bridge_state, dev);
 	while (!list_empty(&bst->members)) {
 		bm = list_first_entry(&bst->members, struct bridge_member, list);
