@@ -169,6 +169,8 @@ interface_set_available(struct interface *iface, bool new_state)
 static void
 interface_do_free(struct interface *iface)
 {
+	if (iface->main_dev.dev)
+		device_remove_user(&iface->main_dev);
 	interface_set_proto_state(iface, NULL);
 	free(iface->config);
 	netifd_ubus_remove_interface(iface);
