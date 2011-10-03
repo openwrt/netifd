@@ -223,7 +223,7 @@ config_diff(struct blob_attr **tb1, struct blob_attr **tb2,
 		if (blob_len(tb1[i]) != blob_len(tb2[i]))
 			goto mark;
 
-		if (memcmp(tb1[i], tb2[i], blob_pad_len(tb1[i])) != 0)
+		if (memcmp(tb1[i], tb2[i], blob_raw_len(tb1[i])) != 0)
 			goto mark;
 
 		continue;
