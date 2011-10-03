@@ -138,9 +138,11 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 	struct proto_shell_state *state;
 
 	state = container_of(p, struct proto_shell_state, teardown_task);
-	state->proto.proto_event(&state->proto, IFPEV_DOWN);
+
 	if (state->l3_dev.dev)
 		device_remove_user(&state->l3_dev);
+
+	state->proto.proto_event(&state->proto, IFPEV_DOWN);
 }
 
 static void
