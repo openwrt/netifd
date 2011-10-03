@@ -382,11 +382,11 @@ proto_shell_parse_config(struct config_param_list *config, json_object *obj)
 	int str_len = 0;
 	int i;
 
-	attrs = calloc(1, sizeof(*attrs));
+	config->n_params = json_object_array_length(obj);
+	attrs = calloc(1, sizeof(*attrs) * config->n_params);
 	if (!attrs)
 		return NULL;
 
-	config->n_params = json_object_array_length(obj);
 	config->params = attrs;
 	for (i = 0; i < config->n_params; i++) {
 		json_object *cur, *name, *type;
