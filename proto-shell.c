@@ -408,7 +408,7 @@ proto_shell_parse_config(struct config_param_list *config, json_object *obj)
 		if (attrs[i].type > BLOBMSG_TYPE_LAST)
 			goto error;
 
-		str_len += strlen(attrs[i].name + 1);
+		str_len += strlen(attrs[i].name) + 1;
 	}
 
 	str_buf = malloc(str_len);
