@@ -133,7 +133,7 @@ int device_claim(struct device_user *dep)
 		return 0;
 
 	dep->claimed = true;
-	DPRINTF("claim device %s, new refcount: %d\n", dev->ifname, dev->active + 1);
+	D(DEVICE, "claim device %s, new refcount: %d\n", dev->ifname, dev->active + 1);
 	if (++dev->active != 1)
 		return 0;
 
@@ -156,7 +156,7 @@ void device_release(struct device_user *dep)
 
 	dep->claimed = false;
 	dev->active--;
-	DPRINTF("release device %s, new refcount: %d\n", dev->ifname, dev->active);
+	D(DEVICE, "release device %s, new refcount: %d\n", dev->ifname, dev->active);
 	assert(dev->active >= 0);
 
 	if (dev->active)
@@ -183,7 +183,7 @@ void device_init_virtual(struct device *dev, const struct device_type *type, con
 	if (name)
 		strncpy(dev->ifname, name, IFNAMSIZ);
 
-	DPRINTF("Initialize device '%s'\n", dev->ifname);
+	D(DEVICE, "Initialize device '%s'\n", dev->ifname);
 	INIT_LIST_HEAD(&dev->users);
 	dev->type = type;
 }
@@ -232,7 +232,7 @@ void device_cleanup(struct device *dev)
 {
 	struct device_user *dep, *tmp;
 
-	DPRINTF("Clean up device '%s'\n", dev->ifname);
+	D(DEVICE, "Clean up device '%s'\n", dev->ifname);
 	list_for_each_entry_safe(dep, tmp, &dev->users, list) {
 		if (!dep->cb)
 			continue;
@@ -249,7 +249,7 @@ void device_set_present(struct device *dev, bool state)
 	if (dev->present == state)
 		return;
 
-	DPRINTF("Device '%s' %s present\n", dev->ifname, state ? "is now" : "is no longer" );
+	D(DEVICE, "Device '%s' %s present\n", dev->ifname, state ? "is now" : "is no longer" );
 	dev->present = state;
 	device_broadcast_event(dev, state ? DEV_EVENT_ADD : DEV_EVENT_REMOVE);
 }

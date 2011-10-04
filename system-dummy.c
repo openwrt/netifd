@@ -18,49 +18,49 @@ int system_init(void)
 
 int system_bridge_addbr(struct device *bridge)
 {
-	DPRINTF("brctl addbr %s\n", bridge->ifname);
+	D(SYSTEM, "brctl addbr %s\n", bridge->ifname);
 	return 0;
 }
 
 int system_bridge_delbr(struct device *bridge)
 {
-	DPRINTF("brctl delbr %s\n", bridge->ifname);
+	D(SYSTEM, "brctl delbr %s\n", bridge->ifname);
 	return 0;
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
-	DPRINTF("brctl addif %s %s\n", bridge->ifname, dev->ifname);
+	D(SYSTEM, "brctl addif %s %s\n", bridge->ifname, dev->ifname);
 	return 0;
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
-	DPRINTF("brctl delif %s %s\n", bridge->ifname, dev->ifname);
+	D(SYSTEM, "brctl delif %s %s\n", bridge->ifname, dev->ifname);
 	return 0;
 }
 
 int system_vlan_add(struct device *dev, int id)
 {
-	DPRINTF("vconfig add %s %d\n", dev->ifname, id);
+	D(SYSTEM, "vconfig add %s %d\n", dev->ifname, id);
 	return 0;
 }
 
 int system_vlan_del(struct device *dev)
 {
-	DPRINTF("vconfig rem %s\n", dev->ifname);
+	D(SYSTEM, "vconfig rem %s\n", dev->ifname);
 	return 0;
 }
 
 int system_if_up(struct device *dev)
 {
-	DPRINTF("ifconfig %s up\n", dev->ifname);
+	D(SYSTEM, "ifconfig %s up\n", dev->ifname);
 	return 0;
 }
 
 int system_if_down(struct device *dev)
 {
-	DPRINTF("ifconfig %s down\n", dev->ifname);
+	D(SYSTEM, "ifconfig %s down\n", dev->ifname);
 	return 0;
 }
 
@@ -80,11 +80,11 @@ int system_add_address(struct device *dev, struct device_addr *addr)
 	char ipaddr[64];
 
 	if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) {
-		DPRINTF("ifconfig %s add %d.%d.%d.%d/%d\n",
+		D(SYSTEM, "ifconfig %s add %d.%d.%d.%d/%d\n",
 			dev->ifname, a[0], a[1], a[2], a[3], addr->mask);
 	} else {
 		inet_ntop(AF_INET6, &addr->addr.in6, ipaddr, sizeof(struct in6_addr));
-		DPRINTF("ifconfig %s add %s/%d\n",
+		D(SYSTEM, "ifconfig %s add %s/%d\n",
 			dev->ifname, ipaddr, addr->mask);
 		return -1;
 	}
@@ -98,11 +98,11 @@ int system_del_address(struct device *dev, struct device_addr *addr)
 	char ipaddr[64];
 
 	if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) {
-		DPRINTF("ifconfig %s del %d.%d.%d.%d\n",
+		D(SYSTEM, "ifconfig %s del %d.%d.%d.%d\n",
 			dev->ifname, a[0], a[1], a[2], a[3]);
 	} else {
 		inet_ntop(AF_INET6, &addr->addr.in6, ipaddr, sizeof(struct in6_addr));
-		DPRINTF("ifconfig %s del %s/%d\n",
+		D(SYSTEM, "ifconfig %s del %s/%d\n",
 			dev->ifname, ipaddr, addr->mask);
 		return -1;
 	}
@@ -132,7 +132,7 @@ int system_add_route(struct device *dev, struct device_route *route)
 	if (route->flags & DEVADDR_DEVICE)
 		sprintf(devstr, " dev %s", dev->ifname);
 
-	DPRINTF("route add %s%s%s\n", addr, gw, devstr);
+	D(SYSTEM, "route add %s%s%s\n", addr, gw, devstr);
 	return 0;
 }
 
@@ -158,6 +158,6 @@ int system_del_route(struct device *dev, struct device_route *route)
 	if (route->flags & DEVADDR_DEVICE)
 		sprintf(devstr, " dev %s", dev->ifname);
 
-	DPRINTF("route del %s%s%s\n", addr, gw, devstr);
+	D(SYSTEM, "route del %s%s%s\n", addr, gw, devstr);
 	return 0;
 }

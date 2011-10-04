@@ -132,7 +132,7 @@ config_parse_bridge_interface(struct uci_section *s)
 
 	uci_to_blob(&b, s, bridge_device_type.config_params);
 	if (!device_create(name, &bridge_device_type, b.head)) {
-		DPRINTF("Failed to create bridge for interface '%s'\n", s->e.name);
+		D(INTERFACE, "Failed to create bridge for interface '%s'\n", s->e.name);
 		return -EINVAL;
 	}
 
@@ -148,7 +148,7 @@ config_parse_interface(struct uci_section *s)
 	const char *type;
 	struct blob_attr *config;
 
-	DPRINTF("Create interface '%s'\n", s->e.name);
+	D(INTERFACE, "Create interface '%s'\n", s->e.name);
 
 	blob_buf_init(&b, 0);
 

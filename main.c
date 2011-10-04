@@ -10,6 +10,7 @@
 #include "system.h"
 #include "interface.h"
 
+unsigned int debug_mask = 0;
 const char *main_path = ".";
 static char **global_argv;
 
@@ -42,6 +43,7 @@ static int usage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s [options]\n"
 		"Options:\n"
+		" -d <mask>:		Mask for debug messages\n"
 		" -s <path>:		Path to the ubus socket\n"
 		" -p <path>:		Path to netifd addons (default: %s)\n"
 		"\n", progname, main_path);
@@ -56,8 +58,11 @@ int main(int argc, char **argv)
 
 	global_argv = argv;
 
-	while ((ch = getopt(argc, argv, "s:")) != -1) {
+	while ((ch = getopt(argc, argv, "d:s:")) != -1) {
 		switch(ch) {
+		case 'd':
+			debug_mask = strtoul(optarg, NULL, 0);
+			break;
 		case 's':
 			socket = optarg;
 			break;
