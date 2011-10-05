@@ -392,7 +392,7 @@ set_config_state(struct interface *iface, enum interface_config_state s)
 	if (iface->state == IFS_DOWN)
 		interface_handle_config_change(iface);
 	else
-		interface_set_down(iface);
+		__interface_set_down(iface, false);
 }
 
 static void
