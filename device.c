@@ -354,19 +354,24 @@ device_create(const char *name, const struct device_type *type,
 	enum dev_change_type change;
 
 	D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
+	config = config_memdup(config);
+	if (!config)
+		return NULL;
+
 	odev = device_get(name, false);
 	if (odev) {
 		change = device_check_config(odev, config);
 		switch (change) {
 		case DEV_CONFIG_APPLIED:
 			free(odev->config);
-			odev->config = config_memdup(config);
+			odev->config = config;
 			if (odev->present) {
 				device_set_present(odev, false);
 				device_set_present(odev, true);
 			}
 			/* fall through */
 		case DEV_CONFIG_NO_CHANGE:
+			free(config);
 			return odev;
 		case DEV_CONFIG_RECREATE:
 			break;
@@ -374,7 +379,7 @@ device_create(const char *name, const struct device_type *type,
 	}
 
 	dev = type->create(config);
-	dev->config = config_memdup(config);
+	dev->config = config;
 	if (odev)
 		device_replace(dev, odev);
 
