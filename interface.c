@@ -184,6 +184,7 @@ interface_claim_device(struct interface *iface)
 static void
 interface_cleanup(struct interface *iface)
 {
+	interface_clear_errors(iface);
 	if (iface->main_dev.dev)
 		device_remove_user(&iface->main_dev);
 	interface_set_proto_state(iface, NULL);
