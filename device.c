@@ -353,6 +353,7 @@ device_create(const char *name, const struct device_type *type,
 	struct device *odev = NULL, *dev;
 	enum dev_change_type change;
 
+	D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
 	odev = device_get(name, false);
 	if (odev) {
 		change = device_check_config(odev, config);
