@@ -208,7 +208,20 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 	return 0;
 }
 
-struct device *device_get(const char *name, bool create)
+static struct device *
+device_create_default(const char *name)
+{
+	struct device *dev;
+
+	D(DEVICE, "Create simple device '%s'\n", name);
+	dev = calloc(1, sizeof(*dev));
+	device_init(dev, &simple_device_type, name);
+	dev->default_config = true;
+	return dev;
+}
+
+struct device *
+device_get(const char *name, bool create)
 {
 	struct device *dev;
 
@@ -222,11 +235,7 @@ struct device *device_get(const char *name, bool create)
 	if (!create)
 		return NULL;
 
-	D(DEVICE, "Create simple device '%s'\n", name);
-	dev = calloc(1, sizeof(*dev));
-	device_init(dev, &simple_device_type, name);
-
-	return dev;
+	return device_create_default(name);
 }
 
 static void
@@ -279,7 +288,7 @@ void device_add_user(struct device_user *dep, struct device *dev)
 static void
 __device_free_unused(struct device *dev)
 {
-	if (!list_empty(&dev->users))
+	if (!list_empty(&dev->users) || dev->current_config)
 		return;
 
 	device_free(dev);
@@ -375,6 +384,32 @@ device_replace(struct device *dev, struct device *odev)
 		device_set_present(dev, true);
 }
 
+void
+device_reset_config(void)
+{
+	struct device *dev;
+
+	avl_for_each_element(&devices, dev, avl)
+		dev->current_config = false;
+}
+
+void
+device_reset_old(void)
+{
+	struct device *dev, *tmp, *ndev;
+
+	avl_for_each_element_safe(&devices, dev, avl, tmp) {
+		if (dev->current_config || dev->default_config)
+			continue;
+
+		if (dev->type != &simple_device_type)
+			continue;
+
+		ndev = device_create_default(dev->ifname);
+		device_replace(ndev, dev);
+	}
+}
+
 struct device *
 device_create(const char *name, const struct device_type *type,
 	      struct blob_attr *config)
@@ -389,6 +424,7 @@ device_create(const char *name, const struct device_type *type,
 
 	odev = device_get(name, false);
 	if (odev) {
+		odev->current_config = true;
 		change = device_check_config(odev, type, config);
 		switch (change) {
 		case DEV_CONFIG_APPLIED:
@@ -416,6 +452,7 @@ device_create(const char *name, const struct device_type *type,
 	if (!dev)
 		return NULL;
 
+	dev->current_config = true;
 	dev->config = config;
 	if (odev)
 		device_replace(dev, odev);

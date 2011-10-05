@@ -329,6 +329,7 @@ config_init_interfaces(const char *name)
 	uci_network = p;
 	config_init = true;
 
+	device_reset_config();
 	config_init_devices();
 
 	uci_foreach_element(&p->sections, e) {
@@ -343,6 +344,7 @@ config_init_interfaces(const char *name)
 	device_free_unused(NULL);
 	config_init = false;
 
+	device_reset_old();
 	device_init_pending();
 	interface_start_pending();
 }

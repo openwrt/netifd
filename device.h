@@ -63,6 +63,9 @@ struct device {
 	bool present;
 	int active;
 
+	bool current_config;
+	bool default_config;
+
 	/* set interface up or down */
 	device_state_cb set_state;
 
@@ -114,6 +117,9 @@ struct device *device_create(const char *name, const struct device_type *type,
 			     struct blob_attr *config);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
 void device_init_pending(void);
+
+void device_reset_config(void);
+void device_reset_old(void);
 
 void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);
 int device_init(struct device *iface, const struct device_type *type, const char *ifname);
