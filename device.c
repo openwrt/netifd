@@ -435,7 +435,6 @@ device_create(const char *name, const struct device_type *type,
 				device_set_present(odev, false);
 				device_set_present(odev, true);
 			}
-			free(config);
 			return odev;
 		case DEV_CONFIG_NO_CHANGE:
 			D(DEVICE, "Device '%s': no configuration change\n", odev->ifname);
