@@ -167,7 +167,7 @@ void device_release(struct device_user *dep)
 	device_broadcast_event(dev, DEV_EVENT_DOWN);
 }
 
-int check_device_state(struct device *dev)
+int device_check_state(struct device *dev)
 {
 	if (!dev->type->check_state)
 		return 0;
@@ -203,7 +203,7 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 	if (ret < 0)
 		return ret;
 
-	check_device_state(dev);
+	device_check_state(dev);
 
 	return 0;
 }

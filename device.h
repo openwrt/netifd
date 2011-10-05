@@ -122,7 +122,7 @@ void device_remove_user(struct device_user *dep);
 void device_set_present(struct device *dev, bool state);
 int device_claim(struct device_user *dep);
 void device_release(struct device_user *dep);
-int check_device_state(struct device *dev);
+int device_check_state(struct device *dev);
 
 static inline void
 device_free(struct device *dev)

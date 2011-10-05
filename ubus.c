@@ -43,7 +43,7 @@ netifd_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!add || (tb[DEV_FORCE] && blobmsg_get_u8(tb[DEV_FORCE])))
 		device_set_present(dev, add);
 	else
-		check_device_state(dev);
+		device_check_state(dev);
 
 	return 0;
 }
