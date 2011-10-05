@@ -31,7 +31,7 @@ const struct config_param_list interface_attr_list = {
 };
 
 static void
-clear_interface_errors(struct interface *iface)
+interface_clear_errors(struct interface *iface)
 {
 	struct interface_error *error, *tmp;
 
@@ -119,7 +119,7 @@ __interface_set_up(struct interface *iface)
 static void
 __interface_set_down(struct interface *iface, bool force)
 {
-	clear_interface_errors(iface);
+	interface_clear_errors(iface);
 
 	if (iface->state == IFS_DOWN ||
 		iface->state == IFS_TEARDOWN)
