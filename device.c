@@ -228,6 +228,16 @@ struct device *device_get(const char *name, bool create)
 	return dev;
 }
 
+static void
+device_delete(struct device *dev)
+{
+	if (!dev->avl.key)
+		return;
+
+	avl_delete(&devices, &dev->avl);
+	dev->avl.key = NULL;
+}
+
 void device_cleanup(struct device *dev)
 {
 	struct device_user *dep, *tmp;
@@ -240,8 +250,7 @@ void device_cleanup(struct device *dev)
 		dep->cb(dep, DEV_EVENT_REMOVE);
 	}
 
-	if (dev->avl.key)
-		avl_delete(&devices, &dev->avl);
+	device_delete(dev);
 }
 
 void device_set_present(struct device *dev, bool state)
@@ -392,6 +401,7 @@ device_create(const char *name, const struct device_type *type,
 			return odev;
 		case DEV_CONFIG_RECREATE:
 			D(DEVICE, "Device '%s': recreate device\n", odev->ifname);
+			device_delete(odev);
 			break;
 		}
 	}
