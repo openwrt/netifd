@@ -99,7 +99,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 
 static void __init dev_init(void)
 {
-	avl_init(&devices, avl_strcmp, false, NULL);
+	avl_init(&devices, avl_strcmp, true, NULL);
 }
 
 static void device_broadcast_event(struct device *dev, enum device_event ev)
