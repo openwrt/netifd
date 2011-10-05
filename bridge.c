@@ -34,6 +34,7 @@ static const struct config_param_list bridge_attr_list = {
 };
 
 static struct device *bridge_create(struct blob_attr *attr);
+static void bridge_config_init(struct device *dev);
 static void bridge_free(struct device *dev);
 static void bridge_dump_status(struct device *dev, struct blob_buf *b);
 
@@ -42,6 +43,7 @@ const struct device_type bridge_device_type = {
 	.config_params = &bridge_attr_list,
 
 	.create = bridge_create,
+	.config_init = bridge_config_init,
 	.free = bridge_free,
 	.dump_status = bridge_dump_status,
 };
@@ -50,6 +52,7 @@ struct bridge_state {
 	struct device dev;
 	device_state_cb set_state;
 
+	struct blob_attr *ifnames;
 	bool active;
 
 	struct list_head members;
@@ -306,16 +309,27 @@ bridge_dump_status(struct device *dev, struct blob_buf *b)
 	blobmsg_close_array(b, list);
 }
 
+static void
+bridge_config_init(struct device *dev)
+{
+	struct bridge_state *bst;
+	struct blob_attr *cur;
+	int rem;
+
+	bst = container_of(dev, struct bridge_state, dev);
+	blobmsg_for_each_attr(cur, bst->ifnames, rem) {
+		bridge_add_member(bst, blobmsg_data(cur));
+	}
+}
+
 static struct device *
 bridge_create(struct blob_attr *attr)
 {
 	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_br[__BRIDGE_ATTR_MAX];
-	struct blob_attr *cur;
 	struct bridge_state *bst;
 	struct device *dev = NULL;
 	const char *name;
-	int rem;
 
 	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
 		blob_data(attr), blob_len(attr));
@@ -337,6 +351,8 @@ bridge_create(struct blob_attr *attr)
 	dev = &bst->dev;
 	device_init(dev, &bridge_device_type, name);
 	device_init_settings(dev, tb_dev);
+	dev->config_pending = true;
+	bst->ifnames = tb_br[BRIDGE_ATTR_IFNAME];
 
 	bst->set_state = dev->set_state;
 	dev->set_state = bridge_set_state;
@@ -344,10 +360,6 @@ bridge_create(struct blob_attr *attr)
 	dev->hotplug_ops = &bridge_ops;
 
 	INIT_LIST_HEAD(&bst->members);
-
-	blobmsg_for_each_attr(cur, tb_br[BRIDGE_ATTR_IFNAME], rem) {
-		bridge_add_member(bst, blobmsg_data(cur));
-	}
 
 	return dev;
 }

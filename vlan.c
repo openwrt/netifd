@@ -120,7 +120,7 @@ out:
 
 struct device *get_vlan_device_chain(const char *ifname, bool create)
 {
-	struct device *iface = NULL;
+	struct device *dev = NULL;
 	char *buf, *s, *next, *err = NULL;
 	int id;
 
@@ -129,8 +129,8 @@ struct device *get_vlan_device_chain(const char *ifname, bool create)
 		return NULL;
 
 	s = split_vlan(buf);
-	iface = device_get(buf, create);
-	if (!iface && !create)
+	dev = device_get(buf, create);
+	if (!dev && !create)
 		goto error;
 
 	do {
@@ -139,8 +139,8 @@ struct device *get_vlan_device_chain(const char *ifname, bool create)
 		if (err && *err)
 			goto error;
 
-		iface = get_vlan_device(iface, id, create);
-		if (!iface)
+		dev = get_vlan_device(dev, id, create);
+		if (!dev)
 			goto error;
 
 		s = next;
@@ -149,8 +149,8 @@ struct device *get_vlan_device_chain(const char *ifname, bool create)
 	} while (1);
 
 error:
-	iface = NULL;
+	dev = NULL;
 out:
 	free(buf);
-	return iface;
+	return dev;
 }

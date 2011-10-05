@@ -343,5 +343,6 @@ config_init_interfaces(const char *name)
 	device_free_unused(NULL);
 	config_init = false;
 
+	device_init_pending();
 	interface_start_pending();
 }

@@ -298,6 +298,20 @@ device_free_unused(struct device *dev)
 		__device_free_unused(dev);
 }
 
+void
+device_init_pending(void)
+{
+	struct device *dev, *tmp;
+
+	avl_for_each_element_safe(&devices, dev, avl, tmp) {
+		if (!dev->config_pending)
+			continue;
+
+		dev->type->config_init(dev);
+		dev->config_pending = false;
+	}
+}
+
 enum dev_change_type
 device_reload_config(struct device *dev, struct blob_attr *attr)
 {
@@ -379,9 +393,15 @@ device_create(const char *name, const struct device_type *type,
 	}
 
 	dev = type->create(config);
+	if (!dev)
+		return NULL;
+
 	dev->config = config;
 	if (odev)
 		device_replace(dev, odev);
+
+	if (!config_init && dev->config_pending)
+		type->config_init(dev);
 
 	return dev;
 }

@@ -32,6 +32,7 @@ struct device_type {
 	const struct config_param_list *config_params;
 
 	struct device *(*create)(struct blob_attr *attr);
+	void (*config_init)(struct device *);
 	enum dev_change_type (*reload)(struct device *, struct blob_attr *);
 	void (*dump_status)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
@@ -58,6 +59,7 @@ struct device {
 	int ifindex;
 
 	struct blob_attr *config;
+	bool config_pending;
 	bool present;
 	int active;
 
@@ -111,6 +113,7 @@ extern const struct device_type bridge_device_type;
 struct device *device_create(const char *name, const struct device_type *type,
 			     struct blob_attr *config);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
+void device_init_pending(void);
 
 void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);
 int device_init(struct device *iface, const struct device_type *type, const char *ifname);
