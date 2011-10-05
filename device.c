@@ -337,8 +337,8 @@ device_replace(struct device *dev, struct device *odev)
 		device_set_present(odev, false);
 
 	list_for_each_entry_safe(dep, tmp, &odev->users, list) {
-		list_move_tail(&dep->list, &dev->users);
-		dep->dev = dev;
+		device_remove_user(dep);
+		device_add_user(dep, dev);
 	}
 	device_free(odev);
 
