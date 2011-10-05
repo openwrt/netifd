@@ -377,17 +377,21 @@ device_create(const char *name, const struct device_type *type,
 		change = device_check_config(odev, config);
 		switch (change) {
 		case DEV_CONFIG_APPLIED:
+			D(DEVICE, "Device '%s': config applied\n", odev->ifname);
 			free(odev->config);
 			odev->config = config;
 			if (odev->present) {
 				device_set_present(odev, false);
 				device_set_present(odev, true);
 			}
-			/* fall through */
+			free(config);
+			return odev;
 		case DEV_CONFIG_NO_CHANGE:
+			D(DEVICE, "Device '%s': no configuration change\n", odev->ifname);
 			free(config);
 			return odev;
 		case DEV_CONFIG_RECREATE:
+			D(DEVICE, "Device '%s': recreate device\n", odev->ifname);
 			break;
 		}
 	}
