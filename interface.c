@@ -157,6 +157,7 @@ interface_set_available(struct interface *iface, bool new_state)
 	if (iface->available == new_state)
 		return;
 
+	D(INTERFACE, "Interface '%s', available=%d\n", iface->name, new_state);
 	iface->available = new_state;
 
 	if (new_state) {
