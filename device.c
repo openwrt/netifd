@@ -222,6 +222,7 @@ struct device *device_get(const char *name, bool create)
 	if (!create)
 		return NULL;
 
+	D(DEVICE, "Create simple device '%s'\n", name);
 	dev = calloc(1, sizeof(*dev));
 	device_init(dev, &simple_device_type, name);
 
@@ -234,6 +235,7 @@ device_delete(struct device *dev)
 	if (!dev->avl.key)
 		return;
 
+	D(DEVICE, "Delete device '%s' from list\n", dev->ifname);
 	avl_delete(&devices, &dev->avl);
 	dev->avl.key = NULL;
 }
@@ -342,8 +344,12 @@ device_reload_config(struct device *dev, struct blob_attr *attr)
 }
 
 static enum dev_change_type
-device_check_config(struct device *dev, struct blob_attr *attr)
+device_check_config(struct device *dev, const struct device_type *type,
+		    struct blob_attr *attr)
 {
+	if (type != dev->type)
+		return DEV_CONFIG_RECREATE;
+
 	if (dev->type->reload)
 		return dev->type->reload(dev, attr);
 
@@ -383,7 +389,7 @@ device_create(const char *name, const struct device_type *type,
 
 	odev = device_get(name, false);
 	if (odev) {
-		change = device_check_config(odev, config);
+		change = device_check_config(odev, type, config);
 		switch (change) {
 		case DEV_CONFIG_APPLIED:
 			D(DEVICE, "Device '%s': config applied\n", odev->ifname);
