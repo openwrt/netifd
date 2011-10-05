@@ -308,10 +308,8 @@ interface_add(struct interface *iface, struct blob_attr *config)
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
 
-	if ((cur = tb[IFACE_ATTR_IFNAME])) {
+	if ((cur = tb[IFACE_ATTR_IFNAME]))
 		iface->ifname = blobmsg_data(cur);
-
-	}
 
 	iface->config = config;
 	vlist_add(&interfaces, &iface->node);
