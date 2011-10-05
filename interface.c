@@ -400,6 +400,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
 
+	interface_clear_errors(if_old);
 	if_old->config = if_new->config;
 	if (!if_old->config_autostart && if_new->config_autostart)
 		if_old->autostart = true;
