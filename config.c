@@ -148,8 +148,6 @@ config_parse_interface(struct uci_section *s)
 	const char *type;
 	struct blob_attr *config;
 
-	D(INTERFACE, "Create interface '%s'\n", s->e.name);
-
 	blob_buf_init(&b, 0);
 
 	type = uci_lookup_option_string(uci_ctx, s, "type");

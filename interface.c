@@ -420,11 +420,14 @@ interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	struct interface *if_old = container_of(node_old, struct interface, node);
 	struct interface *if_new = container_of(node_new, struct interface, node);
 
-	if (node_old && node_new)
+	if (node_old && node_new) {
+		D(INTERFACE, "Update interface '%s'\n", if_new->name);
 		interface_change_config(if_old, if_new);
-	else if (node_old)
+	} else if (node_old) {
+		D(INTERFACE, "Remove interface '%s'\n", if_old->name);
 		set_config_state(if_old, IFC_REMOVE);
-	else if (node_new) {
+	} else if (node_new) {
+		D(INTERFACE, "Create interface '%s'\n", if_new->name);
 		interface_claim_device(if_new);
 		proto_init_interface(if_new, if_new->config);
 		interface_ip_init(if_new);
