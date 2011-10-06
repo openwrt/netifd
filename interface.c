@@ -207,7 +207,7 @@ interface_do_reload(struct interface *iface)
 	interface_claim_device(iface);
 	proto_init_interface(iface, iface->config);
 
-	if (iface->autostart)
+	if (iface->autostart && !config_init)
 		interface_set_up(iface);
 }
 
