@@ -23,7 +23,10 @@ enum {
 
 #ifdef DEBUG
 #define DPRINTF(format, ...) fprintf(stderr, "%s(%d): " format, __func__, __LINE__, ## __VA_ARGS__)
-#define D(level, format, ...) if (debug_mask & (1 << (DEBUG_ ## level))) DPRINTF(format, ##__VA_ARGS__)
+#define D(level, format, ...) do { \
+		if (debug_mask & (1 << (DEBUG_ ## level))) \
+				DPRINTF(format, ##__VA_ARGS__); \
+	} while (0)
 #else
 #define DPRINTF(format, ...) no_debug(0, format, ## __VA_ARGS__)
 #define D(level, format, ...) no_debug(DEBUG_ ## level, format, ## __VA_ARGS__)
