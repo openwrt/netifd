@@ -400,6 +400,8 @@ static void
 interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
+	const char *old_ifname = if_old->ifname;
+	const struct proto_handler *proto = if_old->proto_handler;
 
 	interface_clear_errors(if_old);
 	if_old->config = if_new->config;
@@ -408,8 +410,30 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	if_old->config_autostart = if_new->config_autostart;
 	if_old->ifname = if_new->ifname;
+	if_old->proto_handler = if_new->proto_handler;
 
+	if (strcmp(old_ifname, if_new->ifname) != 0 ||
+		proto != if_new->proto_handler) {
+		D(INTERFACE, "Reload interface '%s' because of ifname/proto change\n",
+		  if_old->name);
+		goto reload;
+	}
+
+	if (!proto->config_params)
+		D(INTERFACE, "No config parameters for interface '%s'\n",
+		  if_old->name);
+	else if (!config_check_equal(old_config, if_new->config,
+				proto->config_params)) {
+		D(INTERFACE, "Reload interface '%s because of config changes\n",
+		  if_old->name);
+		goto reload;
+	}
+
+	goto out;
+
+reload:
 	set_config_state(if_old, IFC_RELOAD);
+out:
 	free(old_config);
 	free(if_new);
 }
