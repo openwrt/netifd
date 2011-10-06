@@ -141,8 +141,11 @@ int device_claim(struct device_user *dep)
 	ret = dev->set_state(dev, true);
 	if (ret == 0)
 		device_broadcast_event(dev, DEV_EVENT_UP);
-	else
+	else {
+		D(DEVICE, "claim device %s failed: %d\n", dev->ifname, ret);
 		dev->active = 0;
+		dep->claimed = false;
+	}
 
 	return ret;
 }
@@ -259,6 +262,7 @@ void device_cleanup(struct device *dev)
 			continue;
 
 		dep->cb(dep, DEV_EVENT_REMOVE);
+		device_release(dep);
 	}
 
 	device_delete(dev);
@@ -379,8 +383,9 @@ device_replace(struct device *dev, struct device *odev)
 		device_set_present(odev, false);
 
 	list_for_each_entry_safe(dep, tmp, &odev->users, list) {
-		device_remove_user(dep);
-		device_add_user(dep, dev);
+		device_release(dep);
+		list_move_tail(&dep->list, &dev->users);
+		dep->dev = dev;
 	}
 	device_free(odev);
 
