@@ -292,7 +292,7 @@ void device_add_user(struct device_user *dep, struct device *dev)
 static void
 __device_free_unused(struct device *dev)
 {
-	if (!list_empty(&dev->users) || dev->current_config)
+	if (!list_empty(&dev->users) || dev->current_config || config_init)
 		return;
 
 	device_free(dev);
