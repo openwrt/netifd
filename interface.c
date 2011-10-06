@@ -196,6 +196,7 @@ interface_do_free(struct interface *iface)
 	interface_cleanup(iface);
 	free(iface->config);
 	netifd_ubus_remove_interface(iface);
+	avl_delete(&interfaces.avl, &iface->node.avl);
 	free(iface);
 }
 
