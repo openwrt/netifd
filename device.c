@@ -339,21 +339,19 @@ device_init_pending(void)
 enum dev_change_type
 device_reload_config(struct device *dev, struct blob_attr *attr)
 {
-	struct blob_attr *tb[__DEV_ATTR_MAX], *tb1[__DEV_ATTR_MAX];
+	struct blob_attr *tb[__DEV_ATTR_MAX];
 	const struct config_param_list *cfg = dev->type->config_params;
 
-	blobmsg_parse(cfg->params, cfg->n_params, tb,
-		blob_data(attr), blob_len(attr));
-	if (dev->config)
-		blobmsg_parse(cfg->params, cfg->n_params, tb1,
-			blob_data(dev->config), blob_len(dev->config));
-	else
-		memset(tb1, 0, sizeof(tb1));
-
-	if (!config_diff(tb, tb1, cfg, NULL))
+	if (config_check_equal(dev->config, attr, cfg))
 		return DEV_CONFIG_NO_CHANGE;
 
 	if (cfg == &device_attr_list) {
+		memset(tb, 0, sizeof(tb));
+
+		if (dev->config)
+			blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb,
+				blob_data(attr), blob_len(attr));
+
 		device_init_settings(dev, tb);
 		return DEV_CONFIG_APPLIED;
 	} else
