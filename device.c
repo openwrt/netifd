@@ -424,7 +424,6 @@ device_create(const char *name, const struct device_type *type,
 	struct device *odev = NULL, *dev;
 	enum dev_change_type change;
 
-	D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
 	config = config_memdup(config);
 	if (!config)
 		return NULL;
@@ -452,7 +451,8 @@ device_create(const char *name, const struct device_type *type,
 			device_delete(odev);
 			break;
 		}
-	}
+	} else
+		D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
 
 	dev = type->create(config);
 	if (!dev)
