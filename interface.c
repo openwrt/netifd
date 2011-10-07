@@ -78,7 +78,7 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 static void
 interface_event(struct interface *iface, enum interface_event ev)
 {
-	/* TODO */
+	interface_queue_event(iface, ev);
 }
 
 static void
@@ -282,6 +282,7 @@ interface_init(struct interface *iface, const char *name,
 
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	INIT_LIST_HEAD(&iface->errors);
+	INIT_LIST_HEAD(&iface->hotplug_list);
 
 	iface->main_dev.cb = interface_cb;
 	iface->l3_dev = &iface->main_dev;

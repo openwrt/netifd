@@ -46,6 +46,8 @@ static int usage(const char *progname)
 		" -d <mask>:		Mask for debug messages\n"
 		" -s <path>:		Path to the ubus socket\n"
 		" -p <path>:		Path to netifd addons (default: %s)\n"
+		" -h <path>:		Path to the hotplug script\n"
+		"			(default: "DEFAULT_HOTPLUG_PATH")\n"
 		"\n", progname, main_path);
 
 	return 1;
@@ -68,6 +70,9 @@ int main(int argc, char **argv)
 			break;
 		case 'p':
 			main_path = optarg;
+			break;
+		case 'h':
+			hotplug_cmd_path = optarg;
 			break;
 		default:
 			return usage(argv[0]);

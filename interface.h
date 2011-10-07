@@ -8,8 +8,8 @@ struct interface;
 struct interface_proto_state;
 
 enum interface_event {
-	IFEV_UP,
 	IFEV_DOWN,
+	IFEV_UP,
 };
 
 enum interface_state {
@@ -38,6 +38,8 @@ struct interface_error {
  */
 struct interface {
 	struct vlist_node node;
+	struct list_head hotplug_list;
+	enum interface_event hotplug_ev;
 
 	char name[IFNAMSIZ];
 	const char *ifname;
@@ -90,6 +92,9 @@ void interface_remove_link(struct interface *iface, struct device *llif);
 
 void interface_add_error(struct interface *iface, const char *subsystem,
 			 const char *code, const char **data, int n_data);
+
+void interface_queue_event(struct interface *iface, enum interface_event ev);
+void interface_dequeue_event(struct interface *iface);
 
 void interface_start_pending(void);
 
