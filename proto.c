@@ -169,7 +169,7 @@ int
 interface_proto_event(struct interface_proto_state *proto,
 		      enum interface_proto_cmd cmd, bool force)
 {
-	enum interface_event ev;
+	enum interface_proto_event ev;
 	int ret;
 
 	ret = proto->cb(proto, cmd, force);
@@ -178,10 +178,10 @@ interface_proto_event(struct interface_proto_state *proto,
 
 	switch(cmd) {
 	case PROTO_CMD_SETUP:
-		ev = IFEV_UP;
+		ev = IFPEV_UP;
 		break;
 	case PROTO_CMD_TEARDOWN:
-		ev = IFEV_DOWN;
+		ev = IFPEV_DOWN;
 		break;
 	default:
 		return -EINVAL;
