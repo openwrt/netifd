@@ -315,12 +315,10 @@ config_init_package(const char *config)
 void
 config_init_interfaces(const char *name)
 {
-	struct uci_context *ctx;
 	struct uci_package *p = NULL;
 	struct uci_element *e;
 
 	p = config_init_package("network");
-	ctx = uci_ctx;
 	if (!p) {
 		fprintf(stderr, "Failed to load network config\n");
 		return;
