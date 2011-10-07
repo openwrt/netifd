@@ -165,8 +165,19 @@ static int system_if_flags(struct device *dev, unsigned add, unsigned rem)
 	return ioctl(sock_ioctl, SIOCSIFFLAGS, &ifr);
 }
 
+static int system_if_resolve(struct device *dev)
+{
+	struct ifreq ifr;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+	if (!ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
+		return ifr.ifr_ifindex;
+	else
+		return 0;
+}
+
 int system_if_up(struct device *dev)
 {
+	dev->ifindex = system_if_resolve(dev);
 	return system_if_flags(dev, IFF_UP, 0);
 }
 
@@ -177,16 +188,7 @@ int system_if_down(struct device *dev)
 
 int system_if_check(struct device *dev)
 {
-	struct ifreq ifr;
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
-	if (ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
-		return -1;
-
-	dev->ifindex = ifr.ifr_ifindex;
-
-	/* if (!strcmp(dev->ifname, "eth0"))
-		device_set_present(dev, true); */
-	return 0;
+	return -!(system_if_resolve(dev));
 }
 
 static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
