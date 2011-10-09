@@ -9,6 +9,7 @@
 #include <fcntl.h>
 
 #include <netlink/msg.h>
+#include <netlink/attr.h>
 #include <libubox/uloop.h>
 
 #include "netifd.h"
