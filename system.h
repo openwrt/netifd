@@ -32,6 +32,7 @@ int system_bridge_delif(struct device *bridge, struct device *dev);
 int system_vlan_add(struct device *dev, int id);
 int system_vlan_del(struct device *dev);
 
+void system_if_clear_state(struct device *dev);
 int system_if_up(struct device *dev);
 int system_if_down(struct device *dev);
 int system_if_check(struct device *dev);

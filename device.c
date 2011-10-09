@@ -206,6 +206,7 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 	if (ret < 0)
 		return ret;
 
+	system_if_clear_state(dev);
 	device_check_state(dev);
 
 	return 0;

@@ -202,7 +202,7 @@ static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
 /*
  * Clear bridge (membership) state and bring down device
  */
-static void system_if_clear_state(struct device *dev)
+void system_if_clear_state(struct device *dev)
 {
 	char buf[256];
 	char *bridge;
@@ -236,7 +236,6 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
 	unsigned long args[4] = {};
 
-	system_if_clear_state(bridge);
 	if (ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname) < 0)
 		return -1;
 
@@ -291,7 +290,6 @@ static int system_vlan(struct device *dev, int id)
 
 int system_vlan_add(struct device *dev, int id)
 {
-	system_if_clear_state(dev);
 	return system_vlan(dev, id);
 }
 
@@ -313,7 +311,6 @@ int system_if_down(struct device *dev)
 
 int system_if_check(struct device *dev)
 {
-	system_if_clear_state(dev);
 	device_set_present(dev, (system_if_resolve(dev) >= 0));
 	return 0;
 }

@@ -64,6 +64,11 @@ int system_if_down(struct device *dev)
 	return 0;
 }
 
+void system_if_clear_state(struct device *dev)
+{
+	return 0;
+}
+
 int system_if_check(struct device *dev)
 {
 	dev->ifindex = 0;
