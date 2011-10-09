@@ -1,12 +1,15 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #include <linux/rtnetlink.h>
 #include <linux/sockios.h>
 #include <linux/if_vlan.h>
 
+#include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <glob.h>
 
 #include <netlink/msg.h>
 #include <netlink/attr.h>
@@ -113,32 +116,116 @@ static int system_rtnl_call(struct nl_msg *msg)
 	return s;
 }
 
-int system_bridge_addbr(struct device *bridge)
-{
-	return ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname);
-}
-
 int system_bridge_delbr(struct device *bridge)
 {
 	return ioctl(sock_ioctl, SIOCBRDELBR, bridge->ifname);
 }
 
-static int system_bridge_if(struct device *bridge, struct device *dev, int cmd)
+static int system_bridge_if(const char *bridge, struct device *dev, int cmd)
 {
 	struct ifreq ifr;
 	ifr.ifr_ifindex = dev->ifindex;
-	strncpy(ifr.ifr_name, bridge->ifname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, bridge, sizeof(ifr.ifr_name));
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
-	return system_bridge_if(bridge, dev, SIOCBRADDIF);
+	return system_bridge_if(bridge->ifname, dev, SIOCBRADDIF);
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
-	return system_bridge_if(bridge, dev, SIOCBRDELIF);
+	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF);
+}
+
+static bool system_is_bridge(const char *name, char *buf, int buflen)
+{
+	struct stat st;
+
+	snprintf(buf, buflen, "/sys/devices/virtual/net/%s/bridge", name);
+	if (stat(buf, &st) < 0)
+		return false;
+
+	return true;
+}
+
+static char *system_get_bridge(const char *name, char *buf, int buflen)
+{
+	char *path;
+	ssize_t len;
+	glob_t gl;
+
+	snprintf(buf, buflen, "/sys/devices/virtual/net/*/brif/%s/bridge", name);
+	if (glob(buf, GLOB_NOSORT, NULL, &gl) < 0)
+		return NULL;
+
+	if (gl.gl_pathc == 0)
+		return NULL;
+
+	len = readlink(gl.gl_pathv[0], buf, buflen);
+	if (len < 0)
+		return NULL;
+
+	buf[len] = 0;
+	path = strrchr(buf, '/');
+	if (!path)
+		return NULL;
+
+	return path + 1;
+}
+
+static int system_if_resolve(struct device *dev)
+{
+	struct ifreq ifr;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+	if (!ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
+		return ifr.ifr_ifindex;
+	else
+		return 0;
+}
+
+static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
+{
+	struct ifreq ifr;
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr);
+	ifr.ifr_flags |= add;
+	ifr.ifr_flags &= ~rem;
+	return ioctl(sock_ioctl, SIOCSIFFLAGS, &ifr);
+}
+
+/*
+ * Clear bridge (membership) state and bring down device
+ */
+static void system_if_clear_state(struct device *dev)
+{
+	char buf[256];
+	char *bridge;
+
+	dev->ifindex = system_if_resolve(dev);
+	if (!dev->ifindex)
+		return;
+
+	system_if_flags(dev->ifname, 0, IFF_UP);
+
+	if (system_is_bridge(dev->ifname, buf, sizeof(buf))) {
+		D(SYSTEM, "Delete existing bridge named '%s'\n", dev->ifname);
+		system_bridge_delbr(dev);
+		return;
+	}
+
+	bridge = system_get_bridge(dev->ifname, buf, sizeof(buf));
+	if (bridge) {
+		D(SYSTEM, "Remove device '%s' from bridge '%s'\n", dev->ifname, bridge);
+		system_bridge_if(bridge, dev, SIOCBRDELIF);
+	}
+}
+
+int system_bridge_addbr(struct device *bridge)
+{
+	system_if_clear_state(bridge);
+	return ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname);
 }
 
 static int system_vlan(struct device *dev, int id)
@@ -153,6 +240,7 @@ static int system_vlan(struct device *dev, int id)
 
 int system_vlan_add(struct device *dev, int id)
 {
+	system_if_clear_state(dev);
 	return system_vlan(dev, id);
 }
 
@@ -161,39 +249,20 @@ int system_vlan_del(struct device *dev)
 	return system_vlan(dev, 0);
 }
 
-static int system_if_flags(struct device *dev, unsigned add, unsigned rem)
-{
-	struct ifreq ifr;
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
-	ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr);
-	ifr.ifr_flags |= add;
-	ifr.ifr_flags &= ~rem;
-	return ioctl(sock_ioctl, SIOCSIFFLAGS, &ifr);
-}
-
-static int system_if_resolve(struct device *dev)
-{
-	struct ifreq ifr;
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
-	if (!ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
-		return ifr.ifr_ifindex;
-	else
-		return 0;
-}
-
 int system_if_up(struct device *dev)
 {
 	dev->ifindex = system_if_resolve(dev);
-	return system_if_flags(dev, IFF_UP, 0);
+	return system_if_flags(dev->ifname, IFF_UP, 0);
 }
 
 int system_if_down(struct device *dev)
 {
-	return system_if_flags(dev, 0, IFF_UP);
+	return system_if_flags(dev->ifname, 0, IFF_UP);
 }
 
 int system_if_check(struct device *dev)
 {
+	system_if_clear_state(dev);
 	device_set_present(dev, (system_if_resolve(dev) >= 0));
 	return 0;
 }
