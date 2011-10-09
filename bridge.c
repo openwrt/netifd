@@ -12,12 +12,20 @@
 enum {
 	BRIDGE_ATTR_IFNAME,
 	BRIDGE_ATTR_STP,
+	BRIDGE_ATTR_FORWARD_DELAY,
+	BRIDGE_ATTR_AGEING_TIME,
+	BRIDGE_ATTR_HELLO_TIME,
+	BRIDGE_ATTR_MAX_AGE,
 	__BRIDGE_ATTR_MAX
 };
 
 static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_ARRAY },
 	[BRIDGE_ATTR_STP] = { "stp", BLOBMSG_TYPE_BOOL },
+	[BRIDGE_ATTR_FORWARD_DELAY] = { "forward_delay", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_AGEING_TIME] = { "ageing_time", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_HELLO_TIME] = { "hello_time", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_MAX_AGE] = { "max_age", BLOBMSG_TYPE_INT32 },
 };
 
 static const union config_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -52,6 +60,7 @@ struct bridge_state {
 	struct device dev;
 	device_state_cb set_state;
 
+	struct bridge_config config;
 	struct blob_attr *ifnames;
 	bool active;
 
@@ -166,7 +175,7 @@ bridge_set_up(struct bridge_state *bst)
 	if (!bst->n_present)
 		return -ENOENT;
 
-	ret = system_bridge_addbr(&bst->dev);
+	ret = system_bridge_addbr(&bst->dev, &bst->config);
 	if (ret < 0)
 		goto out;
 
@@ -322,6 +331,38 @@ bridge_config_init(struct device *dev)
 	}
 }
 
+static void
+bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
+{
+	struct bridge_config *cfg = &bst->config;
+	struct blob_attr *cur;
+
+	/* defaults */
+	cfg->stp = true;
+	cfg->forward_delay = 1;
+
+	if ((cur = tb[BRIDGE_ATTR_STP]))
+		cfg->stp = blobmsg_get_bool(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_FORWARD_DELAY]))
+		cfg->forward_delay = blobmsg_get_u32(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_AGEING_TIME])) {
+		cfg->ageing_time = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_AGEING_TIME;
+	}
+
+	if ((cur = tb[BRIDGE_ATTR_HELLO_TIME])) {
+		cfg->hello_time = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_HELLO_TIME;
+	}
+
+	if ((cur = tb[BRIDGE_ATTR_MAX_AGE])) {
+		cfg->max_age = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_MAX_AGE;
+	}
+}
+
 static struct device *
 bridge_create(struct blob_attr *attr)
 {
@@ -353,6 +394,7 @@ bridge_create(struct blob_attr *attr)
 	device_init_settings(dev, tb_dev);
 	dev->config_pending = true;
 	bst->ifnames = tb_br[BRIDGE_ATTR_IFNAME];
+	bridge_apply_settings(bst, tb_br);
 
 	bst->set_state = dev->set_state;
 	dev->set_state = bridge_set_state;

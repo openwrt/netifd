@@ -16,7 +16,7 @@ int system_init(void)
 	return 0;
 }
 
-int system_bridge_addbr(struct device *bridge)
+int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
 	D(SYSTEM, "brctl addbr %s\n", bridge->ifname);
 	return 0;

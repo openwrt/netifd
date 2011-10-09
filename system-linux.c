@@ -5,6 +5,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/sockios.h>
 #include <linux/if_vlan.h>
+#include <linux/if_bridge.h>
 
 #include <unistd.h>
 #include <string.h>
@@ -121,22 +122,25 @@ int system_bridge_delbr(struct device *bridge)
 	return ioctl(sock_ioctl, SIOCBRDELBR, bridge->ifname);
 }
 
-static int system_bridge_if(const char *bridge, struct device *dev, int cmd)
+static int system_bridge_if(const char *bridge, struct device *dev, int cmd, void *data)
 {
 	struct ifreq ifr;
-	ifr.ifr_ifindex = dev->ifindex;
+	if (dev)
+		ifr.ifr_ifindex = dev->ifindex;
+	else
+		ifr.ifr_data = data;
 	strncpy(ifr.ifr_name, bridge, sizeof(ifr.ifr_name));
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
-	return system_bridge_if(bridge->ifname, dev, SIOCBRADDIF);
+	return system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
-	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF);
+	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
 static bool system_is_bridge(const char *name, char *buf, int buflen)
@@ -218,14 +222,51 @@ static void system_if_clear_state(struct device *dev)
 	bridge = system_get_bridge(dev->ifname, buf, sizeof(buf));
 	if (bridge) {
 		D(SYSTEM, "Remove device '%s' from bridge '%s'\n", dev->ifname, bridge);
-		system_bridge_if(bridge, dev, SIOCBRDELIF);
+		system_bridge_if(bridge, dev, SIOCBRDELIF, NULL);
 	}
 }
 
-int system_bridge_addbr(struct device *bridge)
+static inline unsigned long
+sec_to_jiffies(int val)
 {
+	return (unsigned long) val * 100;
+}
+
+int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
+{
+	unsigned long args[4] = {};
+
 	system_if_clear_state(bridge);
-	return ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname);
+	if (ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname) < 0)
+		return -1;
+
+	args[0] = BRCTL_SET_BRIDGE_STP_STATE;
+	args[1] = !!cfg->stp;
+	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+
+	args[0] = BRCTL_SET_BRIDGE_FORWARD_DELAY;
+	args[1] = sec_to_jiffies(cfg->forward_delay);
+	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+
+	if (cfg->flags & BRIDGE_OPT_AGEING_TIME) {
+		args[0] = BRCTL_SET_AGEING_TIME;
+		args[1] = sec_to_jiffies(cfg->ageing_time);
+		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_HELLO_TIME) {
+		args[0] = BRCTL_SET_BRIDGE_HELLO_TIME;
+		args[1] = sec_to_jiffies(cfg->hello_time);
+		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_MAX_AGE) {
+		args[0] = BRCTL_SET_BRIDGE_MAX_AGE;
+		args[1] = sec_to_jiffies(cfg->max_age);
+		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+	}
+
+	return 0;
 }
 
 static int system_vlan(struct device *dev, int id)
