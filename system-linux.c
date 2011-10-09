@@ -231,9 +231,19 @@ int system_bridge_addbr(struct device *bridge)
 static int system_vlan(struct device *dev, int id)
 {
 	struct vlan_ioctl_args ifr = {
-		.cmd = (id == 0) ? DEL_VLAN_CMD : ADD_VLAN_CMD,
-		.u = {.VID = id},
+		.cmd = SET_VLAN_NAME_TYPE_CMD,
+		.u.name_type = VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD,
 	};
+
+	ioctl(sock_ioctl, SIOCSIFVLAN, &ifr);
+
+	if (id < 0) {
+		ifr.cmd = DEL_VLAN_CMD;
+		ifr.u.VID = 0;
+	} else {
+		ifr.cmd = ADD_VLAN_CMD;
+		ifr.u.VID = id;
+	}
 	strncpy(ifr.device1, dev->ifname, sizeof(ifr.device1));
 	return ioctl(sock_ioctl, SIOCSIFVLAN, &ifr);
 }
@@ -246,7 +256,7 @@ int system_vlan_add(struct device *dev, int id)
 
 int system_vlan_del(struct device *dev)
 {
-	return system_vlan(dev, 0);
+	return system_vlan(dev, -1);
 }
 
 int system_if_up(struct device *dev)
