@@ -32,38 +32,46 @@ int system_init(void)
 	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
 
 	// Prepare socket for routing / address control
-	if ((sock_rtnl = nl_socket_alloc())) {
-		if (nl_connect(sock_rtnl, NETLINK_ROUTE)) {
-			nl_socket_free(sock_rtnl);
-			sock_rtnl = NULL;
-		}
-	}
+	sock_rtnl = nl_socket_alloc();
+	if (!sock_rtnl)
+		return -1;
+
+	if (nl_connect(sock_rtnl, NETLINK_ROUTE))
+		goto error_free_sock;
 
 	// Prepare socket for link events
-	if ((nl_cb_rtnl_event = nl_cb_alloc(NL_CB_DEFAULT)))
-		nl_cb_set(nl_cb_rtnl_event, NL_CB_VALID, NL_CB_CUSTOM,
-							cb_rtnl_event, NULL);
+	nl_cb_rtnl_event = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!nl_cb_rtnl_event)
+		goto error_free_sock;
 
-	if (nl_cb_rtnl_event && (sock_rtnl_event = nl_socket_alloc())) {
-		if (nl_connect(sock_rtnl_event, NETLINK_ROUTE)) {
-			nl_socket_free(sock_rtnl_event);
-			sock_rtnl_event = NULL;
-		}
-		// Receive network link events form kernel
-		nl_socket_add_membership(sock_rtnl_event, RTNLGRP_LINK);
+	nl_cb_set(nl_cb_rtnl_event, NL_CB_VALID, NL_CB_CUSTOM,
+		  cb_rtnl_event, NULL);
 
-		// Synthesize initial link messages
-		struct nl_msg *m = nlmsg_alloc_simple(RTM_GETLINK, NLM_F_DUMP);
-		if (m && nlmsg_reserve(m, sizeof(struct ifinfomsg), 0)) {
-			nl_send_auto_complete(sock_rtnl_event, m);
-			nlmsg_free(m);
-		}
+	sock_rtnl_event = nl_socket_alloc();
+	if (!sock_rtnl_event)
+		goto error_free_cb;
 
-		rtnl_event.fd = nl_socket_get_fd(sock_rtnl_event);
-		uloop_fd_add(&rtnl_event, ULOOP_READ | ULOOP_EDGE_TRIGGER);
-	}
+	if (nl_connect(sock_rtnl_event, NETLINK_ROUTE))
+		goto error_free_event;
+
+	// Receive network link events form kernel
+	nl_socket_add_membership(sock_rtnl_event, RTNLGRP_LINK);
+
+	rtnl_event.fd = nl_socket_get_fd(sock_rtnl_event);
+	uloop_fd_add(&rtnl_event, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 
 	return -(sock_ioctl < 0 || !sock_rtnl);
+
+error_free_event:
+	nl_socket_free(sock_rtnl_event);
+	sock_rtnl_event = NULL;
+error_free_cb:
+	nl_cb_put(nl_cb_rtnl_event);
+	nl_cb_rtnl_event = NULL;
+error_free_sock:
+	nl_socket_free(sock_rtnl);
+	sock_rtnl = NULL;
+	return -1;
 }
 
 // If socket is ready for reading parse netlink events
