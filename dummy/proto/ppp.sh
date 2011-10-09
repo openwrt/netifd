@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. netifd-proto.sh
+. ../netifd-proto.sh
 
 ppp_init_config() {
 	proto_config_add_string "username"
