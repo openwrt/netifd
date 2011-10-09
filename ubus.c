@@ -309,6 +309,15 @@ static struct ubus_object_type iface_object_type =
 
 
 void
+netifd_ubus_interface_event(struct interface *iface, bool up)
+{
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "action", up ? "ifup" : "ifdown");
+	blobmsg_add_string(&b, "interface", iface->name);
+	ubus_send_event(ctx, "network.interface", b.head);
+}
+
+void
 netifd_ubus_add_interface(struct interface *iface)
 {
 	struct ubus_object *obj = &iface->ubus;

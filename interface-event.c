@@ -7,6 +7,7 @@
 
 #include "netifd.h"
 #include "interface.h"
+#include "ubus.h"
 
 char *hotplug_cmd_path = DEFAULT_HOTPLUG_PATH;
 static struct interface *current;
@@ -79,6 +80,7 @@ interface_queue_event(struct interface *iface, enum interface_event ev)
 	enum interface_event last_ev;
 
 	D(SYSTEM, "Queue hotplug handler for interface '%s'\n", iface->name);
+	netifd_ubus_interface_event(iface, ev == IFEV_UP);
 	if (current == iface)
 		last_ev = current_ev;
 	else
