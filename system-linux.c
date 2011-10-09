@@ -189,7 +189,8 @@ int system_if_down(struct device *dev)
 
 int system_if_check(struct device *dev)
 {
-	return -!(system_if_resolve(dev));
+	device_set_present(dev, (system_if_resolve(dev) >= 0));
+	return 0;
 }
 
 static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
