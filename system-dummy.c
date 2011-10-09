@@ -66,7 +66,6 @@ int system_if_down(struct device *dev)
 
 void system_if_clear_state(struct device *dev)
 {
-	return 0;
 }
 
 int system_if_check(struct device *dev)
