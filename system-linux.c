@@ -60,7 +60,7 @@ int system_init(void)
 	rtnl_event.fd = nl_socket_get_fd(sock_rtnl_event);
 	uloop_fd_add(&rtnl_event, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 
-	return -(sock_ioctl < 0 || !sock_rtnl);
+	return 0;
 
 error_free_event:
 	nl_socket_free(sock_rtnl_event);
