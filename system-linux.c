@@ -10,6 +10,7 @@
 
 #include <netlink/msg.h>
 #include <netlink/attr.h>
+#include <netlink/socket.h>
 #include <libubox/uloop.h>
 
 #include "netifd.h"
@@ -58,11 +59,7 @@ int system_init(void)
 			nlmsg_free(m);
 		}
 
-#ifdef NLA_PUT_DATA
 		rtnl_event.fd = nl_socket_get_fd(sock_rtnl_event);
-#else
-		rtnl_event.fd = sock_rtnl_event->s_fd; // libnl-tiny hack...
-#endif
 		uloop_fd_add(&rtnl_event, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 	}
 
