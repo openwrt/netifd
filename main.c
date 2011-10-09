@@ -11,7 +11,7 @@
 #include "interface.h"
 
 unsigned int debug_mask = 0;
-const char *main_path = ".";
+const char *main_path = DEFAULT_MAIN_PATH;
 static char **global_argv;
 
 static void netifd_do_restart(struct uloop_timeout *timeout)

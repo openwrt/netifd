@@ -14,8 +14,10 @@
 #include "utils.h"
 
 #ifdef DUMMY_MODE
+#define DEFAULT_MAIN_PATH	"."
 #define DEFAULT_HOTPLUG_PATH	"./scripts/hotplug-cmd"
 #else
+#define DEFAULT_MAIN_PATH	"/lib/netifd"
 #define DEFAULT_HOTPLUG_PATH	"/sbin/hotplug-cmd"
 #endif
 
