@@ -52,12 +52,16 @@ call_hotplug(void)
 	current = list_first_entry(&pending, struct interface, hotplug_list);
 	current_ev = current->hotplug_ev;
 	list_del_init(&current->hotplug_list);
+
+	D(SYSTEM, "Call hotplug handler for interface '%s'\n", current->name);
 	run_cmd(current->name, current_ev == IFEV_UP);
 }
 
 static void
 task_complete(struct uloop_process *proc, int ret)
 {
+	if (current)
+		D(SYSTEM, "Complete hotplug handler for interface '%s'\n", current->name);
 	current = NULL;
 	call_hotplug();
 }
