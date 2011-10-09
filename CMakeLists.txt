@@ -12,7 +12,7 @@ ENDIF()
 
 SET(SOURCES
 	main.c utils.c
-	interface.c interface-ip.c interface-hotplug.c
+	interface.c interface-ip.c interface-event.c
 	proto.c proto-static.c proto-shell.c
 	config.c device.c bridge.c vlan.c ubus.c)
 
