@@ -32,7 +32,7 @@ ELSE()
 ENDIF()
 
 IF(DEBUG)
-  ADD_DEFINITIONS(-DDEBUG -O0 --std=gnu99 -g3)
+  ADD_DEFINITIONS(-DDEBUG --std=gnu99 -g3)
 ENDIF()
 
 
