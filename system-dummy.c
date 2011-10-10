@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -163,5 +164,15 @@ int system_del_route(struct device *dev, struct device_route *route)
 		sprintf(devstr, " dev %s", dev->ifname);
 
 	D(SYSTEM, "route del %s%s%s\n", addr, gw, devstr);
+	return 0;
+}
+
+time_t system_get_rtime(void)
+{
+	struct timeval tv;
+
+	if (gettimeofday(&tv, NULL) == 0)
+		return tv.tv_sec;
+
 	return 0;
 }

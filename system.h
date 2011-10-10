@@ -1,6 +1,7 @@
 #ifndef __NETIFD_SYSTEM_H
 #define __NETIFD_SYSTEM_H
 
+#include <sys/time.h>
 #include <sys/socket.h>
 #include "device.h"
 #include "interface-ip.h"
@@ -42,5 +43,7 @@ int system_del_address(struct device *dev, struct device_addr *addr);
 
 int system_add_route(struct device *dev, struct device_route *route);
 int system_del_route(struct device *dev, struct device_route *route);
+
+time_t system_get_rtime(void);
 
 #endif

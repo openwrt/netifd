@@ -9,6 +9,7 @@
 #include "proto.h"
 #include "ubus.h"
 #include "config.h"
+#include "system.h"
 
 struct vlist_tree interfaces;
 
@@ -238,6 +239,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 			return;
 
 		iface->state = IFS_UP;
+		iface->start_time = system_get_rtime();
 		interface_event(iface, IFEV_UP);
 		break;
 	case IFPEV_DOWN:

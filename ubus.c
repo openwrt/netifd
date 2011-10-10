@@ -4,6 +4,7 @@
 #include "interface.h"
 #include "proto.h"
 #include "ubus.h"
+#include "system.h"
 
 static struct ubus_context *ctx = NULL;
 static struct blob_buf b;
@@ -177,6 +178,12 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	blobmsg_add_u8(&b, "pending", iface->state == IFS_SETUP);
 	blobmsg_add_u8(&b, "available", iface->available);
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
+
+	if (iface->state == IFS_UP) {
+		time_t cur = system_get_rtime();
+		blobmsg_add_u32(&b, "uptime", cur - iface->start_time);
+	}
+
 	if (iface->main_dev.dev) {
 		struct device *dev = iface->main_dev.dev;
 		const char *field;

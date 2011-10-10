@@ -1,6 +1,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 
 #include <linux/rtnetlink.h>
 #include <linux/sockios.h>
@@ -394,4 +395,18 @@ int system_add_route(struct device *dev, struct device_route *route)
 int system_del_route(struct device *dev, struct device_route *route)
 {
 	return system_rt(dev, route, RTM_DELROUTE);
+}
+
+time_t system_get_rtime(void)
+{
+	struct timespec ts;
+	struct timeval tv;
+
+	if (syscall(__NR_clock_gettime, CLOCK_MONOTONIC, &ts) == 0)
+		return ts.tv_sec;
+
+	if (gettimeofday(&tv, NULL) == 0)
+		return tv.tv_sec;
+
+	return 0;
 }

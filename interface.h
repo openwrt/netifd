@@ -48,6 +48,7 @@ struct interface {
 	bool autostart;
 	bool config_autostart;
 
+	time_t start_time;
 	enum interface_state state;
 	enum interface_config_state config_state;
 
