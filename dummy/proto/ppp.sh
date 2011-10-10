@@ -32,7 +32,9 @@ pppoe_init() {
 }
 
 pppoe_setup() {
-	echo "pppoe_setup($1, $3): $2"
+	json_get_var username username
+	json_get_var password password
+	echo "pppoe_setup($1, $2), username=$username, password=$password"
 }
 
 pppoe_teardown() {

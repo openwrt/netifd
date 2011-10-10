@@ -26,6 +26,16 @@ add_default_handler() {
 	esac
 }
 
+_proto_do_teardown() {
+	json_load "$data"
+	eval "$1_teardown \"$interface\" \"$ifname\""
+}
+
+_proto_do_setup() {
+	json_load "$data"
+	eval "$1_setup \"$interface\" \"$ifname\""
+}
+
 proto="$1"; shift
 cmd="$1"; shift
 interface="$1"; shift
@@ -56,8 +66,8 @@ case "$cmd" in
 			[[ "$proto" == "$1" ]] || return 0
 
 			case "$cmd" in
-				setup) eval "$1_setup \"\$interface\" \"\$data\" \"\$ifname\"" ;;
-				teardown) eval "$1_teardown \"\$interface\" \"\$data\" \"\$ifname\"" ;;
+				setup) _proto_do_setup "$1";;
+				teardown) _proto_do_teardown "$1" ;;
 				*) return 1 ;;
 			esac
 		}
