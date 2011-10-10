@@ -38,9 +38,6 @@ _proto_do_setup() {
 
 proto="$1"; shift
 cmd="$1"; shift
-interface="$1"; shift
-data="$1"; shift
-ifname="$1"; shift
 
 case "$cmd" in
 	dump)
@@ -61,7 +58,11 @@ case "$cmd" in
 			json_dump
 		}
 	;;
-	*)
+	setup|teardown)
+		interface="$1"; shift
+		data="$1"; shift
+		ifname="$1"; shift
+
 		add_protocol() {
 			[[ "$proto" == "$1" ]] || return 0
 
