@@ -36,6 +36,9 @@ pppoe_setup() {
 	json_get_var username username
 	json_get_var password password
 	echo "pppoe_setup($1, $2), username=$username, password=$password"
+	proto_init_update ppp0 1
+	proto_add_ipv4_address "192.168.2.1" 32
+	proto_send_update "$1"
 }
 
 pppoe_teardown() {
