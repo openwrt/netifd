@@ -185,6 +185,7 @@ interface_claim_device(struct interface *iface)
 static void
 interface_cleanup(struct interface *iface)
 {
+	interface_clear_dns(iface);
 	interface_clear_errors(iface);
 	if (iface->main_dev.dev)
 		device_remove_user(&iface->main_dev);
@@ -241,6 +242,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		iface->state = IFS_UP;
 		iface->start_time = system_get_rtime();
 		interface_event(iface, IFEV_UP);
+		interface_write_resolv_conf();
 		break;
 	case IFPEV_DOWN:
 		if (iface->state == IFS_DOWN)
@@ -285,6 +287,8 @@ interface_init(struct interface *iface, const char *name,
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	INIT_LIST_HEAD(&iface->errors);
 	INIT_LIST_HEAD(&iface->hotplug_list);
+	INIT_LIST_HEAD(&iface->proto_dns_search);
+	INIT_LIST_HEAD(&iface->proto_dns_servers);
 
 	iface->main_dev.cb = interface_cb;
 	iface->l3_dev = &iface->main_dev;

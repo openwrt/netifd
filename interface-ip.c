@@ -1,6 +1,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
+
+#include <arpa/inet.h>
 
 #include "netifd.h"
 #include "device.h"
@@ -73,6 +76,82 @@ interface_update_proto_route(struct vlist_tree *tree,
 		route = container_of(node_new, struct device_route, node);
 		if (!(route->flags & DEVADDR_EXTERNAL))
 			system_add_route(dev, route);
+	}
+}
+
+static void
+interface_clear_dns_servers(struct interface *iface)
+{
+	struct dns_server *s, *tmp;
+
+	list_for_each_entry_safe(s, tmp, &iface->proto_dns_servers, list) {
+		list_del(&s->list);
+		free(s);
+	}
+}
+
+static void
+interface_clear_dns_search(struct interface *iface)
+{
+	struct dns_search_domain *s, *tmp;
+
+	list_for_each_entry_safe(s, tmp, &iface->proto_dns_search, list) {
+		list_del(&s->list);
+		free(s);
+	}
+}
+
+void
+interface_clear_dns(struct interface *iface)
+{
+	interface_clear_dns_servers(iface);
+	interface_clear_dns_search(iface);
+}
+
+void
+interface_write_resolv_conf(void)
+{
+	struct interface *iface;
+	struct dns_server *s;
+	struct dns_search_domain *d;
+	char *path = alloca(strlen(resolv_conf) + 5);
+	const char *str;
+	char buf[32];
+	FILE *f;
+
+	sprintf(path, "%s.tmp", resolv_conf);
+	unlink(path);
+	f = fopen(path, "w");
+	if (!f) {
+		D(INTERFACE, "Failed to open %s for writing\n", path);
+		return;
+	}
+
+	vlist_for_each_element(&interfaces, iface, node) {
+		if (iface->state != IFS_UP)
+			continue;
+
+		if (list_empty(&iface->proto_dns_search) &&
+		    list_empty(&iface->proto_dns_servers))
+			continue;
+
+		fprintf(f, "# Interface %s\n", iface->name);
+		list_for_each_entry(s, &iface->proto_dns_servers, list) {
+			str = inet_ntop(s->af, &s->addr, buf, sizeof(buf));
+			if (!str)
+				continue;
+
+			fprintf(f, "nameserver %s\n", str);
+		}
+
+		list_for_each_entry(d, &iface->proto_dns_search, list) {
+			fprintf(f, "search %s\n", d->name);
+		}
+	}
+	fclose(f);
+	if (rename(path, resolv_conf) < 0) {
+		D(INTERFACE, "Failed to replace %s\n", resolv_conf);
+		unlink(path);
 	}
 }
 

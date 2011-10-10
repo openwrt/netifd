@@ -67,6 +67,9 @@ struct interface {
 	struct vlist_tree proto_addr;
 	struct vlist_tree proto_route;
 
+	struct list_head proto_dns_servers;
+	struct list_head proto_dns_search;
+
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
 

@@ -43,6 +43,19 @@ struct device_route {
 	union if_addr addr;
 };
 
+struct dns_server {
+	struct list_head list;
+	int af;
+	union if_addr addr;
+};
+
+struct dns_search_domain {
+	struct list_head list;
+	char name[];
+};
+
 void interface_ip_init(struct interface *iface);
+void interface_clear_dns(struct interface *iface);
+void interface_write_resolv_conf(void);
 
 #endif

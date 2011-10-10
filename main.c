@@ -12,6 +12,7 @@
 
 unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
+const char *resolv_conf = DEFAULT_RESOLV_CONF;
 static char **global_argv;
 
 static void netifd_do_restart(struct uloop_timeout *timeout)
@@ -47,6 +48,7 @@ static int usage(const char *progname)
 		" -s <path>:		Path to the ubus socket\n"
 		" -p <path>:		Path to netifd addons (default: %s)\n"
 		" -h <path>:		Path to the hotplug script\n"
+		" -r <path>:		Path to resolv.conf\n"
 		"			(default: "DEFAULT_HOTPLUG_PATH")\n"
 		"\n", progname, main_path);
 
@@ -60,7 +62,7 @@ int main(int argc, char **argv)
 
 	global_argv = argv;
 
-	while ((ch = getopt(argc, argv, "d:s:")) != -1) {
+	while ((ch = getopt(argc, argv, "d:s:p:h:r:")) != -1) {
 		switch(ch) {
 		case 'd':
 			debug_mask = strtoul(optarg, NULL, 0);
@@ -73,6 +75,9 @@ int main(int argc, char **argv)
 			break;
 		case 'h':
 			hotplug_cmd_path = optarg;
+			break;
+		case 'r':
+			resolv_conf = optarg;
 			break;
 		default:
 			return usage(argv[0]);

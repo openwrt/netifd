@@ -16,11 +16,14 @@
 #ifdef DUMMY_MODE
 #define DEFAULT_MAIN_PATH	"./dummy"
 #define DEFAULT_HOTPLUG_PATH	"./scripts/hotplug-cmd"
+#define DEFAULT_RESOLV_CONF	"./tmp/resolv.conf"
 #else
 #define DEFAULT_MAIN_PATH	"/lib/netifd"
 #define DEFAULT_HOTPLUG_PATH	"/sbin/hotplug-cmd"
+#define DEFAULT_RESOLV_CONF	"/tmp/resolv.conf.auto"
 #endif
 
+extern const char *resolv_conf;
 extern char *hotplug_cmd_path;
 extern unsigned int debug_mask;
 
