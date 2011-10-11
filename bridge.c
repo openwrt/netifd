@@ -44,7 +44,7 @@ static const struct config_param_list bridge_attr_list = {
 static struct device *bridge_create(struct blob_attr *attr);
 static void bridge_config_init(struct device *dev);
 static void bridge_free(struct device *dev);
-static void bridge_dump_status(struct device *dev, struct blob_buf *b);
+static void bridge_dump_info(struct device *dev, struct blob_buf *b);
 
 const struct device_type bridge_device_type = {
 	.name = "Bridge",
@@ -53,7 +53,7 @@ const struct device_type bridge_device_type = {
 	.create = bridge_create,
 	.config_init = bridge_config_init,
 	.free = bridge_free,
-	.dump_status = bridge_dump_status,
+	.dump_info = bridge_dump_info,
 };
 
 struct bridge_state {
@@ -303,7 +303,7 @@ bridge_free(struct device *dev)
 }
 
 static void
-bridge_dump_status(struct device *dev, struct blob_buf *b)
+bridge_dump_info(struct device *dev, struct blob_buf *b)
 {
 	struct bridge_state *bst;
 	struct bridge_member *bm;

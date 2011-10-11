@@ -469,3 +469,36 @@ device_create(const char *name, const struct device_type *type,
 
 	return dev;
 }
+
+void
+device_dump_status(struct blob_buf *b, struct device *dev)
+{
+	void *c, *s;
+
+	if (!dev) {
+		avl_for_each_element(&devices, dev, avl) {
+			if (!dev->present)
+				continue;
+			c = blobmsg_open_table(b, dev->ifname);
+			device_dump_status(b, dev);
+			blobmsg_close_table(b, c);
+		}
+
+		return;
+	}
+
+	if (!dev->present)
+		return;
+
+	blobmsg_add_string(b, "type", dev->type->name);
+	blobmsg_add_u8(b, "up", !!dev->active);
+	if (dev->type->dump_info)
+		dev->type->dump_info(dev, b);
+
+	s = blobmsg_open_table(b, "statistics");
+	if (dev->type->dump_stats)
+		dev->type->dump_stats(dev, b);
+	else
+		system_if_dump_stats(dev, b);
+	blobmsg_close_table(b, s);
+}

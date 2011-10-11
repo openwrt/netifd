@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -313,6 +315,49 @@ int system_if_down(struct device *dev)
 int system_if_check(struct device *dev)
 {
 	device_set_present(dev, (system_if_resolve(dev) >= 0));
+	return 0;
+}
+
+int system_if_dump_stats(struct device *dev, struct blob_buf *b)
+{
+	const char *const counters[] = {
+		"collisions",     "rx_frame_errors",   "tx_compressed",
+		"multicast",      "rx_length_errors",  "tx_dropped",
+		"rx_bytes",       "rx_missed_errors",  "tx_errors",
+		"rx_compressed",  "rx_over_errors",    "tx_fifo_errors",
+		"rx_crc_errors",  "rx_packets",        "tx_heartbeat_errors",
+		"rx_dropped",     "tx_aborted_errors", "tx_packets",
+		"rx_errors",      "tx_bytes",          "tx_window_errors",
+		"rx_fifo_errors", "tx_carrier_errors",
+	};
+	char buf[64];
+	int stats_dir;
+	int i, fd, len;
+
+	snprintf(buf, sizeof(buf), "/sys/class/net/%s/statistics", dev->ifname);
+	stats_dir = open(buf, O_DIRECTORY);
+	if (stats_dir < 0)
+		return -1;
+
+	for (i = 0; i < ARRAY_SIZE(counters); i++) {
+		fd = openat(stats_dir, counters[i], O_RDONLY);
+		if (fd < 0)
+			continue;
+
+retry:
+		len = read(fd, buf, sizeof(buf));
+		if (len < 0) {
+			if (errno == EINTR)
+				goto retry;
+			continue;
+		}
+
+		buf[len] = 0;
+		blobmsg_add_u32(b, counters[i], strtoul(buf, NULL, 0));
+		close(fd);
+	}
+
+	close(stats_dir);
 	return 0;
 }
 

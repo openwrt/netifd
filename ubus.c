@@ -11,44 +11,6 @@ static struct blob_buf b;
 
 /* global object */
 
-enum {
-	DEV_NAME,
-	DEV_FORCE,
-	__DEV_MAX,
-	__DEV_MAX_NOFORCE = __DEV_MAX - 1,
-};
-
-static const struct blobmsg_policy dev_policy[__DEV_MAX] = {
-	[DEV_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
-	[DEV_FORCE] = { .name = "force", .type = BLOBMSG_TYPE_INT8 },
-};
-
-static int
-netifd_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
-		     struct ubus_request_data *req, const char *method,
-		     struct blob_attr *msg)
-{
-	struct device *dev;
-	struct blob_attr *tb[__DEV_MAX];
-	bool add = !strncmp(method, "add", 3);
-
-	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(msg), blob_len(msg));
-
-	if (!tb[DEV_NAME])
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
-	dev = device_get(blobmsg_data(tb[DEV_NAME]), false);
-	if (!dev)
-		return UBUS_STATUS_NOT_FOUND;
-
-	if (!add || (tb[DEV_FORCE] && blobmsg_get_u8(tb[DEV_FORCE])))
-		device_set_present(dev, add);
-	else
-		device_check_state(dev);
-
-	return 0;
-}
-
 static int
 netifd_handle_restart(struct ubus_context *ctx, struct ubus_object *obj,
 		      struct ubus_request_data *req, const char *method,
@@ -68,8 +30,6 @@ netifd_handle_reload(struct ubus_context *ctx, struct ubus_object *obj,
 }
 
 static struct ubus_method main_object_methods[] = {
-	UBUS_METHOD("add_device", netifd_handle_device, dev_policy),
-	UBUS_METHOD("remove_device", netifd_handle_device, dev_policy),
 	{ .name = "restart", .handler = netifd_handle_restart },
 	{ .name = "reload", .handler = netifd_handle_reload },
 };
@@ -82,6 +42,52 @@ static struct ubus_object main_object = {
 	.type = &main_object_type,
 	.methods = main_object_methods,
 	.n_methods = ARRAY_SIZE(main_object_methods),
+};
+
+enum {
+	DEV_NAME,
+	__DEV_MAX,
+};
+
+static const struct blobmsg_policy dev_policy[__DEV_MAX] = {
+	[DEV_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
+};
+
+static int
+netifd_dev_status(struct ubus_context *ctx, struct ubus_object *obj,
+		  struct ubus_request_data *req, const char *method,
+		  struct blob_attr *msg)
+{
+	struct device *dev = NULL;
+	struct blob_attr *tb[__DEV_MAX];
+
+	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(msg), blob_len(msg));
+
+	if (tb[DEV_NAME]) {
+		dev = device_get(blobmsg_data(tb[DEV_NAME]), false);
+		if (!dev)
+			return UBUS_STATUS_INVALID_ARGUMENT;
+	}
+
+	blob_buf_init(&b, 0);
+	device_dump_status(&b, dev);
+	ubus_send_reply(ctx, req, b.head);
+
+	return 0;
+}
+
+static struct ubus_method dev_object_methods[] = {
+	UBUS_METHOD("status", netifd_dev_status, dev_policy)
+};
+
+static struct ubus_object_type dev_object_type =
+	UBUS_OBJECT_TYPE("device", dev_object_methods);
+
+static struct ubus_object dev_object = {
+	.name = "network.device",
+	.type = &dev_object_type,
+	.methods = dev_object_methods,
+	.n_methods = ARRAY_SIZE(dev_object_methods),
 };
 
 int
@@ -98,10 +104,15 @@ netifd_ubus_init(const char *path)
 	ubus_add_uloop(ctx);
 
 	ret = ubus_add_object(ctx, &main_object);
+	if (ret)
+		goto out;
+
+	ret = ubus_add_object(ctx, &dev_object);
+
+out:
 	if (ret != 0)
 		fprintf(stderr, "Failed to publish object: %s\n", ubus_strerror(ret));
-
-	return 0;
+	return ret;
 }
 
 void
@@ -197,9 +208,6 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 
 		devinfo = blobmsg_open_table(&b, field);
 		blobmsg_add_string(&b, "name", dev->ifname);
-
-		if (dev->type->dump_status)
-			dev->type->dump_status(dev, &b);
 
 		blobmsg_close_table(&b, devinfo);
 	}
@@ -304,9 +312,9 @@ static struct ubus_method iface_object_methods[] = {
 	{ .name = "down", .handler = netifd_handle_down },
 	{ .name = "status", .handler = netifd_handle_status },
 	{ .name = "add_device", .handler = netifd_iface_handle_device,
-	  .policy = dev_policy, .n_policy = __DEV_MAX_NOFORCE },
+	  .policy = dev_policy, .n_policy = __DEV_MAX },
 	{ .name = "remove_device", .handler = netifd_iface_handle_device,
-	  .policy = dev_policy, .n_policy = __DEV_MAX_NOFORCE },
+	  .policy = dev_policy, .n_policy = __DEV_MAX },
 	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },
 	{ .name = "remove", .handler = netifd_iface_remove }
 };

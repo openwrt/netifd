@@ -34,7 +34,8 @@ struct device_type {
 	struct device *(*create)(struct blob_attr *attr);
 	void (*config_init)(struct device *);
 	enum dev_change_type (*reload)(struct device *, struct blob_attr *);
-	void (*dump_status)(struct device *, struct blob_buf *buf);
+	void (*dump_info)(struct device *, struct blob_buf *buf);
+	void (*dump_stats)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
 	void (*free)(struct device *);
 };
@@ -132,6 +133,7 @@ void device_set_present(struct device *dev, bool state);
 int device_claim(struct device_user *dep);
 void device_release(struct device_user *dep);
 int device_check_state(struct device *dev);
+void device_dump_status(struct blob_buf *b, struct device *dev);
 
 static inline void
 device_free(struct device *dev)
