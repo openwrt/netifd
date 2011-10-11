@@ -78,7 +78,7 @@ static struct ubus_object_type main_object_type =
 	UBUS_OBJECT_TYPE("netifd", main_object_methods);
 
 static struct ubus_object main_object = {
-	.name = "network.interface",
+	.name = "network",
 	.type = &main_object_type,
 	.methods = main_object_methods,
 	.n_methods = ARRAY_SIZE(main_object_methods),
