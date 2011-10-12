@@ -336,13 +336,12 @@ void
 netifd_ubus_add_interface(struct interface *iface)
 {
 	struct ubus_object *obj = &iface->ubus;
-	char *name;
+	char *name = NULL;
 
-	name = malloc(strlen(main_object.name) + strlen(iface->name) + 2);
+	asprintf(&name, "%s.interface.%s", main_object.name, iface->name);
 	if (!name)
 		return;
 
-	sprintf(name, "%s.%s", main_object.name, iface->name);
 	obj->name = name;
 	obj->type = &iface_object_type;
 	obj->methods = iface_object_methods;
