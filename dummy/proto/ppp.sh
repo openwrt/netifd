@@ -39,6 +39,7 @@ pppoe_setup() {
 	proto_init_update ppp0 1
 	proto_add_ipv4_address "192.168.2.1" 32
 	proto_send_update "$1"
+	proto_run_command sleep 10
 }
 
 pppoe_teardown() {

@@ -47,6 +47,7 @@ proto_init_update() {
 	PROTO_ROUTE=
 	PROTO_ROUTE6=
 	json_init
+	json_add_int action 0
 	json_add_string "ifname" "$ifname"
 	json_add_boolean "link-up" "$up"
 	[ -n "$3" ] && json_add_boolean "address-external" "$external"
@@ -113,6 +114,10 @@ _proto_push_array() {
 	json_close_array
 }
 
+_proto_notify() {
+	ubus call network.interface."$interface" notify_proto "$(json_dump)"
+}
+
 proto_send_update() {
 	local interface="$1"
 
@@ -120,7 +125,18 @@ proto_send_update() {
 	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ip
 	_proto_push_array "route" "$PROTO_ROUTE" _proto_push_route
 	_proto_push_array "route6" "$PROTO_ROUTE6" _proto_push_route
-	ubus call network.interface."$interface" notify_proto "$(json_dump)" &
+	_proto_notify
+}
+
+proto_run_command() {
+	json_init
+	json_add_int action 1
+	json_add_array command
+	while [ $# -gt 0 ]; do
+		json_add_string "" "$1"
+		shift
+	done
+	_proto_notify
 }
 
 init_proto() {

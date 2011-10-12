@@ -39,12 +39,19 @@ struct proto_shell_state {
 	struct uloop_process setup_task;
 	struct uloop_process teardown_task;
 	bool teardown_pending;
+
+	struct uloop_process proto_task;
 };
 
 static int
-run_script(const char **argv, struct uloop_process *proc)
+start_process(const char **argv, struct uloop_process *proc)
 {
 	int pid;
+
+	if (proc->pending) {
+		kill(proc->pid, SIGTERM);
+		uloop_process_delete(proc);
+	}
 
 	if ((pid = fork()) < 0)
 		return -1;
@@ -106,7 +113,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		argv[i++] = proto->iface->main_dev.dev->ifname;
 	argv[i] = NULL;
 
-	ret = run_script(argv, proc);
+	ret = start_process(argv, proc);
 	free(config);
 
 	return ret;
@@ -145,6 +152,17 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 		device_remove_user(&state->l3_dev);
 
 	state->proto.proto_event(&state->proto, IFPEV_DOWN);
+}
+
+static void
+proto_shell_task_cb(struct uloop_process *p, int ret)
+{
+	struct proto_shell_state *state;
+
+	state = container_of(p, struct proto_shell_state, proto_task);
+
+	state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
+	proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
 }
 
 static void
@@ -265,6 +283,8 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 
 
 enum {
+	NOTIFY_ACTION,
+	NOTIFY_COMMAND,
 	NOTIFY_LINK_UP,
 	NOTIFY_IFNAME,
 	NOTIFY_ADDR_EXT,
@@ -276,6 +296,8 @@ enum {
 };
 
 static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
+	[NOTIFY_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_INT32 },
+	[NOTIFY_COMMAND] = { .name = "command", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_LINK_UP] = { .name = "link-up", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
@@ -286,16 +308,12 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 };
 
 static int
-proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
+proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 {
-	struct proto_shell_state *state;
-	struct blob_attr *tb[__NOTIFY_LAST], *cur;
+	struct blob_attr *cur;
 	bool addr_ext = false;
 	bool up;
 
-	state = container_of(proto, struct proto_shell_state, proto);
-
-	blobmsg_parse(notify_attr, __NOTIFY_LAST, tb, blob_data(attr), blob_len(attr));
 	if (!tb[NOTIFY_LINK_UP])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
@@ -333,6 +351,59 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 	return 0;
 }
 
+static int
+proto_shell_run_command(struct proto_shell_state *state, struct blob_attr **tb)
+{
+	struct blob_attr *cur;
+	char *argv[64];
+	int argc = 0;
+	int rem;
+
+	if (!tb[NOTIFY_COMMAND])
+		goto error;
+
+	blobmsg_for_each_attr(cur, tb[NOTIFY_COMMAND], rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			goto error;
+
+		if (!blobmsg_check_attr(cur, NULL))
+			goto error;
+
+		argv[argc++] = blobmsg_data(cur);
+		if (argc == ARRAY_SIZE(argv) - 1)
+			goto error;
+	}
+	argv[argc] = NULL;
+	start_process((const char **) argv, &state->proto_task);
+
+	return 0;
+
+error:
+	return UBUS_STATUS_INVALID_ARGUMENT;
+}
+
+static int
+proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
+{
+	struct proto_shell_state *state;
+	struct blob_attr *tb[__NOTIFY_LAST];
+
+	state = container_of(proto, struct proto_shell_state, proto);
+
+	blobmsg_parse(notify_attr, __NOTIFY_LAST, tb, blob_data(attr), blob_len(attr));
+	if (!tb[NOTIFY_ACTION])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	switch(blobmsg_get_u32(tb[NOTIFY_ACTION])) {
+	case 0:
+		return proto_shell_update_link(state, tb);
+	case 1:
+		return proto_shell_run_command(state, tb);
+	default:
+		return UBUS_STATUS_INVALID_ARGUMENT;
+	}
+}
+
 struct interface_proto_state *
 proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 		   struct blob_attr *attr)
@@ -351,6 +422,7 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	state->setup_timeout.cb = proto_shell_setup_timeout_cb;
 	state->setup_task.cb = proto_shell_setup_cb;
 	state->teardown_task.cb = proto_shell_teardown_cb;
+	state->proto_task.cb = proto_shell_task_cb;
 	state->handler = container_of(h, struct proto_shell_handler, proto);
 
 	return &state->proto;
