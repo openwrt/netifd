@@ -43,15 +43,22 @@ struct proto_shell_state {
 	struct uloop_process proto_task;
 };
 
+static void
+kill_process(struct uloop_process *proc)
+{
+	if (!proc->pending)
+		return;
+
+	kill(proc->pid, SIGTERM);
+	uloop_process_delete(proc);
+}
+
 static int
 start_process(const char **argv, struct uloop_process *proc)
 {
 	int pid;
 
-	if (proc->pending) {
-		kill(proc->pid, SIGTERM);
-		uloop_process_delete(proc);
-	}
+	kill_process(proc);
 
 	if ((pid = fork()) < 0)
 		return -1;
@@ -148,6 +155,8 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 
 	state = container_of(p, struct proto_shell_state, teardown_task);
 
+	kill_process(&state->proto_task);
+
 	if (state->l3_dev.dev)
 		device_remove_user(&state->l3_dev);
 
@@ -160,6 +169,8 @@ proto_shell_task_cb(struct uloop_process *p, int ret)
 	struct proto_shell_state *state;
 
 	state = container_of(p, struct proto_shell_state, proto_task);
+	if (state->teardown_pending || state->teardown_task.pending)
+		return;
 
 	state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 	proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
