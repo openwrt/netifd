@@ -1,4 +1,7 @@
+#define _GNU_SOURCE
+
 #include <string.h>
+#include <stdio.h>
 
 #include "netifd.h"
 #include "interface.h"
