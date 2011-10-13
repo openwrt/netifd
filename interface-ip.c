@@ -79,6 +79,44 @@ interface_update_proto_route(struct vlist_tree *tree,
 	}
 }
 
+void
+interface_add_dns_server(struct interface *iface, const char *str)
+{
+	struct dns_server *s;
+
+	s = calloc(1, sizeof(*s));
+	s->af = AF_INET;
+	if (inet_pton(s->af, str, &s->addr.in))
+		goto add;
+
+	s->af = AF_INET6;
+	if (inet_pton(s->af, str, &s->addr.in))
+		goto add;
+
+	free(s);
+	return;
+
+add:
+	list_add_tail(&s->list, &iface->proto_dns_servers);
+}
+
+void
+interface_add_dns_server_list(struct interface *iface, struct blob_attr *list)
+{
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			continue;
+
+		if (!blobmsg_check_attr(cur, NULL))
+			continue;
+
+		interface_add_dns_server(iface, blobmsg_data(cur));
+	}
+}
+
 static void
 interface_clear_dns_servers(struct interface *iface)
 {

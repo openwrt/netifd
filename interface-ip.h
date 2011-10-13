@@ -55,6 +55,8 @@ struct dns_search_domain {
 };
 
 void interface_ip_init(struct interface *iface);
+void interface_add_dns_server(struct interface *iface, const char *str);
+void interface_add_dns_server_list(struct interface *iface, struct blob_attr *list);
 void interface_clear_dns(struct interface *iface);
 void interface_write_resolv_conf(void);
 

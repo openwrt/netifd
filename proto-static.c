@@ -17,6 +17,7 @@ enum {
 	OPT_NETMASK,
 	OPT_GATEWAY,
 	OPT_IP6GW,
+	OPT_DNS,
 	__OPT_MAX,
 };
 
@@ -26,11 +27,13 @@ static const struct blobmsg_policy static_attrs[__OPT_MAX] = {
 	[OPT_NETMASK] = { .name = "netmask", .type = BLOBMSG_TYPE_STRING },
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
+	[OPT_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static const union config_param_info static_attr_info[__OPT_MAX] = {
 	[OPT_IPADDR] = { .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6ADDR] = { .type = BLOBMSG_TYPE_STRING },
+	[OPT_DNS] = { .type = BLOBMSG_TYPE_STRING },
 };
 
 static const struct config_param_list static_attr_list = {
@@ -139,6 +142,9 @@ proto_apply_static_settings(struct interface *iface, struct blob_attr *attr)
 		if (!parse_gateway_option(iface, tb[OPT_IP6GW], true))
 			goto out;
 	}
+
+	if (tb[OPT_DNS])
+		interface_add_dns_server_list(iface, tb[OPT_DNS]);
 
 	return 0;
 
