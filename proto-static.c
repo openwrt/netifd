@@ -103,20 +103,18 @@ static int
 proto_apply_static_settings(struct interface *iface, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__OPT_MAX];
-	struct in_addr ina;
 	const char *error;
-	int netmask = 32;
+	unsigned int netmask = 32;
 	int n_v4 = 0, n_v6 = 0;
 
 	blobmsg_parse(static_attrs, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
 
 	if (tb[OPT_NETMASK]) {
-		if (!inet_aton(blobmsg_data(tb[OPT_NETMASK]), &ina)) {
+		netmask = parse_netmask_string(blobmsg_data(tb[OPT_NETMASK]), false);
+		if (netmask > 32) {
 			error = "INVALID_NETMASK";
 			goto error;
 		}
-
-		netmask = 32 - fls(~(ntohl(ina.s_addr)));
 	}
 
 	if (tb[OPT_IPADDR])

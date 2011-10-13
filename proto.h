@@ -53,5 +53,6 @@ void proto_attach_interface(struct interface *iface, const char *proto_name);
 int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
 struct device_addr *proto_parse_ip_addr_string(const char *str, bool v6, int mask);
+unsigned int parse_netmask_string(const char *str, bool v6);
 
 #endif

@@ -236,7 +236,7 @@ enum {
 
 static const struct blobmsg_policy route_attr[__ROUTE_LAST] = {
 	[ROUTE_TARGET] = { .name = "target", .type = BLOBMSG_TYPE_STRING },
-	[ROUTE_MASK] = { .name = "mask", .type = BLOBMSG_TYPE_INT32 },
+	[ROUTE_MASK] = { .name = "mask", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_DEVICE] = { .name = "device", .type = BLOBMSG_TYPE_STRING },
 };
@@ -352,7 +352,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 	}
 
 	if (!tb[NOTIFY_IFNAME]) {
-		if (!state->iface->main_dev.dev)
+		if (!state->proto.iface->main_dev.dev)
 			return UBUS_STATUS_INVALID_ARGUMENT;
 	} else if (!state->l3_dev.dev) {
 		device_add_user(&state->l3_dev,
