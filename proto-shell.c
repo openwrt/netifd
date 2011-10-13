@@ -39,6 +39,7 @@ struct proto_shell_state {
 	struct uloop_process setup_task;
 	struct uloop_process teardown_task;
 	bool teardown_pending;
+	bool teardown_wait_task;
 
 	struct uloop_process proto_task;
 };
@@ -99,9 +100,9 @@ proto_shell_handler(struct interface_proto_state *proto,
 	} else {
 		action = "teardown";
 		proc = &state->teardown_task;
-		if (state->setup_task.pending) {
+		if (state->setup_task.pending && !state->teardown_wait_task) {
 			uloop_timeout_set(&state->setup_timeout, 1000);
-			kill(state->setup_task.pid, SIGINT);
+			kill(state->setup_task.pid, SIGTERM);
 			state->teardown_pending = true;
 			return 0;
 		}
@@ -155,6 +156,9 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 
 	state = container_of(p, struct proto_shell_state, teardown_task);
 
+	if (state->teardown_wait_task)
+		return;
+
 	kill_process(&state->proto_task);
 
 	if (state->l3_dev.dev)
@@ -167,10 +171,19 @@ static void
 proto_shell_task_cb(struct uloop_process *p, int ret)
 {
 	struct proto_shell_state *state;
+	bool teardown_wait_task;
 
 	state = container_of(p, struct proto_shell_state, proto_task);
+
+	teardown_wait_task = state->teardown_wait_task;
+	state->teardown_wait_task = false;
 	if (state->teardown_pending || state->teardown_task.pending)
 		return;
+
+	if (teardown_wait_task) {
+		proto_shell_teardown_cb(&state->teardown_task, 0);
+		return;
+	}
 
 	state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 	proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
@@ -296,6 +309,7 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 enum {
 	NOTIFY_ACTION,
 	NOTIFY_COMMAND,
+	NOTIFY_SIGNAL,
 	NOTIFY_LINK_UP,
 	NOTIFY_IFNAME,
 	NOTIFY_ADDR_EXT,
@@ -310,6 +324,7 @@ enum {
 static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_INT32 },
 	[NOTIFY_COMMAND] = { .name = "command", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_SIGNAL] = { .name = "signal", .type = BLOBMSG_TYPE_INT32 },
 	[NOTIFY_LINK_UP] = { .name = "link-up", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
@@ -405,6 +420,25 @@ error:
 }
 
 static int
+proto_shell_kill_command(struct proto_shell_state *state, struct blob_attr **tb)
+{
+	unsigned int signal = ~0;
+
+	if (tb[NOTIFY_SIGNAL])
+		signal = blobmsg_get_u32(tb[NOTIFY_SIGNAL]);
+
+	if (signal > 31)
+		signal = SIGTERM;
+
+	if (state->proto_task.pending) {
+		kill(state->proto_task.pid, signal);
+		state->teardown_wait_task = true;
+	}
+
+	return 0;
+}
+
+static int
 proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
@@ -421,6 +455,8 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 		return proto_shell_update_link(state, tb);
 	case 1:
 		return proto_shell_run_command(state, tb);
+	case 2:
+		return proto_shell_kill_command(state, tb);
 	default:
 		return UBUS_STATUS_INVALID_ARGUMENT;
 	}

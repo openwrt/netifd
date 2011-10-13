@@ -47,6 +47,7 @@ pppoe_setup() {
 }
 
 pppoe_teardown() {
+	proto_kill_command "$interface"
 	return
 }
 

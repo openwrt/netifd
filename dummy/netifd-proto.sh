@@ -149,6 +149,15 @@ proto_run_command() {
 	_proto_notify "$interface"
 }
 
+proto_kill_command() {
+	local interface="$1"; shift
+
+	json_init
+	json_add_int action 2
+	[ -n "$1" ] && json_add_int signal "$1"
+	_proto_notify "$interface"
+}
+
 init_proto() {
 	proto="$1"; shift
 	cmd="$1"; shift
