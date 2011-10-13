@@ -331,20 +331,22 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
 	up = blobmsg_get_bool(tb[NOTIFY_LINK_UP]);
-	if (up) {
-		if (!tb[NOTIFY_IFNAME])
-			return UBUS_STATUS_INVALID_ARGUMENT;
-
-		if (!state->l3_dev.dev) {
-			device_add_user(&state->l3_dev,
-				device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
-			device_claim(&state->l3_dev);
-			state->proto.iface->l3_dev = &state->l3_dev;
-		}
-		state->proto.proto_event(&state->proto, IFPEV_UP);
-	} else {
+	if (!up) {
 		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
+		return 0;
 	}
+
+	if (!tb[NOTIFY_IFNAME])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	if (!state->l3_dev.dev) {
+		device_add_user(&state->l3_dev,
+			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
+		device_claim(&state->l3_dev);
+		state->proto.iface->l3_dev = &state->l3_dev;
+	}
+
+	interface_ip_update_start(state->proto.iface);
 
 	if ((cur = tb[NOTIFY_ADDR_EXT]) != NULL)
 		addr_ext = blobmsg_get_bool(cur);
@@ -363,6 +365,10 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 
 	if ((cur = tb[NOTIFY_DNS]) != NULL)
 		interface_add_dns_server_list(state->proto.iface, cur);
+
+	interface_ip_update_complete(state->proto.iface);
+
+	state->proto.proto_event(&state->proto, IFPEV_UP);
 
 	return 0;
 }

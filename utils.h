@@ -34,6 +34,11 @@ void __vlist_init(struct vlist_tree *tree, avl_tree_comp cmp, vlist_update_cb up
 #define vlist_init(tree, cmp, update, type, node, key) \
 	__vlist_init(tree, cmp, update, offsetof(type, key) - offsetof(type, node))
 
+static inline void vlist_update(struct vlist_tree *tree)
+{
+	tree->version++;
+}
+
 void vlist_add(struct vlist_tree *tree, struct vlist_node *node);
 void vlist_delete(struct vlist_tree *tree, struct vlist_node *node);
 void vlist_flush(struct vlist_tree *tree);

@@ -60,4 +60,8 @@ void interface_add_dns_server_list(struct interface *iface, struct blob_attr *li
 void interface_clear_dns(struct interface *iface);
 void interface_write_resolv_conf(void);
 
+void interface_ip_update_start(struct interface *iface);
+void interface_ip_update_complete(struct interface *iface);
+
+
 #endif

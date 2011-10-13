@@ -196,6 +196,21 @@ interface_write_resolv_conf(void)
 }
 
 void
+interface_ip_update_start(struct interface *iface)
+{
+	interface_clear_dns(iface);
+	vlist_update(&iface->proto_route);
+	vlist_update(&iface->proto_addr);
+}
+
+void
+interface_ip_update_complete(struct interface *iface)
+{
+	vlist_flush(&iface->proto_route);
+	vlist_flush(&iface->proto_addr);
+}
+
+void
 interface_ip_init(struct interface *iface)
 {
 	vlist_init(&iface->proto_route, route_cmp, interface_update_proto_route,
