@@ -303,6 +303,7 @@ enum {
 	NOTIFY_IP6ADDR,
 	NOTIFY_ROUTES,
 	NOTIFY_ROUTES6,
+	NOTIFY_DNS,
 	__NOTIFY_LAST
 };
 
@@ -316,6 +317,7 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_IP6ADDR] = { .name = "ip6addr", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ROUTES] = { .name = "routes", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ROUTES6] = { .name = "routes6", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static int
@@ -358,6 +360,9 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 
 	if ((cur = tb[NOTIFY_ROUTES6]) != NULL)
 		proto_shell_parse_route_list(state->proto.iface, cur, true);
+
+	if ((cur = tb[NOTIFY_DNS]) != NULL)
+		interface_add_dns_server_list(state->proto.iface, cur);
 
 	return 0;
 }

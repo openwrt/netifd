@@ -53,6 +53,12 @@ proto_init_update() {
 	[ -n "$3" ] && json_add_boolean "address-external" "$external"
 }
 
+proto_add_dns_server() {
+	local address="$1"
+
+	jshn_append PROTO_DNS "$address"
+}
+
 proto_add_ipv4_address() {
 	local address="$1"
 	local mask="$2"
@@ -125,6 +131,7 @@ proto_send_update() {
 	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ip
 	_proto_push_array "route" "$PROTO_ROUTE" _proto_push_route
 	_proto_push_array "route6" "$PROTO_ROUTE6" _proto_push_route
+	_proto_push_array "dns" "$PROTO_DNS" _proto_push_ip
 	_proto_notify
 }
 

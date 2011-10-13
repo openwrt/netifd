@@ -97,6 +97,8 @@ interface_add_dns_server(struct interface *iface, const char *str)
 	return;
 
 add:
+	D(INTERFACE, "Add IPv%c DNS server: %s\n",
+	  s->af == AF_INET6 ? '6' : '4', str);
 	list_add_tail(&s->list, &iface->proto_dns_servers);
 }
 
