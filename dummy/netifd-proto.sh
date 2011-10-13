@@ -59,6 +59,12 @@ proto_add_dns_server() {
 	jshn_append PROTO_DNS "$address"
 }
 
+proto_add_dns_search() {
+	local address="$1"
+
+	jshn_append PROTO_DNS_SEARCH "$address"
+}
+
 proto_add_ipv4_address() {
 	local address="$1"
 	local mask="$2"
@@ -133,6 +139,7 @@ proto_send_update() {
 	_proto_push_array "route" "$PROTO_ROUTE" _proto_push_route
 	_proto_push_array "route6" "$PROTO_ROUTE6" _proto_push_route
 	_proto_push_array "dns" "$PROTO_DNS" _proto_push_ip
+	_proto_push_array "dns_search" "$PROTO_DNS_SEARCH" _proto_push_ip
 	_proto_notify "$interface"
 }
 

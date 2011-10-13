@@ -119,6 +119,38 @@ interface_add_dns_server_list(struct interface *iface, struct blob_attr *list)
 	}
 }
 
+void
+interface_add_dns_search_domain(struct interface *iface, const char *str)
+{
+	struct dns_search_domain *s;
+	int len = strlen(str);
+
+	s = calloc(1, sizeof(*s) + len + 1);
+	if (!s)
+		return;
+
+	D(INTERFACE, "Add DNS search domain: %s\n", str);
+	memcpy(s->name, str, len);
+	list_add_tail(&s->list, &iface->proto_dns_search);
+}
+
+void
+interface_add_dns_search_list(struct interface *iface, struct blob_attr *list)
+{
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			continue;
+
+		if (!blobmsg_check_attr(cur, NULL))
+			continue;
+
+		interface_add_dns_server(iface, blobmsg_data(cur));
+	}
+}
+
 static void
 interface_clear_dns_servers(struct interface *iface)
 {
