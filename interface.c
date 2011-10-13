@@ -85,6 +85,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 static void
 mark_interface_down(struct interface *iface)
 {
+	interface_clear_dns(iface);
 	vlist_flush_all(&iface->proto_addr);
 	vlist_flush_all(&iface->proto_route);
 	if (iface->main_dev.dev)
