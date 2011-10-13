@@ -121,6 +121,7 @@ _proto_push_array() {
 }
 
 _proto_notify() {
+	local interface="$1"
 	ubus call network.interface."$interface" notify_proto "$(json_dump)"
 }
 
@@ -132,10 +133,12 @@ proto_send_update() {
 	_proto_push_array "route" "$PROTO_ROUTE" _proto_push_route
 	_proto_push_array "route6" "$PROTO_ROUTE6" _proto_push_route
 	_proto_push_array "dns" "$PROTO_DNS" _proto_push_ip
-	_proto_notify
+	_proto_notify "$interface"
 }
 
 proto_run_command() {
+	local interface="$1"; shift
+
 	json_init
 	json_add_int action 1
 	json_add_array command
@@ -143,7 +146,7 @@ proto_run_command() {
 		json_add_string "" "$1"
 		shift
 	done
-	_proto_notify
+	_proto_notify "$interface"
 }
 
 init_proto() {
