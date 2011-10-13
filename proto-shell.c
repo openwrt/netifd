@@ -55,7 +55,7 @@ kill_process(struct uloop_process *proc)
 }
 
 static int
-start_process(const char **argv, struct uloop_process *proc)
+start_process(const char **argv, char **env, struct uloop_process *proc)
 {
 	int pid;
 
@@ -65,6 +65,12 @@ start_process(const char **argv, struct uloop_process *proc)
 		return -1;
 
 	if (!pid) {
+		if (env) {
+			while (*env) {
+				putenv(*env);
+				env++;
+			}
+		}
 		fchdir(proto_fd);
 		execvp(argv[0], (char **) argv);
 		exit(127);
@@ -121,7 +127,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		argv[i++] = proto->iface->main_dev.dev->ifname;
 	argv[i] = NULL;
 
-	ret = start_process(argv, proc);
+	ret = start_process(argv, NULL, proc);
 	free(config);
 
 	return ret;
@@ -305,10 +311,10 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 	}
 }
 
-
 enum {
 	NOTIFY_ACTION,
 	NOTIFY_COMMAND,
+	NOTIFY_ENV,
 	NOTIFY_SIGNAL,
 	NOTIFY_LINK_UP,
 	NOTIFY_IFNAME,
@@ -325,6 +331,7 @@ enum {
 static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_INT32 },
 	[NOTIFY_COMMAND] = { .name = "command", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_ENV] = { .name = "env", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_SIGNAL] = { .name = "signal", .type = BLOBMSG_TYPE_INT32 },
 	[NOTIFY_LINK_UP] = { .name = "link-up", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
@@ -393,30 +400,49 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 	return 0;
 }
 
+static bool
+fill_string_list(struct blob_attr *attr, char **argv, int max)
+{
+	struct blob_attr *cur;
+	int argc = 0;
+	int rem;
+
+	if (!attr)
+		goto out;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			return false;
+
+		if (!blobmsg_check_attr(cur, NULL))
+			return false;
+
+		argv[argc++] = blobmsg_data(cur);
+		if (argc == max - 1)
+			return false;
+	}
+
+out:
+	argv[argc] = NULL;
+	return true;
+}
+
 static int
 proto_shell_run_command(struct proto_shell_state *state, struct blob_attr **tb)
 {
-	struct blob_attr *cur;
 	char *argv[64];
-	int argc = 0;
-	int rem;
+	char *env[32];
 
 	if (!tb[NOTIFY_COMMAND])
 		goto error;
 
-	blobmsg_for_each_attr(cur, tb[NOTIFY_COMMAND], rem) {
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
-			goto error;
+	if (!fill_string_list(tb[NOTIFY_COMMAND], argv, ARRAY_SIZE(argv)))
+		goto error;
 
-		if (!blobmsg_check_attr(cur, NULL))
-			goto error;
+	if (!fill_string_list(tb[NOTIFY_ENV], env, ARRAY_SIZE(env)))
+		goto error;
 
-		argv[argc++] = blobmsg_data(cur);
-		if (argc == ARRAY_SIZE(argv) - 1)
-			goto error;
-	}
-	argv[argc] = NULL;
-	start_process((const char **) argv, &state->proto_task);
+	start_process((const char **) argv, (char **) env, &state->proto_task);
 
 	return 0;
 

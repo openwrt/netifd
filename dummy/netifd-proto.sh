@@ -33,6 +33,8 @@ _proto_do_teardown() {
 
 _proto_do_setup() {
 	json_load "$data"
+	_EXPORT_VAR=0
+	_EXPORT_VARS=
 	eval "$1_setup \"$interface\" \"$ifname\""
 }
 
@@ -143,6 +145,13 @@ proto_send_update() {
 	_proto_notify "$interface"
 }
 
+proto_export() {
+	local var="VAR${_EXPORT_VAR}"
+	_EXPORT_VAR="$(($_EXPORT_VAR + 1))"
+	export -- "$var=$1"
+	jshn_append _EXPORT_VARS "$var"
+}
+
 proto_run_command() {
 	local interface="$1"; shift
 
@@ -153,6 +162,14 @@ proto_run_command() {
 		json_add_string "" "$1"
 		shift
 	done
+	json_close_array
+	[ -n "$_EXPORT_VARS" ] && {
+		json_add_array env
+		for var in $_EXPORT_VARS; do
+			eval "json_add_string \"\" \"\${$var}\""
+		done
+		json_close_array
+	}
 	_proto_notify "$interface"
 }
 
