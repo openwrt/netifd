@@ -351,10 +351,10 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 		return 0;
 	}
 
-	if (!tb[NOTIFY_IFNAME])
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
-	if (!state->l3_dev.dev) {
+	if (!tb[NOTIFY_IFNAME]) {
+		if (!state->iface->main_dev.dev)
+			return UBUS_STATUS_INVALID_ARGUMENT;
+	} else if (!state->l3_dev.dev) {
 		device_add_user(&state->l3_dev,
 			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
 		device_claim(&state->l3_dev);

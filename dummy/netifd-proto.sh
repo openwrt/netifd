@@ -48,7 +48,7 @@ proto_init_update() {
 	PROTO_ROUTE6=
 	json_init
 	json_add_int action 0
-	json_add_string "ifname" "$ifname"
+	[ -n "$ifname" -a "*" != "$ifname" ] && json_add_string "ifname" "$ifname"
 	json_add_boolean "link-up" "$up"
 	[ -n "$3" ] && json_add_boolean "address-external" "$external"
 }
