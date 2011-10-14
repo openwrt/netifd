@@ -265,8 +265,8 @@ parse_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	route->mask = v6 ? 128 : 32;
 	if ((cur = tb[ROUTE_MASK]) != NULL) {
-		route->mask = blobmsg_get_u32(cur);
-		if (route->mask > v6 ? 128 : 32)
+		route->mask = parse_netmask_string(blobmsg_data(cur), v6);
+		if (route->mask > (v6 ? 128 : 32))
 			goto error;
 	}
 
