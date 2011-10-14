@@ -108,7 +108,7 @@ _proto_push_route() {
 	local mask="${str%%/*}"
 	local gw="${str#*/}"
 
-	json_add_table ""
+	json_add_object ""
 	json_add_string target "$target"
 	json_add_string mask "$mask"
 	json_add_string gateway "$gw"
@@ -138,8 +138,8 @@ proto_send_update() {
 
 	_proto_push_array "ipaddr" "$PROTO_IPADDR" _proto_push_ip
 	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ip
-	_proto_push_array "route" "$PROTO_ROUTE" _proto_push_route
-	_proto_push_array "route6" "$PROTO_ROUTE6" _proto_push_route
+	_proto_push_array "routes" "$PROTO_ROUTE" _proto_push_route
+	_proto_push_array "routes6" "$PROTO_ROUTE6" _proto_push_route
 	_proto_push_array "dns" "$PROTO_DNS" _proto_push_ip
 	_proto_push_array "dns_search" "$PROTO_DNS_SEARCH" _proto_push_ip
 	_proto_notify "$interface"
