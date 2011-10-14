@@ -446,6 +446,25 @@ int system_del_route(struct device *dev, struct device_route *route)
 	return system_rt(dev, route, RTM_DELROUTE);
 }
 
+int system_flush_routes(void)
+{
+	const char *names[] = {
+		"/proc/sys/net/ipv4/route/flush",
+		"/proc/sys/net/ipv6/route/flush"
+	};
+	int fd, i;
+
+	for (i = 0; i < ARRAY_SIZE(names); i++) {
+		fd = open(names[i], O_WRONLY);
+		if (fd < 0)
+			continue;
+
+		write(fd, "-1", 2);
+		close(fd);
+	}
+	return 0;
+}
+
 time_t system_get_rtime(void)
 {
 	struct timespec ts;

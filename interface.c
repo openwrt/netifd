@@ -240,6 +240,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		if (iface->state != IFS_SETUP)
 			return;
 
+		system_flush_routes();
 		iface->state = IFS_UP;
 		iface->start_time = system_get_rtime();
 		interface_event(iface, IFEV_UP);
@@ -249,6 +250,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		if (iface->state == IFS_DOWN)
 			return;
 
+		system_flush_routes();
 		mark_interface_down(iface);
 		interface_handle_config_change(iface);
 		if (iface->autostart)

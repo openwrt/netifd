@@ -44,6 +44,7 @@ int system_del_address(struct device *dev, struct device_addr *addr);
 
 int system_add_route(struct device *dev, struct device_route *route);
 int system_del_route(struct device *dev, struct device_route *route);
+int system_flush_routes(void);
 
 time_t system_get_rtime(void);
 
