@@ -202,6 +202,139 @@ static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
 	return ioctl(sock_ioctl, SIOCSIFFLAGS, &ifr);
 }
 
+struct clear_data {
+	struct nl_msg *msg;
+	struct device *dev;
+	int type;
+	int size;
+	int af;
+};
+
+
+static bool check_ifaddr(struct nlmsghdr *hdr, int ifindex)
+{
+	struct ifaddrmsg *ifa = NLMSG_DATA(hdr);
+
+	return ifa->ifa_index == ifindex;
+}
+
+static bool check_route(struct nlmsghdr *hdr, int ifindex)
+{
+	struct nlattr *tb[__RTA_MAX];
+
+	nlmsg_parse(hdr, sizeof(struct rtmsg), tb, __RTA_MAX - 1, NULL);
+	if (!tb[RTA_OIF])
+		return false;
+
+	return *(int *)RTA_DATA(tb[RTA_OIF]) == ifindex;
+}
+
+static int cb_clear_event(struct nl_msg *msg, void *arg)
+{
+	struct clear_data *clr = arg;
+	struct nlmsghdr *hdr = nlmsg_hdr(msg);
+	bool (*cb)(struct nlmsghdr *, int ifindex);
+	int type;
+
+	switch(clr->type) {
+	case RTM_GETADDR:
+		type = RTM_DELADDR;
+		if (hdr->nlmsg_type != RTM_NEWADDR)
+			return NL_SKIP;
+
+		cb = check_ifaddr;
+		break;
+	case RTM_GETROUTE:
+		type = RTM_DELROUTE;
+		if (hdr->nlmsg_type != RTM_NEWROUTE)
+			return NL_SKIP;
+
+		cb = check_route;
+		break;
+	default:
+		return NL_SKIP;
+	}
+
+	if (!cb(hdr, clr->dev->ifindex))
+		return NL_SKIP;
+
+	D(SYSTEM, "Remove %s from device %s\n",
+	  type == RTM_DELADDR ? "an address" : "a route",
+	  clr->dev->ifname);
+	memcpy(nlmsg_hdr(clr->msg), hdr, hdr->nlmsg_len);
+	hdr = nlmsg_hdr(clr->msg);
+	hdr->nlmsg_type = type;
+	hdr->nlmsg_flags = NLM_F_REQUEST;
+
+	if (!nl_send_auto_complete(sock_rtnl, clr->msg))
+		nl_wait_for_ack(sock_rtnl);
+
+	return NL_SKIP;
+}
+
+static int
+cb_finish_event(struct nl_msg *msg, void *arg)
+{
+	int *pending = arg;
+	*pending = 0;
+	return NL_STOP;
+}
+
+static int
+error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, void *arg)
+{
+	int *pending = arg;
+	*pending = err->error;
+	return NL_STOP;
+}
+
+static void
+system_if_clear_entries(struct device *dev, int type, int af)
+{
+	struct clear_data clr;
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct rtmsg rtm = {
+		.rtm_family = af,
+		.rtm_flags = RTM_F_CLONED,
+	};
+	int flags = NLM_F_DUMP;
+	int pending = 1;
+
+	clr.af = af;
+	clr.dev = dev;
+	clr.type = type;
+	switch (type) {
+	case RTM_GETADDR:
+		clr.size = sizeof(struct rtgenmsg);
+		break;
+	case RTM_GETROUTE:
+		clr.size = sizeof(struct rtmsg);
+		break;
+	default:
+		return;
+	}
+
+	if (!cb)
+		return;
+
+	clr.msg = nlmsg_alloc_simple(type, flags);
+	if (!clr.msg)
+		goto out;
+
+	nlmsg_append(clr.msg, &rtm, clr.size, 0);
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_clear_event, &clr);
+	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, cb_finish_event, &pending);
+	nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &pending);
+
+	nl_send_auto_complete(sock_rtnl, clr.msg);
+	while (pending > 0)
+		nl_recvmsgs(sock_rtnl, cb);
+
+	nlmsg_free(clr.msg);
+out:
+	nl_cb_put(cb);
+}
+
 /*
  * Clear bridge (membership) state and bring down device
  */
@@ -227,6 +360,11 @@ void system_if_clear_state(struct device *dev)
 		D(SYSTEM, "Remove device '%s' from bridge '%s'\n", dev->ifname, bridge);
 		system_bridge_if(bridge, dev, SIOCBRDELIF, NULL);
 	}
+
+	system_if_clear_entries(dev, RTM_GETROUTE, AF_INET);
+	system_if_clear_entries(dev, RTM_GETADDR, AF_INET);
+	system_if_clear_entries(dev, RTM_GETROUTE, AF_INET6);
+	system_if_clear_entries(dev, RTM_GETADDR, AF_INET6);
 }
 
 static inline unsigned long
