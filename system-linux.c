@@ -393,6 +393,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 {
 	int alen = ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET4) ? 4 : 16;
 	bool have_gw;
+	unsigned int flags = 0;
 
 	if (alen == 4)
 		have_gw = !!route->nexthop.in.s_addr;
@@ -414,7 +415,10 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		.rtm_type = (cmd == RTM_DELROUTE) ? 0: RTN_UNICAST,
 	};
 
-	struct nl_msg *msg = nlmsg_alloc_simple(cmd, 0);
+	if (cmd == RTM_NEWROUTE)
+		flags |= NLM_F_CREATE | NLM_F_REPLACE;
+
+	struct nl_msg *msg = nlmsg_alloc_simple(cmd, flags);
 	if (!msg)
 		return -1;
 
