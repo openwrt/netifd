@@ -110,7 +110,7 @@ _proto_push_route() {
 
 	json_add_table ""
 	json_add_string target "$target"
-	json_add_integer mask "$mask"
+	json_add_string mask "$mask"
 	json_add_string gateway "$gw"
 	json_close_table
 }
