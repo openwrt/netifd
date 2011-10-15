@@ -18,7 +18,7 @@
 #include "interface-ip.h"
 #include "proto.h"
 
-static int proto_fd;
+static struct netifd_fd proto_fd;
 
 struct proto_shell_handler {
 	struct list_head list;
@@ -469,11 +469,11 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	state->proto.cb = proto_shell_handler;
 	state->setup_timeout.cb = proto_shell_setup_timeout_cb;
 	state->setup_task.cb = proto_shell_setup_cb;
-	state->setup_task.dir_fd = proto_fd;
+	state->setup_task.dir_fd = proto_fd.fd;
 	state->teardown_task.cb = proto_shell_teardown_cb;
-	state->teardown_task.dir_fd = proto_fd;
+	state->teardown_task.dir_fd = proto_fd.fd;
 	state->proto_task.cb = proto_shell_task_cb;
-	state->proto_task.dir_fd = proto_fd;
+	state->proto_task.dir_fd = proto_fd.fd;
 	state->handler = container_of(h, struct proto_shell_handler, proto);
 
 	return &state->proto;
@@ -676,10 +676,11 @@ void __init proto_shell_init(void)
 	if (chdir("./proto"))
 		goto close_cur;
 
-	proto_fd = open(".", O_RDONLY | O_DIRECTORY);
-	if (proto_fd < 0)
+	proto_fd.fd = open(".", O_RDONLY | O_DIRECTORY);
+	if (proto_fd.fd < 0)
 		goto close_cur;
 
+	netifd_fd_add(&proto_fd);
 	glob("./*.sh", 0, NULL, &g);
 	for (i = 0; i < g.gl_pathc; i++)
 		proto_shell_add_script(g.gl_pathv[i]);

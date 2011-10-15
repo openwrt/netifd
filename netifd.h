@@ -48,6 +48,12 @@ static inline void no_debug(int level, const char *fmt, ...)
 {
 }
 
+struct netifd_fd {
+	struct list_head list;
+	struct netifd_process *proc;
+	int fd;
+};
+
 struct netifd_process {
 	struct list_head list;
 	struct uloop_process uloop;
@@ -57,6 +63,9 @@ struct netifd_process {
 
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);
 void netifd_kill_process(struct netifd_process *proc);
+
+void netifd_fd_add(struct netifd_fd *fd);
+void netifd_fd_delete(struct netifd_fd *fd);
 
 struct device;
 struct interface;

@@ -14,7 +14,9 @@ unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
 const char *resolv_conf = DEFAULT_RESOLV_CONF;
 static char **global_argv;
+
 static struct list_head process_list = LIST_HEAD_INIT(process_list);
+static struct list_head fds = LIST_HEAD_INIT(fds);
 
 static void
 netifd_process_cb(struct uloop_process *proc, int ret)
@@ -28,6 +30,7 @@ netifd_process_cb(struct uloop_process *proc, int ret)
 int
 netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 {
+	struct netifd_fd *fd;
 	int pid;
 
 	netifd_kill_process(proc);
@@ -44,6 +47,14 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 		}
 		if (proc->dir_fd >= 0)
 			fchdir(proc->dir_fd);
+
+		/* close all non-essential fds */
+		list_for_each_entry(fd, &fds, list) {
+			if (fd->proc == proc)
+				continue;
+			close(fd->fd);
+		}
+
 		execvp(argv[0], (char **) argv);
 		exit(127);
 	}
@@ -68,6 +79,18 @@ netifd_kill_process(struct netifd_process *proc)
 	kill(proc->uloop.pid, SIGTERM);
 	uloop_process_delete(&proc->uloop);
 	list_del(&proc->list);
+}
+
+void
+netifd_fd_add(struct netifd_fd *fd)
+{
+	list_add_tail(&fd->list, &fds);
+}
+
+void
+netifd_fd_delete(struct netifd_fd *fd)
+{
+	list_del(&fd->list);
 }
 
 static void netifd_do_restart(struct uloop_timeout *timeout)

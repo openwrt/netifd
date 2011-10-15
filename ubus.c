@@ -11,6 +11,7 @@
 
 static struct ubus_context *ctx = NULL;
 static struct blob_buf b;
+static struct netifd_fd ubus_fd;
 
 /* global object */
 
@@ -105,6 +106,8 @@ netifd_ubus_init(const char *path)
 	DPRINTF("connected as %08x\n", ctx->local_id);
 	uloop_init();
 	ubus_add_uloop(ctx);
+	ubus_fd.fd = ctx->sock.fd;
+	netifd_fd_add(&ubus_fd);
 
 	ret = ubus_add_object(ctx, &main_object);
 	if (ret)
