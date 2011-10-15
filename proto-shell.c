@@ -36,54 +36,13 @@ struct proto_shell_state {
 	struct device_user l3_dev;
 
 	struct uloop_timeout setup_timeout;
-	struct uloop_process setup_task;
-	struct uloop_process teardown_task;
+	struct netifd_process setup_task;
+	struct netifd_process teardown_task;
 	bool teardown_pending;
 	bool teardown_wait_task;
 
-	struct uloop_process proto_task;
+	struct netifd_process proto_task;
 };
-
-static void
-kill_process(struct uloop_process *proc)
-{
-	if (!proc->pending)
-		return;
-
-	kill(proc->pid, SIGTERM);
-	uloop_process_delete(proc);
-}
-
-static int
-start_process(const char **argv, char **env, struct uloop_process *proc)
-{
-	int pid;
-
-	kill_process(proc);
-
-	if ((pid = fork()) < 0)
-		return -1;
-
-	if (!pid) {
-		if (env) {
-			while (*env) {
-				putenv(*env);
-				env++;
-			}
-		}
-		fchdir(proto_fd);
-		execvp(argv[0], (char **) argv);
-		exit(127);
-	}
-
-	if (pid < 0)
-		return -1;
-
-	proc->pid = pid;
-	uloop_process_add(proc);
-
-	return 0;
-}
 
 static int
 proto_shell_handler(struct interface_proto_state *proto,
@@ -91,7 +50,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 {
 	struct proto_shell_state *state;
 	struct proto_shell_handler *handler;
-	struct uloop_process *proc;
+	struct netifd_process *proc;
 	const char *argv[6];
 	const char *action;
 	char *config;
@@ -106,9 +65,9 @@ proto_shell_handler(struct interface_proto_state *proto,
 	} else {
 		action = "teardown";
 		proc = &state->teardown_task;
-		if (state->setup_task.pending && !state->teardown_wait_task) {
+		if (state->setup_task.uloop.pending && !state->teardown_wait_task) {
 			uloop_timeout_set(&state->setup_timeout, 1000);
-			kill(state->setup_task.pid, SIGTERM);
+			kill(state->setup_task.uloop.pid, SIGTERM);
 			state->teardown_pending = true;
 			return 0;
 		}
@@ -127,7 +86,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		argv[i++] = proto->iface->main_dev.dev->ifname;
 	argv[i] = NULL;
 
-	ret = start_process(argv, NULL, proc);
+	ret = netifd_start_process(argv, NULL, proto_fd, proc);
 	free(config);
 
 	return ret;
@@ -139,11 +98,11 @@ proto_shell_setup_timeout_cb(struct uloop_timeout *timeout)
 	struct proto_shell_state *state;
 
 	state = container_of(timeout, struct proto_shell_state, setup_timeout);
-	kill(state->setup_task.pid, SIGKILL);
+	kill(state->setup_task.uloop.pid, SIGKILL);
 }
 
 static void
-proto_shell_setup_cb(struct uloop_process *p, int ret)
+proto_shell_setup_cb(struct netifd_process *p, int ret)
 {
 	struct proto_shell_state *state;
 
@@ -156,7 +115,7 @@ proto_shell_setup_cb(struct uloop_process *p, int ret)
 }
 
 static void
-proto_shell_teardown_cb(struct uloop_process *p, int ret)
+proto_shell_teardown_cb(struct netifd_process *p, int ret)
 {
 	struct proto_shell_state *state;
 
@@ -165,7 +124,7 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 	if (state->teardown_wait_task)
 		return;
 
-	kill_process(&state->proto_task);
+	netifd_kill_process(&state->proto_task);
 
 	if (state->l3_dev.dev)
 		device_remove_user(&state->l3_dev);
@@ -174,7 +133,7 @@ proto_shell_teardown_cb(struct uloop_process *p, int ret)
 }
 
 static void
-proto_shell_task_cb(struct uloop_process *p, int ret)
+proto_shell_task_cb(struct netifd_process *p, int ret)
 {
 	struct proto_shell_state *state;
 	bool teardown_wait_task;
@@ -183,7 +142,7 @@ proto_shell_task_cb(struct uloop_process *p, int ret)
 
 	teardown_wait_task = state->teardown_wait_task;
 	state->teardown_wait_task = false;
-	if (state->teardown_pending || state->teardown_task.pending)
+	if (state->teardown_pending || state->teardown_task.uloop.pending)
 		return;
 
 	if (teardown_wait_task) {
@@ -442,7 +401,7 @@ proto_shell_run_command(struct proto_shell_state *state, struct blob_attr **tb)
 	if (!fill_string_list(tb[NOTIFY_ENV], env, ARRAY_SIZE(env)))
 		goto error;
 
-	start_process((const char **) argv, (char **) env, &state->proto_task);
+	netifd_start_process((const char **) argv, (char **) env, proto_fd, &state->proto_task);
 
 	return 0;
 
@@ -461,8 +420,8 @@ proto_shell_kill_command(struct proto_shell_state *state, struct blob_attr **tb)
 	if (signal > 31)
 		signal = SIGTERM;
 
-	if (state->proto_task.pending) {
-		kill(state->proto_task.pid, signal);
+	if (state->proto_task.uloop.pending) {
+		kill(state->proto_task.uloop.pid, signal);
 		state->teardown_wait_task = true;
 	}
 

@@ -14,6 +14,61 @@ unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
 const char *resolv_conf = DEFAULT_RESOLV_CONF;
 static char **global_argv;
+static struct list_head process_list = LIST_HEAD_INIT(process_list);
+
+static void
+netifd_process_cb(struct uloop_process *proc, int ret)
+{
+	struct netifd_process *np;
+	np = container_of(proc, struct netifd_process, uloop);
+	list_del(&np->list);
+	return np->cb(np, ret);
+}
+
+int
+netifd_start_process(const char **argv, char **env, int dir_fd, struct netifd_process *proc)
+{
+	int pid;
+
+	netifd_kill_process(proc);
+
+	if ((pid = fork()) < 0)
+		return -1;
+
+	if (!pid) {
+		if (env) {
+			while (*env) {
+				putenv(*env);
+				env++;
+			}
+		}
+		if (dir_fd >= 0)
+			fchdir(dir_fd);
+		execvp(argv[0], (char **) argv);
+		exit(127);
+	}
+
+	if (pid < 0)
+		return -1;
+
+	proc->uloop.cb = netifd_process_cb;
+	proc->uloop.pid = pid;
+	uloop_process_add(&proc->uloop);
+	list_add_tail(&proc->list, &process_list);
+
+	return 0;
+}
+
+void
+netifd_kill_process(struct netifd_process *proc)
+{
+	if (!proc->uloop.pending)
+		return;
+
+	kill(proc->uloop.pid, SIGTERM);
+	uloop_process_delete(&proc->uloop);
+	list_del(&proc->list);
+}
 
 static void netifd_do_restart(struct uloop_timeout *timeout)
 {
