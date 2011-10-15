@@ -44,6 +44,8 @@ enum {
 #define D(level, format, ...) no_debug(DEBUG_ ## level, format, ## __VA_ARGS__)
 #endif
 
+#define LOG_BUF_SIZE	256
+
 static inline void no_debug(int level, const char *fmt, ...)
 {
 }
@@ -59,6 +61,13 @@ struct netifd_process {
 	struct uloop_process uloop;
 	void (*cb)(struct netifd_process *, int ret);
 	int dir_fd;
+
+	struct netifd_fd log_fd;
+	struct uloop_fd log_uloop;
+	const char *log_prefix;
+	char *log_buf;
+	int log_buf_ofs;
+	bool log_overflow;
 };
 
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);

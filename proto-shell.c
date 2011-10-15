@@ -470,10 +470,13 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	state->setup_timeout.cb = proto_shell_setup_timeout_cb;
 	state->setup_task.cb = proto_shell_setup_cb;
 	state->setup_task.dir_fd = proto_fd.fd;
+	state->setup_task.log_prefix = iface->name;
 	state->teardown_task.cb = proto_shell_teardown_cb;
 	state->teardown_task.dir_fd = proto_fd.fd;
+	state->teardown_task.log_prefix = iface->name;
 	state->proto_task.cb = proto_shell_task_cb;
 	state->proto_task.dir_fd = proto_fd.fd;
+	state->proto_task.log_prefix = iface->name;
 	state->handler = container_of(h, struct proto_shell_handler, proto);
 
 	return &state->proto;
