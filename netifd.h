@@ -52,9 +52,10 @@ struct netifd_process {
 	struct list_head list;
 	struct uloop_process uloop;
 	void (*cb)(struct netifd_process *, int ret);
+	int dir_fd;
 };
 
-int netifd_start_process(const char **argv, char **env, int dir_fd, struct netifd_process *proc);
+int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);
 void netifd_kill_process(struct netifd_process *proc);
 
 struct device;

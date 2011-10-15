@@ -26,7 +26,7 @@ netifd_process_cb(struct uloop_process *proc, int ret)
 }
 
 int
-netifd_start_process(const char **argv, char **env, int dir_fd, struct netifd_process *proc)
+netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 {
 	int pid;
 
@@ -42,8 +42,8 @@ netifd_start_process(const char **argv, char **env, int dir_fd, struct netifd_pr
 				env++;
 			}
 		}
-		if (dir_fd >= 0)
-			fchdir(dir_fd);
+		if (proc->dir_fd >= 0)
+			fchdir(proc->dir_fd);
 		execvp(argv[0], (char **) argv);
 		exit(127);
 	}

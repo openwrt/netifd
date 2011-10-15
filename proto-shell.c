@@ -86,7 +86,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		argv[i++] = proto->iface->main_dev.dev->ifname;
 	argv[i] = NULL;
 
-	ret = netifd_start_process(argv, NULL, proto_fd, proc);
+	ret = netifd_start_process(argv, NULL, proc);
 	free(config);
 
 	return ret;
@@ -401,7 +401,7 @@ proto_shell_run_command(struct proto_shell_state *state, struct blob_attr **tb)
 	if (!fill_string_list(tb[NOTIFY_ENV], env, ARRAY_SIZE(env)))
 		goto error;
 
-	netifd_start_process((const char **) argv, (char **) env, proto_fd, &state->proto_task);
+	netifd_start_process((const char **) argv, (char **) env, &state->proto_task);
 
 	return 0;
 
@@ -469,8 +469,11 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	state->proto.cb = proto_shell_handler;
 	state->setup_timeout.cb = proto_shell_setup_timeout_cb;
 	state->setup_task.cb = proto_shell_setup_cb;
+	state->setup_task.dir_fd = proto_fd;
 	state->teardown_task.cb = proto_shell_teardown_cb;
+	state->teardown_task.dir_fd = proto_fd;
 	state->proto_task.cb = proto_shell_task_cb;
+	state->proto_task.dir_fd = proto_fd;
 	state->handler = container_of(h, struct proto_shell_handler, proto);
 
 	return &state->proto;
