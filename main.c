@@ -110,6 +110,35 @@ static int usage(const char *progname)
 	return 1;
 }
 
+static void
+netifd_handle_signal(int signo)
+{
+	uloop_end();
+}
+
+static void
+netifd_setup_signals(void)
+{
+	struct sigaction s;
+
+	memset(&s, 0, sizeof(s));
+	s.sa_handler = netifd_handle_signal;
+	s.sa_flags = 0;
+	sigaction(SIGINT, &s, NULL);
+	sigaction(SIGTERM, &s, NULL);
+	sigaction(SIGUSR1, &s, NULL);
+	sigaction(SIGUSR2, &s, NULL);
+}
+
+static void
+netifd_kill_processes(void)
+{
+	struct netifd_process *proc, *tmp;
+
+	list_for_each_entry_safe(proc, tmp, &process_list, list)
+		netifd_kill_process(proc);
+}
+
 int main(int argc, char **argv)
 {
 	const char *socket = NULL;
@@ -139,6 +168,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+	netifd_setup_signals();
 	if (netifd_ubus_init(socket) < 0) {
 		fprintf(stderr, "Failed to connect to ubus\n");
 		return 1;
@@ -152,6 +182,7 @@ int main(int argc, char **argv)
 	config_init_interfaces(NULL);
 
 	uloop_run();
+	netifd_kill_processes();
 
 	netifd_ubus_done();
 
