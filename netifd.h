@@ -70,6 +70,8 @@ struct netifd_process {
 	bool log_overflow;
 };
 
+void netifd_log_message(int priority, const char *format, ...);
+
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);
 void netifd_kill_process(struct netifd_process *proc);
 

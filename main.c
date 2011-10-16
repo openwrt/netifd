@@ -4,6 +4,8 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdarg.h>
+#include <syslog.h>
 
 #include "netifd.h"
 #include "ubus.h"
@@ -19,6 +21,13 @@ static char **global_argv;
 static struct list_head process_list = LIST_HEAD_INIT(process_list);
 static struct list_head fds = LIST_HEAD_INIT(fds);
 
+#ifdef DUMMY_MODE
+#define use_syslog false
+#else
+static bool use_syslog = true;
+#endif
+
+
 static void
 netifd_delete_process(struct netifd_process *proc)
 {
@@ -26,6 +35,19 @@ netifd_delete_process(struct netifd_process *proc)
 		uloop_process_delete(&proc->uloop);
 	list_del(&proc->list);
 	netifd_fd_delete(&proc->log_fd);
+}
+
+void
+netifd_log_message(int priority, const char *format, ...)
+{
+	va_list vl;
+
+	va_start(vl, format);
+	if (use_syslog)
+		vsyslog(priority, format, vl);
+	else
+		vfprintf(stderr, format, vl);
+	va_end(vl);
 }
 
 static void
@@ -64,7 +86,8 @@ retry:
 		*cur = 0;
 
 		if (!proc->log_overflow)
-			fprintf(stderr, "%s (%d): %s\n", log_prefix, proc->uloop.pid, buf);
+			netifd_log_message(LOG_NOTICE, "%s (%d): %s\n",
+				log_prefix, proc->uloop.pid, buf);
 		else
 			proc->log_overflow = false;
 
@@ -79,7 +102,8 @@ retry:
 	if (len == LOG_BUF_SIZE) {
 		if (!proc->log_overflow) {
 			proc->log_buf[LOG_BUF_SIZE] = 0;
-			fprintf(stderr, "%s (%d): %s [...]\n", log_prefix, proc->uloop.pid, proc->log_buf);
+			netifd_log_message(LOG_NOTICE, "%s (%d): %s [...]\n",
+				log_prefix, proc->uloop.pid, proc->log_buf);
 			proc->log_overflow = true;
 		}
 		len = 0;
@@ -221,6 +245,7 @@ static int usage(const char *progname)
 		" -p <path>:		Path to netifd addons (default: %s)\n"
 		" -h <path>:		Path to the hotplug script\n"
 		" -r <path>:		Path to resolv.conf\n"
+		" -S:			Use stderr instead of syslog for log messages\n"
 		"			(default: "DEFAULT_HOTPLUG_PATH")\n"
 		"\n", progname, main_path);
 
@@ -266,7 +291,7 @@ int main(int argc, char **argv)
 
 	global_argv = argv;
 
-	while ((ch = getopt(argc, argv, "d:s:p:h:r:")) != -1) {
+	while ((ch = getopt(argc, argv, "d:s:p:h:r:S")) != -1) {
 		switch(ch) {
 		case 'd':
 			debug_mask = strtoul(optarg, NULL, 0);
@@ -283,10 +308,18 @@ int main(int argc, char **argv)
 		case 'r':
 			resolv_conf = optarg;
 			break;
+#ifndef DUMMY_MODE
+		case 'S':
+			use_syslog = false;
+			break;
+#endif
 		default:
 			return usage(argv[0]);
 		}
 	}
+
+	if (use_syslog)
+		openlog("netifd", 0, LOG_DAEMON);
 
 	netifd_setup_signals();
 	if (netifd_ubus_init(socket) < 0) {
@@ -305,6 +338,9 @@ int main(int argc, char **argv)
 	netifd_kill_processes();
 
 	netifd_ubus_done();
+
+	if (use_syslog)
+		closelog();
 
 	return 0;
 }
