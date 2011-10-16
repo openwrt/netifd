@@ -98,7 +98,7 @@ retry:
 		if (errno == EINTR)
 			goto retry;
 
-		return;
+		goto out;
 	}
 	proc->log_buf_ofs += len;
 
@@ -134,6 +134,10 @@ retry:
 
 	if (read_len == maxlen)
 		goto retry;
+
+out:
+	if (fd->eof)
+		uloop_fd_delete(fd);
 }
 
 static void
