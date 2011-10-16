@@ -21,6 +21,25 @@ static char **global_argv;
 static struct list_head process_list = LIST_HEAD_INIT(process_list);
 static struct list_head fds = LIST_HEAD_INIT(fds);
 
+#define DEFAULT_LOG_LEVEL L_NOTICE
+
+enum {
+	L_CRIT,
+	L_WARNING,
+	L_NOTICE,
+	L_INFO,
+	L_DEBUG
+};
+
+static int log_level = DEFAULT_LOG_LEVEL;
+static const int log_class[] = {
+	[L_CRIT] = LOG_CRIT,
+	[L_WARNING] = LOG_WARNING,
+	[L_NOTICE] = LOG_NOTICE,
+	[L_INFO] = LOG_INFO,
+	[L_DEBUG] = LOG_DEBUG
+};
+
 #ifdef DUMMY_MODE
 #define use_syslog false
 #else
@@ -42,9 +61,12 @@ netifd_log_message(int priority, const char *format, ...)
 {
 	va_list vl;
 
+	if (priority > log_level)
+		return;
+
 	va_start(vl, format);
 	if (use_syslog)
-		vsyslog(priority, format, vl);
+		vsyslog(log_class[priority], format, vl);
 	else
 		vfprintf(stderr, format, vl);
 	va_end(vl);
@@ -86,7 +108,7 @@ retry:
 		*cur = 0;
 
 		if (!proc->log_overflow)
-			netifd_log_message(LOG_NOTICE, "%s (%d): %s\n",
+			netifd_log_message(L_NOTICE, "%s (%d): %s\n",
 				log_prefix, proc->uloop.pid, buf);
 		else
 			proc->log_overflow = false;
@@ -102,7 +124,7 @@ retry:
 	if (len == LOG_BUF_SIZE) {
 		if (!proc->log_overflow) {
 			proc->log_buf[LOG_BUF_SIZE] = 0;
-			netifd_log_message(LOG_NOTICE, "%s (%d): %s [...]\n",
+			netifd_log_message(L_NOTICE, "%s (%d): %s [...]\n",
 				log_prefix, proc->uloop.pid, proc->log_buf);
 			proc->log_overflow = true;
 		}
@@ -245,9 +267,10 @@ static int usage(const char *progname)
 		" -p <path>:		Path to netifd addons (default: %s)\n"
 		" -h <path>:		Path to the hotplug script\n"
 		" -r <path>:		Path to resolv.conf\n"
+		" -l <level>:		Log output level (default: %d)\n"
 		" -S:			Use stderr instead of syslog for log messages\n"
 		"			(default: "DEFAULT_HOTPLUG_PATH")\n"
-		"\n", progname, main_path);
+		"\n", progname, main_path, DEFAULT_LOG_LEVEL);
 
 	return 1;
 }
@@ -291,7 +314,7 @@ int main(int argc, char **argv)
 
 	global_argv = argv;
 
-	while ((ch = getopt(argc, argv, "d:s:p:h:r:S")) != -1) {
+	while ((ch = getopt(argc, argv, "d:s:p:h:r:l:S")) != -1) {
 		switch(ch) {
 		case 'd':
 			debug_mask = strtoul(optarg, NULL, 0);
@@ -307,6 +330,11 @@ int main(int argc, char **argv)
 			break;
 		case 'r':
 			resolv_conf = optarg;
+			break;
+		case 'l':
+			log_level = atoi(optarg);
+			if (log_level >= ARRAY_SIZE(log_class))
+				log_level = ARRAY_SIZE(log_class) - 1;
 			break;
 #ifndef DUMMY_MODE
 		case 'S':
