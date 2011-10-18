@@ -99,12 +99,17 @@ static void system_set_sysctl(const char *path, const char *val)
 	close(fd);
 }
 
-static void system_set_disable_ipv6(struct device *dev, const char *val)
+static void system_set_dev_sysctl(const char *path, const char *device, const char *val)
 {
 	char buf[256];
 
-	snprintf(buf, sizeof(buf), "/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname);
-	system_set_sysctl(buf, "0");
+	snprintf(buf, sizeof(buf), path, val);
+	system_set_sysctl(buf, val);
+}
+
+static void system_set_disable_ipv6(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname, val);
 }
 
 // Evaluate netlink messages
@@ -410,6 +415,9 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	args[0] = BRCTL_SET_BRIDGE_FORWARD_DELAY;
 	args[1] = sec_to_jiffies(cfg->forward_delay);
 	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_snooping",
+		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
 
 	if (cfg->flags & BRIDGE_OPT_AGEING_TIME) {
 		args[0] = BRCTL_SET_AGEING_TIME;

@@ -16,6 +16,7 @@ enum bridge_opt {
 struct bridge_config {
 	enum bridge_opt flags;
 	bool stp;
+	bool igmp_snoop;
 	int forward_delay;
 
 	int ageing_time;
