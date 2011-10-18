@@ -43,7 +43,7 @@ pppoe_setup() {
 	proto_add_ipv4_address "192.168.2.1" 32
 	proto_add_dns_server "192.168.2.2"
 	proto_send_update "$interface"
-	proto_run_command "$interface" sleep 10
+	proto_run_command "$interface" sleep 30
 }
 
 pppoe_teardown() {
