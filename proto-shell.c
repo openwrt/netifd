@@ -125,10 +125,6 @@ proto_shell_teardown_cb(struct netifd_process *p, int ret)
 		return;
 
 	netifd_kill_process(&state->proto_task);
-
-	if (state->l3_dev.dev)
-		device_remove_user(&state->l3_dev);
-
 	state->proto.proto_event(&state->proto, IFPEV_DOWN);
 }
 

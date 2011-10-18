@@ -280,6 +280,8 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		interface_handle_config_change(iface);
 		if (iface->autostart)
 			__interface_set_up(iface);
+		if (iface->l3_dev->dev)
+			device_release(iface->l3_dev);
 		break;
 	case IFPEV_LINK_LOST:
 		if (iface->state != IFS_UP)
