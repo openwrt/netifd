@@ -215,6 +215,7 @@ interface_cleanup(struct interface *iface)
 	interface_clear_errors(iface);
 	if (iface->main_dev.dev)
 		device_remove_user(&iface->main_dev);
+	iface->l3_dev = &iface->main_dev;
 	interface_set_proto_state(iface, NULL);
 }
 
