@@ -199,24 +199,11 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	if (iface->state == IFS_UP) {
 		time_t cur = system_get_rtime();
 		blobmsg_add_u32(&b, "uptime", cur - iface->start_time);
+		blobmsg_add_string(&b, "l3_device", iface->l3_dev->dev->ifname);
 	}
 
-	if (iface->main_dev.dev) {
-		struct device *dev = iface->main_dev.dev;
-		const char *field;
-		void *devinfo;
-
-		/* use a different field for virtual devices */
-		if (dev->avl.key)
-			field = "device";
-		else
-			field = "link";
-
-		devinfo = blobmsg_open_table(&b, field);
-		blobmsg_add_string(&b, "name", dev->ifname);
-
-		blobmsg_close_table(&b, devinfo);
-	}
+	if (!(iface->proto_handler->flags & PROTO_FLAG_NODEV))
+		blobmsg_add_string(&b, "device", iface->main_dev.dev->ifname);
 
 	if (!list_is_empty(&iface->errors))
 		netifd_add_interface_errors(&b, iface);
