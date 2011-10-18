@@ -470,9 +470,32 @@ int system_vlan_del(struct device *dev)
 	return system_vlan(dev, -1);
 }
 
+static void
+system_if_apply_settings(struct device *dev)
+{
+	struct ifreq ifr;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+	if (dev->flags & DEV_OPT_MTU) {
+		ifr.ifr_mtu = dev->mtu;
+		ioctl(sock_ioctl, SIOCSIFMTU, &ifr);
+	}
+	if (dev->flags & DEV_OPT_TXQUEUELEN) {
+		ifr.ifr_qlen = dev->txqueuelen;
+		ioctl(sock_ioctl, SIOCSIFTXQLEN, &ifr);
+	}
+	if (dev->flags & DEV_OPT_MACADDR) {
+		memcpy(&ifr.ifr_hwaddr, dev->macaddr, sizeof(dev->macaddr));
+		ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr);
+	}
+
+	dev->ifindex = system_if_resolve(dev);
+}
+
 int system_if_up(struct device *dev)
 {
-	dev->ifindex = system_if_resolve(dev);
+	system_if_apply_settings(dev);
 	return system_if_flags(dev->ifname, IFF_UP, 0);
 }
 
