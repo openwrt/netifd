@@ -87,6 +87,26 @@ static void handler_rtnl_event(struct uloop_fd *u, unsigned int events)
 	nl_recvmsgs(sock_rtnl_event, nl_cb_rtnl_event);
 }
 
+static void system_set_sysctl(const char *path, const char *val)
+{
+	int fd;
+
+	fd = open(path, O_WRONLY);
+	if (fd < 0)
+		return;
+
+	write(fd, val, strlen(val));
+	close(fd);
+}
+
+static void system_set_disable_ipv6(struct device *dev, const char *val)
+{
+	char buf[256];
+
+	snprintf(buf, sizeof(buf), "/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname);
+	system_set_sysctl(buf, "0");
+}
+
 // Evaluate netlink messages
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
@@ -138,11 +158,13 @@ static int system_bridge_if(const char *bridge, struct device *dev, int cmd, voi
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
+	system_set_disable_ipv6(dev, "1");
 	return system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
+	system_set_disable_ipv6(dev, "0");
 	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
@@ -365,6 +387,7 @@ void system_if_clear_state(struct device *dev)
 	system_if_clear_entries(dev, RTM_GETADDR, AF_INET);
 	system_if_clear_entries(dev, RTM_GETROUTE, AF_INET6);
 	system_if_clear_entries(dev, RTM_GETADDR, AF_INET6);
+	system_set_disable_ipv6(dev, "0");
 }
 
 static inline unsigned long
