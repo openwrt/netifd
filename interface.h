@@ -33,6 +33,12 @@ struct interface_error {
 	const char *data[];
 };
 
+struct interface_user {
+	struct list_head list;
+	struct interface *iface;
+	void (*cb)(struct interface_user *dep, enum interface_event ev);
+};
+
 /*
  * interface configuration
  */
@@ -51,6 +57,8 @@ struct interface {
 	time_t start_time;
 	enum interface_state state;
 	enum interface_config_state config_state;
+
+	struct list_head users;
 
 	/* main interface that the interface is bound to */
 	struct device_user main_dev;
@@ -90,6 +98,9 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 void interface_set_available(struct interface *iface, bool new_state);
 int interface_set_up(struct interface *iface);
 int interface_set_down(struct interface *iface);
+
+void interface_add_user(struct interface_user *dep, struct interface *iface);
+void interface_remove_user(struct interface_user *dep);
 
 int interface_add_link(struct interface *iface, struct device *llif);
 void interface_remove_link(struct interface *iface, struct device *llif);

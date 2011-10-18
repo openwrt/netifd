@@ -79,6 +79,11 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 static void
 interface_event(struct interface *iface, enum interface_event ev)
 {
+	struct interface_user *dep, *tmp;
+
+	list_for_each_entry_safe(dep, tmp, &iface->users, list)
+		dep->cb(dep, IFEV_UP);
+
 	interface_queue_event(iface, ev);
 }
 
@@ -168,6 +173,22 @@ interface_set_available(struct interface *iface, bool new_state)
 		__interface_set_down(iface, true);
 }
 
+void
+interface_add_user(struct interface_user *dep, struct interface *iface)
+{
+	dep->iface = iface;
+	list_add(&dep->list, &iface->users);
+	if (iface->state == IFS_UP)
+		dep->cb(dep, IFEV_UP);
+}
+
+void
+interface_remove_user(struct interface_user *dep)
+{
+	list_del_init(&dep->list);
+	dep->iface = NULL;
+}
+
 static void
 interface_claim_device(struct interface *iface)
 {
@@ -185,6 +206,11 @@ interface_claim_device(struct interface *iface)
 static void
 interface_cleanup(struct interface *iface)
 {
+	struct interface_user *dep, *tmp;
+
+	list_for_each_entry_safe(dep, tmp, &iface->users, list)
+		interface_remove_user(dep);
+
 	interface_clear_dns(iface);
 	interface_clear_errors(iface);
 	if (iface->main_dev.dev)
@@ -290,6 +316,7 @@ interface_init(struct interface *iface, const char *name,
 
 	strncpy(iface->name, name, sizeof(iface->name) - 1);
 	INIT_LIST_HEAD(&iface->errors);
+	INIT_LIST_HEAD(&iface->users);
 	INIT_LIST_HEAD(&iface->hotplug_list);
 	INIT_LIST_HEAD(&iface->proto_dns_search);
 	INIT_LIST_HEAD(&iface->proto_dns_servers);
