@@ -318,11 +318,14 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 	if (!tb[NOTIFY_IFNAME]) {
 		if (!state->proto.iface->main_dev.dev)
 			return UBUS_STATUS_INVALID_ARGUMENT;
-	} else if (!state->l3_dev.dev) {
+	} else {
+		if (state->l3_dev.dev)
+			device_remove_user(&state->l3_dev);
+
 		device_add_user(&state->l3_dev,
 			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
-		device_claim(&state->l3_dev);
 		state->proto.iface->l3_dev = &state->l3_dev;
+		device_claim(&state->l3_dev);
 	}
 
 	interface_ip_update_start(state->proto.iface);
