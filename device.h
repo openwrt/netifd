@@ -118,6 +118,10 @@ struct device *device_create(const char *name, const struct device_type *type,
 void device_init_settings(struct device *dev, struct blob_attr **tb);
 void device_init_pending(void);
 
+enum dev_change_type
+device_set_config(struct device *dev, const struct device_type *type,
+		  struct blob_attr *attr);
+
 void device_reset_config(void);
 void device_reset_old(void);
 

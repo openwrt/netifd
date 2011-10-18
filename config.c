@@ -147,6 +147,7 @@ config_parse_interface(struct uci_section *s)
 	struct interface *iface;
 	const char *type;
 	struct blob_attr *config;
+	struct device *dev;
 
 	blob_buf_init(&b, 0);
 
@@ -173,6 +174,17 @@ config_parse_interface(struct uci_section *s)
 
 	memcpy(config, b.head, blob_pad_len(b.head));
 	interface_add(iface, config);
+
+	dev = iface->main_dev.dev;
+	if (!dev || !dev->default_config)
+		return;
+
+	blob_buf_init(&b, 0);
+	uci_to_blob(&b, s, dev->type->config_params);
+	if (blob_len(b.head) == 0)
+		return;
+
+	device_set_config(dev, dev->type, b.head);
 }
 
 static void
@@ -243,6 +255,12 @@ __config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
 		     const struct config_param_list *config)
 {
 	struct blob_attr **tb1, **tb2;
+
+	if (!!c1 ^ !!c2)
+		return false;
+
+	if (!c1 && !c2)
+		return true;
 
 	tb1 = alloca(config->n_params * sizeof(struct blob_attr *));
 	blobmsg_parse(config->params, config->n_params, tb1,

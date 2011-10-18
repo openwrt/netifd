@@ -430,7 +430,7 @@ device_init_pending(void)
 	}
 }
 
-enum dev_change_type
+static enum dev_change_type
 device_reload_config(struct device *dev, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__DEV_ATTR_MAX];
@@ -442,7 +442,7 @@ device_reload_config(struct device *dev, struct blob_attr *attr)
 	if (cfg == &device_attr_list) {
 		memset(tb, 0, sizeof(tb));
 
-		if (dev->config)
+		if (attr)
 			blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb,
 				blob_data(attr), blob_len(attr));
 
@@ -452,9 +452,9 @@ device_reload_config(struct device *dev, struct blob_attr *attr)
 		return DEV_CONFIG_RECREATE;
 }
 
-static enum dev_change_type
-device_check_config(struct device *dev, const struct device_type *type,
-		    struct blob_attr *attr)
+enum dev_change_type
+device_set_config(struct device *dev, const struct device_type *type,
+		  struct blob_attr *attr)
 {
 	if (type != dev->type)
 		return DEV_CONFIG_RECREATE;
@@ -525,7 +525,7 @@ device_create(const char *name, const struct device_type *type,
 	odev = device_get(name, false);
 	if (odev) {
 		odev->current_config = true;
-		change = device_check_config(odev, type, config);
+		change = device_set_config(odev, type, config);
 		switch (change) {
 		case DEV_CONFIG_APPLIED:
 			D(DEVICE, "Device '%s': config applied\n", odev->ifname);

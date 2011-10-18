@@ -94,6 +94,7 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	snprintf(vldev->dev.ifname, IFNAMSIZ, "%s.%d", dev->ifname, id);
 
 	device_init(&vldev->dev, &vlan_type, NULL);
+	vldev->dev.default_config = true;
 
 	vldev->set_state = vldev->dev.set_state;
 	vldev->dev.set_state = vlan_set_device_state;
