@@ -80,8 +80,57 @@ netifd_dev_status(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+enum {
+	ALIAS_ATTR_ALIAS,
+	ALIAS_ATTR_DEV,
+	__ALIAS_ATTR_MAX,
+};
+
+static const struct blobmsg_policy alias_attrs[__ALIAS_ATTR_MAX] = {
+	[ALIAS_ATTR_ALIAS] = { "alias", BLOBMSG_TYPE_ARRAY },
+	[ALIAS_ATTR_DEV] = { "device", BLOBMSG_TYPE_STRING },
+};
+
+static int
+netifd_handle_alias(struct ubus_context *ctx, struct ubus_object *obj,
+		    struct ubus_request_data *req, const char *method,
+		    struct blob_attr *msg)
+{
+	struct device *dev = NULL;
+	struct blob_attr *tb[__ALIAS_ATTR_MAX];
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_parse(alias_attrs, __ALIAS_ATTR_MAX, tb, blob_data(msg), blob_len(msg));
+
+	if (!tb[ALIAS_ATTR_ALIAS])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	if ((cur = tb[ALIAS_ATTR_DEV]) != NULL) {
+		dev = device_get(blobmsg_data(cur), true);
+		if (!dev)
+			return UBUS_STATUS_NOT_FOUND;
+	}
+
+	blobmsg_for_each_attr(cur, tb[ALIAS_ATTR_ALIAS], rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			goto error;
+
+		if (!blobmsg_check_attr(cur, NULL))
+			goto error;
+
+		alias_notify_device(blobmsg_data(cur), dev);
+	}
+	return 0;
+
+error:
+	device_free_unused(dev);
+	return UBUS_STATUS_INVALID_ARGUMENT;
+}
+
 static struct ubus_method dev_object_methods[] = {
-	UBUS_METHOD("status", netifd_dev_status, dev_policy)
+	UBUS_METHOD("status", netifd_dev_status, dev_policy),
+	UBUS_METHOD("set_alias", netifd_handle_alias, alias_attrs),
 };
 
 static struct ubus_object_type dev_object_type =

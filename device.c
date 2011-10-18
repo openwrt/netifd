@@ -16,6 +16,17 @@
 #include "config.h"
 
 static struct avl_tree devices;
+static struct avl_tree aliases;
+
+struct alias_device {
+	struct avl_node avl;
+	struct device dev;
+	struct device_user dep;
+	bool cleanup;
+	char name[];
+};
+
+static const struct device_type alias_device_type;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
@@ -61,6 +72,56 @@ const struct device_type simple_device_type = {
 	.free = simple_device_free,
 };
 
+static int
+alias_device_set_state(struct device *dev, bool state)
+{
+	struct alias_device *alias;
+
+	alias = container_of(dev, struct alias_device, dev);
+	if (!alias->dep.dev)
+		return -1;
+
+	if (state)
+		return device_claim(&alias->dep);
+
+	device_release(&alias->dep);
+	if (alias->cleanup)
+		device_remove_user(&alias->dep);
+	return 0;
+}
+
+static struct device *
+alias_device_create(const char *name, struct blob_attr *attr)
+{
+	struct alias_device *alias;
+
+	alias = calloc(1, sizeof(*alias) + strlen(name) + 1);
+	strcpy(alias->name, name);
+	alias->dev.set_state = alias_device_set_state;
+	device_init_virtual(&alias->dev, &alias_device_type, NULL);
+	alias->avl.key = alias->name;
+	avl_insert(&aliases, &alias->avl);
+
+	return &alias->dev;
+}
+
+static void alias_device_free(struct device *dev)
+{
+	struct alias_device *alias;
+
+	device_cleanup(dev);
+
+	alias = container_of(dev, struct alias_device, dev);
+	avl_delete(&aliases, &alias->avl);
+	free(alias);
+}
+
+static const struct device_type alias_device_type = {
+	.name = "Network alias",
+	.create = alias_device_create,
+	.free = alias_device_free,
+};
+
 void
 device_init_settings(struct device *dev, struct blob_attr **tb)
 {
@@ -91,6 +152,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 static void __init dev_init(void)
 {
 	avl_init(&devices, avl_strcmp, true, NULL);
+	avl_init(&aliases, avl_strcmp, false, NULL);
 }
 
 static void device_broadcast_event(struct device *dev, enum device_event ev)
@@ -103,6 +165,31 @@ static void device_broadcast_event(struct device *dev, enum device_event ev)
 
 		dep->cb(dep, ev);
 	}
+}
+
+void
+alias_notify_device(const char *name, struct device *dev)
+{
+	struct alias_device *alias;
+
+	alias = avl_find_element(&aliases, name, alias, avl);
+	if (!alias)
+		return;
+
+	alias->cleanup = !dev;
+	if (dev) {
+		if (dev != alias->dep.dev) {
+			if (alias->dep.dev)
+				device_remove_user(&alias->dep);
+			strcpy(alias->dev.ifname, dev->ifname);
+			device_add_user(&alias->dep, dev);
+		}
+	}
+
+	device_set_present(&alias->dev, !!dev);
+
+	if (!dev && alias->dep.dev && !alias->dep.dev->active)
+		device_remove_user(&alias->dep);
 }
 
 static int set_device_state(struct device *dev, bool state)
@@ -124,7 +211,7 @@ int device_claim(struct device_user *dep)
 		return 0;
 
 	dep->claimed = true;
-	D(DEVICE, "claim device %s, new refcount: %d\n", dev->ifname, dev->active + 1);
+	D(DEVICE, "Claim %s %s, new refcount: %d\n", dev->type->name, dev->ifname, dev->active + 1);
 	if (++dev->active != 1)
 		return 0;
 
@@ -150,7 +237,7 @@ void device_release(struct device_user *dep)
 
 	dep->claimed = false;
 	dev->active--;
-	D(DEVICE, "release device %s, new refcount: %d\n", dev->ifname, dev->active);
+	D(DEVICE, "Release %s %s, new refcount: %d\n", dev->type->name, dev->ifname, dev->active);
 	assert(dev->active >= 0);
 
 	if (dev->active)
@@ -215,6 +302,18 @@ device_create_default(const char *name)
 	return dev;
 }
 
+static struct device *
+device_alias_get(const char *name)
+{
+	struct alias_device *alias;
+
+	alias = avl_find_element(&aliases, name, alias, avl);
+	if (alias)
+		return &alias->dev;
+
+	return alias_device_create(name, NULL);
+}
+
 struct device *
 device_get(const char *name, bool create)
 {
@@ -222,6 +321,9 @@ device_get(const char *name, bool create)
 
 	if (strchr(name, '.'))
 		return get_vlan_device_chain(name, create);
+
+	if (name[0] == '@')
+		return device_alias_get(name + 1);
 
 	dev = avl_find_element(&devices, name, dev, avl);
 	if (dev)
@@ -265,7 +367,7 @@ void device_set_present(struct device *dev, bool state)
 	if (dev->present == state)
 		return;
 
-	D(DEVICE, "Device '%s' %s present\n", dev->ifname, state ? "is now" : "is no longer" );
+	D(DEVICE, "%s '%s' %s present\n", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
 	dev->present = state;
 	device_broadcast_event(dev, state ? DEV_EVENT_ADD : DEV_EVENT_REMOVE);
 }

@@ -143,5 +143,6 @@ device_free(struct device *dev)
 void device_free_unused(struct device *dev);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);
+void alias_notify_device(const char *name, struct device *dev);
 
 #endif

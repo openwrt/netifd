@@ -40,3 +40,9 @@ config interface wan
 	option ifname	br-lan2
 	option username	foo
 	option password bar
+
+config interface test
+	option ifname	@test
+	option proto	static
+	option ipaddr	192.168.5.1
+	option netmask	255.255.255.0
