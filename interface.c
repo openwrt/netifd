@@ -115,7 +115,6 @@ __interface_set_up(struct interface *iface)
 	}
 
 	return 0;
-
 }
 
 static void
@@ -363,13 +362,14 @@ interface_set_up(struct interface *iface)
 {
 	iface->autostart = true;
 
+	if (iface->state != IFS_DOWN)
+		return 0;
+
+	interface_clear_errors(iface);
 	if (!iface->available) {
 		interface_add_error(iface, "interface", "NO_DEVICE", NULL, 0);
 		return -1;
 	}
-
-	if (iface->state != IFS_DOWN)
-		return 0;
 
 	return __interface_set_up(iface);
 }
