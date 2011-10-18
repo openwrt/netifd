@@ -23,14 +23,6 @@ static struct list_head fds = LIST_HEAD_INIT(fds);
 
 #define DEFAULT_LOG_LEVEL L_NOTICE
 
-enum {
-	L_CRIT,
-	L_WARNING,
-	L_NOTICE,
-	L_INFO,
-	L_DEBUG
-};
-
 static int log_level = DEFAULT_LOG_LEVEL;
 static const int log_class[] = {
 	[L_CRIT] = LOG_CRIT,

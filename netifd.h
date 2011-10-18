@@ -28,6 +28,14 @@ extern char *hotplug_cmd_path;
 extern unsigned int debug_mask;
 
 enum {
+	L_CRIT,
+	L_WARNING,
+	L_NOTICE,
+	L_INFO,
+	L_DEBUG
+};
+
+enum {
 	DEBUG_SYSTEM	= 0,
 	DEBUG_DEVICE	= 1,
 	DEBUG_INTERFACE	= 2,
