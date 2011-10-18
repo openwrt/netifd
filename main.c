@@ -94,12 +94,14 @@ netifd_process_log_cb(struct uloop_fd *fd, unsigned int events)
 
 retry:
 	read_len = len = read(fd->fd, buf, maxlen);
-	if (len <= 0) {
-		if (errno == EINTR)
+	if (len < 0) {
+		if (errno == EAGAIN)
 			goto retry;
 
 		goto out;
-	}
+	} else if (len == 0)
+		goto out;
+
 	proc->log_buf_ofs += len;
 
 	cur = buf;
