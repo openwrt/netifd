@@ -279,10 +279,10 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		system_flush_routes();
 		mark_interface_down(iface);
 		interface_handle_config_change(iface);
-		if (iface->autostart)
-			__interface_set_up(iface);
 		if (iface->l3_dev->dev)
 			device_release(iface->l3_dev);
+		if (iface->autostart && iface->available)
+			__interface_set_up(iface);
 		break;
 	case IFPEV_LINK_LOST:
 		if (iface->state != IFS_UP)
