@@ -19,7 +19,6 @@ static struct avl_tree devices;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
-	[DEV_ATTR_NAME] = { "name", BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_MTU] = { "mtu", BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MACADDR] = { "macaddr", BLOBMSG_TYPE_STRING },
@@ -32,20 +31,12 @@ const struct config_param_list device_attr_list = {
 };
 
 static struct device *
-simple_device_create(struct blob_attr *attr)
+simple_device_create(const char *name, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__DEV_ATTR_MAX];
 	struct device *dev = NULL;
-	const char *name;
 
 	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb, blob_data(attr), blob_len(attr));
-	if (!tb[DEV_ATTR_NAME])
-		return NULL;
-
-	name = blobmsg_data(tb[DEV_ATTR_NAME]);
-	if (!name)
-		return NULL;
-
 	dev = device_get(name, true);
 	if (!dev)
 		return NULL;
@@ -455,7 +446,7 @@ device_create(const char *name, const struct device_type *type,
 	} else
 		D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
 
-	dev = type->create(config);
+	dev = type->create(name, config);
 	if (!dev)
 		return NULL;
 

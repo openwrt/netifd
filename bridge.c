@@ -41,7 +41,7 @@ static const struct config_param_list bridge_attr_list = {
 	.next = { &device_attr_list },
 };
 
-static struct device *bridge_create(struct blob_attr *attr);
+static struct device *bridge_create(const char *name, struct blob_attr *attr);
 static void bridge_config_init(struct device *dev);
 static void bridge_free(struct device *dev);
 static void bridge_dump_info(struct device *dev, struct blob_buf *b);
@@ -364,26 +364,20 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 }
 
 static struct device *
-bridge_create(struct blob_attr *attr)
+bridge_create(const char *name, struct blob_attr *attr)
 {
 	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_br[__BRIDGE_ATTR_MAX];
 	struct bridge_state *bst;
 	struct device *dev = NULL;
-	const char *name;
 
 	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
 		blob_data(attr), blob_len(attr));
 	blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, tb_br,
 		blob_data(attr), blob_len(attr));
 
-	if (!tb_dev[DEV_ATTR_NAME])
-		return NULL;
-
 	if (!tb_br[BRIDGE_ATTR_IFNAME])
 		return NULL;
-
-	name = blobmsg_data(tb_dev[DEV_ATTR_NAME]);
 
 	bst = calloc(1, sizeof(*bst));
 	if (!bst)

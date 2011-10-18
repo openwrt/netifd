@@ -11,7 +11,6 @@ typedef int (*device_state_cb)(struct device *, bool up);
 
 enum {
 	DEV_ATTR_TYPE,
-	DEV_ATTR_NAME,
 	DEV_ATTR_IFNAME,
 	DEV_ATTR_MTU,
 	DEV_ATTR_MACADDR,
@@ -31,7 +30,7 @@ struct device_type {
 
 	const struct config_param_list *config_params;
 
-	struct device *(*create)(struct blob_attr *attr);
+	struct device *(*create)(const char *name, struct blob_attr *attr);
 	void (*config_init)(struct device *);
 	enum dev_change_type (*reload)(struct device *, struct blob_attr *);
 	void (*dump_info)(struct device *, struct blob_buf *buf);
