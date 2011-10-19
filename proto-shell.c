@@ -391,7 +391,7 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 	}
 }
 
-struct interface_proto_state *
+static struct interface_proto_state *
 proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 		   struct blob_attr *attr)
 {
@@ -600,7 +600,7 @@ static void proto_shell_add_script(const char *name)
 	pclose(f);
 }
 
-void __init proto_shell_init(void)
+static void __init proto_shell_init(void)
 {
 	glob_t g;
 	int main_fd;

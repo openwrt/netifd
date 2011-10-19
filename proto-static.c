@@ -189,7 +189,7 @@ static_free(struct interface_proto_state *proto)
 	free(state);
 }
 
-struct interface_proto_state *
+static struct interface_proto_state *
 static_attach(const struct proto_handler *h, struct interface *iface,
 	      struct blob_attr *attr)
 {
