@@ -215,7 +215,7 @@ interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr
 	}
 }
 
-void
+static void
 interface_add_dns_search_domain(struct interface_ip_settings *ip, const char *str)
 {
 	struct dns_search_domain *s;
@@ -243,7 +243,7 @@ interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr
 		if (!blobmsg_check_attr(cur, NULL))
 			continue;
 
-		interface_add_dns_server(ip, blobmsg_data(cur));
+		interface_add_dns_search_domain(ip, blobmsg_data(cur));
 	}
 }
 
