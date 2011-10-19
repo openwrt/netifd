@@ -330,31 +330,34 @@ config_init_package(const char *config)
 	return p;
 }
 
-void
-config_init_all(void)
+static void
+config_init_interfaces(void)
 {
-	struct uci_package *p = NULL;
 	struct uci_element *e;
 
-	p = config_init_package("network");
-	if (!p) {
-		fprintf(stderr, "Failed to load network config\n");
-		return;
-	}
-
-	uci_network = p;
-	config_init = true;
-	device_lock();
-
-	device_reset_config();
-	config_init_devices();
-
-	uci_foreach_element(&p->sections, e) {
+	uci_foreach_element(&uci_network->sections, e) {
 		struct uci_section *s = uci_to_section(e);
 
 		if (!strcmp(s->type, "interface"))
 			config_parse_interface(s);
 	}
+}
+
+void
+config_init_all(void)
+{
+	uci_network = config_init_package("network");
+	if (!uci_network) {
+		fprintf(stderr, "Failed to load network config\n");
+		return;
+	}
+
+	config_init = true;
+	device_lock();
+
+	device_reset_config();
+	config_init_devices();
+	config_init_interfaces();
 
 	config_init = false;
 	device_unlock();
