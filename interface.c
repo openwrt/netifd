@@ -465,8 +465,10 @@ interface_update_complete(struct interface *iface)
 
 	interface_ip_update_complete(&iface->proto_ip);
 	vlist_for_each_element(&iface->config_ip.route, route, node) {
-		if (iface->l3_dev->dev)
+		if (iface->l3_dev->dev) {
 			system_add_route(iface->l3_dev->dev, route);
+			route->enabled = true;
+		}
 	}
 }
 

@@ -21,10 +21,10 @@ enum {
 	ROUTE_DEVICE,
 	ROUTE_METRIC,
 	ROUTE_MTU,
-	__ROUTE_LAST
+	__ROUTE_MAX
 };
 
-static const struct blobmsg_policy route_attr[__ROUTE_LAST] = {
+static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_TARGET] = { .name = "target", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_MASK] = { .name = "netmask", .type = BLOBMSG_TYPE_STRING },
@@ -34,16 +34,21 @@ static const struct blobmsg_policy route_attr[__ROUTE_LAST] = {
 	[ROUTE_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
 };
 
+const struct config_param_list route_attr_list = {
+	.n_params = __ROUTE_MAX,
+	.params = route_attr,
+};
+
 void
 interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 {
 	struct interface_ip_settings *ip;
-	struct blob_attr *tb[__ROUTE_LAST], *cur;
+	struct blob_attr *tb[__ROUTE_MAX], *cur;
 	struct device_route *route;
 	int af = v6 ? AF_INET6 : AF_INET;
 	bool config = false;
 
-	blobmsg_parse(route_attr, __ROUTE_LAST, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+	blobmsg_parse(route_attr, __ROUTE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
 
 	if (!tb[ROUTE_GATEWAY] && !tb[ROUTE_DEVICE])
 		return;

@@ -6,6 +6,7 @@
 
 #include "netifd.h"
 #include "interface.h"
+#include "interface-ip.h"
 #include "proto.h"
 #include "config.h"
 
@@ -188,6 +189,18 @@ config_parse_interface(struct uci_section *s)
 }
 
 static void
+config_parse_route(struct uci_section *s, bool v6)
+{
+	void *route;
+
+	blob_buf_init(&b, 0);
+	route = blobmsg_open_array(&b, "route");
+	uci_to_blob(&b, s, &route_attr_list);
+	blobmsg_close_array(&b, route);
+	interface_ip_add_route(NULL, blob_data(b.head), v6);
+}
+
+static void
 config_init_devices(void)
 {
 	struct uci_element *e;
@@ -343,6 +356,28 @@ config_init_interfaces(void)
 	}
 }
 
+static void
+config_init_routes(void)
+{
+	struct interface *iface;
+	struct uci_element *e;
+
+	vlist_for_each_element(&interfaces, iface, node)
+		interface_ip_update_start(&iface->config_ip);
+
+	uci_foreach_element(&uci_network->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+
+		if (!strcmp(s->type, "route"))
+			config_parse_route(s, false);
+		else if (!strcmp(s->type, "route6"))
+			config_parse_route(s, true);
+	}
+
+	vlist_for_each_element(&interfaces, iface, node)
+		interface_ip_update_complete(&iface->config_ip);
+}
+
 void
 config_init_all(void)
 {
@@ -358,6 +393,7 @@ config_init_all(void)
 	device_reset_config();
 	config_init_devices();
 	config_init_interfaces();
+	config_init_routes();
 
 	config_init = false;
 	device_unlock();

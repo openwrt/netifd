@@ -62,6 +62,8 @@ struct dns_search_domain {
 	char name[];
 };
 
+extern const struct config_param_list route_attr_list;
+
 void interface_ip_init(struct interface_ip_settings *ip, struct interface *iface);
 void interface_add_dns_server(struct interface_ip_settings *ip, const char *str);
 void interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list);
