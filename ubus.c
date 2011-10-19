@@ -236,6 +236,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		     struct blob_attr *msg)
 {
 	struct interface *iface;
+	struct device *dev;
 
 	iface = container_of(obj, struct interface, ubus);
 
@@ -251,8 +252,9 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		blobmsg_add_string(&b, "l3_device", iface->l3_dev->dev->ifname);
 	}
 
-	if (!(iface->proto_handler->flags & PROTO_FLAG_NODEV))
-		blobmsg_add_string(&b, "device", iface->main_dev.dev->ifname);
+	dev = iface->main_dev.dev;
+	if (dev && !(iface->proto_handler->flags & PROTO_FLAG_NODEV))
+		blobmsg_add_string(&b, "device", dev->ifname);
 
 	if (!list_is_empty(&iface->errors))
 		netifd_add_interface_errors(&b, iface);
@@ -268,9 +270,10 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 			   struct blob_attr *msg)
 {
 	struct interface *iface;
-	struct device *dev, *main_dev;
+	struct device *dev, *main_dev = NULL;
 	struct blob_attr *tb[__DEV_MAX];
 	bool add = !strncmp(method, "add", 3);
+	const char *devname;
 	int ret;
 
 	iface = container_of(obj, struct interface, ubus);
@@ -280,16 +283,38 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!tb[DEV_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	main_dev = iface->main_dev.dev;
-	if (!main_dev)
-		return UBUS_STATUS_NOT_FOUND;
+	devname = blobmsg_data(tb[DEV_NAME]);
+	dev = iface->main_dev.dev;
+	if (iface->hotplug_dev && dev && !add) {
+		if (strcmp(dev->ifname, devname) != 0)
+			return UBUS_STATUS_INVALID_ARGUMENT;
+	}
 
-	if (!main_dev->hotplug_ops)
-		return UBUS_STATUS_NOT_SUPPORTED;
+	if (iface->hotplug_dev) {
+		if (iface->main_dev.dev) {
+			interface_set_available(iface, false);
+			device_remove_user(&iface->main_dev);
+		}
+	} else
+		main_dev = iface->main_dev.dev;
 
 	dev = device_get(blobmsg_data(tb[DEV_NAME]), add);
 	if (!dev)
 		return UBUS_STATUS_NOT_FOUND;
+
+	if (!main_dev) {
+		if (add) {
+			device_add_user(&iface->main_dev, dev);
+			iface->hotplug_dev = true;
+		}
+		ret = 0;
+		goto out;
+	}
+
+	if (!main_dev->hotplug_ops) {
+		ret = UBUS_STATUS_NOT_SUPPORTED;
+		goto out;
+	}
 
 	if (main_dev != dev) {
 		if (add)
@@ -302,6 +327,7 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 		ret = UBUS_STATUS_INVALID_ARGUMENT;
 	}
 
+out:
 	if (add)
 		device_free_unused(dev);
 
@@ -353,10 +379,8 @@ static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
 	{ .name = "status", .handler = netifd_handle_status },
-	{ .name = "add_device", .handler = netifd_iface_handle_device,
-	  .policy = dev_policy, .n_policy = __DEV_MAX },
-	{ .name = "remove_device", .handler = netifd_iface_handle_device,
-	  .policy = dev_policy, .n_policy = __DEV_MAX },
+	UBUS_METHOD("add_device", netifd_iface_handle_device, dev_policy ),
+	UBUS_METHOD("remove_device", netifd_iface_handle_device, dev_policy ),
 	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },
 	{ .name = "remove", .handler = netifd_iface_remove }
 };

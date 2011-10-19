@@ -122,7 +122,7 @@ __interface_set_up(struct interface *iface)
 	return 0;
 }
 
-static void
+void
 __interface_set_down(struct interface *iface, bool force)
 {
 	interface_clear_errors(iface);
@@ -194,7 +194,7 @@ interface_claim_device(struct interface *iface)
 {
 	struct device *dev;
 
-	if (iface->proto_handler &&
+	if (iface->ifname && iface->proto_handler &&
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
 		if (dev)
@@ -208,6 +208,7 @@ interface_cleanup(struct interface *iface)
 {
 	struct interface_user *dep, *tmp;
 
+	iface->hotplug_dev = false;
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
 

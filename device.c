@@ -179,8 +179,7 @@ alias_notify_device(const char *name, struct device *dev)
 	alias->cleanup = !dev;
 	if (dev) {
 		if (dev != alias->dep.dev) {
-			if (alias->dep.dev)
-				device_remove_user(&alias->dep);
+			device_remove_user(&alias->dep);
 			strcpy(alias->dev.ifname, dev->ifname);
 			device_add_user(&alias->dep, dev);
 		}
@@ -395,6 +394,9 @@ __device_free_unused(struct device *dev)
 void device_remove_user(struct device_user *dep)
 {
 	struct device *dev = dep->dev;
+
+	if (!dep->dev)
+		return;
 
 	if (dep->claimed)
 		device_release(dep);

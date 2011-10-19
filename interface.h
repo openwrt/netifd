@@ -62,6 +62,7 @@ struct interface {
 
 	/* main interface that the interface is bound to */
 	struct device_user main_dev;
+	bool hotplug_dev;
 
 	/* interface that layer 3 communication will go through */
 	struct device_user *l3_dev;
@@ -98,6 +99,8 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 void interface_set_available(struct interface *iface, bool new_state);
 int interface_set_up(struct interface *iface);
 int interface_set_down(struct interface *iface);
+void __interface_set_down(struct interface *iface, bool force);
+
 
 void interface_add_user(struct interface_user *dep, struct interface *iface);
 void interface_remove_user(struct interface_user *dep);

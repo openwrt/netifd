@@ -42,6 +42,11 @@ config interface wan
 	option username	foo
 	option password bar
 
+config interface wlan
+	option proto	static
+	option ipaddr	192.168.2.1
+	option netmask	255.255.255.0
+
 config interface test
 	option ifname	@test
 	option proto	static
