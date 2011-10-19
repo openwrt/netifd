@@ -58,7 +58,7 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask)
 		interface_add_error(iface, "proto-static", "INVALID_ADDRESS", &str, 1);
 		return false;
 	}
-	vlist_add(&iface->proto_addr, &addr->node);
+	vlist_add(&iface->proto_ip.addr, &addr->node);
 	return true;
 }
 
@@ -94,7 +94,7 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 	}
 	route->mask = 0;
 	route->flags = DEVADDR_DEVICE | (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
-	vlist_add(&iface->proto_route, &route->node);
+	vlist_add(&iface->proto_ip.route, &route->node);
 
 	return true;
 }
@@ -142,7 +142,7 @@ proto_apply_static_settings(struct interface *iface, struct blob_attr *attr)
 	}
 
 	if (tb[OPT_DNS])
-		interface_add_dns_server_list(iface, tb[OPT_DNS]);
+		interface_add_dns_server_list(&iface->proto_ip, tb[OPT_DNS]);
 
 	return 0;
 

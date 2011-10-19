@@ -161,7 +161,7 @@ proto_shell_free(struct interface_proto_state *proto)
 }
 
 static void
-proto_shell_parse_addr_list(struct interface *iface, struct blob_attr *attr,
+proto_shell_parse_addr_list(struct interface_ip_settings *ip, struct blob_attr *attr,
 			    bool v6, bool external)
 {
 	struct device_addr *addr;
@@ -183,7 +183,7 @@ proto_shell_parse_addr_list(struct interface *iface, struct blob_attr *attr,
 		if (external)
 			addr->flags |= DEVADDR_EXTERNAL;
 
-		vlist_add(&iface->proto_addr, &addr->node);
+		vlist_add(&ip->addr, &addr->node);
 	}
 }
 
@@ -203,7 +203,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_LAST] = {
 };
 
 static void
-parse_route(struct interface *iface, struct blob_attr *attr, bool v6)
+parse_route(struct interface_ip_settings *ip, struct blob_attr *attr, bool v6)
 {
 	struct blob_attr *tb[__ROUTE_LAST], *cur;
 	struct device_route *route;
@@ -242,7 +242,7 @@ parse_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_DEVICE]) != NULL)
 		route->device = device_get(blobmsg_data(cur), true);
 
-	vlist_add(&iface->proto_route, &route->node);
+	vlist_add(&ip->route, &route->node);
 	return;
 
 error:
@@ -250,7 +250,7 @@ error:
 }
 
 static void
-proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
+proto_shell_parse_route_list(struct interface_ip_settings *ip, struct blob_attr *attr,
 			     bool v6)
 {
 	struct blob_attr *cur;
@@ -262,7 +262,7 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 			continue;
 		}
 
-		parse_route(iface, cur, v6);
+		parse_route(ip, cur, v6);
 	}
 }
 
@@ -302,6 +302,7 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 static int
 proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 {
+	struct interface_ip_settings *ip;
 	struct blob_attr *cur;
 	bool addr_ext = false;
 	bool up;
@@ -328,30 +329,31 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 		device_claim(&state->l3_dev);
 	}
 
-	interface_ip_update_start(state->proto.iface);
+	ip = &state->proto.iface->proto_ip;
+	interface_ip_update_start(ip);
 
 	if ((cur = tb[NOTIFY_ADDR_EXT]) != NULL)
 		addr_ext = blobmsg_get_bool(cur);
 
 	if ((cur = tb[NOTIFY_IPADDR]) != NULL)
-		proto_shell_parse_addr_list(state->proto.iface, cur, false, addr_ext);
+		proto_shell_parse_addr_list(ip, cur, false, addr_ext);
 
 	if ((cur = tb[NOTIFY_IP6ADDR]) != NULL)
-		proto_shell_parse_addr_list(state->proto.iface, cur, true, addr_ext);
+		proto_shell_parse_addr_list(ip, cur, true, addr_ext);
 
 	if ((cur = tb[NOTIFY_ROUTES]) != NULL)
-		proto_shell_parse_route_list(state->proto.iface, cur, false);
+		proto_shell_parse_route_list(ip, cur, false);
 
 	if ((cur = tb[NOTIFY_ROUTES6]) != NULL)
-		proto_shell_parse_route_list(state->proto.iface, cur, true);
+		proto_shell_parse_route_list(ip, cur, true);
 
 	if ((cur = tb[NOTIFY_DNS]) != NULL)
-		interface_add_dns_server_list(state->proto.iface, cur);
+		interface_add_dns_server_list(ip, cur);
 
 	if ((cur = tb[NOTIFY_DNS_SEARCH]) != NULL)
-		interface_add_dns_search_list(state->proto.iface, cur);
+		interface_add_dns_search_list(ip, cur);
 
-	interface_ip_update_complete(state->proto.iface);
+	interface_ip_update_complete(ip);
 
 	state->proto.proto_event(&state->proto, IFPEV_UP);
 

@@ -1,6 +1,8 @@
 #ifndef __INTERFACE_IP_H
 #define __INTERFACE_IP_H
 
+#include "interface.h"
+
 enum device_addr_flags {
 	/* address family for routes and addresses */
 	DEVADDR_INET4		= (0 << 0),
@@ -54,15 +56,15 @@ struct dns_search_domain {
 	char name[];
 };
 
-void interface_ip_init(struct interface *iface);
-void interface_add_dns_server(struct interface *iface, const char *str);
-void interface_add_dns_server_list(struct interface *iface, struct blob_attr *list);
-void interface_add_dns_search_list(struct interface *iface, struct blob_attr *list);
-void interface_clear_dns(struct interface *iface);
+void interface_ip_init(struct interface_ip_settings *ip, struct interface *iface);
+void interface_add_dns_server(struct interface_ip_settings *ip, const char *str);
+void interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list);
+void interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list);
 void interface_write_resolv_conf(void);
 
-void interface_ip_update_start(struct interface *iface);
-void interface_ip_update_complete(struct interface *iface);
+void interface_ip_update_start(struct interface_ip_settings *ip);
+void interface_ip_update_complete(struct interface_ip_settings *ip);
+void interface_ip_flush(struct interface_ip_settings *ip);
 
 
 #endif

@@ -32,11 +32,13 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			    struct vlist_node *node_new,
 			    struct vlist_node *node_old)
 {
+	struct interface_ip_settings *ip;
 	struct interface *iface;
 	struct device *dev;
 	struct device_addr *addr;
 
-	iface = container_of(tree, struct interface, proto_addr);
+	ip = container_of(tree, struct interface_ip_settings, addr);
+	iface = ip->iface;
 	dev = iface->l3_dev->dev;
 
 	if (node_old) {
@@ -58,11 +60,13 @@ interface_update_proto_route(struct vlist_tree *tree,
 			     struct vlist_node *node_new,
 			     struct vlist_node *node_old)
 {
+	struct interface_ip_settings *ip;
 	struct interface *iface;
 	struct device *dev;
 	struct device_route *route;
 
-	iface = container_of(tree, struct interface, proto_route);
+	ip = container_of(tree, struct interface_ip_settings, route);
+	iface = ip->iface;
 	dev = iface->l3_dev->dev;
 
 	if (node_old) {
@@ -80,7 +84,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 }
 
 void
-interface_add_dns_server(struct interface *iface, const char *str)
+interface_add_dns_server(struct interface_ip_settings *ip, const char *str)
 {
 	struct dns_server *s;
 
@@ -99,11 +103,11 @@ interface_add_dns_server(struct interface *iface, const char *str)
 add:
 	D(INTERFACE, "Add IPv%c DNS server: %s\n",
 	  s->af == AF_INET6 ? '6' : '4', str);
-	list_add_tail(&s->list, &iface->proto_dns_servers);
+	list_add_tail(&s->list, &ip->dns_servers);
 }
 
 void
-interface_add_dns_server_list(struct interface *iface, struct blob_attr *list)
+interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list)
 {
 	struct blob_attr *cur;
 	int rem;
@@ -115,12 +119,12 @@ interface_add_dns_server_list(struct interface *iface, struct blob_attr *list)
 		if (!blobmsg_check_attr(cur, NULL))
 			continue;
 
-		interface_add_dns_server(iface, blobmsg_data(cur));
+		interface_add_dns_server(ip, blobmsg_data(cur));
 	}
 }
 
 void
-interface_add_dns_search_domain(struct interface *iface, const char *str)
+interface_add_dns_search_domain(struct interface_ip_settings *ip, const char *str)
 {
 	struct dns_search_domain *s;
 	int len = strlen(str);
@@ -131,11 +135,11 @@ interface_add_dns_search_domain(struct interface *iface, const char *str)
 
 	D(INTERFACE, "Add DNS search domain: %s\n", str);
 	memcpy(s->name, str, len);
-	list_add_tail(&s->list, &iface->proto_dns_search);
+	list_add_tail(&s->list, &ip->dns_search);
 }
 
 void
-interface_add_dns_search_list(struct interface *iface, struct blob_attr *list)
+interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list)
 {
 	struct blob_attr *cur;
 	int rem;
@@ -147,37 +151,30 @@ interface_add_dns_search_list(struct interface *iface, struct blob_attr *list)
 		if (!blobmsg_check_attr(cur, NULL))
 			continue;
 
-		interface_add_dns_server(iface, blobmsg_data(cur));
+		interface_add_dns_server(ip, blobmsg_data(cur));
 	}
 }
 
 static void
-interface_clear_dns_servers(struct interface *iface)
+interface_clear_dns_servers(struct interface_ip_settings *ip)
 {
 	struct dns_server *s, *tmp;
 
-	list_for_each_entry_safe(s, tmp, &iface->proto_dns_servers, list) {
+	list_for_each_entry_safe(s, tmp, &ip->dns_servers, list) {
 		list_del(&s->list);
 		free(s);
 	}
 }
 
 static void
-interface_clear_dns_search(struct interface *iface)
+interface_clear_dns_search(struct interface_ip_settings *ip)
 {
 	struct dns_search_domain *s, *tmp;
 
-	list_for_each_entry_safe(s, tmp, &iface->proto_dns_search, list) {
+	list_for_each_entry_safe(s, tmp, &ip->dns_search, list) {
 		list_del(&s->list);
 		free(s);
 	}
-}
-
-void
-interface_clear_dns(struct interface *iface)
-{
-	interface_clear_dns_servers(iface);
-	interface_clear_dns_search(iface);
 }
 
 void
@@ -203,12 +200,12 @@ interface_write_resolv_conf(void)
 		if (iface->state != IFS_UP)
 			continue;
 
-		if (list_empty(&iface->proto_dns_search) &&
-		    list_empty(&iface->proto_dns_servers))
+		if (list_empty(&iface->proto_ip.dns_search) &&
+		    list_empty(&iface->proto_ip.dns_servers))
 			continue;
 
 		fprintf(f, "# Interface %s\n", iface->name);
-		list_for_each_entry(s, &iface->proto_dns_servers, list) {
+		list_for_each_entry(s, &iface->proto_ip.dns_servers, list) {
 			str = inet_ntop(s->af, &s->addr, buf, sizeof(buf));
 			if (!str)
 				continue;
@@ -216,7 +213,7 @@ interface_write_resolv_conf(void)
 			fprintf(f, "nameserver %s\n", str);
 		}
 
-		list_for_each_entry(d, &iface->proto_dns_search, list) {
+		list_for_each_entry(d, &iface->proto_ip.dns_search, list) {
 			fprintf(f, "search %s\n", d->name);
 		}
 	}
@@ -228,25 +225,38 @@ interface_write_resolv_conf(void)
 }
 
 void
-interface_ip_update_start(struct interface *iface)
+interface_ip_update_start(struct interface_ip_settings *ip)
 {
-	interface_clear_dns(iface);
-	vlist_update(&iface->proto_route);
-	vlist_update(&iface->proto_addr);
+	interface_clear_dns_servers(ip);
+	interface_clear_dns_search(ip);
+	vlist_update(&ip->route);
+	vlist_update(&ip->addr);
 }
 
 void
-interface_ip_update_complete(struct interface *iface)
+interface_ip_update_complete(struct interface_ip_settings *ip)
 {
-	vlist_flush(&iface->proto_route);
-	vlist_flush(&iface->proto_addr);
+	vlist_flush(&ip->route);
+	vlist_flush(&ip->addr);
 }
 
 void
-interface_ip_init(struct interface *iface)
+interface_ip_flush(struct interface_ip_settings *ip)
 {
-	vlist_init(&iface->proto_route, route_cmp, interface_update_proto_route,
+	interface_clear_dns_servers(ip);
+	interface_clear_dns_search(ip);
+	vlist_flush_all(&ip->route);
+	vlist_flush_all(&ip->addr);
+}
+
+void
+interface_ip_init(struct interface_ip_settings *ip, struct interface *iface)
+{
+	ip->iface = iface;
+	INIT_LIST_HEAD(&ip->dns_search);
+	INIT_LIST_HEAD(&ip->dns_servers);
+	vlist_init(&ip->route, route_cmp, interface_update_proto_route,
 		   struct device_route, node, mask);
-	vlist_init(&iface->proto_addr, addr_cmp, interface_update_proto_addr,
+	vlist_init(&ip->addr, addr_cmp, interface_update_proto_addr,
 		   struct device_addr, node, mask);
 }

@@ -90,9 +90,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 static void
 interface_flush_state(struct interface *iface)
 {
-	interface_clear_dns(iface);
-	vlist_flush_all(&iface->proto_addr);
-	vlist_flush_all(&iface->proto_route);
+	interface_ip_flush(&iface->proto_ip);
 	if (iface->main_dev.dev)
 		device_release(&iface->main_dev);
 }
@@ -219,7 +217,7 @@ interface_cleanup(struct interface *iface)
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
 
-	interface_clear_dns(iface);
+	interface_flush_state(iface);
 	interface_clear_errors(iface);
 	if (iface->main_dev.dev)
 		device_remove_user(&iface->main_dev);
@@ -332,8 +330,7 @@ interface_init(struct interface *iface, const char *name,
 	INIT_LIST_HEAD(&iface->errors);
 	INIT_LIST_HEAD(&iface->users);
 	INIT_LIST_HEAD(&iface->hotplug_list);
-	INIT_LIST_HEAD(&iface->proto_dns_search);
-	INIT_LIST_HEAD(&iface->proto_dns_servers);
+	interface_ip_init(&iface->proto_ip, iface);
 
 	iface->main_dev.cb = interface_cb;
 	iface->l3_dev = &iface->main_dev;
@@ -509,7 +506,6 @@ interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		D(INTERFACE, "Create interface '%s'\n", if_new->name);
 		interface_claim_device(if_new);
 		proto_init_interface(if_new, if_new->config);
-		interface_ip_init(if_new);
 		netifd_ubus_add_interface(if_new);
 	}
 }

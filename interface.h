@@ -39,6 +39,16 @@ struct interface_user {
 	void (*cb)(struct interface_user *dep, enum interface_event ev);
 };
 
+struct interface_ip_settings {
+	struct interface *iface;
+
+	struct vlist_tree addr;
+	struct vlist_tree route;
+
+	struct list_head dns_servers;
+	struct list_head dns_search;
+};
+
 /*
  * interface configuration
  */
@@ -72,11 +82,7 @@ struct interface {
 	const struct proto_handler *proto_handler;
 	struct interface_proto_state *proto;
 
-	struct vlist_tree proto_addr;
-	struct vlist_tree proto_route;
-
-	struct list_head proto_dns_servers;
-	struct list_head proto_dns_search;
+	struct interface_ip_settings proto_ip;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
