@@ -41,6 +41,20 @@ const struct config_param_list device_attr_list = {
 	.params = dev_attrs,
 };
 
+static int __devlock = 0;
+
+void device_lock(void)
+{
+	__devlock++;
+}
+
+void device_unlock(void)
+{
+	__devlock--;
+	if (!__devlock)
+		device_free_unused(NULL);
+}
+
 static struct device *
 simple_device_create(const char *name, struct blob_attr *attr)
 {
@@ -172,6 +186,8 @@ alias_notify_device(const char *name, struct device *dev)
 {
 	struct alias_device *alias;
 
+	device_lock();
+
 	alias = avl_find_element(&aliases, name, alias, avl);
 	if (!alias)
 		return;
@@ -189,6 +205,8 @@ alias_notify_device(const char *name, struct device *dev)
 
 	if (!dev && alias->dep.dev && !alias->dep.dev->active)
 		device_remove_user(&alias->dep);
+
+	device_unlock();
 }
 
 static int set_device_state(struct device *dev, bool state)
@@ -398,6 +416,7 @@ void device_remove_user(struct device_user *dep)
 	if (!dep->dev)
 		return;
 
+	dep->hotplug = false;
 	if (dep->claimed)
 		device_release(dep);
 

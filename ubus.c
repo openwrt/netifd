@@ -284,14 +284,18 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
 	devname = blobmsg_data(tb[DEV_NAME]);
-	dev = iface->main_dev.dev;
-	if (iface->hotplug_dev && dev && !add) {
-		if (strcmp(dev->ifname, devname) != 0)
-			return UBUS_STATUS_INVALID_ARGUMENT;
-	}
 
-	if (iface->hotplug_dev) {
-		if (iface->main_dev.dev) {
+	device_lock();
+
+	if (iface->main_dev.hotplug) {
+		dev = iface->main_dev.dev;
+
+		if (dev) {
+			if (!add && strcmp(dev->ifname, devname) != 0) {
+				ret = UBUS_STATUS_INVALID_ARGUMENT;
+				goto out;
+			}
+
 			interface_set_available(iface, false);
 			device_remove_user(&iface->main_dev);
 		}
@@ -299,13 +303,15 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 		main_dev = iface->main_dev.dev;
 
 	dev = device_get(blobmsg_data(tb[DEV_NAME]), add);
-	if (!dev)
-		return UBUS_STATUS_NOT_FOUND;
+	if (!dev && (main_dev || add)) {
+		ret = UBUS_STATUS_NOT_FOUND;
+		goto out;
+	}
 
 	if (!main_dev) {
 		if (add) {
 			device_add_user(&iface->main_dev, dev);
-			iface->hotplug_dev = true;
+			iface->main_dev.hotplug = true;
 		}
 		ret = 0;
 		goto out;
@@ -328,8 +334,7 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	}
 
 out:
-	if (add)
-		device_free_unused(dev);
+	device_unlock();
 
 	return ret;
 }

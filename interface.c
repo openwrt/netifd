@@ -88,13 +88,19 @@ interface_event(struct interface *iface, enum interface_event ev)
 }
 
 static void
-mark_interface_down(struct interface *iface)
+interface_flush_state(struct interface *iface)
 {
 	interface_clear_dns(iface);
 	vlist_flush_all(&iface->proto_addr);
 	vlist_flush_all(&iface->proto_route);
 	if (iface->main_dev.dev)
 		device_release(&iface->main_dev);
+}
+
+static void
+mark_interface_down(struct interface *iface)
+{
+	interface_flush_state(iface);
 	iface->state = IFS_DOWN;
 }
 
@@ -134,6 +140,8 @@ __interface_set_down(struct interface *iface, bool force)
 	iface->state = IFS_TEARDOWN;
 	interface_event(iface, IFEV_DOWN);
 	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
+	if (force)
+		interface_flush_state(iface);
 }
 
 static void
@@ -208,7 +216,6 @@ interface_cleanup(struct interface *iface)
 {
 	struct interface_user *dep, *tmp;
 
-	iface->hotplug_dev = false;
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
 

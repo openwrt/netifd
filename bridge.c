@@ -77,6 +77,8 @@ struct bridge_member {
 	bool present;
 };
 
+static void bridge_free_member(struct bridge_member *bm);
+
 static int
 bridge_disable_member(struct bridge_member *bm)
 {
@@ -147,6 +149,8 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 		if (bst->n_present == 0)
 			device_set_present(&bst->dev, false);
 
+		if (dev->hotplug)
+			bridge_free_member(bm);
 		break;
 	default:
 		return;
@@ -213,7 +217,7 @@ bridge_set_state(struct device *dev, bool up)
 }
 
 static struct bridge_member *
-bridge_create_member(struct bridge_state *bst, struct device *dev)
+bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 {
 	struct bridge_member *bm;
 
@@ -221,6 +225,7 @@ bridge_create_member(struct bridge_state *bst, struct device *dev)
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
 	device_add_user(&bm->dev, dev);
+	bm->dev.hotplug = hotplug;
 
 	list_add_tail(&bm->list, &bst->members);
 
@@ -254,7 +259,7 @@ bridge_add_member(struct bridge_state *bst, const char *name)
 	if (!dev)
 		return;
 
-	bridge_create_member(bst, dev);
+	bridge_create_member(bst, dev, false);
 }
 
 static int
@@ -262,7 +267,7 @@ bridge_hotplug_add(struct device *dev, struct device *member)
 {
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
 
-	bridge_create_member(bst, member);
+	bridge_create_member(bst, member, true);
 
 	return 0;
 }

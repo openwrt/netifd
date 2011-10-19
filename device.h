@@ -100,6 +100,8 @@ struct device_user {
 	struct list_head list;
 
 	bool claimed;
+	bool hotplug;
+
 	struct device *dev;
 	void (*cb)(struct device_user *, enum device_event);
 };
@@ -112,6 +114,9 @@ struct device_hotplug_ops {
 extern const struct config_param_list device_attr_list;
 extern const struct device_type simple_device_type;
 extern const struct device_type bridge_device_type;
+
+void device_lock(void);
+void device_unlock(void);
 
 struct device *device_create(const char *name, const struct device_type *type,
 			     struct blob_attr *config);
