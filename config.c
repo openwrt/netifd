@@ -331,7 +331,7 @@ config_init_package(const char *config)
 }
 
 void
-config_init_interfaces(void)
+config_init_all(void)
 {
 	struct uci_package *p = NULL;
 	struct uci_element *e;
