@@ -20,7 +20,7 @@ static struct uloop_process task = {
 };
 
 static void
-run_cmd(const char *ifname, bool up)
+run_cmd(const char *ifname, const char *device, bool up)
 {
 	char *argv[3];
 	int pid;
@@ -37,6 +37,8 @@ run_cmd(const char *ifname, bool up)
 
 	setenv("ACTION", up ? "ifup" : "ifdown", 1);
 	setenv("INTERFACE", ifname, 1);
+	if (device)
+		setenv("DEVICE", device, 1);
 	argv[0] = hotplug_cmd_path;
 	argv[1] = "network";
 	argv[2] = NULL;
@@ -47,6 +49,7 @@ run_cmd(const char *ifname, bool up)
 static void
 call_hotplug(void)
 {
+	const char *device = NULL;
 	if (list_empty(&pending))
 		return;
 
@@ -54,8 +57,11 @@ call_hotplug(void)
 	current_ev = current->hotplug_ev;
 	list_del_init(&current->hotplug_list);
 
-	D(SYSTEM, "Call hotplug handler for interface '%s'\n", current->name);
-	run_cmd(current->name, current_ev == IFEV_UP);
+	if (current_ev == IFEV_UP && current->l3_dev->dev)
+		device = current->l3_dev->dev->ifname;
+
+	D(SYSTEM, "Call hotplug handler for interface '%s' (%s)\n", current->name, device ? device : "none");
+	run_cmd(current->name, device, current_ev == IFEV_UP);
 }
 
 static void
