@@ -331,7 +331,7 @@ config_init_package(const char *config)
 }
 
 void
-config_init_interfaces(const char *name)
+config_init_interfaces(void)
 {
 	struct uci_package *p = NULL;
 	struct uci_element *e;
@@ -351,9 +351,6 @@ config_init_interfaces(const char *name)
 
 	uci_foreach_element(&p->sections, e) {
 		struct uci_section *s = uci_to_section(e);
-
-		if (name && strcmp(s->e.name, name) != 0)
-			continue;
 
 		if (!strcmp(s->type, "interface"))
 			config_parse_interface(s);

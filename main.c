@@ -238,7 +238,7 @@ static void netifd_do_restart(struct uloop_timeout *timeout)
 
 static void netifd_do_reload(struct uloop_timeout *timeout)
 {
-	config_init_interfaces(NULL);
+	config_init_interfaces();
 }
 
 static struct uloop_timeout main_timer;
@@ -358,7 +358,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	config_init_interfaces(NULL);
+	config_init_interfaces();
 
 	uloop_run();
 	netifd_kill_processes();
