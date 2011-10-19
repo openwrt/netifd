@@ -217,6 +217,7 @@ interface_cleanup(struct interface *iface)
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
 
+	interface_ip_flush(&iface->config_ip);
 	interface_flush_state(iface);
 	interface_clear_errors(iface);
 	if (iface->main_dev.dev)
@@ -272,6 +273,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		if (iface->state != IFS_SETUP)
 			return;
 
+		interface_ip_set_enabled(&iface->config_ip, true);
 		system_flush_routes();
 		iface->state = IFS_UP;
 		iface->start_time = system_get_rtime();
@@ -284,6 +286,7 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 			return;
 
 		netifd_log_message(L_NOTICE, "Interface '%s' is now down\n", iface->name);
+		interface_ip_set_enabled(&iface->config_ip, false);
 		system_flush_routes();
 		mark_interface_down(iface);
 		interface_handle_config_change(iface);
@@ -331,6 +334,8 @@ interface_init(struct interface *iface, const char *name,
 	INIT_LIST_HEAD(&iface->users);
 	INIT_LIST_HEAD(&iface->hotplug_list);
 	interface_ip_init(&iface->proto_ip, iface);
+	interface_ip_init(&iface->config_ip, iface);
+	iface->config_ip.enabled = false;
 
 	iface->main_dev.cb = interface_cb;
 	iface->l3_dev = &iface->main_dev;
@@ -445,6 +450,24 @@ set_config_state(struct interface *iface, enum interface_config_state s)
 		interface_handle_config_change(iface);
 	else
 		__interface_set_down(iface, false);
+}
+
+void
+interface_update_start(struct interface *iface)
+{
+	interface_ip_update_start(&iface->proto_ip);
+}
+
+void
+interface_update_complete(struct interface *iface)
+{
+	struct device_route *route;
+
+	interface_ip_update_complete(&iface->proto_ip);
+	vlist_for_each_element(&iface->config_ip.route, route, node) {
+		if (iface->l3_dev->dev)
+			system_add_route(iface->l3_dev->dev, route);
+	}
 }
 
 static void

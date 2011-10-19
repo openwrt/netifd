@@ -34,6 +34,9 @@ void __vlist_init(struct vlist_tree *tree, avl_tree_comp cmp, vlist_update_cb up
 #define vlist_init(tree, cmp, update, type, node, key) \
 	__vlist_init(tree, cmp, update, offsetof(type, key) - offsetof(type, node))
 
+#define vlist_find(tree, name, element, node_member) \
+	avl_find_element(&(tree)->avl, name, element, node_member.avl)
+
 static inline void vlist_update(struct vlist_tree *tree)
 {
 	tree->version++;

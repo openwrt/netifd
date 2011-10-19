@@ -41,6 +41,7 @@ struct interface_user {
 
 struct interface_ip_settings {
 	struct interface *iface;
+	bool enabled;
 
 	struct vlist_tree addr;
 	struct vlist_tree route;
@@ -83,6 +84,7 @@ struct interface {
 	struct interface_proto_state *proto;
 
 	struct interface_ip_settings proto_ip;
+	struct interface_ip_settings config_ip;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
@@ -115,6 +117,9 @@ void interface_remove_link(struct interface *iface, struct device *llif);
 
 void interface_add_error(struct interface *iface, const char *subsystem,
 			 const char *code, const char **data, int n_data);
+
+void interface_update_start(struct interface *iface);
+void interface_update_complete(struct interface *iface);
 
 void interface_queue_event(struct interface *iface, enum interface_event ev);
 void interface_dequeue_event(struct interface *iface);

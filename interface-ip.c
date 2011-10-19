@@ -13,6 +13,96 @@
 #include "ubus.h"
 #include "system.h"
 
+enum {
+	ROUTE_INTERFACE,
+	ROUTE_TARGET,
+	ROUTE_MASK,
+	ROUTE_GATEWAY,
+	ROUTE_DEVICE,
+	ROUTE_METRIC,
+	ROUTE_MTU,
+	__ROUTE_LAST
+};
+
+static const struct blobmsg_policy route_attr[__ROUTE_LAST] = {
+	[ROUTE_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_TARGET] = { .name = "target", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_MASK] = { .name = "netmask", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_DEVICE] = { .name = "device", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
+	[ROUTE_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
+};
+
+void
+interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
+{
+	struct interface_ip_settings *ip;
+	struct blob_attr *tb[__ROUTE_LAST], *cur;
+	struct device_route *route;
+	int af = v6 ? AF_INET6 : AF_INET;
+	bool config = false;
+
+	blobmsg_parse(route_attr, __ROUTE_LAST, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+
+	if (!tb[ROUTE_GATEWAY] && !tb[ROUTE_DEVICE])
+		return;
+
+	if (!iface) {
+		if ((cur = tb[ROUTE_INTERFACE]) == NULL)
+			return;
+
+		iface = vlist_find(&interfaces, blobmsg_data(cur), iface, node);
+		if (!iface)
+			return;
+
+		ip = &iface->config_ip;
+		config = true;
+	} else {
+		ip = &iface->proto_ip;
+	}
+
+	route = calloc(1, sizeof(*route));
+	if (!route)
+		return;
+
+	route->mask = v6 ? 128 : 32;
+	if ((cur = tb[ROUTE_MASK]) != NULL) {
+		route->mask = parse_netmask_string(blobmsg_data(cur), v6);
+		if (route->mask > (v6 ? 128 : 32))
+			goto error;
+	}
+
+	if ((cur = tb[ROUTE_TARGET]) != NULL) {
+		if (!inet_pton(af, blobmsg_data(cur), &route->addr)) {
+			DPRINTF("Failed to parse route target: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+	}
+
+	if ((cur = tb[ROUTE_GATEWAY]) != NULL) {
+		if (!inet_pton(af, blobmsg_data(cur), &route->nexthop)) {
+			DPRINTF("Failed to parse route gateway: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+	}
+
+	if ((cur = tb[ROUTE_METRIC]) != NULL)
+		route->metric = blobmsg_get_u32(cur);
+
+	if ((cur = tb[ROUTE_MTU]) != NULL)
+		route->mtu = blobmsg_get_u32(cur);
+
+	if (!config && (cur = tb[ROUTE_DEVICE]) != NULL)
+		route->device = device_get(blobmsg_data(cur), true);
+
+	vlist_add(&ip->route, &route->node);
+	return;
+
+error:
+	free(route);
+}
+
 static int
 addr_cmp(const void *k1, const void *k2, void *ptr)
 {
@@ -43,7 +133,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 	if (node_old) {
 		addr = container_of(node_old, struct device_addr, node);
-		if (!(addr->flags & DEVADDR_EXTERNAL))
+		if (!(addr->flags & DEVADDR_EXTERNAL) && addr->enabled)
 			system_del_address(dev, addr);
 		free(addr);
 	}
@@ -52,6 +142,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 		addr = container_of(node_new, struct device_addr, node);
 		if (!(addr->flags & DEVADDR_EXTERNAL))
 			system_add_address(dev, addr);
+		addr->enabled = true;
 	}
 }
 
@@ -71,7 +162,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 
 	if (node_old) {
 		route = container_of(node_old, struct device_route, node);
-		if (!(route->flags & DEVADDR_EXTERNAL))
+		if (!(route->flags & DEVADDR_EXTERNAL) && route->enabled)
 			system_del_route(dev, route);
 		free(route);
 	}
@@ -80,6 +171,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 		route = container_of(node_new, struct device_route, node);
 		if (!(route->flags & DEVADDR_EXTERNAL))
 			system_add_route(dev, route);
+		route->enabled = true;
 	}
 }
 
@@ -224,6 +316,40 @@ interface_write_resolv_conf(void)
 	}
 }
 
+void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
+{
+	struct device_addr *addr;
+	struct device_route *route;
+	struct device *dev;
+
+	ip->enabled = enabled;
+	dev = ip->iface->l3_dev->dev;
+	if (!dev)
+		return;
+
+	vlist_for_each_element(&ip->addr, addr, node) {
+		if (addr->enabled == enabled)
+			continue;
+
+		if (enabled)
+			system_add_address(dev, addr);
+		else
+			system_del_address(dev, addr);
+		addr->enabled = enabled;
+	}
+
+	vlist_for_each_element(&ip->route, route, node) {
+		if (route->enabled == enabled)
+			continue;
+
+		if (enabled)
+			system_add_route(dev, route);
+		else
+			system_del_route(dev, route);
+		route->enabled = enabled;
+	}
+}
+
 void
 interface_ip_update_start(struct interface_ip_settings *ip)
 {
@@ -253,6 +379,7 @@ void
 interface_ip_init(struct interface_ip_settings *ip, struct interface *iface)
 {
 	ip->iface = iface;
+	ip->enabled = true;
 	INIT_LIST_HEAD(&ip->dns_search);
 	INIT_LIST_HEAD(&ip->dns_servers);
 	vlist_init(&ip->route, route_cmp, interface_update_proto_route,

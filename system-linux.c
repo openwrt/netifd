@@ -562,7 +562,17 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 		.ifa_index = dev->ifindex,
 	};
 
-	struct nl_msg *msg = nlmsg_alloc_simple(cmd, 0);
+	struct nl_msg *msg;
+
+	dev = addr->device;
+	if (dev) {
+		if (!dev->ifindex)
+			return -1;
+
+		ifa.ifa_index = dev->ifindex;
+	}
+
+	msg = nlmsg_alloc_simple(cmd, 0);
 	if (!msg)
 		return -1;
 
@@ -586,6 +596,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	int alen = ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET4) ? 4 : 16;
 	bool have_gw;
 	unsigned int flags = 0;
+	int ifindex = dev->ifindex;
 
 	if (alen == 4)
 		have_gw = !!route->nexthop.in.s_addr;
@@ -606,11 +617,20 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		.rtm_scope = scope,
 		.rtm_type = (cmd == RTM_DELROUTE) ? 0: RTN_UNICAST,
 	};
+	struct nl_msg *msg;
 
 	if (cmd == RTM_NEWROUTE)
 		flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
-	struct nl_msg *msg = nlmsg_alloc_simple(cmd, flags);
+	dev = route->device;
+	if (dev) {
+		if (!dev->ifindex)
+			return -1;
+
+		ifindex = dev->ifindex;
+	}
+
+	msg = nlmsg_alloc_simple(cmd, flags);
 	if (!msg)
 		return -1;
 
@@ -623,7 +643,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		nla_put(msg, RTA_GATEWAY, alen, &route->nexthop);
 
 	if (route->flags & DEVADDR_DEVICE)
-		nla_put_u32(msg, RTA_OIF, dev->ifindex);
+		nla_put_u32(msg, RTA_OIF, ifindex);
 
 	return system_rtnl_call(msg);
 }

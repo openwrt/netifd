@@ -25,6 +25,9 @@ struct device_addr {
 	struct vlist_node node;
 
 	enum device_addr_flags flags;
+	bool enabled;
+
+	struct device *device;
 
 	/* must be last */
 	unsigned int mask;
@@ -35,10 +38,13 @@ struct device_route {
 	struct vlist_node node;
 
 	enum device_addr_flags flags;
+	bool enabled;
 	bool keep;
 
 	union if_addr nexthop;
 	struct device *device;
+	int metric;
+	int mtu;
 
 	/* must be last */
 	unsigned int mask;
@@ -62,9 +68,12 @@ void interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob
 void interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list);
 void interface_write_resolv_conf(void);
 
+void interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6);
+
 void interface_ip_update_start(struct interface_ip_settings *ip);
 void interface_ip_update_complete(struct interface_ip_settings *ip);
 void interface_ip_flush(struct interface_ip_settings *ip);
+void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled);
 
 
 #endif
