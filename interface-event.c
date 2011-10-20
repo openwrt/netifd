@@ -40,7 +40,7 @@ run_cmd(const char *ifname, const char *device, bool up)
 	if (device)
 		setenv("DEVICE", device, 1);
 	argv[0] = hotplug_cmd_path;
-	argv[1] = "network";
+	argv[1] = "iface";
 	argv[2] = NULL;
 	execvp(argv[0], argv);
 	exit(127);

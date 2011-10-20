@@ -19,7 +19,7 @@
 #define DEFAULT_RESOLV_CONF	"./tmp/resolv.conf"
 #else
 #define DEFAULT_MAIN_PATH	"/lib/netifd"
-#define DEFAULT_HOTPLUG_PATH	"/sbin/hotplug-cmd"
+#define DEFAULT_HOTPLUG_PATH	"/sbin/hotplug-call"
 #define DEFAULT_RESOLV_CONF	"/tmp/resolv.conf.auto"
 #endif
 
