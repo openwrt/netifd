@@ -42,6 +42,7 @@ struct proto_shell_state {
 	bool teardown_wait_task;
 
 	struct netifd_process proto_task;
+	int last_error;
 };
 
 static int
@@ -51,10 +52,12 @@ proto_shell_handler(struct interface_proto_state *proto,
 	struct proto_shell_state *state;
 	struct proto_shell_handler *handler;
 	struct netifd_process *proc;
-	const char *argv[6];
+	static char error_buf[32];
+	const char *argv[7];
+	char *envp[2];
 	const char *action;
 	char *config;
-	int ret, i = 0;
+	int ret, i = 0, j = 0;
 
 	state = container_of(proto, struct proto_shell_state, proto);
 	handler = state->handler;
@@ -62,6 +65,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 	if (cmd == PROTO_CMD_SETUP) {
 		action = "setup";
 		proc = &state->setup_task;
+		state->last_error = -1;
 	} else {
 		action = "teardown";
 		proc = &state->teardown_task;
@@ -70,6 +74,10 @@ proto_shell_handler(struct interface_proto_state *proto,
 			kill(state->setup_task.uloop.pid, SIGTERM);
 			state->teardown_pending = true;
 			return 0;
+		}
+		if (state->last_error >= 0) {
+			snprintf(error_buf, sizeof(error_buf), "ERROR=%d", state->last_error);
+			envp[j++] = error_buf;
 		}
 	}
 
@@ -85,8 +93,9 @@ proto_shell_handler(struct interface_proto_state *proto,
 	if (proto->iface->main_dev.dev)
 		argv[i++] = proto->iface->main_dev.dev->ifname;
 	argv[i] = NULL;
+	envp[j] = NULL;
 
-	ret = netifd_start_process(argv, NULL, proc);
+	ret = netifd_start_process(argv, envp, proc);
 	free(config);
 
 	return ret;
@@ -146,6 +155,7 @@ proto_shell_task_cb(struct netifd_process *p, int ret)
 		return;
 	}
 
+	state->last_error = ret;
 	state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 	proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
 }
