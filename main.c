@@ -90,7 +90,7 @@ retry:
 	maxlen = LOG_BUF_SIZE - proc->log_buf_ofs;
 	read_len = len = read(fd->fd, buf, maxlen);
 	if (len < 0) {
-		if (errno == EAGAIN)
+		if (errno == EINTR)
 			goto retry;
 
 		goto out;
