@@ -98,7 +98,7 @@ retry:
 
 	cur = buf;
 	buf = proc->log_buf;
-	while ((cur = memchr(cur, '\n', len))) {
+	while (len > 0 && (cur = memchr(cur, '\n', len))) {
 		*cur = 0;
 
 		if (!proc->log_overflow)

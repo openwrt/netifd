@@ -332,8 +332,8 @@ out:
 static int
 proto_shell_run_command(struct proto_shell_state *state, struct blob_attr **tb)
 {
-	char *argv[64];
-	char *env[32];
+	static char *argv[64];
+	static char *env[32];
 
 	if (!tb[NOTIFY_COMMAND])
 		goto error;

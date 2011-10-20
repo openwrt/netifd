@@ -101,7 +101,7 @@ static void system_set_sysctl(const char *path, const char *val)
 
 static void system_set_dev_sysctl(const char *path, const char *device, const char *val)
 {
-	char buf[256];
+	static char buf[256];
 
 	snprintf(buf, sizeof(buf), path, val);
 	system_set_sysctl(buf, val);
@@ -367,7 +367,7 @@ out:
  */
 void system_if_clear_state(struct device *dev)
 {
-	char buf[256];
+	static char buf[256];
 	char *bridge;
 
 	if (dev->external)
