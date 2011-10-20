@@ -129,7 +129,7 @@ retry:
 	}
 	proc->log_buf_ofs = len;
 
-	if (read_len == maxlen)
+	if (read_len > 0)
 		goto retry;
 
 out:
