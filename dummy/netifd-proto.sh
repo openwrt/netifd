@@ -182,6 +182,28 @@ proto_kill_command() {
 	_proto_notify "$interface"
 }
 
+proto_notify_error() {
+	local interface="$1"; shift
+
+	json_init
+	json_add_int action 3
+	json_add_array error
+	while [ $# -gt 0 ]; do
+		json_add_string "" "$1"
+		shift
+	done
+	json_close_array
+	_proto_notify "$interface"
+}
+
+proto_block_restart() {
+	local interface="$1"; shift
+
+	json_init
+	json_add_int action 4
+	_proto_notify "$interface"
+}
+
 init_proto() {
 	proto="$1"; shift
 	cmd="$1"; shift

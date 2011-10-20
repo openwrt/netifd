@@ -216,6 +216,7 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 
 enum {
 	NOTIFY_ACTION,
+	NOTIFY_ERROR,
 	NOTIFY_COMMAND,
 	NOTIFY_ENV,
 	NOTIFY_SIGNAL,
@@ -233,6 +234,7 @@ enum {
 
 static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_INT32 },
+	[NOTIFY_ERROR] = { .name = "error", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_COMMAND] = { .name = "command", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ENV] = { .name = "env", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_SIGNAL] = { .name = "signal", .type = BLOBMSG_TYPE_INT32 },
@@ -382,6 +384,49 @@ proto_shell_kill_command(struct proto_shell_state *state, struct blob_attr **tb)
 }
 
 static int
+proto_shell_notify_error(struct proto_shell_state *state, struct blob_attr **tb)
+{
+	struct blob_attr *cur;
+	char *data[16];
+	int n_data = 0;
+	int rem;
+
+	if (!tb[NOTIFY_ERROR])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	blobmsg_for_each_attr(cur, tb[NOTIFY_ERROR], rem) {
+		if (n_data + 1 == ARRAY_SIZE(data))
+			goto error;
+
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			goto error;
+
+		if (!blobmsg_check_attr(cur, NULL))
+			goto error;
+
+		data[n_data++] = blobmsg_data(cur);
+	}
+
+	if (!n_data)
+		goto error;
+
+	interface_add_error(state->proto.iface, state->handler->proto.name,
+			data[0], (const char **) &data[1], n_data - 1);
+
+	return 0;
+
+error:
+	return UBUS_STATUS_INVALID_ARGUMENT;
+}
+
+static int
+proto_shell_block_restart(struct proto_shell_state *state, struct blob_attr **tb)
+{
+	state->proto.iface->autostart = false;
+	return 0;
+}
+
+static int
 proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
@@ -400,6 +445,10 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 		return proto_shell_run_command(state, tb);
 	case 2:
 		return proto_shell_kill_command(state, tb);
+	case 3:
+		return proto_shell_notify_error(state, tb);
+	case 4:
+		return proto_shell_block_restart(state, tb);
 	default:
 		return UBUS_STATUS_INVALID_ARGUMENT;
 	}

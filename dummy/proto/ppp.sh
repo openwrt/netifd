@@ -47,6 +47,10 @@ pppoe_setup() {
 }
 
 pppoe_teardown() {
+	[ "$ERROR" = 9 ] && {
+		proto_notify_error "$interface" PROCESS_KILLED
+		proto_block_restart "$interface"
+	}
 	proto_kill_command "$interface"
 	return
 }
