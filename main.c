@@ -46,6 +46,10 @@ netifd_delete_process(struct netifd_process *proc)
 		uloop_process_delete(&proc->uloop);
 	list_del(&proc->list);
 	netifd_fd_delete(&proc->log_fd);
+	if (proc->log_buf) {
+		free(proc->log_buf);
+		proc->log_buf = NULL;
+	}
 }
 
 void
@@ -77,14 +81,13 @@ netifd_process_log_cb(struct uloop_fd *fd, unsigned int events)
 	if (!proc->log_buf)
 		proc->log_buf = malloc(LOG_BUF_SIZE + 1);
 
-	buf = proc->log_buf + proc->log_buf_ofs;
-	maxlen = LOG_BUF_SIZE - proc->log_buf_ofs;
-
 	log_prefix = proc->log_prefix;
 	if (!log_prefix)
 		log_prefix = "process";
 
 retry:
+	buf = proc->log_buf + proc->log_buf_ofs;
+	maxlen = LOG_BUF_SIZE - proc->log_buf_ofs;
 	read_len = len = read(fd->fd, buf, maxlen);
 	if (len < 0) {
 		if (errno == EAGAIN)
@@ -196,6 +199,7 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 	uloop_process_add(&proc->uloop);
 	list_add_tail(&proc->list, &process_list);
 
+	proc->log_buf_ofs = 0;
 	proc->log_uloop.fd = proc->log_fd.fd = pfds[0];
 	proc->log_uloop.cb = netifd_process_log_cb;
 	netifd_fd_add(&proc->log_fd);
