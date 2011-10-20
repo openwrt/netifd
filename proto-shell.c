@@ -555,9 +555,9 @@ static void proto_shell_add_script(const char *name)
 	struct json_tokener *tok = NULL;
 	json_object *obj;
 	static char buf[512];
-	char *start, *end, *cmd;
+	char *start, *cmd;
 	FILE *f;
-	int buflen, len;
+	int len;
 
 #define DUMP_SUFFIX	" '' dump"
 
@@ -569,33 +569,25 @@ static void proto_shell_add_script(const char *name)
 		return;
 
 	do {
-		buflen = fread(buf, 1, sizeof(buf) - 1, f);
-		if (buflen <= 0)
+		start = fgets(buf, sizeof(buf), f);
+		if (!start)
 			continue;
 
-		start = buf;
-		len = buflen;
-		do {
-			end = memchr(start, '\n', len);
-			if (end)
-				len = end - start;
+		len = strlen(start);
 
-			if (!tok)
-				tok = json_tokener_new();
+		if (!tok)
+			tok = json_tokener_new();
 
-			obj = json_tokener_parse_ex(tok, start, len);
-			if (!is_error(obj)) {
-				proto_shell_add_handler(name, obj);
-				json_object_put(obj);
-				json_tokener_free(tok);
-				tok = NULL;
-			}
-
-			if (end) {
-				start = end + 1;
-				len = buflen - (start - buf);
-			}
-		} while (len > 0);
+		obj = json_tokener_parse_ex(tok, start, len);
+		if (!is_error(obj)) {
+			proto_shell_add_handler(name, obj);
+			json_object_put(obj);
+			json_tokener_free(tok);
+			tok = NULL;
+		} else if (start[len - 1] == '\n') {
+			json_tokener_free(tok);
+			tok = NULL;
+		}
 	} while (!feof(f) && !ferror(f));
 
 	if (tok)
