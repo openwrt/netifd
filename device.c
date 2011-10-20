@@ -308,12 +308,13 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 }
 
 static struct device *
-device_create_default(const char *name)
+device_create_default(const char *name, bool external)
 {
 	struct device *dev;
 
 	D(DEVICE, "Create simple device '%s'\n", name);
 	dev = calloc(1, sizeof(*dev));
+	dev->external = external;
 	device_init(dev, &simple_device_type, name);
 	dev->default_config = true;
 	return dev;
@@ -332,7 +333,7 @@ device_alias_get(const char *name)
 }
 
 struct device *
-device_get(const char *name, bool create)
+device_get(const char *name, int create)
 {
 	struct device *dev;
 
@@ -349,7 +350,7 @@ device_get(const char *name, bool create)
 	if (!create)
 		return NULL;
 
-	return device_create_default(name);
+	return device_create_default(name, create > 1);
 }
 
 static void
@@ -527,7 +528,7 @@ device_reset_old(void)
 		if (dev->type != &simple_device_type)
 			continue;
 
-		ndev = device_create_default(dev->ifname);
+		ndev = device_create_default(dev->ifname, dev->external);
 		device_replace(ndev, dev);
 	}
 }

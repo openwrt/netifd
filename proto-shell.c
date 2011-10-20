@@ -242,6 +242,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 {
 	struct interface_ip_settings *ip;
 	struct blob_attr *cur;
+	int dev_create = 1;
 	bool addr_ext = false;
 	bool up;
 
@@ -254,6 +255,12 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 		return 0;
 	}
 
+	if ((cur = tb[NOTIFY_ADDR_EXT]) != NULL) {
+		addr_ext = blobmsg_get_bool(cur);
+		if (addr_ext)
+			dev_create = 2;
+	}
+
 	if (!tb[NOTIFY_IFNAME]) {
 		if (!state->proto.iface->main_dev.dev)
 			return UBUS_STATUS_INVALID_ARGUMENT;
@@ -262,16 +269,13 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 			device_remove_user(&state->l3_dev);
 
 		device_add_user(&state->l3_dev,
-			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), true));
+			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), dev_create));
 		state->proto.iface->l3_dev = &state->l3_dev;
 		device_claim(&state->l3_dev);
 	}
 
 	ip = &state->proto.iface->proto_ip;
 	interface_update_start(state->proto.iface);
-
-	if ((cur = tb[NOTIFY_ADDR_EXT]) != NULL)
-		addr_ext = blobmsg_get_bool(cur);
 
 	if ((cur = tb[NOTIFY_IPADDR]) != NULL)
 		proto_shell_parse_addr_list(ip, cur, false, addr_ext);

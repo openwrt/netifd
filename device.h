@@ -62,6 +62,7 @@ struct device {
 	bool config_pending;
 	bool present;
 	int active;
+	bool external;
 
 	bool current_config;
 	bool default_config;
@@ -133,7 +134,7 @@ void device_reset_old(void);
 void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);
 int device_init(struct device *iface, const struct device_type *type, const char *ifname);
 void device_cleanup(struct device *iface);
-struct device *device_get(const char *name, bool create);
+struct device *device_get(const char *name, int create);
 void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
 

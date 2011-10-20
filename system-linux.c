@@ -370,6 +370,9 @@ void system_if_clear_state(struct device *dev)
 	char buf[256];
 	char *bridge;
 
+	if (dev->external)
+		return;
+
 	dev->ifindex = system_if_resolve(dev);
 	if (!dev->ifindex)
 		return;
