@@ -224,10 +224,10 @@ bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 	bm = calloc(1, sizeof(*bm));
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
-	device_add_user(&bm->dev, dev);
 	bm->dev.hotplug = hotplug;
-
 	list_add_tail(&bm->list, &bst->members);
+
+	device_add_user(&bm->dev, dev);
 
 	return bm;
 }
