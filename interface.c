@@ -93,6 +93,8 @@ interface_flush_state(struct interface *iface)
 	interface_ip_flush(&iface->proto_ip);
 	if (iface->main_dev.dev)
 		device_release(&iface->main_dev);
+	if (iface->l3_dev != &iface->main_dev && iface->l3_dev->dev)
+		device_release(iface->l3_dev);
 }
 
 static void
@@ -243,9 +245,6 @@ interface_do_reload(struct interface *iface)
 
 	interface_claim_device(iface);
 	proto_init_interface(iface, iface->config);
-
-	if (iface->autostart && !config_init)
-		interface_set_up(iface);
 }
 
 static void
@@ -259,8 +258,10 @@ interface_handle_config_change(struct interface *iface)
 		break;
 	case IFC_REMOVE:
 		interface_do_free(iface);
-		break;
+		return;
 	}
+	if (iface->autostart && iface->available)
+		interface_set_up(iface);
 }
 
 static void
@@ -290,10 +291,6 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		system_flush_routes();
 		mark_interface_down(iface);
 		interface_handle_config_change(iface);
-		if (iface->l3_dev->dev)
-			device_release(iface->l3_dev);
-		if (iface->autostart && iface->available)
-			__interface_set_up(iface);
 		break;
 	case IFPEV_LINK_LOST:
 		if (iface->state != IFS_UP)
