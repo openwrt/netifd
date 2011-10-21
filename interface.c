@@ -104,30 +104,6 @@ mark_interface_down(struct interface *iface)
 	iface->state = IFS_DOWN;
 }
 
-static int
-__interface_set_up(struct interface *iface)
-{
-	int ret;
-
-	if (iface->state != IFS_DOWN)
-		return 0;
-
-	if (iface->main_dev.dev) {
-		ret = device_claim(&iface->main_dev);
-		if (ret)
-			return ret;
-	}
-
-	iface->state = IFS_SETUP;
-	ret = interface_proto_event(iface->proto, PROTO_CMD_SETUP, false);
-	if (ret) {
-		mark_interface_down(iface);
-		return ret;
-	}
-
-	return 0;
-}
-
 void
 __interface_set_down(struct interface *iface, bool force)
 {
@@ -400,6 +376,8 @@ interface_add_link(struct interface *iface, struct device *dev)
 int
 interface_set_up(struct interface *iface)
 {
+	int ret;
+
 	iface->autostart = true;
 
 	if (iface->state != IFS_DOWN)
@@ -411,7 +389,20 @@ interface_set_up(struct interface *iface)
 		return -1;
 	}
 
-	return __interface_set_up(iface);
+	if (iface->main_dev.dev) {
+		ret = device_claim(&iface->main_dev);
+		if (ret)
+			return ret;
+	}
+
+	iface->state = IFS_SETUP;
+	ret = interface_proto_event(iface->proto, PROTO_CMD_SETUP, false);
+	if (ret) {
+		mark_interface_down(iface);
+		return ret;
+	}
+
+	return 0;
 }
 
 int
