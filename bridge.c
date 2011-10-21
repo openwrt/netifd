@@ -229,9 +229,6 @@ bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 
 	list_add_tail(&bm->list, &bst->members);
 
-	if (bst->dev.active)
-		bridge_enable_member(bm);
-
 	return bm;
 }
 
