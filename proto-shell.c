@@ -155,7 +155,7 @@ proto_shell_task_cb(struct netifd_process *p, int ret)
 		return;
 	}
 
-	state->last_error = ret;
+	state->last_error = WEXITSTATUS(ret);
 	state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 	proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
 }
