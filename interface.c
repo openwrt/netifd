@@ -218,9 +218,8 @@ static void
 interface_do_reload(struct interface *iface)
 {
 	interface_cleanup(iface);
-
-	interface_claim_device(iface);
 	proto_init_interface(iface, iface->config);
+	interface_claim_device(iface);
 }
 
 static void
