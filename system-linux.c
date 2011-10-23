@@ -603,7 +603,7 @@ int system_if_down(struct device *dev)
 
 int system_if_check(struct device *dev)
 {
-	device_set_present(dev, (system_if_resolve(dev) >= 0));
+	device_set_present(dev, (system_if_resolve(dev) > 0));
 	return 0;
 }
 
