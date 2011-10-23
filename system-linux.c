@@ -34,6 +34,7 @@ static int sock_ioctl = -1;
 static struct nl_sock *sock_rtnl = NULL;
 
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
+static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
 
 static void
 handler_nl_event(struct uloop_fd *u, unsigned int events)
@@ -43,13 +44,16 @@ handler_nl_event(struct uloop_fd *u, unsigned int events)
 }
 
 static struct nl_sock *
-create_socket(int protocol)
+create_socket(int protocol, int groups)
 {
 	struct nl_sock *sock;
 
 	sock = nl_socket_alloc();
 	if (!sock)
 		return NULL;
+
+	if (groups)
+		nl_join_groups(sock, groups);
 
 	if (nl_connect(sock, protocol))
 		return NULL;
@@ -58,15 +62,15 @@ create_socket(int protocol)
 }
 
 static bool
-create_raw_event_socket(struct event_socket *ev, int protocol,
+create_raw_event_socket(struct event_socket *ev, int protocol, int groups,
 			uloop_fd_handler cb)
 {
-	ev->sock = create_socket(protocol);
+	ev->sock = create_socket(protocol, groups);
 	if (!ev->sock)
 		return false;
 
 	ev->uloop.fd = nl_socket_get_fd(ev->sock);
-	ev->uloop.cb = handler_nl_event;
+	ev->uloop.cb = cb;
 	uloop_fd_add(&ev->uloop, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 	return true;
 }
@@ -82,22 +86,27 @@ create_event_socket(struct event_socket *ev, int protocol,
 
 	nl_cb_set(ev->cb, NL_CB_VALID, NL_CB_CUSTOM, cb, NULL);
 
-	return create_raw_event_socket(ev, protocol, handler_nl_event);
+	return create_raw_event_socket(ev, protocol, 0, handler_nl_event);
 }
 
 int system_init(void)
 {
 	static struct event_socket rtnl_event;
+	static struct event_socket hotplug_event;
 
 	sock_ioctl = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
 
 	// Prepare socket for routing / address control
-	sock_rtnl = create_socket(NETLINK_ROUTE);
+	sock_rtnl = create_socket(NETLINK_ROUTE, 0);
 	if (!sock_rtnl)
 		return -1;
 
 	if (!create_event_socket(&rtnl_event, NETLINK_ROUTE, cb_rtnl_event))
+		return -1;
+
+	if (!create_raw_event_socket(&hotplug_event, NETLINK_KOBJECT_UEVENT, 1,
+				     handle_hotplug_event))
 		return -1;
 
 	// Receive network link events form kernel
@@ -150,10 +159,76 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 		goto out;
 
 	dev->ifindex = ifi->ifi_index;
-	device_set_present(dev, (nh->nlmsg_type == RTM_NEWLINK));
+	/* TODO: parse link status */
 
 out:
 	return 0;
+}
+
+static void
+handle_hotplug_msg(char *data, int size)
+{
+	const char *subsystem = NULL, *interface = NULL;
+	char *cur, *end, *sep;
+	struct device *dev;
+	int skip;
+	bool add;
+
+	if (!strncmp(data, "add@", 4))
+		add = true;
+	else if (!strncmp(data, "remove@", 7))
+		add = false;
+	else
+		return;
+
+	skip = strlen(data) + 1;
+	end = data + size;
+
+	for (cur = data + skip; cur < end; cur += skip) {
+		skip = strlen(cur) + 1;
+
+		sep = strchr(cur, '=');
+		if (!sep)
+			continue;
+
+		*sep = 0;
+		if (!strcmp(cur, "INTERFACE"))
+			interface = sep + 1;
+		else if (!strcmp(cur, "SUBSYSTEM")) {
+			subsystem = sep + 1;
+			if (strcmp(subsystem, "net") != 0)
+				return;
+		}
+		if (subsystem && interface)
+			goto found;
+	}
+	return;
+
+found:
+	dev = device_get(interface, false);
+	if (!dev)
+		return;
+
+	if (dev->type != &simple_device_type)
+		return;
+
+	device_set_present(dev, add);
+}
+
+static void
+handle_hotplug_event(struct uloop_fd *u, unsigned int events)
+{
+	struct event_socket *ev = container_of(u, struct event_socket, uloop);
+	struct sockaddr_nl nla;
+	unsigned char *buf = NULL;
+	int size;
+
+	while ((size = nl_recv(ev->sock, &nla, &buf, NULL)) > 0) {
+		if (nla.nl_pid == 0)
+			handle_hotplug_msg((char *) buf, size);
+
+		free(buf);
+	}
 }
 
 static int system_rtnl_call(struct nl_msg *msg)
