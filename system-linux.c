@@ -35,17 +35,40 @@ static struct nl_sock *sock_rtnl = NULL;
 
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 
-static void handler_nl_event(struct uloop_fd *u, unsigned int events)
+static void
+handler_nl_event(struct uloop_fd *u, unsigned int events)
 {
 	struct event_socket *ev = container_of(u, struct event_socket, uloop);
 	nl_recvmsgs(ev->sock, ev->cb);
 }
 
+static bool
+create_event_socket(struct event_socket *ev, int protocol,
+		    int (*cb)(struct nl_msg *msg, void *arg))
+{
+	// Prepare socket for link events
+	ev->cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!ev->cb)
+		return false;
+
+	nl_cb_set(ev->cb, NL_CB_VALID, NL_CB_CUSTOM, cb, NULL);
+
+	ev->sock = nl_socket_alloc();
+	if (!ev->sock)
+		return false;
+
+	if (nl_connect(ev->sock, protocol))
+		return false;
+
+	ev->uloop.fd = nl_socket_get_fd(ev->sock);
+	ev->uloop.cb = handler_nl_event;
+	uloop_fd_add(&ev->uloop, ULOOP_READ | ULOOP_EDGE_TRIGGER);
+	return true;
+}
+
 int system_init(void)
 {
-	static struct event_socket rtnl_event = {
-		.uloop.cb = handler_nl_event,
-	};
+	static struct event_socket rtnl_event;
 
 	sock_ioctl = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
@@ -58,26 +81,12 @@ int system_init(void)
 	if (nl_connect(sock_rtnl, NETLINK_ROUTE))
 		return -1;
 
-	// Prepare socket for link events
-	rtnl_event.cb = nl_cb_alloc(NL_CB_DEFAULT);
-	if (!rtnl_event.cb)
-		return -1;
-
-	nl_cb_set(rtnl_event.cb, NL_CB_VALID, NL_CB_CUSTOM,
-		  cb_rtnl_event, NULL);
-
-	rtnl_event.sock = nl_socket_alloc();
-	if (!rtnl_event.sock)
-		return -1;
-
-	if (nl_connect(rtnl_event.sock, NETLINK_ROUTE))
+	if (!create_event_socket(&rtnl_event, NETLINK_ROUTE, cb_rtnl_event))
 		return -1;
 
 	// Receive network link events form kernel
 	nl_socket_add_membership(rtnl_event.sock, RTNLGRP_LINK);
 
-	rtnl_event.uloop.fd = nl_socket_get_fd(rtnl_event.sock);
-	uloop_fd_add(&rtnl_event.uloop, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 
 	return 0;
 }
