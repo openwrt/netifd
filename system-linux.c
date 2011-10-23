@@ -24,17 +24,29 @@
 #include "device.h"
 #include "system.h"
 
+struct event_socket {
+	struct uloop_fd uloop;
+	struct nl_sock *sock;
+	struct nl_cb *cb;
+};
+
 static int sock_ioctl = -1;
 static struct nl_sock *sock_rtnl = NULL;
-static struct nl_sock *sock_rtnl_event = NULL;
 
-static void handler_rtnl_event(struct uloop_fd *u, unsigned int events);
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
-static struct uloop_fd rtnl_event = {.cb = handler_rtnl_event};
-static struct nl_cb *nl_cb_rtnl_event;
+
+static void handler_nl_event(struct uloop_fd *u, unsigned int events)
+{
+	struct event_socket *ev = container_of(u, struct event_socket, uloop);
+	nl_recvmsgs(ev->sock, ev->cb);
+}
 
 int system_init(void)
 {
+	static struct event_socket rtnl_event = {
+		.uloop.cb = handler_nl_event,
+	};
+
 	sock_ioctl = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
 
@@ -47,33 +59,27 @@ int system_init(void)
 		return -1;
 
 	// Prepare socket for link events
-	nl_cb_rtnl_event = nl_cb_alloc(NL_CB_DEFAULT);
-	if (!nl_cb_rtnl_event)
+	rtnl_event.cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!rtnl_event.cb)
 		return -1;
 
-	nl_cb_set(nl_cb_rtnl_event, NL_CB_VALID, NL_CB_CUSTOM,
+	nl_cb_set(rtnl_event.cb, NL_CB_VALID, NL_CB_CUSTOM,
 		  cb_rtnl_event, NULL);
 
-	sock_rtnl_event = nl_socket_alloc();
-	if (!sock_rtnl_event)
+	rtnl_event.sock = nl_socket_alloc();
+	if (!rtnl_event.sock)
 		return -1;
 
-	if (nl_connect(sock_rtnl_event, NETLINK_ROUTE))
+	if (nl_connect(rtnl_event.sock, NETLINK_ROUTE))
 		return -1;
 
 	// Receive network link events form kernel
-	nl_socket_add_membership(sock_rtnl_event, RTNLGRP_LINK);
+	nl_socket_add_membership(rtnl_event.sock, RTNLGRP_LINK);
 
-	rtnl_event.fd = nl_socket_get_fd(sock_rtnl_event);
-	uloop_fd_add(&rtnl_event, ULOOP_READ | ULOOP_EDGE_TRIGGER);
+	rtnl_event.uloop.fd = nl_socket_get_fd(rtnl_event.sock);
+	uloop_fd_add(&rtnl_event.uloop, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 
 	return 0;
-}
-
-// If socket is ready for reading parse netlink events
-static void handler_rtnl_event(struct uloop_fd *u, unsigned int events)
-{
-	nl_recvmsgs(sock_rtnl_event, nl_cb_rtnl_event);
 }
 
 static void system_set_sysctl(const char *path, const char *val)
