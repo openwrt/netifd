@@ -330,6 +330,10 @@ bridge_config_init(struct device *dev)
 	int rem;
 
 	bst = container_of(dev, struct bridge_state, dev);
+
+	if (!bst->ifnames)
+		return;
+
 	blobmsg_for_each_attr(cur, bst->ifnames, rem) {
 		bridge_add_member(bst, blobmsg_data(cur));
 	}
@@ -383,9 +387,6 @@ bridge_create(const char *name, struct blob_attr *attr)
 		blob_data(attr), blob_len(attr));
 	blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, tb_br,
 		blob_data(attr), blob_len(attr));
-
-	if (!tb_br[BRIDGE_ATTR_IFNAME])
-		return NULL;
 
 	bst = calloc(1, sizeof(*bst));
 	if (!bst)
