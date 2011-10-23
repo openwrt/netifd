@@ -58,6 +58,20 @@ create_socket(int protocol)
 }
 
 static bool
+create_raw_event_socket(struct event_socket *ev, int protocol,
+			uloop_fd_handler cb)
+{
+	ev->sock = create_socket(protocol);
+	if (!ev->sock)
+		return false;
+
+	ev->uloop.fd = nl_socket_get_fd(ev->sock);
+	ev->uloop.cb = handler_nl_event;
+	uloop_fd_add(&ev->uloop, ULOOP_READ | ULOOP_EDGE_TRIGGER);
+	return true;
+}
+
+static bool
 create_event_socket(struct event_socket *ev, int protocol,
 		    int (*cb)(struct nl_msg *msg, void *arg))
 {
@@ -68,14 +82,7 @@ create_event_socket(struct event_socket *ev, int protocol,
 
 	nl_cb_set(ev->cb, NL_CB_VALID, NL_CB_CUSTOM, cb, NULL);
 
-	ev->sock = create_socket(protocol);
-	if (!ev->sock)
-		return false;
-
-	ev->uloop.fd = nl_socket_get_fd(ev->sock);
-	ev->uloop.cb = handler_nl_event;
-	uloop_fd_add(&ev->uloop, ULOOP_READ | ULOOP_EDGE_TRIGGER);
-	return true;
+	return create_raw_event_socket(ev, protocol, handler_nl_event);
 }
 
 int system_init(void)
