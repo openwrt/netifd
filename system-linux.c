@@ -42,6 +42,21 @@ handler_nl_event(struct uloop_fd *u, unsigned int events)
 	nl_recvmsgs(ev->sock, ev->cb);
 }
 
+static struct nl_sock *
+create_socket(int protocol)
+{
+	struct nl_sock *sock;
+
+	sock = nl_socket_alloc();
+	if (!sock)
+		return NULL;
+
+	if (nl_connect(sock, protocol))
+		return NULL;
+
+	return sock;
+}
+
 static bool
 create_event_socket(struct event_socket *ev, int protocol,
 		    int (*cb)(struct nl_msg *msg, void *arg))
@@ -53,11 +68,8 @@ create_event_socket(struct event_socket *ev, int protocol,
 
 	nl_cb_set(ev->cb, NL_CB_VALID, NL_CB_CUSTOM, cb, NULL);
 
-	ev->sock = nl_socket_alloc();
+	ev->sock = create_socket(protocol);
 	if (!ev->sock)
-		return false;
-
-	if (nl_connect(ev->sock, protocol))
 		return false;
 
 	ev->uloop.fd = nl_socket_get_fd(ev->sock);
@@ -74,11 +86,8 @@ int system_init(void)
 	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
 
 	// Prepare socket for routing / address control
-	sock_rtnl = nl_socket_alloc();
+	sock_rtnl = create_socket(NETLINK_ROUTE);
 	if (!sock_rtnl)
-		return -1;
-
-	if (nl_connect(sock_rtnl, NETLINK_ROUTE))
 		return -1;
 
 	if (!create_event_socket(&rtnl_event, NETLINK_ROUTE, cb_rtnl_event))
@@ -86,7 +95,6 @@ int system_init(void)
 
 	// Receive network link events form kernel
 	nl_socket_add_membership(rtnl_event.sock, RTNLGRP_LINK);
-
 
 	return 0;
 }
