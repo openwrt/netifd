@@ -44,22 +44,22 @@ int system_init(void)
 		return -1;
 
 	if (nl_connect(sock_rtnl, NETLINK_ROUTE))
-		goto error_free_sock;
+		return -1;
 
 	// Prepare socket for link events
 	nl_cb_rtnl_event = nl_cb_alloc(NL_CB_DEFAULT);
 	if (!nl_cb_rtnl_event)
-		goto error_free_sock;
+		return -1;
 
 	nl_cb_set(nl_cb_rtnl_event, NL_CB_VALID, NL_CB_CUSTOM,
 		  cb_rtnl_event, NULL);
 
 	sock_rtnl_event = nl_socket_alloc();
 	if (!sock_rtnl_event)
-		goto error_free_cb;
+		return -1;
 
 	if (nl_connect(sock_rtnl_event, NETLINK_ROUTE))
-		goto error_free_event;
+		return -1;
 
 	// Receive network link events form kernel
 	nl_socket_add_membership(sock_rtnl_event, RTNLGRP_LINK);
@@ -68,17 +68,6 @@ int system_init(void)
 	uloop_fd_add(&rtnl_event, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 
 	return 0;
-
-error_free_event:
-	nl_socket_free(sock_rtnl_event);
-	sock_rtnl_event = NULL;
-error_free_cb:
-	nl_cb_put(nl_cb_rtnl_event);
-	nl_cb_rtnl_event = NULL;
-error_free_sock:
-	nl_socket_free(sock_rtnl);
-	sock_rtnl = NULL;
-	return -1;
 }
 
 // If socket is ready for reading parse netlink events
