@@ -48,6 +48,8 @@ proto_init_update() {
 	PROTO_IP6ADDR=
 	PROTO_ROUTE=
 	PROTO_ROUTE6=
+	PROTO_DNS=
+	PROTO_DNS_SEARCH=
 	json_init
 	json_add_int action 0
 	[ -n "$ifname" -a "*" != "$ifname" ] && json_add_string "ifname" "$ifname"
