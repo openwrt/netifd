@@ -160,9 +160,10 @@ proto_init_interface(struct interface *iface, struct blob_attr *attr)
 	const struct proto_handler *proto = iface->proto_handler;
 	struct interface_proto_state *state = NULL;
 
-	if (proto)
-		state = proto->attach(proto, iface, attr);
+	if (!proto)
+		proto = &no_proto;
 
+	state = proto->attach(proto, iface, attr);
 	if (!state) {
 		state = no_proto.attach(&no_proto, iface, attr);
 		state->cb = invalid_proto_handler;
@@ -183,8 +184,10 @@ proto_attach_interface(struct interface *iface, const char *proto_name)
 	}
 
 	proto = get_proto_handler(proto_name);
-	if (!proto)
+	if (!proto) {
 		interface_add_error(iface, "proto", "INVALID_PROTO", NULL, 0);
+		proto = &no_proto;
+	}
 
 	iface->proto_handler = proto;
 }
