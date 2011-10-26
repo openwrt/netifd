@@ -79,6 +79,12 @@ int system_if_check(struct device *dev)
 	return 0;
 }
 
+struct device *
+system_if_get_parent(struct device *dev)
+{
+	return NULL;
+}
+
 int system_if_dump_stats(struct device *dev, struct blob_buf *b)
 {
 	return 0;

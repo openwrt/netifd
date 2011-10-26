@@ -607,6 +607,37 @@ int system_if_check(struct device *dev)
 	return 0;
 }
 
+struct device *
+system_if_get_parent(struct device *dev)
+{
+	char buf[64], *devname;
+	int ifindex, iflink, len;
+	FILE *f;
+
+	snprintf(buf, sizeof(buf), "/sys/class/net/%s/iflink", dev->ifname);
+	f = fopen(buf, "r");
+	if (!f)
+		return NULL;
+
+	len = fread(buf, 1, sizeof(buf) - 1, f);
+	fclose(f);
+
+	if (len <= 0)
+		return NULL;
+
+	buf[len] = 0;
+	iflink = strtoul(buf, NULL, 0);
+	ifindex = system_if_resolve(dev);
+	if (!iflink || iflink == ifindex)
+		return NULL;
+
+	devname = if_indextoname(iflink, buf);
+	if (!devname)
+		return NULL;
+
+	return device_get(devname, true);
+}
+
 int system_if_dump_stats(struct device *dev, struct blob_buf *b)
 {
 	const char *const counters[] = {

@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 
 struct device;
+struct device_user;
 struct device_hotplug_ops;
 
 typedef int (*device_state_cb)(struct device *, bool up);
@@ -45,6 +46,33 @@ enum {
 	DEV_OPT_TXQUEUELEN	= (1 << 2)
 };
 
+/* events broadcasted to all users of a device */
+enum device_event {
+	DEV_EVENT_ADD,
+	DEV_EVENT_REMOVE,
+
+	DEV_EVENT_SETUP,
+	DEV_EVENT_TEARDOWN,
+	DEV_EVENT_UP,
+	DEV_EVENT_DOWN,
+
+	DEV_EVENT_LINK_UP,
+	DEV_EVENT_LINK_DOWN,
+};
+
+/*
+ * device dependency with callbacks
+ */
+struct device_user {
+	struct list_head list;
+
+	bool claimed;
+	bool hotplug;
+
+	struct device *dev;
+	void (*cb)(struct device_user *, enum device_event);
+};
+
 /* 
  * link layer device. typically represents a linux network device.
  * can be used to support VLANs as well
@@ -72,39 +100,14 @@ struct device {
 
 	const struct device_hotplug_ops *hotplug_ops;
 
+	struct device_user parent;
+
 	/* settings */
 	unsigned int flags;
 
 	unsigned int mtu;
 	unsigned int txqueuelen;
 	uint8_t macaddr[6];
-};
-
-/* events broadcasted to all users of a device */
-enum device_event {
-	DEV_EVENT_ADD,
-	DEV_EVENT_REMOVE,
-
-	DEV_EVENT_SETUP,
-	DEV_EVENT_TEARDOWN,
-	DEV_EVENT_UP,
-	DEV_EVENT_DOWN,
-
-	DEV_EVENT_LINK_UP,
-	DEV_EVENT_LINK_DOWN,
-};
-
-/*
- * device dependency with callbacks
- */
-struct device_user {
-	struct list_head list;
-
-	bool claimed;
-	bool hotplug;
-
-	struct device *dev;
-	void (*cb)(struct device_user *, enum device_event);
 };
 
 struct device_hotplug_ops {

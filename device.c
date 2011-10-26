@@ -55,6 +55,36 @@ void device_unlock(void)
 		device_free_unused(NULL);
 }
 
+static int set_device_state(struct device *dev, bool state)
+{
+	if (state)
+		system_if_up(dev);
+	else
+		system_if_down(dev);
+
+	return 0;
+}
+
+static int
+simple_device_set_state(struct device *dev, bool state)
+{
+	int ret = 0;
+
+	if (state && !dev->parent.dev)
+		dev->parent.dev = system_if_get_parent(dev);
+
+	if (dev->parent.dev) {
+		if (state)
+			ret = device_claim(&dev->parent);
+		else
+			device_release(&dev->parent);
+
+		if (ret < 0)
+			return ret;
+	}
+	return set_device_state(dev, state);
+}
+
 static struct device *
 simple_device_create(const char *name, struct blob_attr *attr)
 {
@@ -66,6 +96,7 @@ simple_device_create(const char *name, struct blob_attr *attr)
 	if (!dev)
 		return NULL;
 
+	dev->set_state = simple_device_set_state;
 	device_init_settings(dev, tb);
 
 	return dev;
@@ -73,6 +104,8 @@ simple_device_create(const char *name, struct blob_attr *attr)
 
 static void simple_device_free(struct device *dev)
 {
+	if (dev->parent.dev)
+		device_remove_user(&dev->parent);
 	device_cleanup(dev);
 	free(dev);
 }
@@ -209,16 +242,6 @@ alias_notify_device(const char *name, struct device *dev)
 	device_unlock();
 }
 
-static int set_device_state(struct device *dev, bool state)
-{
-	if (state)
-		system_if_up(dev);
-	else
-		system_if_down(dev);
-
-	return 0;
-}
-
 int device_claim(struct device_user *dep)
 {
 	struct device *dev = dep->dev;
@@ -315,6 +338,7 @@ device_create_default(const char *name, bool external)
 	D(DEVICE, "Create simple device '%s'\n", name);
 	dev = calloc(1, sizeof(*dev));
 	dev->external = external;
+	dev->set_state = simple_device_set_state;
 	device_init(dev, &simple_device_type, name);
 	dev->default_config = true;
 	return dev;
