@@ -475,8 +475,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->ifname = if_new->ifname;
 	if_old->proto_handler = if_new->proto_handler;
 
-	if (strcmp(old_ifname, if_new->ifname) != 0 ||
-		proto != if_new->proto_handler) {
+	if ((!!old_ifname != !!if_new->ifname) ||
+	    (old_ifname && strcmp(old_ifname, if_new->ifname) != 0) ||
+	    proto != if_new->proto_handler) {
 		D(INTERFACE, "Reload interface '%s' because of ifname/proto change\n",
 		  if_old->name);
 		goto reload;
