@@ -9,27 +9,27 @@ ppp_generic_init_config() {
 	proto_config_add_int "keepalive"
 }
 
-ppp_init_config() {
+proto_ppp_init_config() {
 	no_device=1
 	available=1
 	ppp_generic_init_config
 }
 
-ppp_setup() {
+proto_ppp_setup() {
 	echo "ppp_setup($1): $2"
 }
 
-ppp_teardown() {
+proto_ppp_teardown() {
 	return
 }
 
 add_protocol ppp
 
-pppoe_init_config() {
+proto_pppoe_init_config() {
 	ppp_generic_init_config
 }
 
-pppoe_setup() {
+proto_pppoe_setup() {
 	local interface="$1"
 	local device="$2"
 
@@ -43,7 +43,7 @@ pppoe_setup() {
 	proto_run_command "$interface" sleep 30
 }
 
-pppoe_teardown() {
+proto_pppoe_teardown() {
 	[ "$ERROR" = 9 ] && {
 		proto_notify_error "$interface" PROCESS_KILLED
 		proto_block_restart "$interface"

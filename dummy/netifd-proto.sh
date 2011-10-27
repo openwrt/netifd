@@ -28,14 +28,14 @@ add_default_handler() {
 
 _proto_do_teardown() {
 	json_load "$data"
-	eval "$1_teardown \"$interface\" \"$ifname\""
+	eval "proto_$1_teardown \"$interface\" \"$ifname\""
 }
 
 _proto_do_setup() {
 	json_load "$data"
 	_EXPORT_VAR=0
 	_EXPORT_VARS=
-	eval "$1_setup \"$interface\" \"$ifname\""
+	eval "proto_$1_setup \"$interface\" \"$ifname\""
 }
 
 proto_init_update() {
@@ -225,12 +225,12 @@ init_proto() {
 				no_device=0
 				available=0
 
-				add_default_handler "$1_init_config"
+				add_default_handler "proto_$1_init_config"
 
 				json_init
 				json_add_string "name" "$1"
 				json_add_array "config"
-				eval "$1_init_config"
+				eval "proto_$1_init_config"
 				json_close_array
 				json_add_boolean no-device "$no_device"
 				json_add_boolean available "$available"
