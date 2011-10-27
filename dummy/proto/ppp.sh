@@ -3,10 +3,16 @@
 . ../netifd-proto.sh
 init_proto "$@"
 
-ppp_init_config() {
+ppp_generic_init_config() {
 	proto_config_add_string "username"
 	proto_config_add_string "password"
 	proto_config_add_int "keepalive"
+}
+
+ppp_init_config() {
+	no_device=1
+	available=1
+	ppp_generic_init_config
 }
 
 ppp_setup() {
@@ -17,19 +23,10 @@ ppp_teardown() {
 	return
 }
 
-ppp_init() {
-	no_device=1
-	available=1
-}
-
 add_protocol ppp
 
 pppoe_init_config() {
-	ppp_init_config
-}
-
-pppoe_init() {
-	return
+	ppp_generic_init_config
 }
 
 pppoe_setup() {

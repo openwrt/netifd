@@ -229,12 +229,11 @@ init_proto() {
 
 				json_init
 				json_add_string "name" "$1"
-				eval "$1_init"
-				json_add_boolean no-device "$no_device"
-				json_add_boolean available "$available"
 				json_add_array "config"
 				eval "$1_init_config"
 				json_close_array
+				json_add_boolean no-device "$no_device"
+				json_add_boolean available "$available"
 				json_dump
 			}
 		;;
