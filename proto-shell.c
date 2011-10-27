@@ -25,6 +25,7 @@ struct proto_shell_handler {
 	struct proto_handler proto;
 	struct config_param_list config;
 	char *config_buf;
+	bool init_available;
 	char script_name[];
 };
 
@@ -614,6 +615,10 @@ proto_shell_add_handler(const char *script, json_object *obj)
 	tmp = get_field(obj, "no-device", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_NODEV;
+
+	tmp = get_field(obj, "available", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_INIT_AVAILABLE;
 
 	config = get_field(obj, "config", json_type_array);
 	if (config)

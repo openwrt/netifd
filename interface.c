@@ -184,6 +184,8 @@ interface_claim_device(struct interface *iface)
 		if (dev)
 			device_add_user(&iface->main_dev, dev);
 	}
+	if (iface->proto_handler->flags & PROTO_FLAG_INIT_AVAILABLE)
+		interface_set_available(iface, true);
 }
 
 
@@ -517,8 +519,8 @@ interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		set_config_state(if_old, IFC_REMOVE);
 	} else if (node_new) {
 		D(INTERFACE, "Create interface '%s'\n", if_new->name);
-		interface_claim_device(if_new);
 		proto_init_interface(if_new, if_new->config);
+		interface_claim_device(if_new);
 		netifd_ubus_add_interface(if_new);
 	}
 }

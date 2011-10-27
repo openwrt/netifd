@@ -19,6 +19,7 @@ enum interface_proto_cmd {
 enum {
 	PROTO_FLAG_IMMEDIATE = (1 << 0),
 	PROTO_FLAG_NODEV = (1 << 1),
+	PROTO_FLAG_INIT_AVAILABLE = (1 << 2),
 };
 
 struct interface_proto_state {
