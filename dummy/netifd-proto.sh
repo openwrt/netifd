@@ -206,6 +206,15 @@ proto_block_restart() {
 	_proto_notify "$interface"
 }
 
+proto_set_available() {
+	local interface="$1"
+	local state="$2"
+	json_init
+	json_add_int action 5
+	json_add_boolean available "$state"
+	_proto_notify "$interface"
+}
+
 init_proto() {
 	proto="$1"; shift
 	cmd="$1"; shift

@@ -220,6 +220,7 @@ enum {
 	NOTIFY_COMMAND,
 	NOTIFY_ENV,
 	NOTIFY_SIGNAL,
+	NOTIFY_AVAILABLE,
 	NOTIFY_LINK_UP,
 	NOTIFY_IFNAME,
 	NOTIFY_ADDR_EXT,
@@ -238,6 +239,7 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_COMMAND] = { .name = "command", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ENV] = { .name = "env", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_SIGNAL] = { .name = "signal", .type = BLOBMSG_TYPE_INT32 },
+	[NOTIFY_AVAILABLE] = { .name = "available", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_LINK_UP] = { .name = "link-up", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
@@ -427,6 +429,16 @@ proto_shell_block_restart(struct proto_shell_state *state, struct blob_attr **tb
 }
 
 static int
+proto_shell_set_available(struct proto_shell_state *state, struct blob_attr **tb)
+{
+	if (!tb[NOTIFY_AVAILABLE])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	interface_set_available(state->proto.iface, blobmsg_get_bool(tb[NOTIFY_AVAILABLE]));
+	return 0;
+}
+
+static int
 proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
@@ -449,6 +461,8 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 		return proto_shell_notify_error(state, tb);
 	case 4:
 		return proto_shell_block_restart(state, tb);
+	case 5:
+		return proto_shell_set_available(state, tb);
 	default:
 		return UBUS_STATUS_INVALID_ARGUMENT;
 	}
