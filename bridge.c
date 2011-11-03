@@ -119,6 +119,23 @@ error:
 }
 
 static void
+bridge_remove_member(struct bridge_member *bm)
+{
+	struct bridge_state *bst = bm->bst;
+
+	if (!bm->present)
+		return;
+
+	bm->present = false;
+	bm->bst->n_present--;
+	if (bst->dev.active)
+		bridge_disable_member(bm);
+
+	if (bst->n_present == 0)
+		device_set_present(&bst->dev, false);
+}
+
+static void
 bridge_member_cb(struct device_user *dev, enum device_event ev)
 {
 	struct bridge_member *bm = container_of(dev, struct bridge_member, dev);
@@ -141,16 +158,11 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 		if (!bm->present)
 			return;
 
-		if (bst->dev.active)
-			bridge_disable_member(bm);
-
-		bm->present = false;
-		bm->bst->n_present--;
-		if (bst->n_present == 0)
-			device_set_present(&bst->dev, false);
-
 		if (dev->hotplug)
 			bridge_free_member(bm);
+		else
+			bridge_remove_member(bm);
+
 		break;
 	default:
 		return;
@@ -235,15 +247,9 @@ bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 static void
 bridge_free_member(struct bridge_member *bm)
 {
-	if (bm->present) {
-		bridge_member_cb(&bm->dev, DEV_EVENT_REMOVE);
-		bm->bst->n_present--;
-		if (bm->bst->dev.active)
-			bridge_disable_member(bm);
-	}
-
-	list_del(&bm->list);
+	bridge_remove_member(bm);
 	device_remove_user(&bm->dev);
+	list_del(&bm->list);
 	free(bm);
 }
 
