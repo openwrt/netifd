@@ -100,6 +100,8 @@ interface_flush_state(struct interface *iface)
 static void
 mark_interface_down(struct interface *iface)
 {
+	if (iface->state == IFS_UP)
+		interface_event(iface, IFEV_DOWN);
 	interface_flush_state(iface);
 	iface->state = IFS_DOWN;
 }
@@ -113,8 +115,9 @@ __interface_set_down(struct interface *iface, bool force)
 		iface->state == IFS_TEARDOWN)
 		return;
 
+	if (iface->state == IFS_UP)
+		interface_event(iface, IFEV_DOWN);
 	iface->state = IFS_TEARDOWN;
-	interface_event(iface, IFEV_DOWN);
 	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
 	if (force)
 		interface_flush_state(iface);
@@ -274,8 +277,9 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 			return;
 
 		netifd_log_message(L_NOTICE, "Interface '%s' has lost the connection\n", iface->name);
+		if (iface->state == IFS_UP)
+			interface_event(iface, IFEV_DOWN);
 		iface->state = IFS_SETUP;
-		interface_event(iface, IFEV_DOWN);
 		break;
 	}
 }
