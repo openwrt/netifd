@@ -380,10 +380,32 @@ netifd_iface_remove(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+static int
+netifd_handle_iface_prepare(struct ubus_context *ctx, struct ubus_object *obj,
+			    struct ubus_request_data *req, const char *method,
+			    struct blob_attr *msg)
+{
+	struct interface *iface;
+	struct device *dev;
+	const struct device_hotplug_ops *ops;
+
+	iface = container_of(obj, struct interface, ubus);
+	dev = iface->main_dev.dev;
+	if (!dev)
+		return 0;
+
+	ops = dev->hotplug_ops;
+	if (!ops)
+		return 0;
+
+	return ops->prepare(dev);
+}
+
 static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
 	{ .name = "status", .handler = netifd_handle_status },
+	{ .name = "prepare", .handler = netifd_handle_iface_prepare },
 	UBUS_METHOD("add_device", netifd_iface_handle_device, dev_policy ),
 	UBUS_METHOD("remove_device", netifd_iface_handle_device, dev_policy ),
 	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },

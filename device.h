@@ -111,6 +111,7 @@ struct device {
 };
 
 struct device_hotplug_ops {
+	int (*prepare)(struct device *dev);
 	int (*add)(struct device *main, struct device *member);
 	int (*del)(struct device *main, struct device *member);
 };

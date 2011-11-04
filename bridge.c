@@ -65,6 +65,7 @@ struct bridge_state {
 	struct bridge_config config;
 	struct blob_attr *ifnames;
 	bool active;
+	bool force_active;
 
 	struct list_head members;
 	int n_present;
@@ -131,6 +132,7 @@ bridge_remove_member(struct bridge_member *bm)
 	if (bst->dev.active)
 		bridge_disable_member(bm);
 
+	bst->force_active = false;
 	if (bst->n_present == 0)
 		device_set_present(&bst->dev, false);
 }
@@ -190,7 +192,7 @@ bridge_set_up(struct bridge_state *bst)
 	struct bridge_member *bm;
 	int ret;
 
-	if (!bst->n_present)
+	if (!bst->force_active && !bst->n_present)
 		return -ENOENT;
 
 	ret = system_bridge_addbr(&bst->dev, &bst->config);
@@ -200,7 +202,7 @@ bridge_set_up(struct bridge_state *bst)
 	list_for_each_entry(bm, &bst->members, list)
 		bridge_enable_member(bm);
 
-	if (!bst->n_present) {
+	if (!bst->force_active && !bst->n_present) {
 		/* initialization of all member interfaces failed */
 		system_bridge_delbr(&bst->dev);
 		device_set_present(&bst->dev, false);
@@ -289,10 +291,23 @@ bridge_hotplug_del(struct device *dev, struct device *member)
 		return 0;
 	}
 
-	return -ENOENT;
+	return UBUS_STATUS_NOT_FOUND;
+}
+
+static int
+bridge_hotplug_prepare(struct device *dev)
+{
+	struct bridge_state *bst;
+
+	bst = container_of(dev, struct bridge_state, dev);
+	bst->force_active = true;
+	device_set_present(&bst->dev, true);
+
+	return 0;
 }
 
 static const struct device_hotplug_ops bridge_ops = {
+	.prepare = bridge_hotplug_prepare,
 	.add = bridge_hotplug_add,
 	.del = bridge_hotplug_del
 };
