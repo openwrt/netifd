@@ -337,7 +337,7 @@ config_init_package(const char *config)
 			uci_unload(ctx, p);
 	}
 
-	if (uci_load(ctx, "network", &p))
+	if (uci_load(ctx, config, &p))
 		return NULL;
 
 	return p;
