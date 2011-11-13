@@ -131,21 +131,25 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	struct interface *iface;
 	struct device *dev;
 	struct device_addr *addr;
+	bool keep = false;
 
 	ip = container_of(tree, struct interface_ip_settings, addr);
 	iface = ip->iface;
 	dev = iface->l3_dev->dev;
 
+	if (node_old && node_new)
+		keep = true;
+
 	if (node_old) {
 		addr = container_of(node_old, struct device_addr, node);
-		if (!(addr->flags & DEVADDR_EXTERNAL) && addr->enabled)
+		if (!(addr->flags & DEVADDR_EXTERNAL) && addr->enabled && !keep)
 			system_del_address(dev, addr);
 		free(addr);
 	}
 
 	if (node_new) {
 		addr = container_of(node_new, struct device_addr, node);
-		if (!(addr->flags & DEVADDR_EXTERNAL))
+		if (!(addr->flags & DEVADDR_EXTERNAL) && !keep)
 			system_add_address(dev, addr);
 		addr->enabled = true;
 	}
@@ -159,24 +163,29 @@ interface_update_proto_route(struct vlist_tree *tree,
 	struct interface_ip_settings *ip;
 	struct interface *iface;
 	struct device *dev;
-	struct device_route *route;
+	struct device_route *route_old, *route_new;
+	bool keep = false;
 
 	ip = container_of(tree, struct interface_ip_settings, route);
 	iface = ip->iface;
 	dev = iface->l3_dev->dev;
 
+	route_old = container_of(node_old, struct device_route, node);
+	route_new = container_of(node_new, struct device_route, node);
+
+	if (node_old && node_new)
+		keep = !memcmp(&route_old->nexthop, &route_new->nexthop, sizeof(route_old->nexthop));
+
 	if (node_old) {
-		route = container_of(node_old, struct device_route, node);
-		if (!(route->flags & DEVADDR_EXTERNAL) && route->enabled)
-			system_del_route(dev, route);
-		free(route);
+		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)
+			system_del_route(dev, route_old);
+		free(route_old);
 	}
 
 	if (node_new) {
-		route = container_of(node_new, struct device_route, node);
-		if (!(route->flags & DEVADDR_EXTERNAL))
-			system_add_route(dev, route);
-		route->enabled = true;
+		if (!(route_new->flags & DEVADDR_EXTERNAL) && !keep)
+			system_add_route(dev, route_new);
+		route_new->enabled = true;
 	}
 }
 
