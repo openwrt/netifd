@@ -82,6 +82,9 @@ int system_if_check(struct device *dev)
 struct device *
 system_if_get_parent(struct device *dev)
 {
+	if (!strcmp(dev->ifname, "eth0"))
+		return device_get("eth1", true);
+
 	return NULL;
 }
 
