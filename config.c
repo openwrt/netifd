@@ -176,6 +176,14 @@ config_parse_interface(struct uci_section *s)
 	memcpy(config, b.head, blob_pad_len(b.head));
 	interface_add(iface, config);
 
+	/*
+	 * need to look up the interface name again, in case of config update,
+	 * the pointer will have changed
+	 */
+	iface = vlist_find(&interfaces, s->e.name, iface, node);
+	if (!iface)
+		return;
+
 	dev = iface->main_dev.dev;
 	if (!dev || !dev->default_config)
 		return;
