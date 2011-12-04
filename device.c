@@ -68,12 +68,17 @@ static int set_device_state(struct device *dev, bool state)
 static int
 simple_device_set_state(struct device *dev, bool state)
 {
+	struct device *pdev;
 	int ret = 0;
 
-	if (state && !dev->parent.dev)
-		dev->parent.dev = system_if_get_parent(dev);
+	pdev = dev->parent.dev;
+	if (state && !pdev) {
+		pdev = system_if_get_parent(dev);
+		if (pdev)
+			device_add_user(&dev->parent, pdev);
+	}
 
-	if (dev->parent.dev) {
+	if (pdev) {
 		if (state)
 			ret = device_claim(&dev->parent);
 		else
@@ -423,6 +428,14 @@ void device_add_user(struct device_user *dep, struct device *dev)
 		if (dev->active)
 			dep->cb(dep, DEV_EVENT_UP);
 	}
+}
+
+void
+device_free(struct device *dev)
+{
+	__devlock++;
+	dev->type->free(dev);
+	__devlock--;
 }
 
 static void
