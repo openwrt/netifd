@@ -52,13 +52,13 @@ struct device_route {
 };
 
 struct dns_server {
-	struct list_head list;
+	struct vlist_simple_node node;
 	int af;
 	union if_addr addr;
 };
 
 struct dns_search_domain {
-	struct list_head list;
+	struct vlist_simple_node node;
 	char name[];
 };
 

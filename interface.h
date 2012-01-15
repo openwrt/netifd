@@ -46,8 +46,8 @@ struct interface_ip_settings {
 	struct vlist_tree addr;
 	struct vlist_tree route;
 
-	struct list_head dns_servers;
-	struct list_head dns_search;
+	struct vlist_simple_tree dns_servers;
+	struct vlist_simple_tree dns_search;
 };
 
 /*
