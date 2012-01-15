@@ -50,6 +50,43 @@ void vlist_flush_all(struct vlist_tree *tree);
 #define vlist_for_each_element(tree, element, node_member) \
 	avl_for_each_element(&(tree)->avl, element, node_member.avl)
 
+
+struct vlist_simple_tree {
+	struct list_head list;
+	int head_offset;
+	int version;
+};
+
+struct vlist_simple_node {
+	struct list_head list;
+	int version;
+};
+
+#define vlist_simple_init(tree, node, member) \
+	__vlist_simple_init(tree, offsetof(node, member))
+
+void __vlist_simple_init(struct vlist_simple_tree *tree, int offset);
+void vlist_simple_delete(struct vlist_simple_tree *tree, struct vlist_simple_node *node);
+void vlist_simple_flush(struct vlist_simple_tree *tree);
+void vlist_simple_flush_all(struct vlist_simple_tree *tree);
+
+static inline void vlist_simple_update(struct vlist_simple_tree *tree)
+{
+	tree->version++;
+}
+
+static inline void vlist_simple_add(struct vlist_simple_tree *tree, struct vlist_simple_node *node)
+{
+	list_add(&node->list, &tree->list);
+}
+
+#define vlist_simple_for_each_element(tree, element, node_member) \
+	list_for_each_entry(element, &(tree)->list, node_member.list)
+
+#define vlist_simple_empty(tree) \
+	list_empty(&(tree)->list)
+
+
 #ifdef __linux__
 static inline int fls(int x)
 {
