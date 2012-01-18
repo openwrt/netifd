@@ -34,6 +34,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_MTU] = { "mtu", BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MACADDR] = { "macaddr", BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_TXQUEUELEN] = { "txqueuelen", BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_ENABLED] = { "enabled", BLOBMSG_TYPE_BOOL },
 };
 
 const struct config_param_list device_attr_list = {
@@ -181,6 +182,10 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	struct ether_addr *ea;
 
 	dev->flags = 0;
+	dev->disabled = false;
+
+	if ((cur = tb[DEV_ATTR_ENABLED]))
+		device_set_disabled(dev, !blobmsg_get_bool(cur));
 
 	if ((cur = tb[DEV_ATTR_MTU])) {
 		dev->mtu = blobmsg_get_u32(cur);
@@ -409,14 +414,35 @@ void device_cleanup(struct device *dev)
 	device_delete(dev);
 }
 
-void device_set_present(struct device *dev, bool state)
+static void __device_set_present(struct device *dev, bool state)
 {
 	if (dev->present == state)
 		return;
 
-	D(DEVICE, "%s '%s' %s present\n", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
 	dev->present = state;
 	device_broadcast_event(dev, state ? DEV_EVENT_ADD : DEV_EVENT_REMOVE);
+}
+
+void device_set_present(struct device *dev, bool state)
+{
+	if (dev->sys_present == state)
+		return;
+
+	dev->sys_present = state;
+	D(DEVICE, "%s '%s' %s present\n", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
+
+	if (state && dev->disabled)
+		return;
+
+	__device_set_present(dev, state);
+}
+
+void
+device_set_disabled(struct device *dev, bool value)
+{
+	dev->disabled = value;
+	if (dev->sys_present)
+		__device_set_present(dev, !value);
 }
 
 void device_add_user(struct device_user *dep, struct device *dev)

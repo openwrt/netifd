@@ -16,6 +16,7 @@ enum {
 	DEV_ATTR_MTU,
 	DEV_ATTR_MACADDR,
 	DEV_ATTR_TXQUEUELEN,
+	DEV_ATTR_ENABLED,
 	__DEV_ATTR_MAX,
 };
 
@@ -88,9 +89,11 @@ struct device {
 
 	struct blob_attr *config;
 	bool config_pending;
+	bool sys_present;
 	bool present;
 	int active;
 	bool external;
+	bool disabled;
 
 	bool current_config;
 	bool default_config;
@@ -143,6 +146,7 @@ void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
 
 void device_set_present(struct device *dev, bool state);
+void device_set_disabled(struct device *dev, bool value);
 int device_claim(struct device_user *dep);
 void device_release(struct device_user *dep);
 int device_check_state(struct device *dev);
