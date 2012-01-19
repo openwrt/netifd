@@ -640,28 +640,45 @@ system_if_get_parent(struct device *dev)
 }
 
 static bool
-read_int_file(int dir_fd, const char *file, int *val)
+read_string_file(int dir_fd, const char *file, char *buf, int len)
 {
-	char buf[64];
-	int len, fd;
 	bool ret = false;
+	char *c;
+	int fd;
 
 	fd = openat(dir_fd, file, O_RDONLY);
 	if (fd < 0)
 		return false;
 
 retry:
-	len = read(fd, buf, sizeof(buf));
+	len = read(fd, buf, len - 1);
 	if (len < 0) {
 		if (errno == EINTR)
 			goto retry;
 	} else if (len > 0) {
 			buf[len] = 0;
-			*val = strtoul(buf, NULL, 0);
+
+			c = strchr(buf, '\n');
+			if (c)
+				*c = 0;
+
 			ret = true;
 	}
 
 	close(fd);
+
+	return ret;
+}
+
+static bool
+read_int_file(int dir_fd, const char *file, int *val)
+{
+	char buf[64];
+	bool ret = false;
+
+	ret = read_string_file(dir_fd, file, buf, sizeof(buf));
+	if (ret)
+		*val = strtoul(buf, NULL, 0);
 
 	return ret;
 }
@@ -677,6 +694,8 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 
 	if (read_int_file(dir_fd, "carrier", &val))
 		blobmsg_add_u8(b, "link", !!val);
+	if (read_string_file(dir_fd, "address", buf, sizeof(buf)))
+		blobmsg_add_string(b, "macaddr", buf);
 
 	close(dir_fd);
 	return 0;
