@@ -336,6 +336,7 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 
 	bst = container_of(dev, struct bridge_state, dev);
 
+	system_if_dump_info(dev, b);
 	list = blobmsg_open_array(b, "bridge-members");
 	list_for_each_entry(bm, &bst->members, list) {
 		blobmsg_add_string(b, NULL, bm->dev.dev->ifname);

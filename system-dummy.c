@@ -88,7 +88,15 @@ system_if_get_parent(struct device *dev)
 	return NULL;
 }
 
-int system_if_dump_stats(struct device *dev, struct blob_buf *b)
+int
+system_if_dump_info(struct device *dev, struct blob_buf *b)
+{
+	blobmsg_add_u8(b, "link", dev->present);
+	return 0;
+}
+
+int
+system_if_dump_stats(struct device *dev, struct blob_buf *b)
 {
 	return 0;
 }

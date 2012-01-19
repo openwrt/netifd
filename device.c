@@ -672,6 +672,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 	blobmsg_add_u8(b, "up", !!dev->active);
 	if (dev->type->dump_info)
 		dev->type->dump_info(dev, b);
+	else
+		system_if_dump_info(dev, b);
 
 	s = blobmsg_open_table(b, "statistics");
 	if (dev->type->dump_stats)

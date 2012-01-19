@@ -639,7 +639,51 @@ system_if_get_parent(struct device *dev)
 	return device_get(devname, true);
 }
 
-int system_if_dump_stats(struct device *dev, struct blob_buf *b)
+static bool
+read_int_file(int dir_fd, const char *file, int *val)
+{
+	char buf[64];
+	int len, fd;
+	bool ret = false;
+
+	fd = openat(dir_fd, file, O_RDONLY);
+	if (fd < 0)
+		return false;
+
+retry:
+	len = read(fd, buf, sizeof(buf));
+	if (len < 0) {
+		if (errno == EINTR)
+			goto retry;
+	} else if (len > 0) {
+			buf[len] = 0;
+			*val = strtoul(buf, NULL, 0);
+			ret = true;
+	}
+
+	close(fd);
+
+	return ret;
+}
+
+int
+system_if_dump_info(struct device *dev, struct blob_buf *b)
+{
+	char buf[64];
+	int dir_fd, val = 0;
+
+	snprintf(buf, sizeof(buf), "/sys/class/net/%s", dev->ifname);
+	dir_fd = open(buf, O_DIRECTORY);
+
+	if (read_int_file(dir_fd, "carrier", &val))
+		blobmsg_add_u8(b, "link", !!val);
+
+	close(dir_fd);
+	return 0;
+}
+
+int
+system_if_dump_stats(struct device *dev, struct blob_buf *b)
 {
 	const char *const counters[] = {
 		"collisions",     "rx_frame_errors",   "tx_compressed",
@@ -653,30 +697,16 @@ int system_if_dump_stats(struct device *dev, struct blob_buf *b)
 	};
 	char buf[64];
 	int stats_dir;
-	int i, fd, len;
+	int i, val = 0;
 
 	snprintf(buf, sizeof(buf), "/sys/class/net/%s/statistics", dev->ifname);
 	stats_dir = open(buf, O_DIRECTORY);
 	if (stats_dir < 0)
 		return -1;
 
-	for (i = 0; i < ARRAY_SIZE(counters); i++) {
-		fd = openat(stats_dir, counters[i], O_RDONLY);
-		if (fd < 0)
-			continue;
-
-retry:
-		len = read(fd, buf, sizeof(buf));
-		if (len < 0) {
-			if (errno == EINTR)
-				goto retry;
-			continue;
-		}
-
-		buf[len] = 0;
-		blobmsg_add_u32(b, counters[i], strtoul(buf, NULL, 0));
-		close(fd);
-	}
+	for (i = 0; i < ARRAY_SIZE(counters); i++)
+		if (read_int_file(stats_dir, counters[i], &val))
+			blobmsg_add_u32(b, counters[i], val);
 
 	close(stats_dir);
 	return 0;
