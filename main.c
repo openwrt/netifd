@@ -219,7 +219,7 @@ netifd_kill_process(struct netifd_process *proc)
 	if (!proc->uloop.pending)
 		return;
 
-	kill(proc->uloop.pid, SIGTERM);
+	kill(proc->uloop.pid, SIGKILL);
 	netifd_delete_process(proc);
 }
 
