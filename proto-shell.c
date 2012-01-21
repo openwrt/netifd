@@ -20,6 +20,13 @@
 
 static struct netifd_fd proto_fd;
 
+enum proto_shell_sm {
+	S_IDLE,
+	S_SETUP,
+	S_SETUP_ABORT,
+	S_TEARDOWN,
+};
+
 struct proto_shell_handler {
 	struct list_head list;
 	struct proto_handler proto;
@@ -36,13 +43,15 @@ struct proto_shell_state {
 
 	struct device_user l3_dev;
 
-	struct uloop_timeout setup_timeout;
+	struct uloop_timeout teardown_timeout;
+
 	struct netifd_process setup_task;
 	struct netifd_process teardown_task;
-	bool teardown_pending;
-	bool teardown_wait_task;
-
 	struct netifd_process proto_task;
+
+	enum proto_shell_sm sm;
+	bool proto_task_killed;
+
 	int last_error;
 };
 
@@ -68,18 +77,28 @@ proto_shell_handler(struct interface_proto_state *proto,
 		proc = &state->setup_task;
 		state->last_error = -1;
 	} else {
-		action = "teardown";
-		proc = &state->teardown_task;
-		if (state->setup_task.uloop.pending && !state->teardown_wait_task) {
-			uloop_timeout_set(&state->setup_timeout, 1000);
-			kill(state->setup_task.uloop.pid, SIGTERM);
-			state->teardown_pending = true;
+		if (state->sm == S_TEARDOWN)
+			return 0;
+
+		if (state->setup_task.uloop.pending) {
+			if (state->sm != S_SETUP_ABORT) {
+				uloop_timeout_set(&state->teardown_timeout, 1000);
+				kill(state->setup_task.uloop.pid, SIGTERM);
+				if (state->proto_task.uloop.pending)
+					kill(state->proto_task.uloop.pid, SIGTERM);
+				state->sm = S_SETUP_ABORT;
+			}
 			return 0;
 		}
+
+		action = "teardown";
+		proc = &state->teardown_task;
+		state->sm = S_TEARDOWN;
 		if (state->last_error >= 0) {
 			snprintf(error_buf, sizeof(error_buf), "ERROR=%d", state->last_error);
 			envp[j++] = error_buf;
 		}
+		uloop_timeout_set(&state->teardown_timeout, 5000);
 	}
 
 	config = blobmsg_format_json(state->config, true);
@@ -103,12 +122,58 @@ proto_shell_handler(struct interface_proto_state *proto,
 }
 
 static void
-proto_shell_setup_timeout_cb(struct uloop_timeout *timeout)
+proto_shell_task_finish(struct proto_shell_state *state,
+			struct netifd_process *task)
+{
+	switch (state->sm) {
+	case S_IDLE:
+		if (task == &state->proto_task)
+			state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
+		/* fall through */
+	case S_SETUP:
+		if (task == &state->proto_task)
+			proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN,
+					    false);
+		break;
+
+	case S_SETUP_ABORT:
+		if (state->setup_task.uloop.pending ||
+		    state->proto_task.uloop.pending)
+			break;
+
+		uloop_timeout_cancel(&state->teardown_timeout);
+		state->sm = S_IDLE;
+		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
+		break;
+
+	case S_TEARDOWN:
+		if (state->teardown_task.uloop.pending)
+			break;
+
+		if (state->proto_task.uloop.pending) {
+			if (!state->proto_task_killed)
+				kill(state->proto_task.uloop.pid, SIGTERM);
+			break;
+		}
+
+		uloop_timeout_cancel(&state->teardown_timeout);
+		state->sm = S_IDLE;
+		state->proto.proto_event(&state->proto, IFPEV_DOWN);
+		break;
+	}
+}
+
+static void
+proto_shell_teardown_timeout_cb(struct uloop_timeout *timeout)
 {
 	struct proto_shell_state *state;
 
-	state = container_of(timeout, struct proto_shell_state, setup_timeout);
-	kill(state->setup_task.uloop.pid, SIGKILL);
+	state = container_of(timeout, struct proto_shell_state, teardown_timeout);
+
+	netifd_kill_process(&state->setup_task);
+	netifd_kill_process(&state->proto_task);
+	netifd_kill_process(&state->teardown_task);
+	proto_shell_task_finish(state, NULL);
 }
 
 static void
@@ -117,11 +182,7 @@ proto_shell_setup_cb(struct netifd_process *p, int ret)
 	struct proto_shell_state *state;
 
 	state = container_of(p, struct proto_shell_state, setup_task);
-	uloop_timeout_cancel(&state->setup_timeout);
-	if (state->teardown_pending) {
-		state->teardown_pending = false;
-		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
-	}
+	proto_shell_task_finish(state, p);
 }
 
 static void
@@ -130,35 +191,20 @@ proto_shell_teardown_cb(struct netifd_process *p, int ret)
 	struct proto_shell_state *state;
 
 	state = container_of(p, struct proto_shell_state, teardown_task);
-
-	if (state->teardown_wait_task)
-		return;
-
-	netifd_kill_process(&state->proto_task);
-	state->proto.proto_event(&state->proto, IFPEV_DOWN);
+	proto_shell_task_finish(state, p);
 }
 
 static void
 proto_shell_task_cb(struct netifd_process *p, int ret)
 {
 	struct proto_shell_state *state;
-	bool teardown_wait_task;
 
 	state = container_of(p, struct proto_shell_state, proto_task);
 
-	teardown_wait_task = state->teardown_wait_task;
-	state->teardown_wait_task = false;
-	if (state->teardown_pending || state->teardown_task.uloop.pending)
-		return;
+	if (state->sm == S_IDLE || state->sm == S_SETUP)
+		state->last_error = WEXITSTATUS(ret);
 
-	if (teardown_wait_task) {
-		proto_shell_teardown_cb(&state->teardown_task, 0);
-		return;
-	}
-
-	state->last_error = WEXITSTATUS(ret);
-	state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
-	proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
+	proto_shell_task_finish(state, p);
 }
 
 static void
@@ -379,8 +425,8 @@ proto_shell_kill_command(struct proto_shell_state *state, struct blob_attr **tb)
 		signal = SIGTERM;
 
 	if (state->proto_task.uloop.pending) {
+		state->proto_task_killed = true;
 		kill(state->proto_task.uloop.pid, signal);
-		state->teardown_wait_task = true;
 	}
 
 	return 0;
@@ -484,7 +530,7 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	state->proto.free = proto_shell_free;
 	state->proto.notify = proto_shell_notify;
 	state->proto.cb = proto_shell_handler;
-	state->setup_timeout.cb = proto_shell_setup_timeout_cb;
+	state->teardown_timeout.cb = proto_shell_teardown_timeout_cb;
 	state->setup_task.cb = proto_shell_setup_cb;
 	state->setup_task.dir_fd = proto_fd.fd;
 	state->setup_task.log_prefix = iface->name;
