@@ -178,30 +178,31 @@ static const struct device_type alias_device_type = {
 void
 device_init_settings(struct device *dev, struct blob_attr **tb)
 {
+	struct device_settings *s = &dev->settings;
 	struct blob_attr *cur;
 	struct ether_addr *ea;
 
-	dev->flags = 0;
+	s->flags = 0;
 	dev->disabled = false;
 
 	if ((cur = tb[DEV_ATTR_ENABLED]))
 		device_set_disabled(dev, !blobmsg_get_bool(cur));
 
 	if ((cur = tb[DEV_ATTR_MTU])) {
-		dev->mtu = blobmsg_get_u32(cur);
-		dev->flags |= DEV_OPT_MTU;
+		s->mtu = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_MTU;
 	}
 
 	if ((cur = tb[DEV_ATTR_TXQUEUELEN])) {
-		dev->txqueuelen = blobmsg_get_u32(cur);
-		dev->flags |= DEV_OPT_TXQUEUELEN;
+		s->txqueuelen = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_TXQUEUELEN;
 	}
 
 	if ((cur = tb[DEV_ATTR_MACADDR])) {
 		ea = ether_aton(blob_data(cur));
 		if (ea) {
-			memcpy(dev->macaddr, ea, sizeof(dev->macaddr));
-			dev->flags |= DEV_OPT_MACADDR;
+			memcpy(s->macaddr, ea, 6);
+			s->flags |= DEV_OPT_MACADDR;
 		}
 	}
 }

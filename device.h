@@ -74,6 +74,13 @@ struct device_user {
 	void (*cb)(struct device_user *, enum device_event);
 };
 
+struct device_settings {
+	unsigned int flags;
+	unsigned int mtu;
+	unsigned int txqueuelen;
+	uint8_t macaddr[6];
+};
+
 /* 
  * link layer device. typically represents a linux network device.
  * can be used to support VLANs as well
@@ -105,12 +112,7 @@ struct device {
 
 	struct device_user parent;
 
-	/* settings */
-	unsigned int flags;
-
-	unsigned int mtu;
-	unsigned int txqueuelen;
-	uint8_t macaddr[6];
+	struct device_settings settings;
 };
 
 struct device_hotplug_ops {
