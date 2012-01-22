@@ -602,15 +602,18 @@ system_if_apply_settings(struct device *dev, struct device_settings *s)
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
 	if (s->flags & DEV_OPT_MTU) {
 		ifr.ifr_mtu = s->mtu;
-		ioctl(sock_ioctl, SIOCSIFMTU, &ifr);
+		if (ioctl(sock_ioctl, SIOCSIFMTU, &ifr) < 0)
+			s->flags &= ~DEV_OPT_MTU;
 	}
 	if (s->flags & DEV_OPT_TXQUEUELEN) {
 		ifr.ifr_qlen = s->txqueuelen;
-		ioctl(sock_ioctl, SIOCSIFTXQLEN, &ifr);
+		if (ioctl(sock_ioctl, SIOCSIFTXQLEN, &ifr) < 0)
+			s->flags &= ~DEV_OPT_TXQUEUELEN;
 	}
 	if (s->flags & DEV_OPT_MACADDR) {
 		memcpy(&ifr.ifr_hwaddr, s->macaddr, sizeof(s->macaddr));
-		ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr);
+		if (ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr) < 0)
+			s->flags &= ~DEV_OPT_MACADDR;
 	}
 }
 
