@@ -112,6 +112,7 @@ struct device {
 
 	struct device_user parent;
 
+	struct device_settings orig_settings;
 	struct device_settings settings;
 };
 

@@ -570,6 +570,30 @@ int system_vlan_del(struct device *dev)
 }
 
 static void
+system_if_get_settings(struct device *dev, struct device_settings *s)
+{
+	struct ifreq ifr;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+
+	if (ioctl(sock_ioctl, SIOCGIFMTU, &ifr) == 0) {
+		s->mtu = ifr.ifr_mtu;
+		s->flags |= DEV_OPT_MTU;
+	}
+
+	if (ioctl(sock_ioctl, SIOCGIFTXQLEN, &ifr) == 0) {
+		s->txqueuelen = ifr.ifr_qlen;
+		s->flags |= DEV_OPT_TXQUEUELEN;
+	}
+
+	if (ioctl(sock_ioctl, SIOCGIFHWADDR, &ifr) == 0) {
+		memcpy(s->macaddr, &ifr.ifr_hwaddr, sizeof(s->macaddr));
+		s->flags |= DEV_OPT_MACADDR;
+	}
+}
+
+static void
 system_if_apply_settings(struct device *dev, struct device_settings *s)
 {
 	struct ifreq ifr;
@@ -592,6 +616,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s)
 
 int system_if_up(struct device *dev)
 {
+	system_if_get_settings(dev, &dev->orig_settings);
 	system_if_apply_settings(dev, &dev->settings);
 	dev->ifindex = system_if_resolve(dev);
 	return system_if_flags(dev->ifname, IFF_UP, 0);
@@ -599,7 +624,9 @@ int system_if_up(struct device *dev)
 
 int system_if_down(struct device *dev)
 {
-	return system_if_flags(dev->ifname, 0, IFF_UP);
+	int ret = system_if_flags(dev->ifname, 0, IFF_UP);
+	system_if_apply_settings(dev, &dev->orig_settings);
+	return ret;
 }
 
 int system_if_check(struct device *dev)
