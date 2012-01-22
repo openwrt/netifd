@@ -9,6 +9,7 @@
 #include <linux/sockios.h>
 #include <linux/if_vlan.h>
 #include <linux/if_bridge.h>
+#include <linux/ethtool.h>
 
 #include <unistd.h>
 #include <string.h>
@@ -683,10 +684,35 @@ read_int_file(int dir_fd, const char *file, int *val)
 	return ret;
 }
 
+/* Assume advertised flags == supported flags */
+static const struct {
+	uint32_t mask;
+	const char *name;
+} ethtool_link_modes[] = {
+	{ ADVERTISED_10baseT_Half, "10H" },
+	{ ADVERTISED_10baseT_Full, "10F" },
+	{ ADVERTISED_100baseT_Half, "100H" },
+	{ ADVERTISED_100baseT_Full, "100F" },
+	{ ADVERTISED_1000baseT_Half, "1000H" },
+	{ ADVERTISED_1000baseT_Full, "1000F" },
+};
+
+static void system_add_link_modes(struct blob_buf *b, __u32 mask)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(ethtool_link_modes); i++) {
+		if (mask & ethtool_link_modes[i].mask)
+			blobmsg_add_string(b, NULL, ethtool_link_modes[i].name);
+	}
+}
+
 int
 system_if_dump_info(struct device *dev, struct blob_buf *b)
 {
-	char buf[64];
+	struct ethtool_cmd ecmd;
+	struct ifreq ifr;
+	char buf[64], *s;
+	void *c;
 	int dir_fd, val = 0;
 
 	snprintf(buf, sizeof(buf), "/sys/class/net/%s", dev->ifname);
@@ -696,6 +722,27 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 		blobmsg_add_u8(b, "link", !!val);
 	if (read_string_file(dir_fd, "address", buf, sizeof(buf)))
 		blobmsg_add_string(b, "macaddr", buf);
+
+	memset(&ecmd, 0, sizeof(ecmd));
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, dev->ifname);
+	ifr.ifr_data = (caddr_t) &ecmd;
+	ecmd.cmd = ETHTOOL_GSET;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) == 0) {
+		c = blobmsg_open_array(b, "link-advertising");
+		system_add_link_modes(b, ecmd.advertising);
+		blobmsg_close_array(b, c);
+
+		c = blobmsg_open_array(b, "link-supported");
+		system_add_link_modes(b, ecmd.supported);
+		blobmsg_close_array(b, c);
+
+		s = blobmsg_alloc_string_buffer(b, "speed", 8);
+		snprintf(s, 8, "%d%c", ethtool_cmd_speed(&ecmd),
+			ecmd.duplex == DUPLEX_HALF ? 'H' : 'F');
+		blobmsg_add_string_buffer(b);
+	}
 
 	close(dir_fd);
 	return 0;
