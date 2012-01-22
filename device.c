@@ -175,6 +175,22 @@ static const struct device_type alias_device_type = {
 	.free = alias_device_free,
 };
 
+static void
+device_merge_settings(struct device *dev, struct device_settings *n)
+{
+	struct device_settings *os = &dev->orig_settings;
+	struct device_settings *s = &dev->settings;
+
+	memset(n, 0, sizeof(*n));
+	n->mtu = s->flags & DEV_OPT_MTU ? s->mtu : os->mtu;
+	n->txqueuelen = s->flags & DEV_OPT_TXQUEUELEN ?
+		s->txqueuelen : os->txqueuelen;
+	memcpy(n->macaddr,
+		(s->flags & DEV_OPT_MACADDR ? s->macaddr : os->macaddr),
+		sizeof(n->macaddr));
+	n->flags = s->flags | os->flags;
+}
+
 void
 device_init_settings(struct device *dev, struct blob_attr **tb)
 {
@@ -652,6 +668,7 @@ device_create(const char *name, const struct device_type *type,
 void
 device_dump_status(struct blob_buf *b, struct device *dev)
 {
+	struct device_settings st;
 	void *c, *s;
 
 	if (!dev) {
@@ -675,6 +692,16 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 		dev->type->dump_info(dev, b);
 	else
 		system_if_dump_info(dev, b);
+
+	if (dev->active) {
+		device_merge_settings(dev, &st);
+		if (st.flags & DEV_OPT_MTU)
+			blobmsg_add_u32(b, "mtu", st.mtu);
+		if (st.flags & DEV_OPT_MACADDR)
+			blobmsg_add_string(b, "macaddr", ether_ntoa((struct ether_addr *) st.macaddr));
+		if (st.flags & DEV_OPT_TXQUEUELEN)
+			blobmsg_add_u32(b, "txqueuelen", st.txqueuelen);
+	}
 
 	s = blobmsg_open_table(b, "statistics");
 	if (dev->type->dump_stats)

@@ -746,8 +746,6 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 
 	if (read_int_file(dir_fd, "carrier", &val))
 		blobmsg_add_u8(b, "link", !!val);
-	if (read_string_file(dir_fd, "address", buf, sizeof(buf)))
-		blobmsg_add_string(b, "macaddr", buf);
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	memset(&ifr, 0, sizeof(ifr));
