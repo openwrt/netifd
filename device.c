@@ -197,12 +197,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	struct device_settings *s = &dev->settings;
 	struct blob_attr *cur;
 	struct ether_addr *ea;
+	bool disabled = false;
 
 	s->flags = 0;
-	dev->disabled = false;
-
 	if ((cur = tb[DEV_ATTR_ENABLED]))
-		device_set_disabled(dev, !blobmsg_get_bool(cur));
+		disabled = !blobmsg_get_bool(cur);
 
 	if ((cur = tb[DEV_ATTR_MTU])) {
 		s->mtu = blobmsg_get_u32(cur);
@@ -221,6 +220,8 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 			s->flags |= DEV_OPT_MACADDR;
 		}
 	}
+
+	device_set_disabled(dev, disabled);
 }
 
 static void __init dev_init(void)
