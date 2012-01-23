@@ -17,6 +17,7 @@ enum {
 	IFACE_ATTR_IFNAME,
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
+	IFACE_ATTR_DEFAULTROUTE,
 	IFACE_ATTR_MAX
 };
 
@@ -24,6 +25,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_DEFAULTROUTE] = { .name = "defaultroute", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct config_param_list interface_attr_list = {
@@ -326,10 +328,10 @@ interface_init(struct interface *iface, const char *name,
 
 	proto_attach_interface(iface, proto_name);
 
-	if ((cur = tb[IFACE_ATTR_AUTO]))
-		iface->autostart = blobmsg_get_bool(cur);
-	else
-		iface->autostart = true;
+	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
+	iface->proto_ip.no_defaultroute =
+		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
+
 	iface->config_autostart = iface->autostart;
 }
 
@@ -497,6 +499,11 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		D(INTERFACE, "Reload interface '%s because of config changes\n",
 		  if_old->name);
 		goto reload;
+	}
+
+	if (if_old->proto_ip.no_defaultroute != if_new->proto_ip.no_defaultroute) {
+		if_old->proto_ip.no_defaultroute = if_new->proto_ip.no_defaultroute;
+		interface_ip_set_enabled(&if_old->proto_ip, if_old->proto_ip.enabled);
 	}
 
 	goto out;

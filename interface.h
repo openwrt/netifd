@@ -42,6 +42,7 @@ struct interface_user {
 struct interface_ip_settings {
 	struct interface *iface;
 	bool enabled;
+	bool no_defaultroute;
 
 	struct vlist_tree addr;
 	struct vlist_tree route;

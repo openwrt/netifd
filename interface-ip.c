@@ -155,6 +155,15 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	}
 }
 
+static bool
+enable_route(struct interface_ip_settings *ip, struct device_route *route)
+{
+	if (ip->no_defaultroute && !route->mask)
+		return false;
+
+	return true;
+}
+
 static void
 interface_update_proto_route(struct vlist_tree *tree,
 			     struct vlist_node *node_new,
@@ -183,9 +192,12 @@ interface_update_proto_route(struct vlist_tree *tree,
 	}
 
 	if (node_new) {
-		if (!(route_new->flags & DEVADDR_EXTERNAL) && !keep)
+		bool _enabled = enable_route(ip, route_new);
+
+		if (!(route_new->flags & DEVADDR_EXTERNAL) && !keep && _enabled)
 			system_add_route(dev, route_new);
-		route_new->enabled = true;
+
+		route_new->enabled = _enabled;
 	}
 }
 
@@ -341,14 +353,19 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 	}
 
 	vlist_for_each_element(&ip->route, route, node) {
-		if (route->enabled == enabled)
+		bool _enabled = enabled;
+
+		if (!enable_route(ip, route))
+			_enabled = false;
+
+		if (route->enabled == _enabled)
 			continue;
 
-		if (enabled)
+		if (_enabled)
 			system_add_route(dev, route);
 		else
 			system_del_route(dev, route);
-		route->enabled = enabled;
+		route->enabled = _enabled;
 	}
 }
 

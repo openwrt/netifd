@@ -3,6 +3,15 @@
 
 #include <libubox/list.h>
 #include <libubox/avl.h>
+#include <libubox/blobmsg.h>
+
+static inline bool blobmsg_get_bool_default(struct blob_attr *attr, bool val)
+{
+	if (!attr)
+		return val;
+
+	return blobmsg_get_bool(attr);
+}
 
 #define __init __attribute__((constructor))
 
