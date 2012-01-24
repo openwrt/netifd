@@ -183,7 +183,7 @@ interface_claim_device(struct interface *iface)
 {
 	struct device *dev;
 
-	if (iface->ifname && iface->proto_handler &&
+	if (iface->ifname &&
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
 		if (dev)
