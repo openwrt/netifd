@@ -395,6 +395,7 @@ config_init_all(void)
 		return;
 	}
 
+	vlist_update(&interfaces);
 	config_init = true;
 	device_lock();
 
@@ -409,5 +410,6 @@ config_init_all(void)
 	device_reset_old();
 	device_init_pending();
 	device_free_unused(NULL);
+	vlist_flush(&interfaces);
 	interface_start_pending();
 }
