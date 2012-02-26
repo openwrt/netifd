@@ -121,7 +121,7 @@ proto_parse_ip_addr_string(const char *str, bool v6, int mask)
 }
 
 static bool
-parse_addr(struct interface *iface, const char *str, bool v6, int mask)
+parse_addr(struct interface *iface, const char *str, bool v6, int mask, bool ext)
 {
 	struct device_addr *addr;
 
@@ -130,20 +130,27 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask)
 		interface_add_error(iface, "proto", "INVALID_ADDRESS", &str, 1);
 		return false;
 	}
+
+	if (ext)
+		addr->flags |= DEVADDR_EXTERNAL;
+
 	vlist_add(&iface->proto_ip.addr, &addr->node);
 	return true;
 }
 
 static int
-parse_address_option(struct interface *iface, struct blob_attr *attr, bool v6, int netmask)
+parse_address_option(struct interface *iface, struct blob_attr *attr, bool v6, int netmask, bool ext)
 {
 	struct blob_attr *cur;
 	int n_addr = 0;
 	int rem;
 
 	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			return -1;
+
 		n_addr++;
-		if (!parse_addr(iface, blobmsg_data(cur), v6, netmask))
+		if (!parse_addr(iface, blobmsg_data(cur), v6, netmask, ext))
 			return -1;
 	}
 
@@ -173,7 +180,7 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 }
 
 int
-proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr)
+proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ext)
 {
 	struct blob_attr *tb[__OPT_MAX];
 	const char *error;
@@ -191,10 +198,10 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr)
 	}
 
 	if (tb[OPT_IPADDR])
-		n_v4 = parse_address_option(iface, tb[OPT_IPADDR], false, netmask);
+		n_v4 = parse_address_option(iface, tb[OPT_IPADDR], false, netmask, ext);
 
 	if (tb[OPT_IP6ADDR])
-		n_v6 = parse_address_option(iface, tb[OPT_IP6ADDR], true, netmask);
+		n_v6 = parse_address_option(iface, tb[OPT_IP6ADDR], true, netmask, ext);
 
 	if (!n_v4 && !n_v6) {
 		error = "NO_ADDRESS";

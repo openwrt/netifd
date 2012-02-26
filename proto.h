@@ -58,7 +58,7 @@ int interface_proto_event(struct interface_proto_state *proto,
 struct device_addr *proto_parse_ip_addr_string(const char *str, bool v6, int mask);
 
 unsigned int parse_netmask_string(const char *str, bool v6);
-int proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr);
+int proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ext);
 
 
 #endif
