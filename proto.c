@@ -106,7 +106,7 @@ parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 	return inet_pton(af, astr, addr);
 }
 
-struct device_addr *
+static struct device_addr *
 proto_parse_ip_addr_string(const char *str, bool v6, int mask)
 {
 	struct device_addr *addr;
