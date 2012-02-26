@@ -807,7 +807,8 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 
 static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 {
-	int alen = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) ? 4 : 16;
+	bool v4 = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4);
+	int alen = v4 ? 4 : 16;
 	struct ifaddrmsg ifa = {
 		.ifa_family = (alen == 4) ? AF_INET : AF_INET6,
 		.ifa_prefixlen = addr->mask,
@@ -822,6 +823,14 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 
 	nlmsg_append(msg, &ifa, sizeof(ifa), 0);
 	nla_put(msg, IFA_LOCAL, alen, &addr->addr);
+	if (v4) {
+		uint32_t mask = ~0;
+		uint32_t *a = (uint32_t *) &addr->addr;
+
+		mask >>= addr->mask;
+		nla_put_u32(msg, IFA_BROADCAST, *a | mask);
+	}
+
 	return system_rtnl_call(msg);
 }
 
