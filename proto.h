@@ -48,12 +48,17 @@ struct proto_handler {
 		struct interface *iface, struct blob_attr *attr);
 };
 
+extern const struct config_param_list proto_ip_attr;
+
 void add_proto_handler(struct proto_handler *p);
 void proto_init_interface(struct interface *iface, struct blob_attr *attr);
 void proto_attach_interface(struct interface *iface, const char *proto_name);
 int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
 struct device_addr *proto_parse_ip_addr_string(const char *str, bool v6, int mask);
+
 unsigned int parse_netmask_string(const char *str, bool v6);
+int proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr);
+
 
 #endif
