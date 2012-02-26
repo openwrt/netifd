@@ -206,33 +206,6 @@ proto_shell_free(struct interface_proto_state *proto)
 }
 
 static void
-proto_shell_parse_addr_list(struct interface_ip_settings *ip, struct blob_attr *attr,
-			    bool v6, bool external)
-{
-	struct device_addr *addr;
-	struct blob_attr *cur;
-	int rem;
-
-	blobmsg_for_each_attr(cur, attr, rem) {
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING) {
-			DPRINTF("Ignore wrong address type: %d\n", blobmsg_type(cur));
-			continue;
-		}
-
-		addr = proto_parse_ip_addr_string(blobmsg_data(cur), v6, v6 ? 32 : 128);
-		if (!addr) {
-			DPRINTF("Failed to parse IP address string: %s\n", (char *) blobmsg_data(cur));
-			continue;
-		}
-
-		if (external)
-			addr->flags |= DEVADDR_EXTERNAL;
-
-		vlist_add(&ip->addr, &addr->node);
-	}
-}
-
-static void
 proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 			     bool v6)
 {
@@ -259,11 +232,8 @@ enum {
 	NOTIFY_LINK_UP,
 	NOTIFY_IFNAME,
 	NOTIFY_ADDR_EXT,
-	NOTIFY_IPADDR,
-	NOTIFY_IP6ADDR,
 	NOTIFY_ROUTES,
 	NOTIFY_ROUTES6,
-	NOTIFY_DNS,
 	NOTIFY_DNS_SEARCH,
 	__NOTIFY_LAST
 };
@@ -278,18 +248,16 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_LINK_UP] = { .name = "link-up", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
-	[NOTIFY_IPADDR] = { .name = "ipaddr", .type = BLOBMSG_TYPE_ARRAY },
-	[NOTIFY_IP6ADDR] = { .name = "ip6addr", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ROUTES] = { .name = "routes", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ROUTES6] = { .name = "routes6", .type = BLOBMSG_TYPE_ARRAY },
-	[NOTIFY_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static int
-proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
+proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data, struct blob_attr **tb)
 {
 	struct interface_ip_settings *ip;
+	struct interface *iface = state->proto.iface;
 	struct blob_attr *cur;
 	int dev_create = 1;
 	bool addr_ext = false;
@@ -311,7 +279,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 	}
 
 	if (!tb[NOTIFY_IFNAME]) {
-		if (!state->proto.iface->main_dev.dev)
+		if (!iface->main_dev.dev)
 			return UBUS_STATUS_INVALID_ARGUMENT;
 	} else {
 		if (state->l3_dev.dev)
@@ -319,27 +287,19 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr **tb)
 
 		device_add_user(&state->l3_dev,
 			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), dev_create));
-		state->proto.iface->l3_dev = &state->l3_dev;
+		iface->l3_dev = &state->l3_dev;
 		device_claim(&state->l3_dev);
 	}
 
-	ip = &state->proto.iface->proto_ip;
-	interface_update_start(state->proto.iface);
-
-	if ((cur = tb[NOTIFY_IPADDR]) != NULL)
-		proto_shell_parse_addr_list(ip, cur, false, addr_ext);
-
-	if ((cur = tb[NOTIFY_IP6ADDR]) != NULL)
-		proto_shell_parse_addr_list(ip, cur, true, addr_ext);
+	ip = &iface->proto_ip;
+	interface_update_start(iface);
+	proto_apply_ip_settings(iface, data, addr_ext);
 
 	if ((cur = tb[NOTIFY_ROUTES]) != NULL)
 		proto_shell_parse_route_list(state->proto.iface, cur, false);
 
 	if ((cur = tb[NOTIFY_ROUTES6]) != NULL)
 		proto_shell_parse_route_list(state->proto.iface, cur, true);
-
-	if ((cur = tb[NOTIFY_DNS]) != NULL)
-		interface_add_dns_server_list(ip, cur);
 
 	if ((cur = tb[NOTIFY_DNS_SEARCH]) != NULL)
 		interface_add_dns_search_list(ip, cur);
@@ -487,7 +447,7 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 
 	switch(blobmsg_get_u32(tb[NOTIFY_ACTION])) {
 	case 0:
-		return proto_shell_update_link(state, tb);
+		return proto_shell_update_link(state, attr, tb);
 	case 1:
 		return proto_shell_run_command(state, tb);
 	case 2:
