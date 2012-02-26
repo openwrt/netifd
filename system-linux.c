@@ -816,14 +816,6 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 
 	struct nl_msg *msg;
 
-	dev = addr->device;
-	if (dev) {
-		if (!dev->ifindex)
-			return -1;
-
-		ifa.ifa_index = dev->ifindex;
-	}
-
 	msg = nlmsg_alloc_simple(cmd, 0);
 	if (!msg)
 		return -1;
@@ -873,14 +865,6 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 
 	if (cmd == RTM_NEWROUTE)
 		flags |= NLM_F_CREATE | NLM_F_REPLACE;
-
-	dev = route->device;
-	if (dev) {
-		if (!dev->ifindex)
-			return -1;
-
-		ifindex = dev->ifindex;
-	}
 
 	msg = nlmsg_alloc_simple(cmd, flags);
 	if (!msg)

@@ -18,7 +18,6 @@ enum {
 	ROUTE_TARGET,
 	ROUTE_MASK,
 	ROUTE_GATEWAY,
-	ROUTE_DEVICE,
 	ROUTE_METRIC,
 	ROUTE_MTU,
 	__ROUTE_MAX
@@ -29,7 +28,6 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_TARGET] = { .name = "target", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_MASK] = { .name = "netmask", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
-	[ROUTE_DEVICE] = { .name = "device", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 	[ROUTE_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
 };
@@ -46,12 +44,8 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	struct blob_attr *tb[__ROUTE_MAX], *cur;
 	struct device_route *route;
 	int af = v6 ? AF_INET6 : AF_INET;
-	bool config = false;
 
 	blobmsg_parse(route_attr, __ROUTE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
-
-	if (!tb[ROUTE_GATEWAY] && !tb[ROUTE_DEVICE])
-		return;
 
 	if (!iface) {
 		if ((cur = tb[ROUTE_INTERFACE]) == NULL)
@@ -62,7 +56,6 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 			return;
 
 		ip = &iface->config_ip;
-		config = true;
 	} else {
 		ip = &iface->proto_ip;
 	}
@@ -90,6 +83,8 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 			DPRINTF("Failed to parse route gateway: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
+	} else {
+		route->flags |= DEVADDR_DEVICE;
 	}
 
 	if ((cur = tb[ROUTE_METRIC]) != NULL)
@@ -99,9 +94,6 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_MTU]) != NULL)
 		route->mtu = blobmsg_get_u32(cur);
-
-	if (!config && (cur = tb[ROUTE_DEVICE]) != NULL)
-		route->device = device_get(blobmsg_data(cur), true);
 
 	vlist_add(&ip->route, &route->node);
 	return;

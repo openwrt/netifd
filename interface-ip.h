@@ -27,8 +27,6 @@ struct device_addr {
 	enum device_addr_flags flags;
 	bool enabled;
 
-	struct device *device;
-
 	/* must be last */
 	unsigned int mask;
 	union if_addr addr;
@@ -42,7 +40,6 @@ struct device_route {
 	bool keep;
 
 	union if_addr nexthop;
-	struct device *device;
 	int metric;
 	int mtu;
 
