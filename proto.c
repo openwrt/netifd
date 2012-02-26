@@ -16,6 +16,7 @@ enum {
 	OPT_IPADDR,
 	OPT_IP6ADDR,
 	OPT_NETMASK,
+	OPT_BROADCAST,
 	OPT_GATEWAY,
 	OPT_IP6GW,
 	OPT_DNS,
@@ -27,6 +28,7 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_IPADDR] = { .name = "ipaddr", .type = BLOBMSG_TYPE_ARRAY },
 	[OPT_IP6ADDR] = { .name = "ip6addr", .type = BLOBMSG_TYPE_ARRAY },
 	[OPT_NETMASK] = { .name = "netmask", .type = BLOBMSG_TYPE_STRING },
+	[OPT_BROADCAST] = { .name = "broadcast", .type = BLOBMSG_TYPE_STRING },
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
 	[OPT_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
@@ -194,7 +196,7 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 	const char *error;
 	unsigned int netmask = 32;
 	int n_v4 = 0, n_v6 = 0;
-	uint32_t broadcast = 0;
+	struct in_addr bcast = {};
 
 	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
 
@@ -206,9 +208,16 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 		}
 	}
 
+	if (tb[OPT_BROADCAST]) {
+		if (!inet_pton(AF_INET, blobmsg_data(tb[OPT_BROADCAST]), &bcast)) {
+			error = "INVALID_BROADCAST";
+			goto error;
+		}
+	}
+
 	if (tb[OPT_IPADDR])
 		n_v4 = parse_address_option(iface, tb[OPT_IPADDR], false,
-			netmask, ext, broadcast);
+			netmask, ext, bcast.s_addr);
 
 	if (tb[OPT_IP6ADDR])
 		n_v6 = parse_address_option(iface, tb[OPT_IP6ADDR], true,
