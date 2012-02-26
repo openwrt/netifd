@@ -823,13 +823,8 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 
 	nlmsg_append(msg, &ifa, sizeof(ifa), 0);
 	nla_put(msg, IFA_LOCAL, alen, &addr->addr);
-	if (v4) {
-		uint32_t mask = ~0;
-		uint32_t *a = (uint32_t *) &addr->addr;
-
-		mask >>= addr->mask;
-		nla_put_u32(msg, IFA_BROADCAST, *a | mask);
-	}
+	if (v4)
+		nla_put_u32(msg, IFA_BROADCAST, addr->broadcast);
 
 	return system_rtnl_call(msg);
 }

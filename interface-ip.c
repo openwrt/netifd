@@ -124,28 +124,51 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	struct interface_ip_settings *ip;
 	struct interface *iface;
 	struct device *dev;
-	struct device_addr *addr;
+	struct device_addr *a_new = NULL, *a_old = NULL;
 	bool keep = false;
 
 	ip = container_of(tree, struct interface_ip_settings, addr);
 	iface = ip->iface;
 	dev = iface->l3_dev->dev;
 
-	if (node_old && node_new)
+	if (node_new) {
+		a_new = container_of(node_new, struct device_addr, node);
+
+		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET4 &&
+		    !a_new->broadcast) {
+
+			uint32_t mask = ~0;
+			uint32_t *a = (uint32_t *) &a_new->addr;
+
+			mask >>= a_new->mask;
+			a_new->broadcast = *a | mask;
+		}
+	}
+
+	if (node_old)
+		a_old = container_of(node_old, struct device_addr, node);
+
+	if (a_new && a_old) {
 		keep = true;
 
+		if (a_old->flags != a_new->flags)
+			keep = false;
+
+		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET4 &&
+		    a_new->broadcast != a_old->broadcast)
+			keep = false;
+	}
+
 	if (node_old) {
-		addr = container_of(node_old, struct device_addr, node);
-		if (!(addr->flags & DEVADDR_EXTERNAL) && addr->enabled && !keep)
-			system_del_address(dev, addr);
-		free(addr);
+		if (!(a_old->flags & DEVADDR_EXTERNAL) && a_old->enabled && !keep)
+			system_del_address(dev, a_old);
+		free(a_old);
 	}
 
 	if (node_new) {
-		addr = container_of(node_new, struct device_addr, node);
-		if (!(addr->flags & DEVADDR_EXTERNAL) && !keep)
-			system_add_address(dev, addr);
-		addr->enabled = true;
+		if (!(a_new->flags & DEVADDR_EXTERNAL) && !keep)
+			system_add_address(dev, a_new);
+		a_new->enabled = true;
 	}
 }
 

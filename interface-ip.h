@@ -27,6 +27,9 @@ struct device_addr {
 	enum device_addr_flags flags;
 	bool enabled;
 
+	/* ipv4 only */
+	uint32_t broadcast;
+
 	/* must be last */
 	unsigned int mask;
 	union if_addr addr;
