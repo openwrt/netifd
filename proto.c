@@ -19,6 +19,7 @@ enum {
 	OPT_GATEWAY,
 	OPT_IP6GW,
 	OPT_DNS,
+	OPT_DNS_SEARCH,
 	__OPT_MAX,
 };
 
@@ -29,6 +30,7 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
 	[OPT_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
+	[OPT_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static const union config_param_info proto_ip_attr_info[__OPT_MAX] = {
@@ -223,6 +225,9 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 
 	if (tb[OPT_DNS])
 		interface_add_dns_server_list(&iface->proto_ip, tb[OPT_DNS]);
+
+	if (tb[OPT_DNS_SEARCH])
+		interface_add_dns_search_list(&iface->proto_ip, tb[OPT_DNS_SEARCH]);
 
 	return 0;
 

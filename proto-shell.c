@@ -234,7 +234,6 @@ enum {
 	NOTIFY_ADDR_EXT,
 	NOTIFY_ROUTES,
 	NOTIFY_ROUTES6,
-	NOTIFY_DNS_SEARCH,
 	__NOTIFY_LAST
 };
 
@@ -250,13 +249,11 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_ROUTES] = { .name = "routes", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ROUTES6] = { .name = "routes6", .type = BLOBMSG_TYPE_ARRAY },
-	[NOTIFY_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static int
 proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data, struct blob_attr **tb)
 {
-	struct interface_ip_settings *ip;
 	struct interface *iface = state->proto.iface;
 	struct blob_attr *cur;
 	int dev_create = 1;
@@ -291,7 +288,6 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		device_claim(&state->l3_dev);
 	}
 
-	ip = &iface->proto_ip;
 	interface_update_start(iface);
 	proto_apply_ip_settings(iface, data, addr_ext);
 
@@ -300,9 +296,6 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 
 	if ((cur = tb[NOTIFY_ROUTES6]) != NULL)
 		proto_shell_parse_route_list(state->proto.iface, cur, true);
-
-	if ((cur = tb[NOTIFY_DNS_SEARCH]) != NULL)
-		interface_add_dns_search_list(ip, cur);
 
 	interface_update_complete(state->proto.iface);
 
