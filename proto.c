@@ -193,6 +193,7 @@ int
 proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ext)
 {
 	struct blob_attr *tb[__OPT_MAX];
+	struct blob_attr *cur;
 	const char *error;
 	unsigned int netmask = 32;
 	int n_v4 = 0, n_v6 = 0;
@@ -200,27 +201,27 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 
 	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
 
-	if (tb[OPT_NETMASK]) {
-		netmask = parse_netmask_string(blobmsg_data(tb[OPT_NETMASK]), false);
+	if ((cur = tb[OPT_NETMASK])) {
+		netmask = parse_netmask_string(blobmsg_data(cur), false);
 		if (netmask > 32) {
 			error = "INVALID_NETMASK";
 			goto error;
 		}
 	}
 
-	if (tb[OPT_BROADCAST]) {
-		if (!inet_pton(AF_INET, blobmsg_data(tb[OPT_BROADCAST]), &bcast)) {
+	if ((cur = tb[OPT_BROADCAST])) {
+		if (!inet_pton(AF_INET, blobmsg_data(cur), &bcast)) {
 			error = "INVALID_BROADCAST";
 			goto error;
 		}
 	}
 
-	if (tb[OPT_IPADDR])
-		n_v4 = parse_address_option(iface, tb[OPT_IPADDR], false,
+	if ((cur = tb[OPT_IPADDR]))
+		n_v4 = parse_address_option(iface, cur, false,
 			netmask, ext, bcast.s_addr);
 
-	if (tb[OPT_IP6ADDR])
-		n_v6 = parse_address_option(iface, tb[OPT_IP6ADDR], true,
+	if ((cur = tb[OPT_IP6ADDR]))
+		n_v6 = parse_address_option(iface, cur, true,
 			netmask, ext, 0);
 
 	if (!n_v4 && !n_v6) {
@@ -231,21 +232,21 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 	if (n_v4 < 0 || n_v6 < 0)
 		goto out;
 
-	if (n_v4 && tb[OPT_GATEWAY]) {
-		if (!parse_gateway_option(iface, tb[OPT_GATEWAY], false))
+	if ((cur = tb[OPT_GATEWAY])) {
+		if (n_v4 && !parse_gateway_option(iface, cur, false))
 			goto out;
 	}
 
-	if (n_v6 && tb[OPT_IP6GW]) {
-		if (!parse_gateway_option(iface, tb[OPT_IP6GW], true))
+	if ((cur = tb[OPT_IP6GW])) {
+		if (n_v6 && !parse_gateway_option(iface, cur, true))
 			goto out;
 	}
 
-	if (tb[OPT_DNS])
-		interface_add_dns_server_list(&iface->proto_ip, tb[OPT_DNS]);
+	if ((cur = tb[OPT_DNS]))
+		interface_add_dns_server_list(&iface->proto_ip, cur);
 
-	if (tb[OPT_DNS_SEARCH])
-		interface_add_dns_search_list(&iface->proto_ip, tb[OPT_DNS_SEARCH]);
+	if ((cur = tb[OPT_DNS_SEARCH]))
+		interface_add_dns_search_list(&iface->proto_ip, cur);
 
 	return 0;
 
