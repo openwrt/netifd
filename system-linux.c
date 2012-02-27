@@ -10,6 +10,7 @@
 #include <linux/if_vlan.h>
 #include <linux/if_bridge.h>
 #include <linux/ethtool.h>
+#include <net/if_arp.h>
 
 #include <unistd.h>
 #include <string.h>
@@ -588,7 +589,7 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	}
 
 	if (ioctl(sock_ioctl, SIOCGIFHWADDR, &ifr) == 0) {
-		memcpy(s->macaddr, &ifr.ifr_hwaddr, sizeof(s->macaddr));
+		memcpy(s->macaddr, &ifr.ifr_hwaddr.sa_data, sizeof(s->macaddr));
 		s->flags |= DEV_OPT_MACADDR;
 	}
 }
@@ -611,7 +612,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s)
 			s->flags &= ~DEV_OPT_TXQUEUELEN;
 	}
 	if (s->flags & DEV_OPT_MACADDR) {
-		memcpy(&ifr.ifr_hwaddr, s->macaddr, sizeof(s->macaddr));
+		ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+		memcpy(&ifr.ifr_hwaddr.sa_data, s->macaddr, sizeof(s->macaddr));
 		if (ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr) < 0)
 			s->flags &= ~DEV_OPT_MACADDR;
 	}
@@ -628,6 +630,7 @@ int system_if_up(struct device *dev)
 int system_if_down(struct device *dev)
 {
 	int ret = system_if_flags(dev->ifname, 0, IFF_UP);
+	dev->orig_settings.flags &= dev->settings.flags;
 	system_if_apply_settings(dev, &dev->orig_settings);
 	return ret;
 }
