@@ -214,7 +214,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	}
 
 	if ((cur = tb[DEV_ATTR_MACADDR])) {
-		ea = ether_aton(blob_data(cur));
+		ea = ether_aton(blobmsg_data(cur));
 		if (ea) {
 			memcpy(s->macaddr, ea, 6);
 			s->flags |= DEV_OPT_MACADDR;
