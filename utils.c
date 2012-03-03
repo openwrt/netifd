@@ -9,10 +9,8 @@ avl_strcmp(const void *k1, const void *k2, void *ptr)
 }
 
 void
-__vlist_init(struct vlist_tree *tree, avl_tree_comp cmp,
-	     vlist_update_cb update, int offset)
+vlist_init(struct vlist_tree *tree, avl_tree_comp cmp, vlist_update_cb update)
 {
-	tree->key_offset = offset;
 	tree->update = update;
 	tree->version = 1;
 
@@ -28,11 +26,10 @@ vlist_delete(struct vlist_tree *tree, struct vlist_node *node)
 }
 
 void
-vlist_add(struct vlist_tree *tree, struct vlist_node *node)
+vlist_add(struct vlist_tree *tree, struct vlist_node *node, void *key)
 {
 	struct vlist_node *old_node = NULL;
 	struct avl_node *anode;
-	void *key = (char *) node + tree->key_offset;
 
 	node->avl.key = key;
 	node->version = tree->version;

@@ -95,7 +95,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_MTU]) != NULL)
 		route->mtu = blobmsg_get_u32(cur);
 
-	vlist_add(&ip->route, &route->node);
+	vlist_add(&ip->route, &route->node, &route->mask);
 	return;
 
 error:
@@ -420,8 +420,6 @@ interface_ip_init(struct interface_ip_settings *ip, struct interface *iface)
 	ip->enabled = true;
 	vlist_simple_init(&ip->dns_search, struct dns_search_domain, node);
 	vlist_simple_init(&ip->dns_servers, struct dns_server, node);
-	vlist_init(&ip->route, route_cmp, interface_update_proto_route,
-		   struct device_route, node, mask);
-	vlist_init(&ip->addr, addr_cmp, interface_update_proto_addr,
-		   struct device_addr, node, mask);
+	vlist_init(&ip->route, route_cmp, interface_update_proto_route);
+	vlist_init(&ip->addr, addr_cmp, interface_update_proto_addr);
 }

@@ -349,7 +349,7 @@ interface_add(struct interface *iface, struct blob_attr *config)
 		iface->ifname = blobmsg_data(cur);
 
 	iface->config = config;
-	vlist_add(&interfaces, &iface->node);
+	vlist_add(&interfaces, &iface->node, iface->name);
 }
 
 int
@@ -553,8 +553,7 @@ interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
 static void __init
 interface_init_list(void)
 {
-	vlist_init(&interfaces, avl_strcmp, interface_update,
-		   struct interface, node, name);
+	vlist_init(&interfaces, avl_strcmp, interface_update);
 	interfaces.keep_old = true;
 	interfaces.no_delete = true;
 }
