@@ -5,6 +5,17 @@
 #include <libubox/avl.h>
 #include <libubox/blobmsg.h>
 
+#ifndef __OPTIMIZE__
+#define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
+#else
+extern int __build_bug_on_failed;
+#define BUILD_BUG_ON(condition)				 \
+	do {							\
+		((void)sizeof(char[1 - 2*!!(condition)]));  \
+		if (condition) __build_bug_on_failed = 1;   \
+	} while(0)
+#endif
+
 static inline bool blobmsg_get_bool_default(struct blob_attr *attr, bool val)
 {
 	if (!attr)
