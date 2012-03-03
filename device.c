@@ -554,7 +554,7 @@ device_reload_config(struct device *dev, struct blob_attr *attr)
 				blob_data(attr), blob_len(attr));
 
 		device_init_settings(dev, tb);
-		return DEV_CONFIG_APPLIED;
+		return DEV_CONFIG_RESTART;
 	} else
 		return DEV_CONFIG_RECREATE;
 }
@@ -634,11 +634,12 @@ device_create(const char *name, const struct device_type *type,
 		odev->current_config = true;
 		change = device_set_config(odev, type, config);
 		switch (change) {
+		case DEV_CONFIG_RESTART:
 		case DEV_CONFIG_APPLIED:
 			D(DEVICE, "Device '%s': config applied\n", odev->ifname);
 			free(odev->config);
 			odev->config = config;
-			if (odev->present) {
+			if (change == DEV_CONFIG_RESTART && odev->present) {
 				device_set_present(odev, false);
 				device_set_present(odev, true);
 			}

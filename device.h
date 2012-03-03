@@ -23,6 +23,7 @@ enum {
 enum dev_change_type {
 	DEV_CONFIG_NO_CHANGE,
 	DEV_CONFIG_APPLIED,
+	DEV_CONFIG_RESTART,
 	DEV_CONFIG_RECREATE,
 };
 
