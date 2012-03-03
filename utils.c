@@ -57,7 +57,8 @@ vlist_flush(struct vlist_tree *tree)
 	struct vlist_node *node, *tmp;
 
 	avl_for_each_element_safe(&tree->avl, node, avl, tmp) {
-		if (node->version == tree->version)
+		if ((node->version == tree->version || node->version == -1) &&
+		    tree->version != -1)
 			continue;
 
 		vlist_delete(tree, node);
@@ -67,7 +68,7 @@ vlist_flush(struct vlist_tree *tree)
 void
 vlist_flush_all(struct vlist_tree *tree)
 {
-	tree->version++;
+	tree->version = -1;
 	vlist_flush(tree);
 }
 
@@ -96,7 +97,8 @@ vlist_simple_flush(struct vlist_simple_tree *tree)
 	struct vlist_simple_node *n, *tmp;
 
 	list_for_each_entry_safe(n, tmp, &tree->list, list) {
-		if (n->version == tree->version)
+		if ((n->version == tree->version || n->version == -1) &&
+		    tree->version != -1)
 			continue;
 
 		vlist_simple_delete(tree, n);
@@ -106,6 +108,6 @@ vlist_simple_flush(struct vlist_simple_tree *tree)
 void
 vlist_simple_flush_all(struct vlist_simple_tree *tree)
 {
-	tree->version++;
+	tree->version = -1;
 	vlist_simple_flush(tree);
 }
