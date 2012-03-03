@@ -351,17 +351,22 @@ interface_add(struct interface *iface, struct blob_attr *config)
 	vlist_add(&interfaces, &iface->node);
 }
 
-void
+int
 interface_remove_link(struct interface *iface, struct device *dev)
 {
 	struct device *mdev = iface->main_dev.dev;
 
-	if (mdev && mdev->hotplug_ops) {
-		mdev->hotplug_ops->del(mdev, dev);
-		return;
-	}
+	if (mdev && mdev->hotplug_ops)
+		return mdev->hotplug_ops->del(mdev, dev);
+
+	if (!iface->main_dev.hotplug)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	if (dev != iface->main_dev.dev)
+		return UBUS_STATUS_INVALID_ARGUMENT;
 
 	device_remove_user(&iface->main_dev);
+	return 0;
 }
 
 int
@@ -369,14 +374,21 @@ interface_add_link(struct interface *iface, struct device *dev)
 {
 	struct device *mdev = iface->main_dev.dev;
 
-	if (mdev && mdev->hotplug_ops)
-		return mdev->hotplug_ops->add(mdev, dev);
+	if (mdev == dev)
+		return 0;
 
-	if (iface->main_dev.dev)
-		interface_remove_link(iface, NULL);
+	if (iface->main_dev.hotplug)
+		device_remove_user(&iface->main_dev);
+
+	if (mdev) {
+		if (mdev->hotplug_ops)
+			return mdev->hotplug_ops->add(mdev, dev);
+		else
+			return UBUS_STATUS_NOT_SUPPORTED;
+	}
 
 	device_add_user(&iface->main_dev, dev);
-
+	iface->main_dev.hotplug = true;
 	return 0;
 }
 

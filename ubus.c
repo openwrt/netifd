@@ -269,11 +269,10 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 			   struct ubus_request_data *req, const char *method,
 			   struct blob_attr *msg)
 {
-	struct interface *iface;
-	struct device *dev, *main_dev = NULL;
 	struct blob_attr *tb[__DEV_MAX];
+	struct interface *iface;
+	struct device *dev;
 	bool add = !strncmp(method, "add", 3);
-	const char *devname;
 	int ret;
 
 	iface = container_of(obj, struct interface, ubus);
@@ -283,57 +282,17 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!tb[DEV_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	devname = blobmsg_data(tb[DEV_NAME]);
-
 	device_lock();
 
-	if (iface->main_dev.hotplug) {
-		dev = iface->main_dev.dev;
-
-		if (dev) {
-			if (!add && strcmp(dev->ifname, devname) != 0) {
-				ret = UBUS_STATUS_INVALID_ARGUMENT;
-				goto out;
-			}
-
-			interface_set_available(iface, false);
-			device_remove_user(&iface->main_dev);
-		}
-	} else
-		main_dev = iface->main_dev.dev;
-
 	dev = device_get(blobmsg_data(tb[DEV_NAME]), add ? 2 : 0);
-	if (!dev && (main_dev || add)) {
-		ret = UBUS_STATUS_NOT_FOUND;
-		goto out;
-	}
+	if (add && !dev)
+		return UBUS_STATUS_NOT_FOUND;
 
-	if (!main_dev) {
-		if (add) {
-			device_add_user(&iface->main_dev, dev);
-			iface->main_dev.hotplug = true;
-		}
-		ret = 0;
-		goto out;
-	}
+	if (add)
+		return interface_add_link(iface, dev);
+	else
+		return interface_remove_link(iface, dev);
 
-	if (!main_dev->hotplug_ops) {
-		ret = UBUS_STATUS_NOT_SUPPORTED;
-		goto out;
-	}
-
-	if (main_dev != dev) {
-		if (add)
-			ret = main_dev->hotplug_ops->add(main_dev, dev);
-		else
-			ret = main_dev->hotplug_ops->del(main_dev, dev);
-		if (ret)
-			ret = UBUS_STATUS_UNKNOWN_ERROR;
-	} else {
-		ret = UBUS_STATUS_INVALID_ARGUMENT;
-	}
-
-out:
 	device_unlock();
 
 	return ret;
