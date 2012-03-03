@@ -195,7 +195,7 @@ interface_claim_device(struct interface *iface)
 
 
 static void
-interface_cleanup(struct interface *iface)
+interface_cleanup(struct interface *iface, bool reload)
 {
 	struct interface_user *dep, *tmp;
 
@@ -205,7 +205,8 @@ interface_cleanup(struct interface *iface)
 	interface_ip_flush(&iface->config_ip);
 	interface_flush_state(iface);
 	interface_clear_errors(iface);
-	if (iface->main_dev.dev)
+	if (iface->main_dev.dev &&
+	    (!reload || !iface->main_dev.hotplug))
 		device_remove_user(&iface->main_dev);
 	iface->l3_dev = &iface->main_dev;
 	interface_set_proto_state(iface, NULL);
@@ -214,7 +215,7 @@ interface_cleanup(struct interface *iface)
 static void
 interface_do_free(struct interface *iface)
 {
-	interface_cleanup(iface);
+	interface_cleanup(iface, false);
 	free(iface->config);
 	netifd_ubus_remove_interface(iface);
 	avl_delete(&interfaces.avl, &iface->node.avl);
@@ -224,7 +225,7 @@ interface_do_free(struct interface *iface)
 static void
 interface_do_reload(struct interface *iface)
 {
-	interface_cleanup(iface);
+	interface_cleanup(iface, true);
 	proto_init_interface(iface, iface->config);
 	interface_claim_device(iface);
 }
