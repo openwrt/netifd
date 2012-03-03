@@ -67,18 +67,16 @@ struct bridge_state {
 	bool active;
 	bool force_active;
 
-	struct list_head members;
+	struct vlist_tree members;
 	int n_present;
 };
 
 struct bridge_member {
-	struct list_head list;
+	struct vlist_node node;
 	struct bridge_state *bst;
 	struct device_user dev;
 	bool present;
 };
-
-static void bridge_free_member(struct bridge_member *bm);
 
 static int
 bridge_disable_member(struct bridge_member *bm)
@@ -161,7 +159,7 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 			return;
 
 		if (dev->hotplug)
-			bridge_free_member(bm);
+			vlist_delete(&bst->members, &bm->node);
 		else
 			bridge_remove_member(bm);
 
@@ -178,7 +176,7 @@ bridge_set_down(struct bridge_state *bst)
 
 	bst->set_state(&bst->dev, false);
 
-	list_for_each_entry(bm, &bst->members, list)
+	vlist_for_each_element(&bst->members, bm, node)
 		bridge_disable_member(bm);
 
 	system_bridge_delbr(&bst->dev);
@@ -199,7 +197,7 @@ bridge_set_up(struct bridge_state *bst)
 	if (ret < 0)
 		goto out;
 
-	list_for_each_entry(bm, &bst->members, list)
+	vlist_for_each_element(&bst->members, bm, node)
 		bridge_enable_member(bm);
 
 	if (!bst->force_active && !bst->n_present) {
@@ -234,12 +232,15 @@ static struct bridge_member *
 bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 {
 	struct bridge_member *bm;
+	char *name;
 
-	bm = calloc(1, sizeof(*bm));
+	bm = calloc(1, sizeof(*bm) + strlen(dev->ifname) + 1);
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
 	bm->dev.hotplug = hotplug;
-	list_add_tail(&bm->list, &bst->members);
+	name = (char *) (bm + 1);
+	strcpy(name, dev->ifname);
+	vlist_add(&bst->members, &bm->node, name);
 
 	device_add_user(&bm->dev, dev);
 
@@ -247,13 +248,26 @@ bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 }
 
 static void
-bridge_free_member(struct bridge_member *bm)
+bridge_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
+		     struct vlist_node *node_old)
 {
-	bridge_remove_member(bm);
-	device_remove_user(&bm->dev);
-	list_del(&bm->list);
-	free(bm);
+	struct bridge_member *bm;
+
+	if (node_new && node_old)
+		return;
+
+	if (node_old) {
+		bm = container_of(node_old, struct bridge_member, node);
+		bridge_remove_member(bm);
+		device_remove_user(&bm->dev);
+		free(bm);
+	}
+
+	if (node_new) {
+		bm = container_of(node_new, struct bridge_member, node);
+	}
 }
+
 
 static void
 bridge_add_member(struct bridge_state *bst, const char *name)
@@ -283,15 +297,12 @@ bridge_hotplug_del(struct device *dev, struct device *member)
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
 	struct bridge_member *bm;
 
-	list_for_each_entry(bm, &bst->members, list) {
-		if (bm->dev.dev != member)
-			continue;
+	bm = vlist_find(&bst->members, member->ifname, bm, node);
+	if (!bm)
+		return UBUS_STATUS_NOT_FOUND;
 
-		bridge_free_member(bm);
-		return 0;
-	}
-
-	return UBUS_STATUS_NOT_FOUND;
+	vlist_delete(&bst->members, &bm->node);
+	return 0;
 }
 
 static int
@@ -316,14 +327,10 @@ static void
 bridge_free(struct device *dev)
 {
 	struct bridge_state *bst;
-	struct bridge_member *bm;
 
 	device_cleanup(dev);
 	bst = container_of(dev, struct bridge_state, dev);
-	while (!list_empty(&bst->members)) {
-		bm = list_first_entry(&bst->members, struct bridge_member, list);
-		bridge_free_member(bm);
-	}
+	vlist_flush_all(&bst->members);
 	free(bst);
 }
 
@@ -338,9 +345,10 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 
 	system_if_dump_info(dev, b);
 	list = blobmsg_open_array(b, "bridge-members");
-	list_for_each_entry(bm, &bst->members, list) {
+
+	vlist_for_each_element(&bst->members, bm, node)
 		blobmsg_add_string(b, NULL, bm->dev.dev->ifname);
-	}
+
 	blobmsg_close_array(b, list);
 }
 
@@ -426,7 +434,7 @@ bridge_create(const char *name, struct blob_attr *attr)
 
 	dev->hotplug_ops = &bridge_ops;
 
-	INIT_LIST_HEAD(&bst->members);
+	vlist_init(&bst->members, avl_strcmp, bridge_member_update);
 
 	return dev;
 }
