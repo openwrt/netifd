@@ -76,6 +76,7 @@ struct bridge_member {
 	struct bridge_state *bst;
 	struct device_user dev;
 	bool present;
+	char name[];
 };
 
 static int
@@ -232,17 +233,14 @@ static struct bridge_member *
 bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 {
 	struct bridge_member *bm;
-	char *name;
 
 	bm = calloc(1, sizeof(*bm) + strlen(dev->ifname) + 1);
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
 	bm->dev.hotplug = hotplug;
-	name = (char *) (bm + 1);
-	strcpy(name, dev->ifname);
-	vlist_add(&bst->members, &bm->node, name);
-
-	device_add_user(&bm->dev, dev);
+	strcpy(bm->name, dev->ifname);
+	bm->dev.dev = dev;
+	vlist_add(&bst->members, &bm->node, bm->name);
 
 	return bm;
 }
@@ -252,9 +250,21 @@ bridge_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		     struct vlist_node *node_old)
 {
 	struct bridge_member *bm;
+	struct device *dev;
 
-	if (node_new && node_old)
-		return;
+	if (node_new) {
+		bm = container_of(node_new, struct bridge_member, node);
+
+		if (node_old) {
+			free(bm);
+			return;
+		}
+
+		dev = bm->dev.dev;
+		bm->dev.dev = NULL;
+		device_add_user(&bm->dev, dev);
+	}
+
 
 	if (node_old) {
 		bm = container_of(node_old, struct bridge_member, node);
@@ -431,6 +441,7 @@ bridge_create(const char *name, struct blob_attr *attr)
 	dev->hotplug_ops = &bridge_ops;
 
 	vlist_init(&bst->members, avl_strcmp, bridge_member_update);
+	bst->members.keep_old = true;
 
 	return dev;
 }
