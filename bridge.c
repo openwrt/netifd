@@ -262,10 +262,6 @@ bridge_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		device_remove_user(&bm->dev);
 		free(bm);
 	}
-
-	if (node_new) {
-		bm = container_of(node_new, struct bridge_member, node);
-	}
 }
 
 
