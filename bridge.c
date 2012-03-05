@@ -107,8 +107,10 @@ bridge_enable_member(struct bridge_member *bm)
 		goto error;
 
 	ret = system_bridge_addif(&bst->dev, bm->dev.dev);
-	if (ret < 0)
+	if (ret < 0) {
+		D(DEVICE, "Bridge device %s could not be added\n", bm->dev.dev->ifname);
 		goto error;
+	}
 
 	return 0;
 
