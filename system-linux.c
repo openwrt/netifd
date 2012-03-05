@@ -39,6 +39,8 @@ static struct nl_sock *sock_rtnl = NULL;
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
 
+static char dev_buf[256];
+
 static void
 handler_nl_event(struct uloop_fd *u, unsigned int events)
 {
@@ -132,10 +134,8 @@ static void system_set_sysctl(const char *path, const char *val)
 
 static void system_set_dev_sysctl(const char *path, const char *device, const char *val)
 {
-	static char buf[256];
-
-	snprintf(buf, sizeof(buf), path, val);
-	system_set_sysctl(buf, val);
+	snprintf(dev_buf, sizeof(dev_buf), path, val);
+	system_set_sysctl(dev_buf, val);
 }
 
 static void system_set_disable_ipv6(struct device *dev, const char *val)
@@ -258,18 +258,6 @@ static int system_bridge_if(const char *bridge, struct device *dev, int cmd, voi
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
 
-int system_bridge_addif(struct device *bridge, struct device *dev)
-{
-	system_set_disable_ipv6(dev, "1");
-	return system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
-}
-
-int system_bridge_delif(struct device *bridge, struct device *dev)
-{
-	system_set_disable_ipv6(dev, "0");
-	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
-}
-
 static bool system_is_bridge(const char *name, char *buf, int buflen)
 {
 	struct stat st;
@@ -304,6 +292,24 @@ static char *system_get_bridge(const char *name, char *buf, int buflen)
 		return NULL;
 
 	return path + 1;
+}
+
+int system_bridge_addif(struct device *bridge, struct device *dev)
+{
+	char *oldbr;
+
+	system_set_disable_ipv6(dev, "1");
+	oldbr = system_get_bridge(dev->ifname, dev_buf, sizeof(dev_buf));
+	if (oldbr && !strcmp(oldbr, bridge->ifname))
+		return 0;
+
+	return system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
+}
+
+int system_bridge_delif(struct device *bridge, struct device *dev)
+{
+	system_set_disable_ipv6(dev, "0");
+	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
 static int system_if_resolve(struct device *dev)
