@@ -394,7 +394,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 
 	/* defaults */
 	cfg->stp = true;
-	cfg->forward_delay = 1;
+	cfg->forward_delay = 2;
 	cfg->igmp_snoop = true;
 
 	if ((cur = tb[BRIDGE_ATTR_STP]))
