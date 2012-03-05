@@ -132,10 +132,11 @@ bridge_remove_member(struct bridge_member *bm)
 	if (!bm->present)
 		return;
 
-	bm->present = false;
-	bm->bst->n_present--;
 	if (bst->dev.active)
 		bridge_disable_member(bm);
+
+	bm->present = false;
+	bm->bst->n_present--;
 
 	bst->force_active = false;
 	if (bst->n_present == 0)
