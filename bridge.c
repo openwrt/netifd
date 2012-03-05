@@ -47,6 +47,8 @@ static struct device *bridge_create(const char *name, struct blob_attr *attr);
 static void bridge_config_init(struct device *dev);
 static void bridge_free(struct device *dev);
 static void bridge_dump_info(struct device *dev, struct blob_buf *b);
+enum dev_change_type
+bridge_reload(struct device *dev, struct blob_attr *attr);
 
 const struct device_type bridge_device_type = {
 	.name = "Bridge",
@@ -54,6 +56,7 @@ const struct device_type bridge_device_type = {
 
 	.create = bridge_create,
 	.config_init = bridge_config_init,
+	.reload = bridge_reload,
 	.free = bridge_free,
 	.dump_info = bridge_dump_info,
 };
@@ -62,6 +65,7 @@ struct bridge_state {
 	struct device dev;
 	device_state_cb set_state;
 
+	struct blob_attr *config_data;
 	struct bridge_config config;
 	struct blob_attr *ifnames;
 	bool active;
@@ -243,6 +247,8 @@ bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 	strcpy(bm->name, dev->ifname);
 	bm->dev.dev = dev;
 	vlist_add(&bst->members, &bm->node, bm->name);
+	if (hotplug)
+		bm->node.version = -1;
 
 	return bm;
 }
@@ -372,9 +378,11 @@ bridge_config_init(struct device *dev)
 	if (!bst->ifnames)
 		return;
 
+	vlist_update(&bst->members);
 	blobmsg_for_each_attr(cur, bst->ifnames, rem) {
 		bridge_add_member(bst, blobmsg_data(cur));
 	}
+	vlist_flush(&bst->members);
 }
 
 static void
@@ -413,18 +421,61 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	}
 }
 
-static struct device *
-bridge_create(const char *name, struct blob_attr *attr)
+enum dev_change_type
+bridge_reload(struct device *dev, struct blob_attr *attr)
 {
 	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_br[__BRIDGE_ATTR_MAX];
+	enum dev_change_type ret = DEV_CONFIG_APPLIED;
+	unsigned long diff;
 	struct bridge_state *bst;
-	struct device *dev = NULL;
+
+	BUILD_BUG_ON(sizeof(diff) < __BRIDGE_ATTR_MAX / 8);
+	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / 8);
+
+	bst = container_of(dev, struct bridge_state, dev);
 
 	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
 		blob_data(attr), blob_len(attr));
 	blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, tb_br,
 		blob_data(attr), blob_len(attr));
+
+	bst->ifnames = tb_br[BRIDGE_ATTR_IFNAME];
+	device_init_settings(dev, tb_dev);
+	bridge_apply_settings(bst, tb_br);
+
+	if (bst->config_data) {
+		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
+		struct blob_attr *otb_br[__BRIDGE_ATTR_MAX];
+
+		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
+			blob_data(bst->config_data), blob_len(bst->config_data));
+
+		diff = 0;
+		config_diff(tb_dev, otb_dev, &device_attr_list, &diff);
+		if (diff & ~(1 << DEV_ATTR_IFNAME))
+		    ret = DEV_CONFIG_RESTART;
+
+		blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br,
+			blob_data(bst->config_data), blob_len(bst->config_data));
+
+		diff = 0;
+		config_diff(tb_br, otb_br, &bridge_attr_list, &diff);
+		if (diff & ~(1 << BRIDGE_ATTR_IFNAME))
+		    ret = DEV_CONFIG_RESTART;
+
+		bridge_config_init(dev);
+	}
+
+	bst->config_data = attr;
+	return ret;
+}
+
+static struct device *
+bridge_create(const char *name, struct blob_attr *attr)
+{
+	struct bridge_state *bst;
+	struct device *dev = NULL;
 
 	bst = calloc(1, sizeof(*bst));
 	if (!bst)
@@ -432,10 +483,7 @@ bridge_create(const char *name, struct blob_attr *attr)
 
 	dev = &bst->dev;
 	device_init(dev, &bridge_device_type, name);
-	device_init_settings(dev, tb_dev);
 	dev->config_pending = true;
-	bst->ifnames = tb_br[BRIDGE_ATTR_IFNAME];
-	bridge_apply_settings(bst, tb_br);
 
 	bst->set_state = dev->set_state;
 	dev->set_state = bridge_set_state;
@@ -444,6 +492,7 @@ bridge_create(const char *name, struct blob_attr *attr)
 
 	vlist_init(&bst->members, avl_strcmp, bridge_member_update);
 	bst->members.keep_old = true;
+	bridge_reload(dev, attr);
 
 	return dev;
 }
