@@ -159,6 +159,9 @@ int system_add_route(struct device *dev, struct device_route *route)
 	if (route->flags & DEVADDR_DEVICE)
 		sprintf(devstr, " dev %s", dev->ifname);
 
+	if (route->metric > 0)
+		sprintf(devstr, " metric %d", route->metric);
+
 	D(SYSTEM, "route add %s%s%s\n", addr, gw, devstr);
 	return 0;
 }
