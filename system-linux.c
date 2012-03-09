@@ -888,7 +888,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	if (route->mask)
 		nla_put(msg, RTA_DST, alen, &route->addr);
 
-	if (route->metric >= 0)
+	if (route->metric > 0)
 		nla_put_u32(msg, RTA_PRIORITY, route->metric);
 
 	if (have_gw)
