@@ -206,3 +206,13 @@ time_t system_get_rtime(void)
 
 	return 0;
 }
+
+int system_del_ip_tunnel(const char *name)
+{
+	return 0;
+}
+
+int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
+{
+	return 0;
+}

@@ -5,12 +5,19 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 
+#include <net/if.h>
+#include <net/if_arp.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
 #include <linux/rtnetlink.h>
 #include <linux/sockios.h>
+#include <linux/ip.h>
 #include <linux/if_vlan.h>
 #include <linux/if_bridge.h>
+#include <linux/if_tunnel.h>
 #include <linux/ethtool.h>
-#include <net/if_arp.h>
 
 #include <unistd.h>
 #include <string.h>
@@ -941,4 +948,88 @@ time_t system_get_rtime(void)
 		return tv.tv_sec;
 
 	return 0;
+}
+
+#ifndef IP_DF
+#define IP_DF       0x4000
+#endif
+
+static void tunnel_parm_init(struct ip_tunnel_parm *p)
+{
+	memset(p, 0, sizeof(*p));
+	p->iph.version = 4;
+	p->iph.ihl = 5;
+	p->iph.frag_off = htons(IP_DF);
+}
+
+static int tunnel_ioctl(const char *name, int cmd, void *p)
+{
+	struct ifreq ifr;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_ifru.ifru_data = p;
+	return ioctl(sock_ioctl, cmd, &ifr);
+}
+
+int system_del_ip_tunnel(const char *name)
+{
+	struct ip_tunnel_parm p;
+
+	tunnel_parm_init(&p);
+	return tunnel_ioctl(name, SIOCDELTUNNEL, &p);
+}
+
+static int parse_ipaddr(struct blob_attr *attr, __be32 *addr)
+{
+	if (!attr)
+		return 1;
+
+	return inet_pton(AF_INET, blobmsg_data(attr), (void *) addr);
+}
+
+
+int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
+{
+	struct blob_attr *tb[__TUNNEL_ATTR_MAX];
+	struct blob_attr *cur;
+	struct ip_tunnel_parm p;
+	const char *base, *str;
+	int cmd = SIOCADDTUNNEL;
+
+	system_del_ip_tunnel(name);
+
+	tunnel_parm_init(&p);
+
+	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
+		blob_data(attr), blob_len(attr));
+
+	cur = tb[TUNNEL_ATTR_TYPE];
+	if (!cur)
+		return -EINVAL;
+
+	str = blobmsg_data(cur);
+	if (!strcmp(str, "sit")) {
+		p.iph.protocol = IPPROTO_IPV6;
+		base = "sit0";
+	} else
+		return -EINVAL;
+
+	if (!parse_ipaddr(tb[TUNNEL_ATTR_LOCAL], &p.iph.saddr))
+		return -EINVAL;
+
+	if (!parse_ipaddr(tb[TUNNEL_ATTR_REMOTE], &p.iph.daddr))
+		return -EINVAL;
+
+	if ((cur = tb[TUNNEL_ATTR_TTL])) {
+		unsigned int val = blobmsg_get_u32(cur);
+
+		if (val > 255)
+			return -EINVAL;
+
+		p.iph.ttl = val;
+	}
+
+	strncpy(p.name, name, sizeof(p.name));
+	return tunnel_ioctl(base, cmd, &p);
 }

@@ -6,6 +6,16 @@
 #include "device.h"
 #include "interface-ip.h"
 
+enum tunnel_param {
+	TUNNEL_ATTR_TYPE,
+	TUNNEL_ATTR_REMOTE,
+	TUNNEL_ATTR_LOCAL,
+	TUNNEL_ATTR_TTL,
+	__TUNNEL_ATTR_MAX
+};
+
+const struct config_param_list tunnel_attr_list;
+
 enum bridge_opt {
 	/* stp and forward delay always set */
 	BRIDGE_OPT_AGEING_TIME = (1 << 0),
@@ -48,6 +58,9 @@ int system_del_address(struct device *dev, struct device_addr *addr);
 int system_add_route(struct device *dev, struct device_route *route);
 int system_del_route(struct device *dev, struct device_route *route);
 int system_flush_routes(void);
+
+int system_del_ip_tunnel(const char *name);
+int system_add_ip_tunnel(const char *name, struct blob_attr *attr);
 
 time_t system_get_rtime(void);
 
