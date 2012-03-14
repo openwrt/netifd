@@ -215,7 +215,7 @@ config_init_devices(void)
 
 	uci_foreach_element(&uci_network->sections, e) {
 		struct uci_section *s = uci_to_section(e);
-		const struct device_type *devtype;
+		const struct device_type *devtype = NULL;
 		const char *type, *name;
 
 		if (strcmp(s->type, "device") != 0)
@@ -226,9 +226,14 @@ config_init_devices(void)
 			continue;
 
 		type = uci_lookup_option_string(uci_ctx, s, "type");
-		if (type && !strcmp(type, "bridge"))
-			devtype = &bridge_device_type;
-		else
+		if (type) {
+			if (!strcmp(type, "bridge"))
+				devtype = &bridge_device_type;
+			else if (!strcmp(type, "tunnel"))
+				devtype = &tunnel_device_type;
+		}
+
+		if (!devtype)
 			devtype = &simple_device_type;
 
 		blob_buf_init(&b, 0);

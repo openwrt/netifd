@@ -126,6 +126,7 @@ struct device_hotplug_ops {
 extern const struct config_param_list device_attr_list;
 extern const struct device_type simple_device_type;
 extern const struct device_type bridge_device_type;
+extern const struct device_type tunnel_device_type;
 
 void device_lock(void);
 void device_unlock(void);
