@@ -64,6 +64,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if (!route)
 		return;
 
+	route->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
 	route->mask = v6 ? 128 : 32;
 	if ((cur = tb[ROUTE_MASK]) != NULL) {
 		route->mask = parse_netmask_string(blobmsg_data(cur), v6);
