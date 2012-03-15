@@ -44,6 +44,7 @@ proto_init_update() {
 	local external="$3"
 
 	PROTO_INIT=1
+	PROTO_TUNNEL_OPEN=
 	PROTO_IPADDR=
 	PROTO_IP6ADDR=
 	PROTO_ROUTE=
@@ -55,6 +56,19 @@ proto_init_update() {
 	[ -n "$ifname" -a "*" != "$ifname" ] && json_add_string "ifname" "$ifname"
 	json_add_boolean "link-up" "$up"
 	[ -n "$3" ] && json_add_boolean "address-external" "$external"
+}
+
+proto_add_tunnel() {
+	proto_close_tunnel
+
+	PROTO_TUNNEL_OPEN=1
+	json_add_object "tunnel"
+}
+
+proto_close_tunnel() {
+	[ -n "$PROTO_TUNNEL_OPEN" ] || return
+	json_close_object
+	PROTO_TUNNEL_OPEN=
 }
 
 proto_add_dns_server() {
@@ -138,6 +152,7 @@ _proto_notify() {
 proto_send_update() {
 	local interface="$1"
 
+	proto_close_tunnel
 	_proto_push_array "ipaddr" "$PROTO_IPADDR" _proto_push_ip
 	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ip
 	_proto_push_array "routes" "$PROTO_ROUTE" _proto_push_route
