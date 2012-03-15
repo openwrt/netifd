@@ -127,7 +127,7 @@ _proto_push_route() {
 	json_add_object ""
 	json_add_string target "$target"
 	json_add_string netmask "$mask"
-	json_add_string gateway "$gw"
+	[ -n "$gw" ] && json_add_string gateway "$gw"
 	json_close_object
 }
 
