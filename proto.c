@@ -183,7 +183,7 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 	}
 
 	route->mask = 0;
-	route->flags = DEVADDR_DEVICE | (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
+	route->flags = (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
 	vlist_add(&iface->proto_ip.route, &route->node, &route->mask);
 
 	return true;

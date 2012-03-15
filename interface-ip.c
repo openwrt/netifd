@@ -83,8 +83,6 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 			DPRINTF("Failed to parse route gateway: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
-	} else {
-		route->flags |= DEVADDR_DEVICE;
 	}
 
 	if ((cur = tb[ROUTE_METRIC]) != NULL)

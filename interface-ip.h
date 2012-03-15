@@ -9,9 +9,6 @@ enum device_addr_flags {
 	DEVADDR_INET6		= (1 << 0),
 	DEVADDR_FAMILY		= DEVADDR_INET4 | DEVADDR_INET6,
 
-	/* device route (no gateway) */
-	DEVADDR_DEVICE		= (1 << 1),
-
 	/* externally added address */
 	DEVADDR_EXTERNAL	= (1 << 2),
 };

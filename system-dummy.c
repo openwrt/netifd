@@ -156,8 +156,7 @@ int system_add_route(struct device *dev, struct device_route *route)
 		sprintf(gw, " gw %d.%d.%d.%d",
 			a2[0], a2[1], a2[2], a2[3]);
 
-	if (route->flags & DEVADDR_DEVICE)
-		sprintf(devstr, " dev %s", dev->ifname);
+	sprintf(devstr, " dev %s", dev->ifname);
 
 	if (route->metric > 0)
 		sprintf(devstr, " metric %d", route->metric);
@@ -185,8 +184,7 @@ int system_del_route(struct device *dev, struct device_route *route)
 		sprintf(gw, " gw %d.%d.%d.%d",
 			a2[0], a2[1], a2[2], a2[3]);
 
-	if (route->flags & DEVADDR_DEVICE)
-		sprintf(devstr, " dev %s", dev->ifname);
+	sprintf(devstr, " dev %s", dev->ifname);
 
 	D(SYSTEM, "route del %s%s%s\n", addr, gw, devstr);
 	return 0;

@@ -901,8 +901,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	if (have_gw)
 		nla_put(msg, RTA_GATEWAY, alen, &route->nexthop);
 
-	if (route->flags & DEVADDR_DEVICE)
-		nla_put_u32(msg, RTA_OIF, ifindex);
+	nla_put_u32(msg, RTA_OIF, ifindex);
 
 	return system_rtnl_call(msg);
 }
