@@ -17,10 +17,8 @@ tunnel_set_state(struct device *dev, bool up)
 
 	if (up) {
 		ret = system_add_ip_tunnel(dev->ifname, tun->config);
-		if (ret != 0) {
-			perror("add_ip_tunnel");
+		if (ret != 0)
 			return ret;
-		}
 	}
 
 	ret = tun->set_state(dev, up);
