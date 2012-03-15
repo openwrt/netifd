@@ -222,6 +222,21 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 	}
 }
 
+static struct device *
+proto_shell_create_tunnel(const char *name, struct blob_attr *attr)
+{
+	struct device *dev;
+	struct blob_buf b;
+
+	memset(&b, 0, sizeof(b));
+	blob_buf_init(&b, 0);
+	blob_put(&b, 0, blobmsg_data(attr), blobmsg_data_len(attr));
+	dev = device_create(name, &tunnel_device_type, blob_data(b.head));
+	blob_buf_free(&b);
+
+	return dev;
+}
+
 enum {
 	NOTIFY_ACTION,
 	NOTIFY_ERROR,
@@ -234,6 +249,7 @@ enum {
 	NOTIFY_ADDR_EXT,
 	NOTIFY_ROUTES,
 	NOTIFY_ROUTES6,
+	NOTIFY_TUNNEL,
 	__NOTIFY_LAST
 };
 
@@ -249,6 +265,7 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ADDR_EXT] = { .name = "address-external", .type = BLOBMSG_TYPE_BOOL },
 	[NOTIFY_ROUTES] = { .name = "routes", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ROUTES6] = { .name = "routes6", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_TUNNEL] = { .name = "tunnel", .type = BLOBMSG_TYPE_TABLE },
 };
 
 static int
@@ -256,6 +273,8 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 {
 	struct interface *iface = state->proto.iface;
 	struct blob_attr *cur;
+	struct device *dev;
+	const char *devname;
 	int dev_create = 1;
 	bool addr_ext = false;
 	bool up;
@@ -282,8 +301,19 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		if (state->l3_dev.dev)
 			device_remove_user(&state->l3_dev);
 
-		device_add_user(&state->l3_dev,
-			device_get(blobmsg_data(tb[NOTIFY_IFNAME]), dev_create));
+		devname = blobmsg_data(tb[NOTIFY_IFNAME]);
+		if (tb[NOTIFY_TUNNEL]) {
+			dev = proto_shell_create_tunnel(devname,
+				tb[NOTIFY_TUNNEL]);
+			if (!dev)
+				return UBUS_STATUS_INVALID_ARGUMENT;
+		} else {
+			dev = device_get(devname, dev_create);
+			if (!dev)
+				return UBUS_STATUS_NOT_FOUND;
+		}
+
+		device_add_user(&state->l3_dev, dev);
 		iface->l3_dev = &state->l3_dev;
 		device_claim(&state->l3_dev);
 	}
