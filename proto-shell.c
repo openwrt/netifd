@@ -201,6 +201,8 @@ proto_shell_free(struct interface_proto_state *proto)
 	struct proto_shell_state *state;
 
 	state = container_of(proto, struct proto_shell_state, proto);
+	netifd_kill_process(&state->script_task);
+	netifd_kill_process(&state->proto_task);
 	free(state->config);
 	free(state);
 }
