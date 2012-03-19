@@ -79,6 +79,9 @@ proto_shell_handler(struct interface_proto_state *proto,
 		if (state->sm == S_TEARDOWN)
 			return 0;
 
+		if (state->l3_dev.dev)
+			device_remove_user(&state->l3_dev);
+
 		if (state->script_task.uloop.pending) {
 			if (state->sm != S_SETUP_ABORT) {
 				uloop_timeout_set(&state->teardown_timeout, 1000);
@@ -201,6 +204,8 @@ proto_shell_free(struct interface_proto_state *proto)
 	struct proto_shell_state *state;
 
 	state = container_of(proto, struct proto_shell_state, proto);
+	if (state->l3_dev.dev)
+		device_remove_user(&state->l3_dev);
 	netifd_kill_process(&state->script_task);
 	netifd_kill_process(&state->proto_task);
 	free(state->config);
