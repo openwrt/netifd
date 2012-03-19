@@ -377,9 +377,12 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		if (route->enabled == _enabled)
 			continue;
 
-		if (_enabled)
+		if (_enabled) {
+			if (!(route->flags & DEVROUTE_METRIC))
+				route->metric = ip->iface->metric;
+
 			system_add_route(dev, route);
-		else
+		} else
 			system_del_route(dev, route);
 		route->enabled = _enabled;
 	}

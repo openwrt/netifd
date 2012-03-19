@@ -18,6 +18,7 @@ enum {
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
 	IFACE_ATTR_DEFAULTROUTE,
+	IFACE_ATTR_METRIC,
 	IFACE_ATTR_MAX
 };
 
@@ -26,6 +27,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_DEFAULTROUTE] = { .name = "defaultroute", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct config_param_list interface_attr_list = {
@@ -516,10 +518,20 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		goto reload;
 	}
 
-	if (if_old->proto_ip.no_defaultroute != if_new->proto_ip.no_defaultroute) {
-		if_old->proto_ip.no_defaultroute = if_new->proto_ip.no_defaultroute;
-		interface_ip_set_enabled(&if_old->proto_ip, if_old->proto_ip.enabled);
+#define UPDATE(field) ({						\
+		bool __changed = (if_old->field != if_new->field);	\
+		if_old->field = if_new->field;				\
+		__changed;						\
+	})
+
+	if (UPDATE(metric) || UPDATE(proto_ip.no_defaultroute)) {
+		interface_ip_set_enabled(&if_old->config_ip, false);
+		interface_ip_set_enabled(&if_old->config_ip, if_new->config_ip.enabled);
+		interface_ip_set_enabled(&if_old->proto_ip, false);
+		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
 	}
+
+#undef UPDATE
 
 	goto out;
 

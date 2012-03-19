@@ -87,6 +87,8 @@ struct interface {
 	struct interface_ip_settings proto_ip;
 	struct interface_ip_settings config_ip;
 
+	int metric;
+
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
 

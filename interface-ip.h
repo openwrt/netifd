@@ -76,6 +76,6 @@ void interface_ip_update_start(struct interface_ip_settings *ip);
 void interface_ip_update_complete(struct interface_ip_settings *ip);
 void interface_ip_flush(struct interface_ip_settings *ip);
 void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled);
-
+void interface_ip_update_metric(struct interface_ip_settings *ip, int metric);
 
 #endif
