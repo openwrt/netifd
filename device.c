@@ -482,6 +482,7 @@ void
 device_free(struct device *dev)
 {
 	__devlock++;
+	free(dev->config);
 	dev->type->free(dev);
 	__devlock--;
 }

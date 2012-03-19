@@ -6,7 +6,6 @@
 struct tunnel {
 	struct device dev;
 	device_state_cb set_state;
-	struct blob_attr *config;
 };
 
 static int
@@ -16,7 +15,7 @@ tunnel_set_state(struct device *dev, bool up)
 	int ret;
 
 	if (up) {
-		ret = system_add_ip_tunnel(dev->ifname, tun->config);
+		ret = system_add_ip_tunnel(dev->ifname, dev->config);
 		if (ret != 0)
 			return ret;
 	}
@@ -36,7 +35,6 @@ tunnel_create(const char *name, struct blob_attr *attr)
 
 	tun = calloc(1, sizeof(*tun));
 	dev = &tun->dev;
-	tun->config = config_memdup(attr);
 	device_init(dev, &tunnel_device_type, name);
 	tun->set_state = dev->set_state;
 	dev->set_state = tunnel_set_state;
