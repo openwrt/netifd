@@ -343,7 +343,6 @@ bridge_free(struct device *dev)
 {
 	struct bridge_state *bst;
 
-	device_cleanup(dev);
 	bst = container_of(dev, struct bridge_state, dev);
 	vlist_flush_all(&bst->members);
 	free(bst);

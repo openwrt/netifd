@@ -112,7 +112,6 @@ static void simple_device_free(struct device *dev)
 {
 	if (dev->parent.dev)
 		device_remove_user(&dev->parent);
-	device_cleanup(dev);
 	free(dev);
 }
 
@@ -161,8 +160,6 @@ alias_device_create(const char *name, struct blob_attr *attr)
 static void alias_device_free(struct device *dev)
 {
 	struct alias_device *alias;
-
-	device_cleanup(dev);
 
 	alias = container_of(dev, struct alias_device, dev);
 	avl_delete(&aliases, &alias->avl);
@@ -483,6 +480,7 @@ device_free(struct device *dev)
 {
 	__devlock++;
 	free(dev->config);
+	device_cleanup(dev);
 	dev->type->free(dev);
 	__devlock--;
 }
