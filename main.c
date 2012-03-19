@@ -116,7 +116,7 @@ retry:
 	}
 
 	if (buf > proc->log_buf && len > 0)
-		memmove(buf, proc->log_buf, len);
+		memmove(proc->log_buf, buf, len);
 
 	if (len == LOG_BUF_SIZE) {
 		if (!proc->log_overflow) {
