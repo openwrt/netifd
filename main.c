@@ -73,7 +73,7 @@ netifd_process_log_cb(struct uloop_fd *fd, unsigned int events)
 {
 	struct netifd_process *proc;
 	const char *log_prefix;
-	char *buf, *start, *cur;
+	char *buf, *cur;
 	int maxlen, len, read_len;
 
 	proc = container_of(fd, struct netifd_process, log_uloop);
@@ -99,10 +99,10 @@ retry:
 
 	proc->log_buf_ofs += len;
 
-	cur = buf;
-	start = proc->log_buf;
+	len = proc->log_buf_ofs;
+	buf = proc->log_buf;
 	while (len > 0) {
-		cur = memchr(cur, '\n', len);
+		cur = memchr(buf, '\n', len);
 		if (!cur)
 			break;
 
@@ -110,13 +110,13 @@ retry:
 
 		if (!proc->log_overflow)
 			netifd_log_message(L_NOTICE, "%s (%d): %s\n",
-				log_prefix, proc->uloop.pid, start);
+				log_prefix, proc->uloop.pid, buf);
 		else
 			proc->log_overflow = false;
 
 		cur++;
 		len -= cur - buf;
-		buf = start = cur;
+		buf = cur;
 	}
 
 	if (buf > proc->log_buf && len > 0)
