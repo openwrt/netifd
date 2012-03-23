@@ -81,6 +81,42 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 }
 
 static void
+interface_data_del(struct interface *iface, struct interface_data *data)
+{
+	avl_delete(&iface->data, &data->node);
+	free(data);
+}
+
+static void
+interface_data_flush(struct interface *iface)
+{
+	struct interface_data *d, *tmp;
+
+	avl_for_each_element_safe(&iface->data, d, node, tmp)
+		interface_data_del(iface, d);
+}
+
+int
+interface_add_data(struct interface *iface, const struct blob_attr *data)
+{
+	struct interface_data *n, *o;
+
+	if (!blobmsg_check_attr(data, true))
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	n = calloc(1, sizeof(*data) + blob_pad_len(data));
+	memcpy(n->data, data, blob_pad_len(data));
+	n->node.key = blobmsg_name(data);
+
+	o = avl_find_element(&iface->data, n->node.key, o, node);
+	if (o)
+		interface_data_del(iface, o);
+
+	avl_insert(&iface->data, &n->node);
+	return 0;
+}
+
+static void
 interface_event(struct interface *iface, enum interface_event ev)
 {
 	struct interface_user *dep, *tmp;
@@ -98,6 +134,7 @@ interface_flush_state(struct interface *iface)
 		device_release(&iface->main_dev);
 	if (iface->l3_dev.dev)
 		device_release(&iface->l3_dev);
+	interface_data_flush(iface);
 }
 
 static void
@@ -318,6 +355,7 @@ interface_init(struct interface *iface, const char *name,
 	INIT_LIST_HEAD(&iface->hotplug_list);
 	interface_ip_init(&iface->proto_ip, iface);
 	interface_ip_init(&iface->config_ip, iface);
+	avl_init(&iface->data, avl_strcmp, false, NULL);
 	iface->config_ip.enabled = false;
 
 	iface->main_dev.cb = interface_cb;

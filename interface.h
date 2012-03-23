@@ -51,6 +51,11 @@ struct interface_ip_settings {
 	struct vlist_simple_tree dns_search;
 };
 
+struct interface_data {
+	struct avl_node node;
+	struct blob_attr data[];
+};
+
 /*
  * interface configuration
  */
@@ -92,6 +97,9 @@ struct interface {
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
 
+	/* extra data provided by protocol handlers or modules */
+	struct avl_tree data;
+
 	struct uloop_timeout remove_timer;
 	struct ubus_object ubus;
 };
@@ -122,6 +130,8 @@ int interface_remove_link(struct interface *iface, struct device *dev);
 
 void interface_add_error(struct interface *iface, const char *subsystem,
 			 const char *code, const char **data, int n_data);
+
+int interface_add_data(struct interface *iface, const struct blob_attr *data);
 
 void interface_update_start(struct interface *iface);
 void interface_update_complete(struct interface *iface);

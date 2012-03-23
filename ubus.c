@@ -289,6 +289,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		     struct blob_attr *msg)
 {
 	struct interface *iface;
+	struct interface_data *data;
 	struct device *dev;
 	void *a;
 
@@ -320,6 +321,12 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		interface_ip_dump_route_list(&iface->proto_ip);
 		blobmsg_close_array(&b, a);
 	}
+
+	a = blobmsg_open_table(&b, "data");
+	avl_for_each_element(&iface->data, data, node)
+		blob_put(&b, blob_id(data->data), blob_data(data->data), blob_len(data->data));
+
+	blobmsg_close_table(&b, a);
 
 	if (!list_is_empty(&iface->errors))
 		netifd_add_interface_errors(&b, iface);
@@ -425,6 +432,26 @@ netifd_handle_iface_prepare(struct ubus_context *ctx, struct ubus_object *obj,
 	return ops->prepare(dev);
 }
 
+static int
+netifd_handle_set_data(struct ubus_context *ctx, struct ubus_object *obj,
+		       struct ubus_request_data *req, const char *method,
+		       struct blob_attr *msg)
+{
+	struct interface *iface;
+	struct blob_attr *cur;
+	int rem, ret;
+
+	iface = container_of(obj, struct interface, ubus);
+
+	blob_for_each_attr(cur, msg, rem) {
+		ret = interface_add_data(iface, cur);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
@@ -433,7 +460,8 @@ static struct ubus_method iface_object_methods[] = {
 	UBUS_METHOD("add_device", netifd_iface_handle_device, dev_policy ),
 	UBUS_METHOD("remove_device", netifd_iface_handle_device, dev_policy ),
 	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },
-	{ .name = "remove", .handler = netifd_iface_remove }
+	{ .name = "remove", .handler = netifd_iface_remove },
+	{ .name = "set_data", .handler = netifd_handle_set_data },
 };
 
 static struct ubus_object_type iface_object_type =
