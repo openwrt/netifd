@@ -222,6 +222,16 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 	}
 }
 
+static void
+proto_shell_parse_data(struct interface *iface, struct blob_attr *attr)
+{
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_for_each_attr(cur, attr, rem)
+		interface_add_data(iface, cur);
+}
+
 static struct device *
 proto_shell_create_tunnel(const char *name, struct blob_attr *attr)
 {
@@ -250,6 +260,7 @@ enum {
 	NOTIFY_ROUTES,
 	NOTIFY_ROUTES6,
 	NOTIFY_TUNNEL,
+	NOTIFY_DATA,
 	__NOTIFY_LAST
 };
 
@@ -266,6 +277,7 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ROUTES] = { .name = "routes", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_ROUTES6] = { .name = "routes6", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_TUNNEL] = { .name = "tunnel", .type = BLOBMSG_TYPE_TABLE },
+	[NOTIFY_DATA] = { .name = "data", .type = BLOBMSG_TYPE_TABLE },
 };
 
 static int
@@ -326,6 +338,9 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 	interface_update_complete(state->proto.iface);
 
 	state->proto.proto_event(&state->proto, IFPEV_UP);
+
+	if ((cur = tb[NOTIFY_DATA]))
+		proto_shell_parse_data(state->proto.iface, cur);
 
 	return 0;
 }

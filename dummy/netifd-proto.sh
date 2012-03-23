@@ -58,17 +58,30 @@ proto_init_update() {
 	[ -n "$3" ] && json_add_boolean "address-external" "$external"
 }
 
-proto_add_tunnel() {
-	proto_close_tunnel
+proto_close_nested() {
+	[ -n "$PROTO_NESTED_OPEN" ] && json_close_object
+	PROTO_NESTED_OPEN=
+}
 
-	PROTO_TUNNEL_OPEN=1
-	json_add_object "tunnel"
+proto_add_nested() {
+	PROTO_NESTED_OPEN=1
+	json_add_object "$1"
+}
+
+proto_add_tunnel() {
+	proto_add_nested "tunnel"
 }
 
 proto_close_tunnel() {
-	[ -n "$PROTO_TUNNEL_OPEN" ] || return
-	json_close_object
-	PROTO_TUNNEL_OPEN=
+	proto_close_nested
+}
+
+proto_add_data() {
+	proto_add_nested "data"
+}
+
+proto_close_data() {
+	proto_close_nested
 }
 
 proto_add_dns_server() {
@@ -152,7 +165,7 @@ _proto_notify() {
 proto_send_update() {
 	local interface="$1"
 
-	proto_close_tunnel
+	proto_close_nested
 	_proto_push_array "ipaddr" "$PROTO_IPADDR" _proto_push_ip
 	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ip
 	_proto_push_array "routes" "$PROTO_ROUTE" _proto_push_route

@@ -39,6 +39,9 @@ proto_pppoe_setup() {
 	proto_init_update ppp0 1
 	proto_add_ipv4_address "192.168.2.1" 32
 	proto_add_dns_server "192.168.2.2"
+	proto_add_data
+	json_add_string "ppp-type" "pppoe"
+	proto_close_data
 	proto_send_update "$interface"
 	proto_run_command "$interface" sleep 30
 }
