@@ -253,6 +253,36 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip)
 	}
 }
 
+static void
+interface_ip_dump_route_list(struct interface_ip_settings *ip)
+{
+	struct device_route *route;
+	static char *buf;
+	int buflen = 128;
+	void *r;
+	int af;
+
+	vlist_for_each_element(&ip->route, route, node) {
+		if ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET4)
+			af = AF_INET;
+		else
+			af = AF_INET6;
+
+		r = blobmsg_open_table(&b, NULL);
+		buf = blobmsg_alloc_string_buffer(&b, "target", buflen);
+		inet_ntop(af, &route->addr, buf, buflen - 5);
+		buf += strlen(buf);
+		sprintf(buf, "/%d", route->mask);
+		blobmsg_add_string_buffer(&b);
+
+		buf = blobmsg_alloc_string_buffer(&b, "nexthop", buflen);
+		inet_ntop(af, &route->nexthop, buf, buflen);
+		blobmsg_add_string_buffer(&b);
+
+		blobmsg_close_table(&b, r);
+	}
+}
+
 static int
 netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		     struct ubus_request_data *req, const char *method,
@@ -284,6 +314,10 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		a = blobmsg_open_array(&b, "address");
 		interface_ip_dump_address_list(&iface->config_ip);
 		interface_ip_dump_address_list(&iface->proto_ip);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "route");
+		interface_ip_dump_route_list(&iface->config_ip);
+		interface_ip_dump_route_list(&iface->proto_ip);
 		blobmsg_close_array(&b, a);
 	}
 
