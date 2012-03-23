@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -230,6 +231,28 @@ netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
 	blobmsg_close_array(b, e);
 }
 
+static void
+interface_ip_dump_address_list(struct interface_ip_settings *ip)
+{
+	struct device_addr *addr;
+	static char *buf;
+	int buflen = 128;
+	int af;
+
+	vlist_for_each_element(&ip->addr, addr, node) {
+		if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4)
+			af = AF_INET;
+		else
+			af = AF_INET6;
+
+		buf = blobmsg_alloc_string_buffer(&b, NULL, buflen);
+		inet_ntop(af, &addr->addr, buf, buflen - 5);
+		buf += strlen(buf);
+		sprintf(buf, "/%d", addr->mask);
+		blobmsg_add_string_buffer(&b);
+	}
+}
+
 static int
 netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		     struct ubus_request_data *req, const char *method,
@@ -237,6 +260,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 {
 	struct interface *iface;
 	struct device *dev;
+	void *a;
 
 	iface = container_of(obj, struct interface, ubus);
 
@@ -255,6 +279,13 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	dev = iface->main_dev.dev;
 	if (dev && !(iface->proto_handler->flags & PROTO_FLAG_NODEV))
 		blobmsg_add_string(&b, "device", dev->ifname);
+
+	if (iface->state == IFS_UP) {
+		a = blobmsg_open_array(&b, "address");
+		interface_ip_dump_address_list(&iface->config_ip);
+		interface_ip_dump_address_list(&iface->proto_ip);
+		blobmsg_close_array(&b, a);
+	}
 
 	if (!list_is_empty(&iface->errors))
 		netifd_add_interface_errors(&b, iface);
