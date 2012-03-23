@@ -76,7 +76,7 @@ struct interface {
 	struct device_user main_dev;
 
 	/* interface that layer 3 communication will go through */
-	struct device_user *l3_dev;
+	struct device_user l3_dev;
 
 	struct blob_attr *config;
 
@@ -111,6 +111,8 @@ int interface_set_up(struct interface *iface);
 int interface_set_down(struct interface *iface);
 void __interface_set_down(struct interface *iface, bool force);
 
+void interface_set_main_dev(struct interface *iface, struct device *dev);
+void interface_set_l3_dev(struct interface *iface, struct device *dev);
 
 void interface_add_user(struct interface_user *dep, struct interface *iface);
 void interface_remove_user(struct interface_user *dep);

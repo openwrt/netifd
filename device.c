@@ -466,6 +466,9 @@ void device_add_user(struct device_user *dep, struct device *dev)
 	if (dep->dev)
 		device_remove_user(dep);
 
+	if (!dev)
+		return;
+
 	dep->dev = dev;
 	list_add_tail(&dep->list, &dev->users);
 	if (dep->cb && dev->present) {

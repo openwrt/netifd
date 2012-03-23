@@ -128,7 +128,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 	ip = container_of(tree, struct interface_ip_settings, addr);
 	iface = ip->iface;
-	dev = iface->l3_dev->dev;
+	dev = iface->l3_dev.dev;
 
 	if (node_new) {
 		a_new = container_of(node_new, struct device_addr, node);
@@ -193,7 +193,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 
 	ip = container_of(tree, struct interface_ip_settings, route);
 	iface = ip->iface;
-	dev = iface->l3_dev->dev;
+	dev = iface->l3_dev.dev;
 
 	route_old = container_of(node_old, struct device_route, node);
 	route_new = container_of(node_new, struct device_route, node);
@@ -353,7 +353,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 	struct device *dev;
 
 	ip->enabled = enabled;
-	dev = ip->iface->l3_dev->dev;
+	dev = ip->iface->l3_dev.dev;
 	if (!dev)
 		return;
 

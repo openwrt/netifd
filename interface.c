@@ -94,11 +94,10 @@ interface_event(struct interface *iface, enum interface_event ev)
 static void
 interface_flush_state(struct interface *iface)
 {
-	interface_ip_flush(&iface->proto_ip);
 	if (iface->main_dev.dev)
 		device_release(&iface->main_dev);
-	if (iface->l3_dev != &iface->main_dev && iface->l3_dev->dev)
-		device_release(iface->l3_dev);
+	if (iface->l3_dev.dev)
+		device_release(&iface->l3_dev);
 }
 
 static void
@@ -191,7 +190,7 @@ interface_claim_device(struct interface *iface)
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
 		if (dev)
-			device_add_user(&iface->main_dev, dev);
+			interface_set_main_dev(iface, dev);
 	}
 	if (iface->proto_handler->flags & PROTO_FLAG_INIT_AVAILABLE)
 		interface_set_available(iface, true);
@@ -211,8 +210,7 @@ interface_cleanup(struct interface *iface, bool reload)
 	interface_clear_errors(iface);
 	if (iface->main_dev.dev &&
 	    (!reload || !iface->main_dev.hotplug))
-		device_remove_user(&iface->main_dev);
-	iface->l3_dev = &iface->main_dev;
+		interface_set_main_dev(iface, NULL);
 	interface_set_proto_state(iface, NULL);
 }
 
@@ -323,7 +321,6 @@ interface_init(struct interface *iface, const char *name,
 	iface->config_ip.enabled = false;
 
 	iface->main_dev.cb = interface_cb;
-	iface->l3_dev = &iface->main_dev;
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
@@ -354,6 +351,46 @@ interface_add(struct interface *iface, struct blob_attr *config)
 
 	iface->config = config;
 	vlist_add(&interfaces, &iface->node, iface->name);
+}
+
+void
+interface_set_l3_dev(struct interface *iface, struct device *dev)
+{
+	bool enabled = iface->config_ip.enabled;
+	bool claimed = iface->l3_dev.claimed;
+
+	if (iface->l3_dev.dev == dev)
+		return;
+
+	interface_ip_set_enabled(&iface->config_ip, false);
+	interface_ip_flush(&iface->proto_ip);
+	device_add_user(&iface->l3_dev, dev);
+
+	if (dev) {
+		if (claimed)
+			device_claim(&iface->l3_dev);
+		interface_ip_set_enabled(&iface->config_ip, enabled);
+	}
+}
+
+void
+interface_set_main_dev(struct interface *iface, struct device *dev)
+{
+	bool set_l3 = (iface->main_dev.dev == iface->l3_dev.dev);
+	bool claimed = iface->l3_dev.claimed;
+
+	if (iface->main_dev.dev == dev)
+		return;
+
+	device_add_user(&iface->main_dev, dev);
+	if (set_l3)
+		interface_set_l3_dev(iface, dev);
+
+	if (claimed)
+		device_claim(&iface->l3_dev);
+
+	if (!iface->l3_dev.dev)
+		interface_set_l3_dev(iface, dev);
 }
 
 int
@@ -392,7 +429,7 @@ interface_add_link(struct interface *iface, struct device *dev)
 			return UBUS_STATUS_NOT_SUPPORTED;
 	}
 
-	device_add_user(&iface->main_dev, dev);
+	interface_set_main_dev(iface, dev);
 	iface->main_dev.hotplug = true;
 	return 0;
 }
@@ -477,8 +514,8 @@ interface_update_complete(struct interface *iface)
 
 	interface_ip_update_complete(&iface->proto_ip);
 	vlist_for_each_element(&iface->config_ip.route, route, node) {
-		if (iface->l3_dev->dev) {
-			system_add_route(iface->l3_dev->dev, route);
+		if (iface->l3_dev.dev) {
+			system_add_route(iface->l3_dev.dev, route);
 			route->enabled = true;
 		}
 	}

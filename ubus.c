@@ -303,7 +303,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	if (iface->state == IFS_UP) {
 		time_t cur = system_get_rtime();
 		blobmsg_add_u32(&b, "uptime", cur - iface->start_time);
-		blobmsg_add_string(&b, "l3_device", iface->l3_dev->dev->ifname);
+		blobmsg_add_string(&b, "l3_device", iface->l3_dev.dev->ifname);
 	}
 
 	dev = iface->main_dev.dev;

@@ -57,8 +57,8 @@ call_hotplug(void)
 	current_ev = current->hotplug_ev;
 	list_del_init(&current->hotplug_list);
 
-	if (current_ev == IFEV_UP && current->l3_dev->dev)
-		device = current->l3_dev->dev->ifname;
+	if (current_ev == IFEV_UP && current->l3_dev.dev)
+		device = current->l3_dev.dev->ifname;
 
 	D(SYSTEM, "Call hotplug handler for interface '%s' (%s)\n", current->name, device ? device : "none");
 	run_cmd(current->name, device, current_ev == IFEV_UP);

@@ -41,8 +41,6 @@ struct proto_shell_state {
 	struct proto_shell_handler *handler;
 	struct blob_attr *config;
 
-	struct device_user l3_dev;
-
 	struct uloop_timeout teardown_timeout;
 
 	struct netifd_process script_task;
@@ -78,9 +76,6 @@ proto_shell_handler(struct interface_proto_state *proto,
 	} else {
 		if (state->sm == S_TEARDOWN)
 			return 0;
-
-		if (state->l3_dev.dev)
-			device_remove_user(&state->l3_dev);
 
 		if (state->script_task.uloop.pending) {
 			if (state->sm != S_SETUP_ABORT) {
@@ -204,8 +199,6 @@ proto_shell_free(struct interface_proto_state *proto)
 	struct proto_shell_state *state;
 
 	state = container_of(proto, struct proto_shell_state, proto);
-	if (state->l3_dev.dev)
-		device_remove_user(&state->l3_dev);
 	netifd_kill_process(&state->script_task);
 	netifd_kill_process(&state->proto_task);
 	free(state->config);
@@ -305,9 +298,6 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		if (!iface->main_dev.dev)
 			return UBUS_STATUS_INVALID_ARGUMENT;
 	} else {
-		if (state->l3_dev.dev)
-			device_remove_user(&state->l3_dev);
-
 		devname = blobmsg_data(tb[NOTIFY_IFNAME]);
 		if (tb[NOTIFY_TUNNEL]) {
 			dev = proto_shell_create_tunnel(devname,
@@ -320,9 +310,8 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 				return UBUS_STATUS_NOT_FOUND;
 		}
 
-		device_add_user(&state->l3_dev, dev);
-		iface->l3_dev = &state->l3_dev;
-		device_claim(&state->l3_dev);
+		interface_set_l3_dev(iface, dev);
+		device_claim(&iface->l3_dev);
 	}
 
 	interface_update_start(iface);
