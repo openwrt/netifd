@@ -420,10 +420,10 @@ interface_set_main_dev(struct interface *iface, struct device *dev)
 	if (iface->main_dev.dev == dev)
 		return;
 
-	device_add_user(&iface->main_dev, dev);
 	if (set_l3)
 		interface_set_l3_dev(iface, dev);
 
+	device_add_user(&iface->main_dev, dev);
 	if (claimed)
 		device_claim(&iface->l3_dev);
 
