@@ -235,7 +235,8 @@ static void
 interface_ip_dump_address_list(struct interface_ip_settings *ip)
 {
 	struct device_addr *addr;
-	static char *buf;
+	char *buf;
+	void *a;
 	int buflen = 128;
 	int af;
 
@@ -245,11 +246,15 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip)
 		else
 			af = AF_INET6;
 
-		buf = blobmsg_alloc_string_buffer(&b, NULL, buflen);
-		inet_ntop(af, &addr->addr, buf, buflen - 5);
-		buf += strlen(buf);
-		sprintf(buf, "/%d", addr->mask);
+		a = blobmsg_open_table(&b, NULL);
+
+		buf = blobmsg_alloc_string_buffer(&b, "address", buflen);
+		inet_ntop(af, &addr->addr, buf, buflen);
 		blobmsg_add_string_buffer(&b);
+
+		blobmsg_add_u32(&b, "mask", addr->mask);
+
+		blobmsg_close_table(&b, a);
 	}
 }
 
@@ -269,11 +274,12 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip)
 			af = AF_INET6;
 
 		r = blobmsg_open_table(&b, NULL);
+
 		buf = blobmsg_alloc_string_buffer(&b, "target", buflen);
-		inet_ntop(af, &route->addr, buf, buflen - 5);
-		buf += strlen(buf);
-		sprintf(buf, "/%d", route->mask);
+		inet_ntop(af, &route->addr, buf, buflen);
 		blobmsg_add_string_buffer(&b);
+
+		blobmsg_add_u32(&b, "mask", route->mask);
 
 		buf = blobmsg_alloc_string_buffer(&b, "nexthop", buflen);
 		inet_ntop(af, &route->nexthop, buf, buflen);
