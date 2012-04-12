@@ -338,6 +338,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 	interface_update_complete(state->proto.iface);
 
 	state->proto.proto_event(&state->proto, IFPEV_UP);
+	state->sm = S_IDLE;
 
 	if ((cur = tb[NOTIFY_DATA]))
 		proto_shell_parse_data(state->proto.iface, cur);
