@@ -142,9 +142,9 @@ mark_interface_down(struct interface *iface)
 {
 	if (iface->state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
-	interface_flush_state(iface);
 	interface_ip_flush(&iface->config_ip);
 	interface_ip_flush(&iface->proto_ip);
+	interface_flush_state(iface);
 	iface->state = IFS_DOWN;
 }
 
