@@ -243,10 +243,15 @@ handle_hotplug_event(struct uloop_fd *u, unsigned int events)
 
 static int system_rtnl_call(struct nl_msg *msg)
 {
-	int s = -(nl_send_auto_complete(sock_rtnl, msg)
-			|| nl_wait_for_ack(sock_rtnl));
+	int ret;
+
+	ret = nl_send_auto_complete(sock_rtnl, msg);
 	nlmsg_free(msg);
-	return s;
+
+	if (ret < 0)
+		return ret;
+
+	return nl_wait_for_ack(sock_rtnl);
 }
 
 int system_bridge_delbr(struct device *bridge)
