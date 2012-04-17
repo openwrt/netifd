@@ -311,8 +311,8 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 
 		netifd_log_message(L_NOTICE, "Interface '%s' is now down\n", iface->name);
 		interface_ip_set_enabled(&iface->config_ip, false);
-		system_flush_routes();
 		mark_interface_down(iface);
+		system_flush_routes();
 		interface_handle_config_change(iface);
 		break;
 	case IFPEV_LINK_LOST:
@@ -322,6 +322,8 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		netifd_log_message(L_NOTICE, "Interface '%s' has lost the connection\n", iface->name);
 		if (iface->state == IFS_UP)
 			interface_event(iface, IFEV_DOWN);
+		mark_interface_down(iface);
+		system_flush_routes();
 		iface->state = IFS_SETUP;
 		break;
 	}
