@@ -94,7 +94,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_MTU]) != NULL)
 		route->mtu = blobmsg_get_u32(cur);
 
-	vlist_add(&ip->route, &route->node, &route->mask);
+	vlist_add(&ip->route, &route->node, &route->flags);
 	return;
 
 error:
@@ -105,14 +105,14 @@ static int
 addr_cmp(const void *k1, const void *k2, void *ptr)
 {
 	return memcmp(k1, k2, sizeof(struct device_addr) -
-		      offsetof(struct device_addr, mask));
+		      offsetof(struct device_addr, flags));
 }
 
 static int
 route_cmp(const void *k1, const void *k2, void *ptr)
 {
 	return memcmp(k1, k2, sizeof(struct device_route) -
-		      offsetof(struct device_route, mask));
+		      offsetof(struct device_route, flags));
 }
 
 static void

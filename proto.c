@@ -142,7 +142,7 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask,
 	if (ext)
 		addr->flags |= DEVADDR_EXTERNAL;
 
-	vlist_add(&iface->proto_ip.addr, &addr->node, &addr->mask);
+	vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
 	return true;
 }
 
@@ -184,7 +184,7 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	route->mask = 0;
 	route->flags = (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
-	vlist_add(&iface->proto_ip.route, &route->node, &route->mask);
+	vlist_add(&iface->proto_ip.route, &route->node, &route->flags);
 
 	return true;
 }

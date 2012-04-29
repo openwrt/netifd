@@ -23,14 +23,13 @@ union if_addr {
 
 struct device_addr {
 	struct vlist_node node;
-
-	enum device_addr_flags flags;
 	bool enabled;
 
 	/* ipv4 only */
 	uint32_t broadcast;
 
 	/* must be last */
+	enum device_addr_flags flags;
 	unsigned int mask;
 	union if_addr addr;
 };
@@ -38,7 +37,6 @@ struct device_addr {
 struct device_route {
 	struct vlist_node node;
 
-	enum device_addr_flags flags;
 	bool enabled;
 	bool keep;
 
@@ -47,6 +45,7 @@ struct device_route {
 	int mtu;
 
 	/* must be last */
+	enum device_addr_flags flags;
 	unsigned int mask;
 	union if_addr addr;
 };
