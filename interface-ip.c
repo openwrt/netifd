@@ -177,7 +177,7 @@ enable_route(struct interface_ip_settings *ip, struct device_route *route)
 	if (ip->no_defaultroute && !route->mask)
 		return false;
 
-	return true;
+	return ip->enabled;
 }
 
 static void
