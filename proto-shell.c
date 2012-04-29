@@ -261,6 +261,7 @@ enum {
 	NOTIFY_ROUTES6,
 	NOTIFY_TUNNEL,
 	NOTIFY_DATA,
+	NOTIFY_KEEP,
 	__NOTIFY_LAST
 };
 
@@ -278,6 +279,7 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_ROUTES6] = { .name = "routes6", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_TUNNEL] = { .name = "tunnel", .type = BLOBMSG_TYPE_TABLE },
 	[NOTIFY_DATA] = { .name = "data", .type = BLOBMSG_TYPE_TABLE },
+	[NOTIFY_KEEP] = { .name = "keep", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static int
@@ -289,6 +291,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 	const char *devname;
 	int dev_create = 1;
 	bool addr_ext = false;
+	bool keep = false;
 	bool up;
 
 	if (!tb[NOTIFY_LINK_UP])
@@ -300,6 +303,9 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		return 0;
 	}
 
+	if ((cur = tb[NOTIFY_KEEP]) != NULL)
+		keep = blobmsg_get_bool(cur);
+
 	if ((cur = tb[NOTIFY_ADDR_EXT]) != NULL) {
 		addr_ext = blobmsg_get_bool(cur);
 		if (addr_ext)
@@ -309,7 +315,8 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 	if (!tb[NOTIFY_IFNAME]) {
 		if (!iface->main_dev.dev)
 			return UBUS_STATUS_INVALID_ARGUMENT;
-	} else {
+	} else if (!keep || iface->state != IFS_UP) {
+		keep = false;
 		devname = blobmsg_data(tb[NOTIFY_IFNAME]);
 		if (tb[NOTIFY_TUNNEL]) {
 			dev = proto_shell_create_tunnel(devname,
@@ -326,7 +333,9 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		device_claim(&iface->l3_dev);
 	}
 
-	interface_update_start(iface);
+	if (!keep)
+		interface_update_start(iface);
+
 	proto_apply_ip_settings(iface, data, addr_ext);
 
 	if ((cur = tb[NOTIFY_ROUTES]) != NULL)
@@ -337,7 +346,8 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 
 	interface_update_complete(state->proto.iface);
 
-	state->proto.proto_event(&state->proto, IFPEV_UP);
+	if (!keep)
+		state->proto.proto_event(&state->proto, IFPEV_UP);
 	state->sm = S_IDLE;
 
 	if ((cur = tb[NOTIFY_DATA]))

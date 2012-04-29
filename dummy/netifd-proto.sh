@@ -43,6 +43,7 @@ proto_init_update() {
 	local up="$2"
 	local external="$3"
 
+	PROTO_KEEP=0
 	PROTO_INIT=1
 	PROTO_TUNNEL_OPEN=
 	PROTO_IPADDR=
@@ -56,6 +57,10 @@ proto_init_update() {
 	[ -n "$ifname" -a "*" != "$ifname" ] && json_add_string "ifname" "$ifname"
 	json_add_boolean "link-up" "$up"
 	[ -n "$3" ] && json_add_boolean "address-external" "$external"
+}
+
+proto_set_keep() {
+	PROTO_KEEP="$1"
 }
 
 proto_close_nested() {
@@ -166,6 +171,7 @@ proto_send_update() {
 	local interface="$1"
 
 	proto_close_nested
+	json_add_boolean keep "$PROTO_KEEP"
 	_proto_push_array "ipaddr" "$PROTO_IPADDR" _proto_push_ip
 	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ip
 	_proto_push_array "routes" "$PROTO_ROUTE" _proto_push_route
