@@ -142,7 +142,7 @@ mark_interface_down(struct interface *iface)
 {
 	if (iface->state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
-	interface_ip_flush(&iface->config_ip);
+	interface_ip_set_enabled(&iface->config_ip, false);
 	interface_ip_flush(&iface->proto_ip);
 	interface_flush_state(iface);
 	iface->state = IFS_DOWN;
@@ -310,7 +310,6 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 			return;
 
 		netifd_log_message(L_NOTICE, "Interface '%s' is now down\n", iface->name);
-		interface_ip_set_enabled(&iface->config_ip, false);
 		mark_interface_down(iface);
 		system_flush_routes();
 		interface_handle_config_change(iface);
@@ -551,15 +550,7 @@ interface_update_start(struct interface *iface)
 void
 interface_update_complete(struct interface *iface)
 {
-	struct device_route *route;
-
 	interface_ip_update_complete(&iface->proto_ip);
-	vlist_for_each_element(&iface->config_ip.route, route, node) {
-		if (iface->l3_dev.dev) {
-			system_add_route(iface->l3_dev.dev, route);
-			route->enabled = true;
-		}
-	}
 }
 
 static void
