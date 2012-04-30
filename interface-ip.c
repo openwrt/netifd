@@ -94,6 +94,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_MTU]) != NULL)
 		route->mtu = blobmsg_get_u32(cur);
 
+	route->iface = ip->iface;
 	vlist_add(&ip->route, &route->node, &route->flags);
 	return;
 

@@ -36,6 +36,7 @@ struct device_addr {
 
 struct device_route {
 	struct vlist_node node;
+	struct interface *iface;
 
 	bool enabled;
 	bool keep;
