@@ -319,8 +319,6 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 			return;
 
 		netifd_log_message(L_NOTICE, "Interface '%s' has lost the connection\n", iface->name);
-		if (iface->state == IFS_UP)
-			interface_event(iface, IFEV_DOWN);
 		mark_interface_down(iface);
 		system_flush_routes();
 		iface->state = IFS_SETUP;
