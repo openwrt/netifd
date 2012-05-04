@@ -265,6 +265,7 @@ interface_cleanup(struct interface *iface, bool reload)
 static void
 interface_do_free(struct interface *iface)
 {
+	interface_event(iface, IFEV_FREE);
 	interface_cleanup(iface, false);
 	free(iface->config);
 	netifd_ubus_remove_interface(iface);
