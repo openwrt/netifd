@@ -91,6 +91,7 @@ struct interface {
 
 	struct interface_ip_settings proto_ip;
 	struct interface_ip_settings config_ip;
+	struct vlist_tree host_routes;
 
 	int metric;
 

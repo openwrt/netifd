@@ -27,16 +27,61 @@ netifd_handle_restart(struct ubus_context *ctx, struct ubus_object *obj,
 
 static int
 netifd_handle_reload(struct ubus_context *ctx, struct ubus_object *obj,
+		     struct ubus_request_data *req, const char *method,
+		     struct blob_attr *msg)
+{
+	netifd_reload();
+	return 0;
+}
+
+enum {
+	HR_TARGET,
+	HR_V6,
+	__HR_MAX
+};
+
+static const struct blobmsg_policy route_policy[__HR_MAX] = {
+	[HR_TARGET] = { .name = "target", .type = BLOBMSG_TYPE_STRING },
+	[HR_V6] = { .name = "v6", .type = BLOBMSG_TYPE_BOOL },
+};
+
+static int
+netifd_add_host_route(struct ubus_context *ctx, struct ubus_object *obj,
 		      struct ubus_request_data *req, const char *method,
 		      struct blob_attr *msg)
 {
-	netifd_reload();
+	struct blob_attr *tb[__HR_MAX];
+	struct interface *iface;
+	union if_addr a;
+	bool v6 = false;
+
+	blobmsg_parse(route_policy, __HR_MAX, tb, blob_data(msg), blob_len(msg));
+	if (!tb[HR_TARGET])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	if (tb[HR_V6])
+		v6 = blobmsg_get_bool(tb[HR_V6]);
+
+	memset(&a, 0, sizeof(a));
+	if (!inet_pton(v6 ? AF_INET6 : AF_INET, blobmsg_data(tb[HR_TARGET]), &a))
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+
+	iface = interface_ip_add_target_route(&a, v6);
+	if (!iface)
+		return UBUS_STATUS_NOT_FOUND;
+
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "interface", iface->name);
+	ubus_send_reply(ctx, req, b.head);
+
 	return 0;
 }
 
 static struct ubus_method main_object_methods[] = {
 	{ .name = "restart", .handler = netifd_handle_restart },
 	{ .name = "reload", .handler = netifd_handle_reload },
+	UBUS_METHOD("add_host_route", netifd_add_host_route, route_policy),
 };
 
 static struct ubus_object_type main_object_type =

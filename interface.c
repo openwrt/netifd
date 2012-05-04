@@ -352,8 +352,7 @@ interface_init(struct interface *iface, const char *name,
 	INIT_LIST_HEAD(&iface->errors);
 	INIT_LIST_HEAD(&iface->users);
 	INIT_LIST_HEAD(&iface->hotplug_list);
-	interface_ip_init(&iface->proto_ip, iface);
-	interface_ip_init(&iface->config_ip, iface);
+	interface_ip_init(iface);
 	avl_init(&iface->data, avl_strcmp, false, NULL);
 	iface->config_ip.enabled = false;
 

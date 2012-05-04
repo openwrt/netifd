@@ -37,6 +37,120 @@ const struct config_param_list route_attr_list = {
 	.params = route_attr,
 };
 
+static bool
+match_if_addr(union if_addr *a1, union if_addr *a2, int mask)
+{
+	uint8_t *p1, *p2;
+	int m_bytes = (mask + 7) / 8;
+	uint8_t m_clear = (1 << (m_bytes * 8 - mask)) - 1;
+
+	p1 = alloca(m_bytes);
+	p2 = alloca(m_bytes);
+
+	memcpy(p1, a1, m_bytes);
+	memcpy(p2, a2, m_bytes);
+
+	p1[m_bytes - 1] &= ~m_clear;
+	p2[m_bytes - 1] &= ~m_clear;
+
+	return !memcmp(p1, p2, m_bytes);
+}
+
+static bool
+__find_ip_addr_target(struct interface_ip_settings *ip, union if_addr *a, bool v6)
+{
+	struct device_addr *addr;
+
+	vlist_for_each_element(&ip->addr, addr, node) {
+		if (!addr->enabled)
+			continue;
+
+		if (v6 != ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
+			continue;
+
+		if (!match_if_addr(&addr->addr, a, addr->mask))
+			continue;
+
+		return true;
+	}
+
+	return false;
+}
+
+static void
+__find_ip_route_target(struct interface_ip_settings *ip, union if_addr *a,
+		       bool v6, struct device_route **res)
+{
+	struct device_route *route;
+
+	vlist_for_each_element(&ip->route, route, node) {
+		if (!route->enabled)
+			continue;
+
+		if (v6 != ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
+			continue;
+
+		if (!match_if_addr(&route->addr, a, route->mask))
+			continue;
+
+		if (!*res || route->mask < (*res)->mask)
+			*res = route;
+	}
+}
+
+static bool
+interface_ip_find_addr_target(struct interface *iface, union if_addr *a, bool v6)
+{
+	return __find_ip_addr_target(&iface->proto_ip, a, v6) ||
+	       __find_ip_addr_target(&iface->config_ip, a, v6);
+}
+
+static void
+interface_ip_find_route_target(struct interface *iface, union if_addr *a,
+			       bool v6, struct device_route **route)
+{
+	__find_ip_route_target(&iface->proto_ip, a, v6, route);
+	__find_ip_route_target(&iface->config_ip, a, v6, route);
+}
+
+struct interface *
+interface_ip_add_target_route(union if_addr *addr, bool v6)
+{
+	struct interface *iface;
+	struct device_route *route, *r_next = NULL;
+
+	route = calloc(1, sizeof(*route));
+	if (!route)
+		return false;
+
+	route->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
+	route->mask = v6 ? 128 : 32;
+	memcpy(&route->addr, addr, v6 ? sizeof(addr->in6) : sizeof(addr->in));
+
+	vlist_for_each_element(&interfaces, iface, node) {
+		/* look for locally addressable target first */
+		if (interface_ip_find_addr_target(iface, addr, v6))
+			goto done;
+
+		/* do not stop at the first route, let the lookup compare
+		 * masks to find the best match */
+		interface_ip_find_route_target(iface, addr, v6, &r_next);
+	}
+
+	if (!r_next)
+		return NULL;
+
+	iface = r_next->iface;
+	memcpy(&route->nexthop, &r_next->nexthop, sizeof(route->nexthop));
+	route->mtu = r_next->mtu;
+	route->metric = r_next->metric;
+
+done:
+	route->iface = iface;
+	vlist_add(&iface->host_routes, &route->node, &route->flags);
+	return iface;
+}
+
 void
 interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 {
@@ -216,6 +330,30 @@ interface_update_proto_route(struct vlist_tree *tree,
 		route_new->iface = iface;
 		route_new->enabled = _enabled;
 	}
+}
+
+static void
+interface_update_host_route(struct vlist_tree *tree,
+			     struct vlist_node *node_new,
+			     struct vlist_node *node_old)
+{
+	struct interface *iface;
+	struct device *dev;
+	struct device_route *route_old, *route_new;
+
+	iface = container_of(tree, struct interface, host_routes);
+	dev = iface->l3_dev.dev;
+
+	route_old = container_of(node_old, struct device_route, node);
+	route_new = container_of(node_new, struct device_route, node);
+
+	if (node_old) {
+		system_del_route(dev, route_old);
+		free(route_old);
+	}
+
+	if (node_new)
+		system_add_route(dev, route_new);
 }
 
 void
@@ -410,14 +548,16 @@ interface_ip_update_complete(struct interface_ip_settings *ip)
 void
 interface_ip_flush(struct interface_ip_settings *ip)
 {
+	if (ip == &ip->iface->proto_ip)
+		vlist_flush_all(&ip->iface->host_routes);
 	vlist_simple_flush_all(&ip->dns_servers);
 	vlist_simple_flush_all(&ip->dns_search);
 	vlist_flush_all(&ip->route);
 	vlist_flush_all(&ip->addr);
 }
 
-void
-interface_ip_init(struct interface_ip_settings *ip, struct interface *iface)
+static void
+__interface_ip_init(struct interface_ip_settings *ip, struct interface *iface)
 {
 	ip->iface = iface;
 	ip->enabled = true;
@@ -425,4 +565,12 @@ interface_ip_init(struct interface_ip_settings *ip, struct interface *iface)
 	vlist_simple_init(&ip->dns_servers, struct dns_server, node);
 	vlist_init(&ip->route, route_cmp, interface_update_proto_route);
 	vlist_init(&ip->addr, addr_cmp, interface_update_proto_addr);
+}
+
+void
+interface_ip_init(struct interface *iface)
+{
+	__interface_ip_init(&iface->proto_ip, iface);
+	__interface_ip_init(&iface->config_ip, iface);
+	vlist_init(&iface->host_routes, route_cmp, interface_update_host_route);
 }

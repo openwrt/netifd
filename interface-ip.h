@@ -64,7 +64,7 @@ struct dns_search_domain {
 
 extern const struct config_param_list route_attr_list;
 
-void interface_ip_init(struct interface_ip_settings *ip, struct interface *iface);
+void interface_ip_init(struct interface *iface);
 void interface_add_dns_server(struct interface_ip_settings *ip, const char *str);
 void interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list);
 void interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list);
@@ -77,5 +77,7 @@ void interface_ip_update_complete(struct interface_ip_settings *ip);
 void interface_ip_flush(struct interface_ip_settings *ip);
 void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled);
 void interface_ip_update_metric(struct interface_ip_settings *ip, int metric);
+
+struct interface *interface_ip_add_target_route(union if_addr *addr, bool v6);
 
 #endif
