@@ -11,6 +11,7 @@ enum interface_event {
 	IFEV_DOWN,
 	IFEV_UP,
 	IFEV_FREE,
+	IFEV_RELOAD,
 };
 
 enum interface_state {

@@ -276,6 +276,7 @@ interface_do_free(struct interface *iface)
 static void
 interface_do_reload(struct interface *iface)
 {
+	interface_event(iface, IFEV_RELOAD);
 	interface_cleanup(iface, true);
 	proto_init_interface(iface, iface->config);
 	interface_claim_device(iface);
