@@ -36,7 +36,7 @@ struct interface_error {
 struct interface_user {
 	struct list_head list;
 	struct interface *iface;
-	void (*cb)(struct interface_user *dep, enum interface_event ev);
+	void (*cb)(struct interface_user *dep, struct interface *iface, enum interface_event ev);
 };
 
 struct interface_ip_settings {

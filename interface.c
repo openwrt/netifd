@@ -12,6 +12,7 @@
 #include "system.h"
 
 struct vlist_tree interfaces;
+static LIST_HEAD(iface_all_users);
 
 enum {
 	IFACE_ATTR_IFNAME,
@@ -122,7 +123,10 @@ interface_event(struct interface *iface, enum interface_event ev)
 	struct interface_user *dep, *tmp;
 
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
-		dep->cb(dep, IFEV_UP);
+		dep->cb(dep, iface, ev);
+
+	list_for_each_entry_safe(dep, tmp, &iface_all_users, list)
+		dep->cb(dep, iface, ev);
 
 	interface_queue_event(iface, ev);
 }
@@ -206,10 +210,15 @@ interface_set_available(struct interface *iface, bool new_state)
 void
 interface_add_user(struct interface_user *dep, struct interface *iface)
 {
+	if (!iface) {
+		list_add(&dep->list, &iface_all_users);
+		return;
+	}
+
 	dep->iface = iface;
 	list_add(&dep->list, &iface->users);
 	if (iface->state == IFS_UP)
-		dep->cb(dep, IFEV_UP);
+		dep->cb(dep, iface, IFEV_UP);
 }
 
 void
