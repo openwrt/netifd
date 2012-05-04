@@ -127,8 +127,6 @@ interface_event(struct interface *iface, enum interface_event ev)
 
 	list_for_each_entry_safe(dep, tmp, &iface_all_users, list)
 		dep->cb(dep, iface, ev);
-
-	interface_queue_event(iface, ev);
 }
 
 static void
@@ -252,7 +250,6 @@ interface_cleanup(struct interface *iface, bool reload)
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
 
-	interface_dequeue_event(iface);
 	interface_ip_flush(&iface->config_ip);
 	interface_flush_state(iface);
 	interface_clear_errors(iface);

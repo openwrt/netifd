@@ -139,9 +139,6 @@ int interface_add_data(struct interface *iface, const struct blob_attr *data);
 void interface_update_start(struct interface *iface);
 void interface_update_complete(struct interface *iface);
 
-void interface_queue_event(struct interface *iface, enum interface_event ev);
-void interface_dequeue_event(struct interface *iface);
-
 void interface_start_pending(void);
 
 #endif

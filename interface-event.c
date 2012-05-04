@@ -80,7 +80,7 @@ task_complete(struct uloop_process *proc, int ret)
  * When queueing an event that is the same as the one waiting for
  * completion, remove the interface from the queue
  */
-void
+static void
 interface_queue_event(struct interface *iface, enum interface_event ev)
 {
 	enum interface_event last_ev;
@@ -102,7 +102,7 @@ interface_queue_event(struct interface *iface, enum interface_event ev)
 		call_hotplug();
 }
 
-void
+static void
 interface_dequeue_event(struct interface *iface)
 {
 	if (iface == current)
@@ -110,4 +110,28 @@ interface_dequeue_event(struct interface *iface)
 
 	if (!list_empty(&iface->hotplug_list))
 		list_del_init(&iface->hotplug_list);
+}
+
+static void interface_event_cb(struct interface_user *dep, struct interface *iface,
+			       enum interface_event ev)
+{
+	switch (ev) {
+		case IFEV_UP:
+		case IFEV_DOWN:
+			interface_queue_event(iface, ev);
+			break;
+		case IFEV_FREE:
+		case IFEV_RELOAD:
+			interface_dequeue_event(iface);
+			break;
+	}
+}
+
+static struct interface_user event_user = {
+	.cb = interface_event_cb
+};
+
+static void __init interface_event_init(void)
+{
+	interface_add_user(&event_user, NULL);
 }
