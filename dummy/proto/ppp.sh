@@ -36,7 +36,7 @@ proto_pppoe_setup() {
 	json_get_var username username
 	json_get_var password password
 	echo "pppoe_setup($interface, $device), username=$username, password=$password"
-	proto_init_update ppp0 1
+	proto_init_update pppoe-$interface 1
 	proto_set_keep 1
 	proto_add_ipv4_address "192.168.2.1" 32
 	proto_add_dns_server "192.168.2.2"
@@ -46,7 +46,7 @@ proto_pppoe_setup() {
 	proto_close_data
 	proto_send_update "$interface"
 
-	proto_init_update ppp0 1
+	proto_init_update pppoe-$interface 1
 	proto_set_keep 1
 	proto_add_ipv6_address "fe80::2" 64
 	proto_add_ipv6_route "::0" 0 "fe80::1"
