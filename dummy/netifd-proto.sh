@@ -164,7 +164,8 @@ _proto_push_array() {
 
 _proto_notify() {
 	local interface="$1"
-	ubus call network.interface."$interface" notify_proto "$(json_dump)"
+	local options="$2"
+	ubus $options call network.interface."$interface" notify_proto "$(json_dump)"
 }
 
 proto_send_update() {
@@ -247,6 +248,16 @@ proto_set_available() {
 	json_add_int action 5
 	json_add_boolean available "$state"
 	_proto_notify "$interface"
+}
+
+proto_add_host_dependency() {
+	local interface="$1"
+	local host="$2"
+
+	json_init
+	json_add_int action 6
+	json_add_string host "$host"
+	_proto_notify "$interface" -S
 }
 
 init_proto() {
