@@ -47,14 +47,13 @@ config interface wlan
 	option ipaddr	192.168.2.1
 	option netmask	255.255.255.0
 
-config interface test
-	option ifname	@test
-	option proto	static
-	option ipaddr	192.168.5.1
-	option netmask	255.255.255.0
+config interface pptp
+	option proto	pptp
+	option server	1.1.1.1
 
 config route
 	option target	192.168.0.1
 	option netmask	24
 	option gateway	192.168.5.2
 	option interface wan
+
