@@ -49,6 +49,16 @@ struct proto_shell_handler {
 	char script_name[];
 };
 
+struct proto_shell_dependency {
+	struct list_head list;
+
+	struct proto_shell_state *proto;
+	struct interface_user dep;
+
+	union if_addr host;
+	bool v6;
+};
+
 struct proto_shell_state {
 	struct interface_proto_state proto;
 	struct proto_shell_handler *handler;
@@ -63,7 +73,65 @@ struct proto_shell_state {
 	bool proto_task_killed;
 
 	int last_error;
+
+	struct list_head deps;
 };
+
+static void
+proto_shell_check_dependencies(struct proto_shell_state *state)
+{
+	struct proto_shell_dependency *dep;
+	bool available = true;
+
+	list_for_each_entry(dep, &state->deps, list) {
+		if (dep->dep.iface)
+			continue;
+
+		available = false;
+		break;
+	}
+
+	interface_set_available(state->proto.iface, available);
+}
+
+static void
+proto_shell_if_up_cb(struct interface_user *dep, struct interface *iface,
+		     enum interface_event ev);
+static void
+proto_shell_if_down_cb(struct interface_user *dep, struct interface *iface,
+		       enum interface_event ev);
+
+static void
+proto_shell_update_host_dep(struct proto_shell_dependency *dep)
+{
+	struct interface *iface;
+
+	if (dep->dep.iface)
+		goto out;
+
+	iface = interface_ip_add_target_route(&dep->host, dep->v6);
+	if (!iface)
+		goto out;
+
+	interface_remove_user(&dep->dep);
+	dep->dep.cb = proto_shell_if_down_cb;
+	interface_add_user(&dep->dep, iface);
+
+out:
+	proto_shell_check_dependencies(dep->proto);
+}
+
+static void
+proto_shell_clear_host_dep(struct proto_shell_state *state)
+{
+	struct proto_shell_dependency *dep, *tmp;
+
+	list_for_each_entry_safe(dep, tmp, &state->deps, list) {
+		interface_remove_user(&dep->dep);
+		list_del(&dep->list);
+		free(dep);
+	}
+}
 
 static int
 proto_shell_handler(struct interface_proto_state *proto,
@@ -86,6 +154,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 	if (cmd == PROTO_CMD_SETUP) {
 		action = "setup";
 		state->last_error = -1;
+		proto_shell_clear_host_dep(state);
 	} else {
 		if (state->sm == S_TEARDOWN)
 			return 0;
@@ -128,6 +197,41 @@ proto_shell_handler(struct interface_proto_state *proto,
 	free(config);
 
 	return ret;
+}
+
+static void
+proto_shell_if_up_cb(struct interface_user *dep, struct interface *iface,
+		     enum interface_event ev)
+{
+	struct proto_shell_dependency *pdep;
+
+	if (ev != IFEV_UP)
+		return;
+
+	pdep = container_of(dep, struct proto_shell_dependency, dep);
+	proto_shell_update_host_dep(pdep);
+}
+
+static void
+proto_shell_if_down_cb(struct interface_user *dep, struct interface *iface,
+		       enum interface_event ev)
+{
+	struct proto_shell_dependency *pdep;
+	struct proto_shell_state *state;
+
+	if (ev == IFEV_UP)
+		return;
+
+	pdep = container_of(dep, struct proto_shell_dependency, dep);
+	interface_remove_user(dep);
+	dep->cb = proto_shell_if_up_cb;
+	interface_add_user(dep, NULL);
+
+	state = pdep->proto;
+	if (state->sm == S_IDLE) {
+		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
+		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
+	}
 }
 
 static void
@@ -275,6 +379,7 @@ enum {
 	NOTIFY_TUNNEL,
 	NOTIFY_DATA,
 	NOTIFY_KEEP,
+	NOTIFY_HOST,
 	__NOTIFY_LAST
 };
 
@@ -293,6 +398,7 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_TUNNEL] = { .name = "tunnel", .type = BLOBMSG_TYPE_TABLE },
 	[NOTIFY_DATA] = { .name = "data", .type = BLOBMSG_TYPE_TABLE },
 	[NOTIFY_KEEP] = { .name = "keep", .type = BLOBMSG_TYPE_BOOL },
+	[NOTIFY_HOST] = { .name = "host", .type = BLOBMSG_TYPE_STRING },
 };
 
 static int
@@ -492,6 +598,32 @@ proto_shell_set_available(struct proto_shell_state *state, struct blob_attr **tb
 }
 
 static int
+proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_attr **tb)
+{
+	struct proto_shell_dependency *dep;
+	struct blob_attr *host = tb[NOTIFY_HOST];
+
+	if (!host)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	dep = calloc(1, sizeof(*dep));
+	if (!inet_pton(AF_INET, blobmsg_data(host), &dep->host)) {
+		free(dep);
+		return UBUS_STATUS_INVALID_ARGUMENT;
+	}
+
+	dep->proto = state;
+	dep->dep.cb = proto_shell_if_up_cb;
+	interface_add_user(&dep->dep, NULL);
+	list_add(&dep->list, &state->deps);
+	proto_shell_update_host_dep(dep);
+	if (!dep->dep.iface)
+		return UBUS_STATUS_NOT_FOUND;
+
+	return 0;
+}
+
+static int
 proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
@@ -516,6 +648,8 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 		return proto_shell_block_restart(state, tb);
 	case 5:
 		return proto_shell_set_available(state, tb);
+	case 6:
+		return proto_shell_add_host_dependency(state, tb);
 	default:
 		return UBUS_STATUS_INVALID_ARGUMENT;
 	}
@@ -528,6 +662,8 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	struct proto_shell_state *state;
 
 	state = calloc(1, sizeof(*state));
+	INIT_LIST_HEAD(&state->deps);
+
 	state->config = malloc(blob_pad_len(attr));
 	if (!state->config)
 		goto error;
