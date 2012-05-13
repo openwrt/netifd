@@ -60,6 +60,18 @@ const struct config_param_list proto_ip_attr = {
 	.info = proto_ip_attr_info,
 };
 
+enum {
+	ADDR_IPADDR,
+	ADDR_MASK,
+	ADDR_BROADCAST,
+	__ADDR_MAX
+};
+
+static const struct blobmsg_policy proto_ip_addr[__ADDR_MAX] = {
+	[ADDR_IPADDR] = { .name = "ipaddr", .type = BLOBMSG_TYPE_STRING },
+	[ADDR_MASK] = { .name = "mask", .type = BLOBMSG_TYPE_STRING },
+	[ADDR_BROADCAST] = { .name = "broadcast", .type = BLOBMSG_TYPE_STRING },
+};
 
 unsigned int
 parse_netmask_string(const char *str, bool v6)
@@ -122,18 +134,15 @@ parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 }
 
 static struct device_addr *
-proto_parse_ip_addr_string(const char *str, bool v6, int mask)
+alloc_device_addr(bool v6, bool ext)
 {
 	struct device_addr *addr;
-	int af = v6 ? AF_INET6 : AF_INET;
 
 	addr = calloc(1, sizeof(*addr));
 	addr->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
-	addr->mask = mask;
-	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask)) {
-		free(addr);
-		return NULL;
-	}
+	if (ext)
+		addr->flags |= DEVADDR_EXTERNAL;
+
 	return addr;
 }
 
@@ -142,26 +151,29 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask,
 	   bool ext, uint32_t broadcast)
 {
 	struct device_addr *addr;
+	int af = v6 ? AF_INET6 : AF_INET;
 
-	addr = proto_parse_ip_addr_string(str, v6, mask);
-	if (!addr) {
+	addr = alloc_device_addr(v6, ext);
+	if (!addr)
+		return false;
+
+	addr->mask = mask;
+	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask)) {
 		interface_add_error(iface, "proto", "INVALID_ADDRESS", &str, 1);
+		free(addr);
 		return false;
 	}
 
 	if (broadcast)
 		addr->broadcast = broadcast;
 
-	if (ext)
-		addr->flags |= DEVADDR_EXTERNAL;
-
 	vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
 	return true;
 }
 
 static int
-parse_address_option(struct interface *iface, struct blob_attr *attr, bool v6,
-		     int netmask, bool ext, uint32_t broadcast)
+parse_static_address_option(struct interface *iface, struct blob_attr *attr,
+			    bool v6, int netmask, bool ext, uint32_t broadcast)
 {
 	struct blob_attr *cur;
 	int n_addr = 0;
@@ -180,6 +192,72 @@ parse_address_option(struct interface *iface, struct blob_attr *attr, bool v6,
 	return n_addr;
 }
 
+static struct device_addr *
+parse_address_item(struct blob_attr *attr, bool v6, bool ext)
+{
+	struct device_addr *addr;
+	struct blob_attr *tb[__ADDR_MAX];
+	struct blob_attr *cur;
+
+	if (blobmsg_type(attr) != BLOBMSG_TYPE_TABLE)
+		return NULL;
+
+	addr = alloc_device_addr(v6, ext);
+	if (!addr)
+		return NULL;
+
+	blobmsg_parse(proto_ip_addr, __ADDR_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+
+	addr->mask = v6 ? 128 : 32;
+	if ((cur = tb[ADDR_MASK])) {
+		unsigned int new_mask;
+
+		new_mask = parse_netmask_string(blobmsg_data(cur), v6);
+		if (new_mask > addr->mask)
+			goto error;
+
+		addr->mask = new_mask;
+	}
+
+	cur = tb[ADDR_IPADDR];
+	if (!cur)
+		goto error;
+
+	if (!inet_pton(v6 ? AF_INET6 : AF_INET, blobmsg_data(cur), &addr->addr))
+		goto error;
+
+	if (!v6 && (cur = tb[ADDR_BROADCAST])) {
+		if (!inet_pton(AF_INET, blobmsg_data(cur), &addr->broadcast))
+			goto error;
+	}
+
+	return addr;
+
+error:
+	free(addr);
+	return NULL;
+}
+
+static int
+parse_address_list(struct interface *iface, struct blob_attr *attr, bool v6,
+		   bool ext)
+{
+	struct device_addr *addr;
+	struct blob_attr *cur;
+	int n_addr = 0;
+	int rem;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		addr = parse_address_item(cur, v6, ext);
+		if (!addr)
+			return -1;
+
+		n_addr++;
+		vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
+	}
+
+	return n_addr;
+}
 
 static bool
 parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
@@ -230,11 +308,11 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 	}
 
 	if ((cur = tb[OPT_IPADDR]))
-		n_v4 = parse_address_option(iface, cur, false,
+		n_v4 = parse_static_address_option(iface, cur, false,
 			netmask, false, bcast.s_addr);
 
 	if ((cur = tb[OPT_IP6ADDR]))
-		n_v6 = parse_address_option(iface, cur, true,
+		n_v6 = parse_static_address_option(iface, cur, true,
 			netmask, false, 0);
 
 	if (!n_v4 && !n_v6) {
@@ -276,17 +354,14 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 	struct blob_attr *cur;
 	const char *error;
 	int n_v4 = 0, n_v6 = 0;
-	struct in_addr bcast = {};
 
 	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
 
 	if ((cur = tb[OPT_IPADDR]))
-		n_v4 = parse_address_option(iface, cur, false,
-			32, ext, bcast.s_addr);
+		n_v4 = parse_address_list(iface, cur, false, ext);
 
 	if ((cur = tb[OPT_IP6ADDR]))
-		n_v6 = parse_address_option(iface, cur, true,
-			128, ext, 0);
+		n_v6 = parse_address_list(iface, cur, true, ext);
 
 	if (!n_v4 && !n_v6) {
 		error = "NO_ADDRESS";

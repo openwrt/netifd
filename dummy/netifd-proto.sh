@@ -104,8 +104,9 @@ proto_add_dns_search() {
 proto_add_ipv4_address() {
 	local address="$1"
 	local mask="$2"
+	local broadcast="$3"
 
-	jshn_append PROTO_IPADDR "$address/$mask"
+	jshn_append PROTO_IPADDR "$address/$mask/$broadcast"
 }
 
 proto_add_ipv6_address() {
@@ -131,7 +132,38 @@ proto_add_ipv6_route() {
 	jshn_append PROTO_ROUTE6 "$target/$mask/$gw"
 }
 
-_proto_push_ip() {
+_proto_push_ipv4_addr() {
+	local str="$1"
+	local address mask broadcast
+
+	address="${str%%/*}"
+	str="${str#*/}"
+	mask="${str%%/*}"
+	str="${str#*/}"
+	broadcast="$str"
+
+	json_add_object ""
+	json_add_string ipaddr "$address"
+	[ -n "$mask" ] && json_add_string mask "$mask"
+	[ -n "$broadcast" ] && json_add_string broadcast "$broadcast"
+	json_close_object
+}
+
+_proto_push_ipv6_addr() {
+	local str="$1"
+	local address mask
+
+	address="${str%%/*}"
+	str="${str#*/}"
+	mask="$str"
+
+	json_add_object ""
+	json_add_string ipaddr "$address"
+	[ -n "$mask" ] && json_add_string mask "$mask"
+	json_close_object
+}
+
+_proto_push_string() {
 	json_add_string "" "$1"
 }
 
@@ -173,12 +205,12 @@ proto_send_update() {
 
 	proto_close_nested
 	json_add_boolean keep "$PROTO_KEEP"
-	_proto_push_array "ipaddr" "$PROTO_IPADDR" _proto_push_ip
-	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ip
+	_proto_push_array "ipaddr" "$PROTO_IPADDR" _proto_push_ipv4_addr
+	_proto_push_array "ip6addr" "$PROTO_IP6ADDR" _proto_push_ipv6_addr
 	_proto_push_array "routes" "$PROTO_ROUTE" _proto_push_route
 	_proto_push_array "routes6" "$PROTO_ROUTE6" _proto_push_route
-	_proto_push_array "dns" "$PROTO_DNS" _proto_push_ip
-	_proto_push_array "dns_search" "$PROTO_DNS_SEARCH" _proto_push_ip
+	_proto_push_array "dns" "$PROTO_DNS" _proto_push_string
+	_proto_push_array "dns_search" "$PROTO_DNS_SEARCH" _proto_push_string
 	_proto_notify "$interface"
 }
 
