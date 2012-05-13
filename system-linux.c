@@ -857,8 +857,12 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 
 	nlmsg_append(msg, &ifa, sizeof(ifa), 0);
 	nla_put(msg, IFA_LOCAL, alen, &addr->addr);
-	if (v4)
-		nla_put_u32(msg, IFA_BROADCAST, addr->broadcast);
+	if (v4) {
+		if (addr->broadcast)
+			nla_put_u32(msg, IFA_BROADCAST, addr->broadcast);
+		if (addr->point_to_point)
+			nla_put_u32(msg, IFA_ADDRESS, addr->point_to_point);
+	}
 
 	return system_rtnl_call(msg);
 }
