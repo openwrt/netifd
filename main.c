@@ -59,6 +59,7 @@ netifd_delete_process(struct netifd_process *proc)
 		uloop_process_delete(&proc->uloop);
 	list_del(&proc->list);
 	netifd_fd_delete(&proc->log_fd);
+	close(proc->log_fd.fd);
 	if (proc->log_buf) {
 		free(proc->log_buf);
 		proc->log_buf = NULL;
