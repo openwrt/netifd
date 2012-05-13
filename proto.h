@@ -70,6 +70,7 @@ int interface_proto_event(struct interface_proto_state *proto,
 			  enum interface_proto_cmd cmd, bool force);
 
 unsigned int parse_netmask_string(const char *str, bool v6);
+int proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr);
 int proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ext);
 
 

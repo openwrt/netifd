@@ -33,7 +33,7 @@ struct static_proto_state {
 static bool
 static_proto_setup(struct static_proto_state *state)
 {
-	return proto_apply_ip_settings(state->proto.iface, state->config, false) == 0;
+	return proto_apply_static_ip_settings(state->proto.iface, state->config) == 0;
 }
 
 static int

@@ -203,6 +203,73 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 }
 
 int
+proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
+{
+	struct blob_attr *tb[__OPT_MAX];
+	struct blob_attr *cur;
+	const char *error;
+	unsigned int netmask = 32;
+	int n_v4 = 0, n_v6 = 0;
+	struct in_addr bcast = {};
+
+	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
+
+	if ((cur = tb[OPT_NETMASK])) {
+		netmask = parse_netmask_string(blobmsg_data(cur), false);
+		if (netmask > 32) {
+			error = "INVALID_NETMASK";
+			goto error;
+		}
+	}
+
+	if ((cur = tb[OPT_BROADCAST])) {
+		if (!inet_pton(AF_INET, blobmsg_data(cur), &bcast)) {
+			error = "INVALID_BROADCAST";
+			goto error;
+		}
+	}
+
+	if ((cur = tb[OPT_IPADDR]))
+		n_v4 = parse_address_option(iface, cur, false,
+			netmask, false, bcast.s_addr);
+
+	if ((cur = tb[OPT_IP6ADDR]))
+		n_v6 = parse_address_option(iface, cur, true,
+			netmask, false, 0);
+
+	if (!n_v4 && !n_v6) {
+		error = "NO_ADDRESS";
+		goto error;
+	}
+
+	if (n_v4 < 0 || n_v6 < 0)
+		goto out;
+
+	if ((cur = tb[OPT_GATEWAY])) {
+		if (n_v4 && !parse_gateway_option(iface, cur, false))
+			goto out;
+	}
+
+	if ((cur = tb[OPT_IP6GW])) {
+		if (n_v6 && !parse_gateway_option(iface, cur, true))
+			goto out;
+	}
+
+	if ((cur = tb[OPT_DNS]))
+		interface_add_dns_server_list(&iface->proto_ip, cur);
+
+	if ((cur = tb[OPT_DNS_SEARCH]))
+		interface_add_dns_search_list(&iface->proto_ip, cur);
+
+	return 0;
+
+error:
+	interface_add_error(iface, "proto", error, NULL, 0);
+out:
+	return -1;
+}
+
+int
 proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ext)
 {
 	struct blob_attr *tb[__OPT_MAX];
