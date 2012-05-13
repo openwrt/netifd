@@ -105,8 +105,9 @@ proto_add_ipv4_address() {
 	local address="$1"
 	local mask="$2"
 	local broadcast="$3"
+	local ptp="$4"
 
-	jshn_append PROTO_IPADDR "$address/$mask/$broadcast"
+	jshn_append PROTO_IPADDR "$address/$mask/$broadcast/$ptp"
 }
 
 proto_add_ipv6_address() {
@@ -134,18 +135,21 @@ proto_add_ipv6_route() {
 
 _proto_push_ipv4_addr() {
 	local str="$1"
-	local address mask broadcast
+	local address mask broadcast ptp
 
 	address="${str%%/*}"
 	str="${str#*/}"
 	mask="${str%%/*}"
 	str="${str#*/}"
-	broadcast="$str"
+	broadcast="${str%%/*}"
+	str="${str#*/}"
+	ptp="$str"
 
 	json_add_object ""
 	json_add_string ipaddr "$address"
 	[ -n "$mask" ] && json_add_string mask "$mask"
 	[ -n "$broadcast" ] && json_add_string broadcast "$broadcast"
+	[ -n "$ptp" ] && json_add_string ptp "$ptp"
 	json_close_object
 }
 

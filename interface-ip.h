@@ -40,6 +40,7 @@ struct device_addr {
 
 	/* ipv4 only */
 	uint32_t broadcast;
+	uint32_t point_to_point;
 
 	/* must be last */
 	enum device_addr_flags flags;

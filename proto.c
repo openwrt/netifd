@@ -64,6 +64,7 @@ enum {
 	ADDR_IPADDR,
 	ADDR_MASK,
 	ADDR_BROADCAST,
+	ADDR_PTP,
 	__ADDR_MAX
 };
 
@@ -71,6 +72,7 @@ static const struct blobmsg_policy proto_ip_addr[__ADDR_MAX] = {
 	[ADDR_IPADDR] = { .name = "ipaddr", .type = BLOBMSG_TYPE_STRING },
 	[ADDR_MASK] = { .name = "mask", .type = BLOBMSG_TYPE_STRING },
 	[ADDR_BROADCAST] = { .name = "broadcast", .type = BLOBMSG_TYPE_STRING },
+	[ADDR_PTP] = { .name = "ptp", .type = BLOBMSG_TYPE_STRING },
 };
 
 unsigned int
@@ -226,8 +228,12 @@ parse_address_item(struct blob_attr *attr, bool v6, bool ext)
 	if (!inet_pton(v6 ? AF_INET6 : AF_INET, blobmsg_data(cur), &addr->addr))
 		goto error;
 
-	if (!v6 && (cur = tb[ADDR_BROADCAST])) {
-		if (!inet_pton(AF_INET, blobmsg_data(cur), &addr->broadcast))
+	if (!v6) {
+		if ((cur = tb[ADDR_BROADCAST]) &&
+		    !inet_pton(AF_INET, blobmsg_data(cur), &addr->broadcast))
+			goto error;
+		if ((cur = tb[ADDR_PTP]) &&
+		    !inet_pton(AF_INET, blobmsg_data(cur), &addr->point_to_point))
 			goto error;
 	}
 
