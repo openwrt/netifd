@@ -625,6 +625,22 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 }
 
 static int
+proto_shell_setup_failed(struct proto_shell_state *state)
+{
+	switch (state->sm) {
+	case S_IDLE:
+		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
+		/* fall through */
+	case S_SETUP:
+		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static int
 proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
@@ -651,6 +667,8 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 		return proto_shell_set_available(state, tb);
 	case 6:
 		return proto_shell_add_host_dependency(state, tb);
+	case 7:
+		return proto_shell_setup_failed(state);
 	default:
 		return UBUS_STATUS_INVALID_ARGUMENT;
 	}

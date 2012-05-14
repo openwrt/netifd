@@ -296,6 +296,13 @@ proto_add_host_dependency() {
 	_proto_notify "$interface" -S
 }
 
+proto_setup_failed() {
+	local interface="$1"
+	json_init
+	json_add_int action 7
+	_proto_notify "$interface"
+}
+
 init_proto() {
 	proto="$1"; shift
 	cmd="$1"; shift
