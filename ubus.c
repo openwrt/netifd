@@ -290,7 +290,7 @@ netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
 }
 
 static void
-interface_ip_dump_address_list(struct interface_ip_settings *ip)
+interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6)
 {
 	struct device_addr *addr;
 	char *buf;
@@ -303,6 +303,9 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip)
 			af = AF_INET;
 		else
 			af = AF_INET6;
+
+		if (af != (v6 ? AF_INET6 : AF_INET))
+			continue;
 
 		a = blobmsg_open_table(&b, NULL);
 
@@ -376,9 +379,13 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		blobmsg_add_string(&b, "device", dev->ifname);
 
 	if (iface->state == IFS_UP) {
-		a = blobmsg_open_array(&b, "address");
-		interface_ip_dump_address_list(&iface->config_ip);
-		interface_ip_dump_address_list(&iface->proto_ip);
+		a = blobmsg_open_array(&b, "ipv4-address");
+		interface_ip_dump_address_list(&iface->config_ip, false);
+		interface_ip_dump_address_list(&iface->proto_ip, false);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "ipv6-address");
+		interface_ip_dump_address_list(&iface->config_ip, true);
+		interface_ip_dump_address_list(&iface->proto_ip, true);
 		blobmsg_close_array(&b, a);
 		a = blobmsg_open_array(&b, "route");
 		interface_ip_dump_route_list(&iface->config_ip);
