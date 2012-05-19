@@ -33,6 +33,8 @@ enum {
 	IFACE_ATTR_AUTO,
 	IFACE_ATTR_DEFAULTROUTE,
 	IFACE_ATTR_PEERDNS,
+	IFACE_ATTR_DNS,
+	IFACE_ATTR_DNS_SEARCH,
 	IFACE_ATTR_METRIC,
 	IFACE_ATTR_MAX
 };
@@ -44,11 +46,18 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_DEFAULTROUTE] = { .name = "defaultroute", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_PEERDNS] = { .name = "peerdns", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
+	[IFACE_ATTR_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
+	[IFACE_ATTR_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
+};
+
+static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
+	[IFACE_ATTR_DNS] = { .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct config_param_list interface_attr_list = {
 	.n_params = IFACE_ATTR_MAX,
 	.params = iface_attrs,
+	.info = iface_attr_info,
 };
 
 static void
@@ -395,6 +404,12 @@ interface_init(struct interface *iface, const char *name,
 	iface->proto_ip.no_dns =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_PEERDNS], true);
 
+	if ((cur = tb[IFACE_ATTR_DNS]))
+		interface_add_dns_server_list(&iface->config_ip, cur);
+
+	if ((cur = tb[IFACE_ATTR_DNS_SEARCH]))
+		interface_add_dns_search_list(&iface->config_ip, cur);
+
 	iface->config_autostart = iface->autostart;
 }
 
@@ -575,6 +590,13 @@ interface_update_complete(struct interface *iface)
 }
 
 static void
+interface_replace_dns(struct interface_ip_settings *old, struct interface_ip_settings *new)
+{
+	vlist_simple_replace(&new->dns_servers, &old->dns_servers);
+	vlist_simple_replace(&new->dns_search, &old->dns_search);
+}
+
+static void
 interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
@@ -620,8 +642,11 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_ip_set_enabled(&if_old->proto_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
 	}
-	if (UPDATE(proto_ip.no_dns))
-		interface_write_resolv_conf();
+
+	UPDATE(proto_ip.no_dns);
+	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
+	interface_replace_dns(&if_old->proto_ip, &if_new->proto_ip);
+	interface_write_resolv_conf();
 
 #undef UPDATE
 

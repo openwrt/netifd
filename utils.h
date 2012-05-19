@@ -98,6 +98,7 @@ void __vlist_simple_init(struct vlist_simple_tree *tree, int offset);
 void vlist_simple_delete(struct vlist_simple_tree *tree, struct vlist_simple_node *node);
 void vlist_simple_flush(struct vlist_simple_tree *tree);
 void vlist_simple_flush_all(struct vlist_simple_tree *tree);
+void vlist_simple_replace(struct vlist_simple_tree *dest, struct vlist_simple_tree *old);
 
 static inline void vlist_simple_update(struct vlist_simple_tree *tree)
 {

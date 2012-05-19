@@ -544,8 +544,10 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 void
 interface_ip_update_start(struct interface_ip_settings *ip)
 {
-	vlist_simple_update(&ip->dns_servers);
-	vlist_simple_update(&ip->dns_search);
+	if (ip != &ip->iface->config_ip) {
+		vlist_simple_update(&ip->dns_servers);
+		vlist_simple_update(&ip->dns_search);
+	}
 	vlist_update(&ip->route);
 	vlist_update(&ip->addr);
 }

@@ -32,8 +32,6 @@ enum {
 	OPT_BROADCAST,
 	OPT_GATEWAY,
 	OPT_IP6GW,
-	OPT_DNS,
-	OPT_DNS_SEARCH,
 	__OPT_MAX,
 };
 
@@ -44,14 +42,11 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_BROADCAST] = { .name = "broadcast", .type = BLOBMSG_TYPE_STRING },
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
-	[OPT_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
-	[OPT_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static const union config_param_info proto_ip_attr_info[__OPT_MAX] = {
 	[OPT_IPADDR] = { .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6ADDR] = { .type = BLOBMSG_TYPE_STRING },
-	[OPT_DNS] = { .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct config_param_list proto_ip_attr = {
@@ -339,12 +334,6 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 			goto out;
 	}
 
-	if ((cur = tb[OPT_DNS]))
-		interface_add_dns_server_list(&iface->proto_ip, cur);
-
-	if ((cur = tb[OPT_DNS_SEARCH]))
-		interface_add_dns_search_list(&iface->proto_ip, cur);
-
 	return 0;
 
 error:
@@ -386,12 +375,6 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 		if (n_v6 && !parse_gateway_option(iface, cur, true))
 			goto out;
 	}
-
-	if ((cur = tb[OPT_DNS]))
-		interface_add_dns_server_list(&iface->proto_ip, cur);
-
-	if ((cur = tb[OPT_DNS_SEARCH]))
-		interface_add_dns_search_list(&iface->proto_ip, cur);
 
 	return 0;
 
