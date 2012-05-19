@@ -410,6 +410,9 @@ interface_init(struct interface *iface, const char *name,
 	if ((cur = tb[IFACE_ATTR_DNS_SEARCH]))
 		interface_add_dns_search_list(&iface->config_ip, cur);
 
+	if ((cur = tb[IFACE_ATTR_METRIC]))
+		iface->metric = blobmsg_get_u32(cur);
+
 	iface->config_autostart = iface->autostart;
 }
 
