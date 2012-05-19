@@ -337,6 +337,9 @@ interface_update_proto_route(struct vlist_tree *tree,
 	if (node_new) {
 		bool _enabled = enable_route(ip, route_new);
 
+		if (!(route_new->flags & DEVROUTE_METRIC))
+			route_new->metric = iface->metric;
+
 		if (!(route_new->flags & DEVADDR_EXTERNAL) && !keep && _enabled)
 			system_add_route(dev, route_new);
 
