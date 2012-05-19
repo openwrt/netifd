@@ -50,23 +50,33 @@ const struct config_param_list route_attr_list = {
 	.params = route_attr,
 };
 
+static void
+clear_if_addr(union if_addr *a, int mask)
+{
+	int m_bytes = (mask + 7) / 8;
+	uint8_t m_clear = (1 << (m_bytes * 8 - mask)) - 1;
+	uint8_t *p = (uint8_t *) a;
+
+	if (m_bytes < sizeof(a))
+		memset(p + m_bytes, 0, sizeof(a) - m_bytes);
+
+	p[m_bytes - 1] &= ~m_clear;
+}
+
 static bool
 match_if_addr(union if_addr *a1, union if_addr *a2, int mask)
 {
-	uint8_t *p1, *p2;
-	int m_bytes = (mask + 7) / 8;
-	uint8_t m_clear = (1 << (m_bytes * 8 - mask)) - 1;
+	union if_addr *p1, *p2;
 
-	p1 = alloca(m_bytes);
-	p2 = alloca(m_bytes);
+	p1 = alloca(sizeof(*a1));
+	p2 = alloca(sizeof(*a2));
 
-	memcpy(p1, a1, m_bytes);
-	memcpy(p2, a2, m_bytes);
+	memcpy(p1, a1, sizeof(*a1));
+	clear_if_addr(p1, mask);
+	memcpy(p2, a2, sizeof(*a2));
+	clear_if_addr(p2, mask);
 
-	p1[m_bytes - 1] &= ~m_clear;
-	p2[m_bytes - 1] &= ~m_clear;
-
-	return !memcmp(p1, p2, m_bytes);
+	return !memcmp(p1, p2, sizeof(*p1));
 }
 
 static bool
@@ -252,6 +262,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	struct device *dev;
 	struct device_addr *a_new = NULL, *a_old = NULL;
 	bool keep = false;
+	struct device_route *route;
 
 	ip = container_of(tree, struct interface_ip_settings, addr);
 	iface = ip->iface;
@@ -292,10 +303,28 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	}
 
 	if (node_new) {
-		if (!(a_new->flags & DEVADDR_EXTERNAL) && !keep)
-			system_add_address(dev, a_new);
 		a_new->enabled = true;
+		if (!(a_new->flags & DEVADDR_EXTERNAL) && !keep) {
+			system_add_address(dev, a_new);
+			if (iface->metric)
+				goto replace_route;
+		}
 	}
+	return;
+
+replace_route:
+	route = calloc(1, sizeof(*route));
+	route->iface = iface;
+	route->flags = a_new->flags | DEVADDR_KERNEL;
+	route->mask = a_new->mask;
+	memcpy(&route->addr, &a_new->addr, sizeof(route->addr));
+	clear_if_addr(&route->addr, route->mask);
+
+	system_del_route(dev, route);
+
+	route->flags &= ~DEVADDR_KERNEL;
+	route->metric = iface->metric;
+	vlist_add(&ip->route, &route->node, &route->flags);
 }
 
 static bool

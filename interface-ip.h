@@ -26,7 +26,10 @@ enum device_addr_flags {
 	DEVADDR_EXTERNAL	= (1 << 2),
 
 	/* route overrides the default interface metric */
-	DEVROUTE_METRIC		= (1 << 3)
+	DEVROUTE_METRIC		= (1 << 3),
+
+	/* route automatically added by kernel */
+	DEVADDR_KERNEL		= (1 << 4),
 };
 
 union if_addr {

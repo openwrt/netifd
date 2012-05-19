@@ -899,7 +899,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		.rtm_family = (alen == 4) ? AF_INET : AF_INET6,
 		.rtm_dst_len = route->mask,
 		.rtm_table = RT_TABLE_MAIN,
-		.rtm_protocol = RTPROT_BOOT,
+		.rtm_protocol = (route->flags & DEVADDR_KERNEL) ? RTPROT_KERNEL : RTPROT_BOOT,
 		.rtm_scope = scope,
 		.rtm_type = (cmd == RTM_DELROUTE) ? 0: RTN_UNICAST,
 	};
