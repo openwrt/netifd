@@ -58,6 +58,7 @@ struct interface_ip_settings {
 	struct interface *iface;
 	bool enabled;
 	bool no_defaultroute;
+	bool no_dns;
 
 	struct vlist_tree addr;
 	struct vlist_tree route;

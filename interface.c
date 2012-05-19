@@ -32,6 +32,7 @@ enum {
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
 	IFACE_ATTR_DEFAULTROUTE,
+	IFACE_ATTR_PEERDNS,
 	IFACE_ATTR_METRIC,
 	IFACE_ATTR_MAX
 };
@@ -41,6 +42,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_DEFAULTROUTE] = { .name = "defaultroute", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_PEERDNS] = { .name = "peerdns", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 };
 
@@ -390,6 +392,8 @@ interface_init(struct interface *iface, const char *name,
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
+	iface->proto_ip.no_dns =
+		!blobmsg_get_bool_default(tb[IFACE_ATTR_PEERDNS], true);
 
 	iface->config_autostart = iface->autostart;
 }
@@ -616,6 +620,8 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_ip_set_enabled(&if_old->proto_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
 	}
+	if (UPDATE(proto_ip.no_dns))
+		interface_write_resolv_conf();
 
 #undef UPDATE
 

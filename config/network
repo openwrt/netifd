@@ -50,6 +50,7 @@ config interface wlan
 config interface pptp
 	option proto	pptp
 	option server	1.1.1.1
+	option peerdns	0
 
 config route
 	option target	192.168.0.1

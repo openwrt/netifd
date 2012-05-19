@@ -489,7 +489,8 @@ interface_write_resolv_conf(void)
 
 		fprintf(f, "# Interface %s\n", iface->name);
 		write_resolv_conf_entries(f, &iface->config_ip);
-		write_resolv_conf_entries(f, &iface->proto_ip);
+		if (!iface->proto_ip.no_dns)
+			write_resolv_conf_entries(f, &iface->proto_ip);
 	}
 	fclose(f);
 	if (rename(path, resolv_conf) < 0) {
