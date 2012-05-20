@@ -123,10 +123,12 @@ vlist_simple_replace(struct vlist_simple_tree *dest, struct vlist_simple_tree *o
 {
 	struct vlist_simple_node *n, *tmp;
 
+	vlist_simple_update(dest);
 	list_for_each_entry_safe(n, tmp, &old->list, list) {
 		list_del(&n->list);
 		vlist_simple_add(dest, n);
 	}
+	vlist_simple_flush(dest);
 }
 
 void
