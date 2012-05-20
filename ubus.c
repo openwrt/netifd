@@ -323,8 +323,8 @@ static void
 interface_ip_dump_route_list(struct interface_ip_settings *ip)
 {
 	struct device_route *route;
-	static char *buf;
 	int buflen = 128;
+	char *buf;
 	void *r;
 	int af;
 
@@ -347,6 +347,30 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip)
 		blobmsg_add_string_buffer(&b);
 
 		blobmsg_close_table(&b, r);
+	}
+}
+
+static void
+interface_ip_dump_dns_server_list(struct interface_ip_settings *ip)
+{
+	struct dns_server *dns;
+	int buflen = 128;
+	char *buf;
+
+	vlist_simple_for_each_element(&ip->dns_servers, dns, node) {
+		buf = blobmsg_alloc_string_buffer(&b, NULL, buflen);
+		inet_ntop(dns->af, &dns->addr, buf, buflen);
+		blobmsg_add_string_buffer(&b);
+	}
+}
+
+static void
+interface_ip_dump_dns_search_list(struct interface_ip_settings *ip)
+{
+	struct dns_search_domain *dns;
+
+	vlist_simple_for_each_element(&ip->dns_search, dns, node) {
+		blobmsg_add_string(&b, NULL, dns->name);
 	}
 }
 
@@ -390,6 +414,14 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		a = blobmsg_open_array(&b, "route");
 		interface_ip_dump_route_list(&iface->config_ip);
 		interface_ip_dump_route_list(&iface->proto_ip);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "dns-server");
+		interface_ip_dump_dns_server_list(&iface->config_ip);
+		interface_ip_dump_dns_server_list(&iface->proto_ip);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "dns-search");
+		interface_ip_dump_dns_search_list(&iface->config_ip);
+		interface_ip_dump_dns_search_list(&iface->proto_ip);
 		blobmsg_close_array(&b, a);
 	}
 
