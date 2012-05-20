@@ -593,7 +593,7 @@ interface_update_complete(struct interface *iface)
 }
 
 static void
-interface_replace_dns(struct interface_ip_settings *old, struct interface_ip_settings *new)
+interface_replace_dns(struct interface_ip_settings *new, struct interface_ip_settings *old)
 {
 	vlist_simple_replace(&new->dns_servers, &old->dns_servers);
 	vlist_simple_replace(&new->dns_search, &old->dns_search);
