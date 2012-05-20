@@ -648,7 +648,6 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	UPDATE(proto_ip.no_dns);
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
-	interface_replace_dns(&if_old->proto_ip, &if_new->proto_ip);
 	interface_write_resolv_conf();
 
 #undef UPDATE
