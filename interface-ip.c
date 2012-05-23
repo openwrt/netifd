@@ -253,6 +253,30 @@ route_cmp(const void *k1, const void *k2, void *ptr)
 }
 
 static void
+interface_handle_subnet_route(struct interface *iface, struct device_addr *addr, bool add)
+{
+	struct device *dev = iface->l3_dev.dev;
+	struct device_route route;
+
+	route.iface = iface;
+	route.flags = addr->flags;
+	route.mask = addr->mask;
+	memcpy(&route.addr, &addr->addr, sizeof(route.addr));
+	clear_if_addr(&route.addr, route.mask);
+
+	if (add) {
+		route.flags |= DEVADDR_KERNEL;
+		system_del_route(dev, &route);
+
+		route.flags &= ~DEVADDR_KERNEL;
+		route.metric = iface->metric;
+		system_add_route(dev, &route);
+	} else {
+		system_del_route(dev, &route);
+	}
+}
+
+static void
 interface_update_proto_addr(struct vlist_tree *tree,
 			    struct vlist_node *node_new,
 			    struct vlist_node *node_old)
@@ -262,7 +286,6 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	struct device *dev;
 	struct device_addr *a_new = NULL, *a_old = NULL;
 	bool keep = false;
-	struct device_route *route;
 
 	ip = container_of(tree, struct interface_ip_settings, addr);
 	iface = ip->iface;
@@ -297,8 +320,10 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	}
 
 	if (node_old) {
-		if (!(a_old->flags & DEVADDR_EXTERNAL) && a_old->enabled && !keep)
+		if (!(a_old->flags & DEVADDR_EXTERNAL) && a_old->enabled && !keep) {
+			interface_handle_subnet_route(iface, a_old, false);
 			system_del_address(dev, a_old);
+		}
 		free(a_old);
 	}
 
@@ -307,24 +332,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 		if (!(a_new->flags & DEVADDR_EXTERNAL) && !keep) {
 			system_add_address(dev, a_new);
 			if (iface->metric)
-				goto replace_route;
+				interface_handle_subnet_route(iface, a_new, true);
 		}
 	}
-	return;
-
-replace_route:
-	route = calloc(1, sizeof(*route));
-	route->iface = iface;
-	route->flags = a_new->flags | DEVADDR_KERNEL;
-	route->mask = a_new->mask;
-	memcpy(&route->addr, &a_new->addr, sizeof(route->addr));
-	clear_if_addr(&route->addr, route->mask);
-
-	system_del_route(dev, route);
-
-	route->flags &= ~DEVADDR_KERNEL;
-	route->metric = iface->metric;
-	vlist_add(&ip->route, &route->node, &route->flags);
 }
 
 static bool
