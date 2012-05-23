@@ -306,7 +306,10 @@ interface_do_reload(struct interface *iface)
 static void
 interface_handle_config_change(struct interface *iface)
 {
-	switch(iface->config_state) {
+	enum interface_config_state state = iface->config_state;
+
+	iface->config_state = IFC_NORMAL;
+	switch(state) {
 	case IFC_NORMAL:
 		break;
 	case IFC_RELOAD:
