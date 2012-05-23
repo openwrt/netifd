@@ -36,6 +36,7 @@ enum {
 	IFACE_ATTR_DNS,
 	IFACE_ATTR_DNS_SEARCH,
 	IFACE_ATTR_METRIC,
+	IFACE_ATTR_INTERFACE,
 	IFACE_ATTR_MAX
 };
 
@@ -48,6 +49,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
+	[IFACE_ATTR_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
 };
 
 static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
@@ -166,13 +168,15 @@ interface_flush_state(struct interface *iface)
 static void
 mark_interface_down(struct interface *iface)
 {
-	if (iface->state == IFS_UP)
+	enum interface_state state = iface->state;
+
+	iface->state = IFS_DOWN;
+	if (state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
 	interface_ip_set_enabled(&iface->config_ip, false);
 	interface_ip_flush(&iface->proto_ip);
 	interface_flush_state(iface);
 	system_flush_routes();
-	iface->state = IFS_DOWN;
 }
 
 void
@@ -251,16 +255,52 @@ interface_remove_user(struct interface_user *dep)
 }
 
 static void
+interface_alias_cb(struct interface_user *dep, struct interface *iface, enum interface_event ev)
+{
+	struct interface *alias = container_of(dep, struct interface, parent_iface);
+	struct device *dev = iface->l3_dev.dev;
+
+	switch (ev) {
+	case IFEV_UP:
+		if (!dev)
+			return;
+
+		interface_set_main_dev(alias, dev);
+		interface_set_available(alias, true);
+		break;
+	case IFEV_DOWN:
+		interface_set_available(alias, false);
+		interface_set_main_dev(alias, NULL);
+		break;
+	case IFEV_FREE:
+		interface_remove_user(dep);
+		break;
+	case IFEV_RELOAD:
+		break;
+	}
+}
+
+static void
 interface_claim_device(struct interface *iface)
 {
-	struct device *dev;
+	struct interface *parent;
+	struct device *dev = NULL;
 
-	if (iface->ifname &&
+	if (iface->parent_iface.iface)
+		interface_remove_user(&iface->parent_iface);
+
+	if (iface->parent_ifname) {
+		parent = vlist_find(&interfaces, iface->parent_ifname, parent, node);
+		iface->parent_iface.cb = interface_alias_cb;
+		interface_add_user(&iface->parent_iface, parent);
+	} else if (iface->ifname &&
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
-		if (dev)
-			interface_set_main_dev(iface, dev);
 	}
+
+	if (dev)
+		interface_set_main_dev(iface, dev);
+
 	if (iface->proto_handler->flags & PROTO_FLAG_INIT_AVAILABLE)
 		interface_set_available(iface, true);
 }
@@ -271,14 +311,17 @@ interface_cleanup(struct interface *iface, bool reload)
 {
 	struct interface_user *dep, *tmp;
 
+	if (iface->parent_iface.iface)
+		interface_remove_user(&iface->parent_iface);
+
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
 
 	interface_ip_flush(&iface->config_ip);
 	interface_flush_state(iface);
 	interface_clear_errors(iface);
-	if (iface->main_dev.dev &&
-	    (!reload || !iface->main_dev.hotplug))
+
+	if (iface->main_dev.dev && !reload)
 		interface_set_main_dev(iface, NULL);
 	interface_set_proto_state(iface, NULL);
 }
@@ -419,8 +462,7 @@ interface_init(struct interface *iface, const char *name,
 	iface->config_autostart = iface->autostart;
 }
 
-void
-interface_add(struct interface *iface, struct blob_attr *config)
+static bool __interface_add(struct interface *iface, struct blob_attr *config, bool alias)
 {
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
@@ -428,11 +470,36 @@ interface_add(struct interface *iface, struct blob_attr *config)
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
 
-	if ((cur = tb[IFACE_ATTR_IFNAME]))
-		iface->ifname = blobmsg_data(cur);
+	if (alias) {
+		if ((cur = tb[IFACE_ATTR_INTERFACE]))
+			iface->parent_ifname = blobmsg_data(cur);
+
+		if (!iface->parent_ifname)
+			return false;
+	} else {
+		if ((cur = tb[IFACE_ATTR_IFNAME]))
+			iface->ifname = blobmsg_data(cur);
+	}
+
 
 	iface->config = config;
 	vlist_add(&interfaces, &iface->node, iface->name);
+	return true;
+}
+
+void
+interface_add(struct interface *iface, struct blob_attr *config)
+{
+	__interface_add(iface, config, false);
+}
+
+bool
+interface_add_alias(struct interface *iface, struct blob_attr *config)
+{
+	if (iface->proto_handler->flags & PROTO_FLAG_NODEV)
+		return false;
+
+	return __interface_add(iface, config, true);
 }
 
 void
@@ -607,6 +674,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
 	const char *old_ifname = if_old->ifname;
+	const char *old_parent_ifname = if_old->parent_ifname;
 	const struct proto_handler *proto = if_old->proto_handler;
 
 	interface_clear_errors(if_old);
@@ -616,11 +684,21 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	if_old->config_autostart = if_new->config_autostart;
 	if_old->ifname = if_new->ifname;
+	if_old->parent_ifname = if_new->parent_ifname;
 	if_old->proto_handler = if_new->proto_handler;
 
-	if ((!!old_ifname != !!if_new->ifname) ||
-	    (old_ifname && strcmp(old_ifname, if_new->ifname) != 0) ||
-	    proto != if_new->proto_handler) {
+#define FIELD_CHANGED_STR(field)					\
+		((!!if_old->field != !!old_ ## field) ||		\
+		 (old_ ## field &&					\
+		  strcmp(old_ ## field, if_old->field) != 0))
+
+	if (FIELD_CHANGED_STR(parent_ifname)) {
+		if (if_old->parent_iface.iface)
+			interface_remove_user(&if_old->parent_iface);
+		goto reload;
+	}
+
+	if (FIELD_CHANGED_STR(ifname) || proto != if_new->proto_handler) {
 		D(INTERFACE, "Reload interface '%s' because of ifname/proto change\n",
 		  if_old->name);
 		goto reload;
@@ -660,6 +738,8 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 reload:
 	set_config_state(if_old, IFC_RELOAD);
 out:
+	if_new->config = NULL;
+	interface_cleanup(if_new, false);
 	free(old_config);
 	free(if_new);
 }

@@ -156,16 +156,17 @@ config_parse_bridge_interface(struct uci_section *s)
 }
 
 static void
-config_parse_interface(struct uci_section *s)
+config_parse_interface(struct uci_section *s, bool alias)
 {
 	struct interface *iface;
-	const char *type;
+	const char *type = NULL;
 	struct blob_attr *config;
 	struct device *dev;
 
 	blob_buf_init(&b, 0);
 
-	type = uci_lookup_option_string(uci_ctx, s, "type");
+	if (!alias)
+		type = uci_lookup_option_string(uci_ctx, s, "type");
 	if (type && !strcmp(type, "bridge"))
 		if (config_parse_bridge_interface(s))
 			return;
@@ -181,13 +182,17 @@ config_parse_interface(struct uci_section *s)
 		uci_to_blob(&b, s, iface->proto_handler->config_params);
 
 	config = malloc(blob_pad_len(b.head));
-	if (!config) {
-		free(iface);
-		return;
-	}
+	if (!config)
+		goto error;
 
 	memcpy(config, b.head, blob_pad_len(b.head));
-	interface_add(iface, config);
+
+	if (alias) {
+		if (!interface_add_alias(iface, config))
+			goto error_free_config;
+	} else {
+		interface_add(iface, config);
+	}
 
 	/*
 	 * need to look up the interface name again, in case of config update,
@@ -207,6 +212,11 @@ config_parse_interface(struct uci_section *s)
 		return;
 
 	device_set_config(dev, dev->type, b.head);
+	return;
+error_free_config:
+	free(config);
+error:
+	free(iface);
 }
 
 static void
@@ -378,7 +388,14 @@ config_init_interfaces(void)
 		struct uci_section *s = uci_to_section(e);
 
 		if (!strcmp(s->type, "interface"))
-			config_parse_interface(s);
+			config_parse_interface(s, false);
+	}
+
+	uci_foreach_element(&uci_network->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+
+		if (!strcmp(s->type, "alias"))
+			config_parse_interface(s, true);
 	}
 }
 

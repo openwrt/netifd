@@ -93,6 +93,9 @@ struct interface {
 
 	struct list_head users;
 
+	const char *parent_ifname;
+	struct interface_user parent_iface;
+
 	/* main interface that the interface is bound to */
 	struct device_user main_dev;
 
@@ -128,6 +131,7 @@ void interface_init(struct interface *iface, const char *name,
 		    struct blob_attr *config);
 
 void interface_add(struct interface *iface, struct blob_attr *config);
+bool interface_add_alias(struct interface *iface, struct blob_attr *config);
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state);
 

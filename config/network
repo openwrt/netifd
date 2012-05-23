@@ -42,6 +42,13 @@ config interface wan
 	option username	foo
 	option password bar
 
+config alias wan1
+	option proto	static
+	option interface	wan
+	option ipaddr	192.168.99.1
+	option netmask	255.255.255.0
+	option gateway	192.168.99.3
+
 config interface wlan
 	option proto	static
 	option ipaddr	192.168.2.1
