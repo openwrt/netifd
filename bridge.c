@@ -84,6 +84,7 @@ struct bridge_state {
 	bool active;
 	bool force_active;
 
+	struct bridge_member *primary_port;
 	struct vlist_tree members;
 	int n_present;
 };
@@ -95,6 +96,23 @@ struct bridge_member {
 	bool present;
 	char name[];
 };
+
+static void
+bridge_reset_primary(struct bridge_state *bst)
+{
+	struct bridge_member *bm;
+
+	bst->primary_port = NULL;
+	vlist_for_each_element(&bst->members, bm, node) {
+		if (!bm->present)
+			continue;
+
+		bst->primary_port = bm;
+		memcpy(bst->dev.settings.macaddr, bm->dev.dev->settings.macaddr, 6);
+		bst->dev.settings.flags |= DEV_OPT_MACADDR;
+		return;
+	}
+}
 
 static int
 bridge_disable_member(struct bridge_member *bm)
@@ -144,6 +162,9 @@ bridge_remove_member(struct bridge_member *bm)
 
 	if (!bm->present)
 		return;
+
+	if (bm == bst->primary_port);
+		bridge_reset_primary(bst);
 
 	if (bst->dev.active)
 		bridge_disable_member(bm);
@@ -228,6 +249,7 @@ bridge_set_up(struct bridge_state *bst)
 		return -ENOENT;
 	}
 
+	bridge_reset_primary(bst);
 	ret = bst->set_state(&bst->dev, true);
 	if (ret < 0)
 		bridge_set_down(bst);
