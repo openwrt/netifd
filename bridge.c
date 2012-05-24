@@ -102,7 +102,12 @@ bridge_reset_primary(struct bridge_state *bst)
 {
 	struct bridge_member *bm;
 
+	if (!bst->primary_port &&
+	    (bst->dev.settings.flags & DEV_OPT_MACADDR))
+		return;
+
 	bst->primary_port = NULL;
+	bst->dev.settings.flags &= ~DEV_OPT_MACADDR;
 	vlist_for_each_element(&bst->members, bm, node) {
 		if (!bm->present)
 			continue;
