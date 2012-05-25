@@ -301,7 +301,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			uint32_t *a = (uint32_t *) &a_new->addr;
 
 			mask >>= a_new->mask;
-			a_new->broadcast = *a | mask;
+			a_new->broadcast = *a | htonl(mask);
 		}
 	}
 
