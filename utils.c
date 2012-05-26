@@ -15,12 +15,6 @@
 #include <stdlib.h>
 #include "utils.h"
 
-int
-avl_strcmp(const void *k1, const void *k2, void *ptr)
-{
-	return strcmp(k1, k2);
-}
-
 void
 vlist_init(struct vlist_tree *tree, avl_tree_comp cmp, vlist_update_cb update)
 {

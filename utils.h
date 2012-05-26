@@ -16,6 +16,7 @@
 
 #include <libubox/list.h>
 #include <libubox/avl.h>
+#include <libubox/avl-cmp.h>
 #include <libubox/blobmsg.h>
 
 #ifndef __OPTIMIZE__
@@ -148,7 +149,5 @@ static inline int fls(int x)
     return r;
 }
 #endif
-
-int avl_strcmp(const void *k1, const void *k2, void *ptr);
 
 #endif
