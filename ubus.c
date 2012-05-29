@@ -26,6 +26,7 @@
 static struct ubus_context *ctx = NULL;
 static struct blob_buf b;
 static struct netifd_fd ubus_fd;
+static const char *ubus_path;
 
 /* global object */
 
@@ -202,20 +203,54 @@ static struct ubus_object dev_object = {
 	.n_methods = ARRAY_SIZE(dev_object_methods),
 };
 
+static void
+netifd_ubus_add_fd(void)
+{
+	ubus_add_uloop(ctx);
+	ubus_fd.fd = ctx->sock.fd;
+	netifd_fd_add(&ubus_fd);
+}
+
+static void
+netifd_ubus_reconnect_timer(struct uloop_timeout *timeout)
+{
+	static struct uloop_timeout retry = {
+		.cb = netifd_ubus_reconnect_timer,
+	};
+	int t = 2;
+
+	if (ubus_reconnect(ctx, ubus_path) != 0) {
+		DPRINTF("failed to reconnect, trying again in %d seconds\n", t);
+		uloop_timeout_set(&retry, t * 1000);
+		return;
+	}
+
+	DPRINTF("reconnected to ubus, new id: %08x\n", ctx->local_id);
+	netifd_ubus_add_fd();
+}
+
+static void
+netifd_ubus_connection_lost(struct ubus_context *ctx)
+{
+	netifd_fd_delete(&ubus_fd);
+	netifd_ubus_reconnect_timer(NULL);
+}
+
 int
 netifd_ubus_init(const char *path)
 {
 	int ret;
+
+	uloop_init();
+	ubus_path = path;
 
 	ctx = ubus_connect(path);
 	if (!ctx)
 		return -EIO;
 
 	DPRINTF("connected as %08x\n", ctx->local_id);
-	uloop_init();
-	ubus_add_uloop(ctx);
-	ubus_fd.fd = ctx->sock.fd;
-	netifd_fd_add(&ubus_fd);
+	ctx->connection_lost = netifd_ubus_connection_lost;
+	netifd_ubus_add_fd();
 
 	ret = ubus_add_object(ctx, &main_object);
 	if (ret)
