@@ -433,6 +433,9 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		blobmsg_add_string(&b, "l3_device", iface->l3_dev.dev->ifname);
 	}
 
+	if (iface->proto_handler)
+		blobmsg_add_string(&b, "proto", iface->proto_handler->name);
+
 	dev = iface->main_dev.dev;
 	if (dev && !(iface->proto_handler->flags & PROTO_FLAG_NODEV))
 		blobmsg_add_string(&b, "device", dev->ifname);
