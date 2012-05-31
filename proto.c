@@ -450,6 +450,19 @@ get_proto_handler(const char *name)
 }
 
 void
+proto_dump_handlers(struct blob_buf *b)
+{
+	struct proto_handler *p;
+	void *c;
+
+	avl_for_each_element(&handlers, p, avl) {
+		c = blobmsg_open_table(b, p->name);
+		blobmsg_add_u8(b, "no_device", !!(p->flags & PROTO_FLAG_NODEV));
+		blobmsg_close_table(b, c);
+	}
+}
+
+void
 proto_init_interface(struct interface *iface, struct blob_attr *attr)
 {
 	const struct proto_handler *proto = iface->proto_handler;

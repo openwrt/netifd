@@ -92,10 +92,23 @@ netifd_add_host_route(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+static int
+netifd_get_proto_handlers(struct ubus_context *ctx, struct ubus_object *obj,
+			  struct ubus_request_data *req, const char *method,
+			  struct blob_attr *msg)
+{
+	blob_buf_init(&b, 0);
+	proto_dump_handlers(&b);
+	ubus_send_reply(ctx, req, b.head);
+
+	return 0;
+}
+
 static struct ubus_method main_object_methods[] = {
 	{ .name = "restart", .handler = netifd_handle_restart },
 	{ .name = "reload", .handler = netifd_handle_reload },
 	UBUS_METHOD("add_host_route", netifd_add_host_route, route_policy),
+	{ .name = "get_proto_handlers", .handler = netifd_get_proto_handlers },
 };
 
 static struct ubus_object_type main_object_type =
