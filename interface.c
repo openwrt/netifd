@@ -215,6 +215,8 @@ interface_cb(struct device_user *dep, enum device_event ev)
 	}
 
 	interface_set_available(iface, new_state);
+	if (!new_state && dep->dev->external)
+		interface_set_main_dev(iface, NULL);
 }
 
 void
