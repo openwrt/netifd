@@ -704,10 +704,13 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 		return;
 	}
 
+	blobmsg_add_u8(b, "external", dev->external);
+	blobmsg_add_u8(b, "present", dev->present);
+	blobmsg_add_string(b, "type", dev->type->name);
+
 	if (!dev->present)
 		return;
 
-	blobmsg_add_string(b, "type", dev->type->name);
 	blobmsg_add_u8(b, "up", !!dev->active);
 	if (dev->type->dump_info)
 		dev->type->dump_info(dev, b);
