@@ -201,9 +201,47 @@ error:
 	return UBUS_STATUS_INVALID_ARGUMENT;
 }
 
+enum {
+	DEV_STATE_NAME,
+	DEV_STATE_DEFER,
+	__DEV_STATE_MAX,
+};
+
+static const struct blobmsg_policy dev_state_policy[__DEV_STATE_MAX] = {
+	[DEV_STATE_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
+	[DEV_STATE_DEFER] = { .name = "defer", .type = BLOBMSG_TYPE_BOOL },
+};
+
+static int
+netifd_handle_set_state(struct ubus_context *ctx, struct ubus_object *obj,
+			struct ubus_request_data *req, const char *method,
+			struct blob_attr *msg)
+{
+	struct device *dev = NULL;
+	struct blob_attr *tb[__DEV_STATE_MAX];
+	struct blob_attr *cur;
+
+	blobmsg_parse(dev_state_policy, __DEV_STATE_MAX, tb, blob_data(msg), blob_len(msg));
+
+	cur = tb[DEV_STATE_NAME];
+	if (!cur)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	dev = device_get(blobmsg_data(cur), false);
+	if (!dev)
+		return UBUS_STATUS_NOT_FOUND;
+
+	cur = tb[DEV_STATE_DEFER];
+	if (cur)
+		device_set_deferred(dev, !!blobmsg_get_u8(cur));
+
+	return 0;
+}
+
 static struct ubus_method dev_object_methods[] = {
 	UBUS_METHOD("status", netifd_dev_status, dev_policy),
 	UBUS_METHOD("set_alias", netifd_handle_alias, alias_attrs),
+	UBUS_METHOD("set_state", netifd_handle_set_state, dev_state_policy),
 };
 
 static struct ubus_object_type dev_object_type =
