@@ -115,6 +115,7 @@ struct device {
 	int active;
 	bool external;
 	bool disabled;
+	bool deferred;
 
 	bool current_config;
 	bool default_config;
@@ -164,7 +165,7 @@ void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
 
 void device_set_present(struct device *dev, bool state);
-void device_set_disabled(struct device *dev, bool value);
+void device_refresh_present(struct device *dev);
 int device_claim(struct device_user *dep);
 void device_release(struct device_user *dep);
 int device_check_state(struct device *dev);
@@ -175,5 +176,19 @@ void device_free_unused(struct device *dev);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);
 void alias_notify_device(const char *name, struct device *dev);
+
+static inline void
+device_set_deferred(struct device *dev, bool value)
+{
+	dev->deferred = value;
+	device_refresh_present(dev);
+}
+
+static inline void
+device_set_disabled(struct device *dev, bool value)
+{
+	dev->disabled = value;
+	device_refresh_present(dev);
+}
 
 #endif

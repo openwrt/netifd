@@ -452,26 +452,25 @@ static void __device_set_present(struct device *dev, bool state)
 	device_broadcast_event(dev, state ? DEV_EVENT_ADD : DEV_EVENT_REMOVE);
 }
 
+void
+device_refresh_present(struct device *dev)
+{
+	bool state = dev->sys_present;
+
+	if (dev->disabled || dev->deferred)
+		state = false;
+
+	__device_set_present(dev, state);
+}
+
 void device_set_present(struct device *dev, bool state)
 {
 	if (dev->sys_present == state)
 		return;
 
-	dev->sys_present = state;
 	D(DEVICE, "%s '%s' %s present\n", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
-
-	if (state && dev->disabled)
-		return;
-
-	__device_set_present(dev, state);
-}
-
-void
-device_set_disabled(struct device *dev, bool value)
-{
-	dev->disabled = value;
-	if (dev->sys_present)
-		__device_set_present(dev, !value);
+	dev->sys_present = state;
+	device_refresh_present(dev);
 }
 
 void device_add_user(struct device_user *dep, struct device *dev)
