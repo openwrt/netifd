@@ -769,6 +769,16 @@ static void system_add_link_modes(struct blob_buf *b, __u32 mask)
 	}
 }
 
+bool
+system_if_force_external(const char *ifname)
+{
+	char buf[64];
+	struct stat s;
+
+	snprintf(buf, sizeof(buf), "/sys/class/net/%s/phy80211", ifname);
+	return stat(buf, &s) == 0;
+}
+
 int
 system_if_dump_info(struct device *dev, struct blob_buf *b)
 {

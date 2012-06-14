@@ -374,6 +374,9 @@ device_create_default(const char *name, bool external)
 {
 	struct device *dev;
 
+	if (!external && system_if_force_external(name))
+		return NULL;
+
 	D(DEVICE, "Create simple device '%s'\n", name);
 	dev = calloc(1, sizeof(*dev));
 	dev->external = external;

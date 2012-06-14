@@ -66,6 +66,11 @@ int system_vlan_del(struct device *dev)
 	return 0;
 }
 
+bool system_if_force_external(const char *ifname)
+{
+	return false;
+}
+
 int system_if_up(struct device *dev)
 {
 	D(SYSTEM, "ifconfig %s up\n", dev->ifname);

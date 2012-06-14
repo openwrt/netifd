@@ -64,6 +64,7 @@ int system_if_check(struct device *dev);
 int system_if_dump_info(struct device *dev, struct blob_buf *b);
 int system_if_dump_stats(struct device *dev, struct blob_buf *b);
 struct device *system_if_get_parent(struct device *dev);
+bool system_if_force_external(const char *ifname);
 
 int system_add_address(struct device *dev, struct device_addr *addr);
 int system_del_address(struct device *dev, struct device_addr *addr);
