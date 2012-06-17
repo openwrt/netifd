@@ -70,66 +70,6 @@ static const struct blobmsg_policy proto_ip_addr[__ADDR_MAX] = {
 	[ADDR_PTP] = { .name = "ptp", .type = BLOBMSG_TYPE_STRING },
 };
 
-unsigned int
-parse_netmask_string(const char *str, bool v6)
-{
-	struct in_addr addr;
-	unsigned int ret;
-	char *err = NULL;
-
-	if (!strchr(str, '.')) {
-		ret = strtoul(str, &err, 0);
-		if (err && *err)
-			goto error;
-
-		return ret;
-	}
-
-	if (v6)
-		goto error;
-
-	if (inet_aton(str, &addr) != 1)
-		goto error;
-
-	return 32 - fls(~(ntohl(addr.s_addr)));
-
-error:
-	return ~0;
-}
-
-static bool
-split_netmask(char *str, unsigned int *netmask, bool v6)
-{
-	char *delim = strchr(str, '/');
-
-	if (delim) {
-		*(delim++) = 0;
-
-		*netmask = parse_netmask_string(delim, v6);
-	}
-	return true;
-}
-
-static int
-parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
-{
-	char *astr = alloca(strlen(str) + 1);
-
-	strcpy(astr, str);
-	if (!split_netmask(astr, netmask, af == AF_INET6))
-		return 0;
-
-	if (af == AF_INET6) {
-		if (*netmask > 128)
-			return 0;
-	} else {
-		if (*netmask > 32)
-			return 0;
-	}
-
-	return inet_pton(af, astr, addr);
-}
-
 static struct device_addr *
 alloc_device_addr(bool v6, bool ext)
 {
