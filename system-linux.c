@@ -1026,7 +1026,7 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	struct blob_attr *cur;
 	struct ip_tunnel_parm p;
 	const char *base, *str;
-	int cmd = SIOCADDTUNNEL;
+	bool is_sit;
 
 	system_del_ip_tunnel(name);
 
@@ -1035,12 +1035,12 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
 		blob_data(attr), blob_len(attr));
 
-	cur = tb[TUNNEL_ATTR_TYPE];
-	if (!cur)
+	if (!(cur = tb[TUNNEL_ATTR_TYPE]))
 		return -EINVAL;
-
 	str = blobmsg_data(cur);
-	if (!strcmp(str, "sit")) {
+	is_sit = !strcmp(str, "sit");
+
+	if (is_sit) {
 		p.iph.protocol = IPPROTO_IPV6;
 		base = "sit0";
 	} else
@@ -1062,5 +1062,33 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	}
 
 	strncpy(p.name, name, sizeof(p.name));
-	return tunnel_ioctl(base, cmd, &p);
+	if (tunnel_ioctl(base, SIOCADDTUNNEL, &p) < 0)
+		return -1;
+
+	cur = tb[TUNNEL_ATTR_6RD_PREFIX];
+	if (cur && is_sit) {
+		unsigned int mask;
+		struct ip_tunnel_6rd p6;
+
+		memset(&p6, 0, sizeof(p6));
+
+		if (!parse_ip_and_netmask(AF_INET6, blobmsg_data(cur),
+					&p6.prefix, &mask) || mask > 128)
+			return -EINVAL;
+		p6.prefixlen = mask;
+
+		if ((cur = tb[TUNNEL_ATTR_6RD_RELAY_PREFIX])) {
+			if (!parse_ip_and_netmask(AF_INET, blobmsg_data(cur),
+						&p6.relay_prefix, &mask) || mask > 32)
+				return -EINVAL;
+			p6.relay_prefixlen = mask;
+		}
+
+		if (tunnel_ioctl(name, SIOCADD6RD, &p6) < 0) {
+			system_del_ip_tunnel(name);
+			return -1;
+		}
+	}
+
+	return 0;
 }

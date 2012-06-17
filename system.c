@@ -19,6 +19,8 @@ static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_LOCAL] = { "local", BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_REMOTE] = { "remote", BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_TTL] = { "ttl", BLOBMSG_TYPE_INT32 },
+	[TUNNEL_ATTR_6RD_PREFIX] = { "6rd-prefix", BLOBMSG_TYPE_STRING },
+	[TUNNEL_ATTR_6RD_RELAY_PREFIX] = { "6rd-relay-prefix", BLOBMSG_TYPE_STRING },
 };
 
 const struct config_param_list tunnel_attr_list = {
