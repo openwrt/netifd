@@ -144,7 +144,7 @@ interface_ip_add_target_route(union if_addr *addr, bool v6)
 
 	route = calloc(1, sizeof(*route));
 	if (!route)
-		return false;
+		return NULL;
 
 	route->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
 	route->mask = v6 ? 128 : 32;
