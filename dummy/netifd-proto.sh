@@ -290,10 +290,14 @@ proto_add_host_dependency() {
 	local interface="$1"
 	local host="$2"
 
-	json_init
-	json_add_int action 6
-	json_add_string host "$host"
-	_proto_notify "$interface" -S
+	# execute in subshell to not taint callers env
+	# see tickets #11046, #11545, #11570
+	(
+		json_init
+		json_add_int action 6
+		json_add_string host "$host"
+		_proto_notify "$interface" -S
+	)
 }
 
 proto_setup_failed() {
