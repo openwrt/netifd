@@ -160,8 +160,10 @@ interface_ip_add_target_route(union if_addr *addr, bool v6)
 		interface_ip_find_route_target(iface, addr, v6, &r_next);
 	}
 
-	if (!r_next)
+	if (!r_next) {
+		free(route);
 		return NULL;
+	}
 
 	iface = r_next->iface;
 	memcpy(&route->nexthop, &r_next->nexthop, sizeof(route->nexthop));
