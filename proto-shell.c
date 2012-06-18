@@ -455,6 +455,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 
 		interface_set_l3_dev(iface, dev);
 		device_claim(&iface->l3_dev);
+		device_set_present(dev, true);
 	}
 
 	if (!keep)
