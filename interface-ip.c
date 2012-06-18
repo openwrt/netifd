@@ -141,6 +141,8 @@ interface_ip_add_target_route(union if_addr *addr, bool v6)
 {
 	struct interface *iface;
 	struct device_route *route, *r_next = NULL;
+	bool defaultroute_target = false;
+	int addrsize = v6 ? sizeof(addr->in6) : sizeof(addr->in);
 
 	route = calloc(1, sizeof(*route));
 	if (!route)
@@ -148,7 +150,10 @@ interface_ip_add_target_route(union if_addr *addr, bool v6)
 
 	route->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
 	route->mask = v6 ? 128 : 32;
-	memcpy(&route->addr, addr, v6 ? sizeof(addr->in6) : sizeof(addr->in));
+	if (memcmp(&route->addr, addr, addrsize) == 0)
+		defaultroute_target = true;
+	else
+		memcpy(&route->addr, addr, addrsize);
 
 	vlist_for_each_element(&interfaces, iface, node) {
 		/* look for locally addressable target first */
@@ -172,7 +177,10 @@ interface_ip_add_target_route(union if_addr *addr, bool v6)
 
 done:
 	route->iface = iface;
-	vlist_add(&iface->host_routes, &route->node, &route->flags);
+	if (defaultroute_target)
+		free(route);
+	else
+		vlist_add(&iface->host_routes, &route->node, &route->flags);
 	return iface;
 }
 
