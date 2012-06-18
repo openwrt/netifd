@@ -46,8 +46,14 @@ config alias wan1
 	option proto	static
 	option interface	wan
 	option ipaddr	192.168.99.1
+	option ip6addr	2a01:4f8:131:30e2::2/59
 	option netmask	255.255.255.0
 	option gateway	192.168.99.3
+
+config route6
+	option interface wan1
+	option target ::0/0
+	option gateway 2a01:4f8:131:30e2::1
 
 config interface wlan
 	option proto	static
