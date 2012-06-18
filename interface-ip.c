@@ -220,7 +220,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	}
 
 	if ((cur = tb[ROUTE_TARGET]) != NULL) {
-		if (!inet_pton(af, blobmsg_data(cur), &route->addr)) {
+		if (!parse_ip_and_netmask(af, blobmsg_data(cur), &route->addr, &route->mask)) {
 			DPRINTF("Failed to parse route target: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
