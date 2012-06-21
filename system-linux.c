@@ -1065,6 +1065,7 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	if (tunnel_ioctl(base, SIOCADDTUNNEL, &p) < 0)
 		return -1;
 
+#ifdef SIOCADD6RD
 	cur = tb[TUNNEL_ATTR_6RD_PREFIX];
 	if (cur && is_sit) {
 		unsigned int mask;
@@ -1089,6 +1090,7 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 			return -1;
 		}
 	}
+#endif
 
 	return 0;
 }
