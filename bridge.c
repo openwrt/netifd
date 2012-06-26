@@ -109,11 +109,17 @@ bridge_reset_primary(struct bridge_state *bst)
 	bst->primary_port = NULL;
 	bst->dev.settings.flags &= ~DEV_OPT_MACADDR;
 	vlist_for_each_element(&bst->members, bm, node) {
+		uint8_t *macaddr;
+
 		if (!bm->present)
 			continue;
 
 		bst->primary_port = bm;
-		memcpy(bst->dev.settings.macaddr, bm->dev.dev->settings.macaddr, 6);
+		if (bm->dev.dev->settings.flags & DEV_OPT_MACADDR)
+			macaddr = bm->dev.dev->settings.macaddr;
+		else
+			macaddr = bm->dev.dev->orig_settings.macaddr;
+		memcpy(bst->dev.settings.macaddr, macaddr, 6);
 		bst->dev.settings.flags |= DEV_OPT_MACADDR;
 		return;
 	}
