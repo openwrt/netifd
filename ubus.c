@@ -432,6 +432,8 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip)
 		inet_ntop(af, &route->nexthop, buf, buflen);
 		blobmsg_add_string_buffer(&b);
 
+		blobmsg_add_u8(&b, "enabled", route->enabled);
+
 		blobmsg_close_table(&b, r);
 	}
 }
