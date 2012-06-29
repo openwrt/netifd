@@ -432,6 +432,12 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip)
 		inet_ntop(af, &route->nexthop, buf, buflen);
 		blobmsg_add_string_buffer(&b);
 
+		if (route->flags & DEVROUTE_MTU)
+			blobmsg_add_u32(&b, "mtu", route->mtu);
+
+		if (route->flags & DEVROUTE_METRIC)
+			blobmsg_add_u32(&b, "metric", route->metric);
+
 		blobmsg_add_u8(&b, "enabled", route->enabled);
 
 		blobmsg_close_table(&b, r);
@@ -494,6 +500,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		blobmsg_add_string(&b, "device", dev->ifname);
 
 	if (iface->state == IFS_UP) {
+		blobmsg_add_u32(&b, "metric", iface->metric);
 		a = blobmsg_open_array(&b, "ipv4-address");
 		interface_ip_dump_address_list(&iface->config_ip, false);
 		interface_ip_dump_address_list(&iface->proto_ip, false);
