@@ -28,8 +28,11 @@ enum device_addr_flags {
 	/* route overrides the default interface metric */
 	DEVROUTE_METRIC		= (1 << 3),
 
+	/* route overrides the default interface mtu */
+	DEVROUTE_MTU		= (1 << 4),
+
 	/* route automatically added by kernel */
-	DEVADDR_KERNEL		= (1 << 4),
+	DEVADDR_KERNEL		= (1 << 5),
 };
 
 union if_addr {

@@ -238,8 +238,10 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		route->flags |= DEVROUTE_METRIC;
 	}
 
-	if ((cur = tb[ROUTE_MTU]) != NULL)
+	if ((cur = tb[ROUTE_MTU]) != NULL) {
 		route->mtu = blobmsg_get_u32(cur);
+		route->flags |= DEVROUTE_MTU;
+	}
 
 	vlist_add(&ip->route, &route->node, &route->flags);
 	return;
