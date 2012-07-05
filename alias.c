@@ -48,6 +48,24 @@ alias_device_set_state(struct device *dev, bool state)
 	return 0;
 }
 
+static void alias_device_cb(struct device_user *dep, enum device_event ev)
+{
+	struct alias_device *alias;
+	bool present = false;
+
+	alias = container_of(dep, struct alias_device, dep);
+	switch (ev) {
+	case DEV_EVENT_ADD:
+		present = true;
+	case DEV_EVENT_REMOVE:
+		device_set_present(&alias->dev, present);
+		break;
+	default:
+		device_broadcast_event(&alias->dev, ev);
+		break;
+	}
+}
+
 static struct device *
 alias_device_create(const char *name, struct blob_attr *attr)
 {
@@ -60,6 +78,8 @@ alias_device_create(const char *name, struct blob_attr *attr)
 	device_init_virtual(&alias->dev, &alias_device_type, NULL);
 	alias->avl.key = alias->name;
 	avl_insert(&aliases, &alias->avl);
+	alias->dep.alias = true;
+	alias->dep.cb = alias_device_cb;
 
 	return &alias->dev;
 }
@@ -100,8 +120,6 @@ alias_notify_device(const char *name, struct device *dev)
 			device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
 		}
 	}
-
-	device_set_present(&alias->dev, !!dev);
 
 	if (!dev && alias->dep.dev && !alias->dep.dev->active) {
 		device_remove_user(&alias->dep);

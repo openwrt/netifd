@@ -85,6 +85,7 @@ struct device_user {
 
 	bool claimed;
 	bool hotplug;
+	bool alias;
 
 	struct device *dev;
 	void (*cb)(struct device_user *, enum device_event);
@@ -106,6 +107,7 @@ struct device {
 
 	struct avl_node avl;
 	struct list_head users;
+	struct list_head aliases;
 
 	char ifname[IFNAMSIZ + 1];
 	int ifindex;

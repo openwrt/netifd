@@ -180,16 +180,23 @@ static void __init dev_init(void)
 	avl_init(&devices, avl_strcmp, true, NULL);
 }
 
-void device_broadcast_event(struct device *dev, enum device_event ev)
+
+static void __device_broadcast_event(struct list_head *head, enum device_event ev)
 {
 	struct device_user *dep, *tmp;
 
-	list_for_each_entry_safe(dep, tmp, &dev->users, list) {
+	list_for_each_entry_safe(dep, tmp, head, list) {
 		if (!dep->cb)
 			continue;
 
 		dep->cb(dep, ev);
 	}
+}
+
+void device_broadcast_event(struct device *dev, enum device_event ev)
+{
+	__device_broadcast_event(&dev->aliases, ev);
+	__device_broadcast_event(&dev->users, ev);
 }
 
 int device_claim(struct device_user *dep)
@@ -257,6 +264,7 @@ void device_init_virtual(struct device *dev, const struct device_type *type, con
 
 	D(DEVICE, "Initialize device '%s'\n", dev->ifname);
 	INIT_LIST_HEAD(&dev->users);
+	INIT_LIST_HEAD(&dev->aliases);
 	dev->type = type;
 
 	if (!dev->set_state)
@@ -378,6 +386,8 @@ void device_set_present(struct device *dev, bool state)
 
 void device_add_user(struct device_user *dep, struct device *dev)
 {
+	struct list_head *head;
+
 	if (dep->dev)
 		device_remove_user(dep);
 
@@ -385,7 +395,13 @@ void device_add_user(struct device_user *dep, struct device *dev)
 		return;
 
 	dep->dev = dev;
-	list_add_tail(&dep->list, &dev->users);
+
+	if (dep->alias)
+		head = &dev->aliases;
+	else
+		head = &dev->users;
+	list_add_tail(&dep->list, head);
+
 	if (dep->cb && dev->present) {
 		dep->cb(dep, DEV_EVENT_ADD);
 		if (dev->active)
