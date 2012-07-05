@@ -235,6 +235,9 @@ found:
 	if (dev->type != &simple_device_type)
 		return;
 
+	if (add && system_if_force_external(dev->ifname))
+		return;
+
 	device_set_present(dev, add);
 }
 
