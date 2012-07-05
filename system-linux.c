@@ -275,6 +275,8 @@ int system_bridge_delbr(struct device *bridge)
 static int system_bridge_if(const char *bridge, struct device *dev, int cmd, void *data)
 {
 	struct ifreq ifr;
+
+	memset(&ifr, 0, sizeof(ifr));
 	if (dev)
 		ifr.ifr_ifindex = dev->ifindex;
 	else
