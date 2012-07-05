@@ -240,7 +240,7 @@ static void __init dev_init(void)
 	avl_init(&aliases, avl_strcmp, false, NULL);
 }
 
-static void device_broadcast_event(struct device *dev, enum device_event ev)
+void device_broadcast_event(struct device *dev, enum device_event ev)
 {
 	struct device_user *dep, *tmp;
 

@@ -163,6 +163,7 @@ void device_cleanup(struct device *iface);
 struct device *device_get(const char *name, int create);
 void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);
+void device_broadcast_event(struct device *dev, enum device_event ev);
 
 void device_set_present(struct device *dev, bool state);
 void device_refresh_present(struct device *dev);
