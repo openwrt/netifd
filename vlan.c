@@ -61,6 +61,12 @@ static int vlan_set_device_state(struct device *dev, bool up)
 	return ret;
 }
 
+static void vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
+{
+	vldev->dev.hidden = dev->hidden;
+	snprintf(vldev->dev.ifname, IFNAMSIZ, "%s.%d", dev->ifname, vldev->id);
+}
+
 static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 {
 	struct vlan_device *vldev;
@@ -72,6 +78,10 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		break;
 	case DEV_EVENT_REMOVE:
 		device_set_present(&vldev->dev, false);
+		break;
+	case DEV_EVENT_UPDATE_IFNAME:
+		vlan_dev_set_name(vldev, dep->dev);
+		device_broadcast_event(&vldev->dev, ev);
 		break;
 	default:
 		break;
@@ -104,7 +114,6 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 		return NULL;
 
 	vldev = calloc(1, sizeof(*vldev));
-	snprintf(vldev->dev.ifname, IFNAMSIZ, "%s.%d", dev->ifname, id);
 
 	device_init_virtual(&vldev->dev, &vlan_type, NULL);
 	vldev->dev.default_config = true;
@@ -113,6 +122,7 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	vldev->dev.set_state = vlan_set_device_state;
 
 	vldev->id = id;
+	vlan_dev_set_name(vldev, dev);
 
 	vldev->dep.cb = vlan_dev_cb;
 	device_add_user(&vldev->dep, dev);

@@ -66,6 +66,8 @@ enum device_event {
 	DEV_EVENT_ADD,
 	DEV_EVENT_REMOVE,
 
+	DEV_EVENT_UPDATE_IFNAME,
+
 	DEV_EVENT_SETUP,
 	DEV_EVENT_TEARDOWN,
 	DEV_EVENT_UP,
@@ -113,9 +115,11 @@ struct device {
 	bool sys_present;
 	bool present;
 	int active;
+
 	bool external;
 	bool disabled;
 	bool deferred;
+	bool hidden;
 
 	bool current_config;
 	bool default_config;

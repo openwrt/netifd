@@ -163,6 +163,7 @@ alias_device_create(const char *name, struct blob_attr *attr)
 	alias = calloc(1, sizeof(*alias) + strlen(name) + 1);
 	strcpy(alias->name, name);
 	alias->dev.set_state = alias_device_set_state;
+	alias->dev.hidden = true;
 	device_init_virtual(&alias->dev, &alias_device_type, NULL);
 	alias->avl.key = alias->name;
 	avl_insert(&aliases, &alias->avl);
@@ -269,13 +270,19 @@ alias_notify_device(const char *name, struct device *dev)
 			device_remove_user(&alias->dep);
 			strcpy(alias->dev.ifname, dev->ifname);
 			device_add_user(&alias->dep, dev);
+			alias->dev.hidden = false;
+			device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
 		}
 	}
 
 	device_set_present(&alias->dev, !!dev);
 
-	if (!dev && alias->dep.dev && !alias->dep.dev->active)
+	if (!dev && alias->dep.dev && !alias->dep.dev->active) {
 		device_remove_user(&alias->dep);
+		alias->dev.hidden = true;
+		alias->dev.ifname[0] = 0;
+		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
+	}
 
 	device_unlock();
 }

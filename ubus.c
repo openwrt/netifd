@@ -496,7 +496,8 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		blobmsg_add_string(&b, "proto", iface->proto_handler->name);
 
 	dev = iface->main_dev.dev;
-	if (dev && !(iface->proto_handler->flags & PROTO_FLAG_NODEV))
+	if (dev && !dev->hidden &&
+	    !(iface->proto_handler->flags & PROTO_FLAG_NODEV))
 		blobmsg_add_string(&b, "device", dev->ifname);
 
 	if (iface->state == IFS_UP) {
