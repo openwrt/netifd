@@ -318,8 +318,13 @@ device_get(const char *name, int create)
 		return device_alias_get(name + 1);
 
 	dev = avl_find_element(&devices, name, dev, avl);
-	if (dev)
+	if (dev) {
+		if (create > 1 && !dev->external) {
+			dev->external = true;
+			device_set_present(dev, true);
+		}
 		return dev;
+	}
 
 	if (!create)
 		return NULL;
