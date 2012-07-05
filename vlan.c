@@ -145,7 +145,7 @@ struct device *get_vlan_device_chain(const char *ifname, bool create)
 
 	s = split_vlan(buf);
 	dev = device_get(buf, create);
-	if (!dev && !create)
+	if (!dev)
 		goto error;
 
 	do {
