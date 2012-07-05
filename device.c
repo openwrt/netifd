@@ -346,6 +346,9 @@ void device_init_virtual(struct device *dev, const struct device_type *type, con
 	D(DEVICE, "Initialize device '%s'\n", dev->ifname);
 	INIT_LIST_HEAD(&dev->users);
 	dev->type = type;
+
+	if (!dev->set_state)
+		dev->set_state = set_device_state;
 }
 
 int device_init(struct device *dev, const struct device_type *type, const char *ifname)
@@ -353,9 +356,6 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 	int ret;
 
 	device_init_virtual(dev, type, ifname);
-
-	if (!dev->set_state)
-		dev->set_state = set_device_state;
 
 	dev->avl.key = dev->ifname;
 
