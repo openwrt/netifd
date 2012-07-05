@@ -270,6 +270,7 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 	struct device *dev = iface->l3_dev.dev;
 	struct device_route route;
 
+	memset(&route, 0, sizeof(route));
 	route.iface = iface;
 	route.flags = addr->flags;
 	route.mask = addr->mask;
