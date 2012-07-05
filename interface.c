@@ -147,12 +147,24 @@ static void
 interface_event(struct interface *iface, enum interface_event ev)
 {
 	struct interface_user *dep, *tmp;
+	struct device *adev = NULL;
 
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		dep->cb(dep, iface, ev);
 
 	list_for_each_entry_safe(dep, tmp, &iface_all_users, list)
 		dep->cb(dep, iface, ev);
+
+	switch (ev) {
+	case IFEV_UP:
+		adev = iface->main_dev.dev;
+		/* fall through */
+	case IFEV_DOWN:
+		alias_notify_device(iface->name, adev);
+		break;
+	default:
+		break;
+	}
 }
 
 static void
