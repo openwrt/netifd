@@ -350,6 +350,8 @@ static int system_if_resolve(struct device *dev)
 static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
 {
 	struct ifreq ifr;
+
+	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr);
 	ifr.ifr_flags |= add;
