@@ -14,7 +14,9 @@ SET(SOURCES
 	main.c utils.c system.c tunnel.c
 	interface.c interface-ip.c interface-event.c
 	proto.c proto-static.c proto-shell.c
-	config.c device.c bridge.c vlan.c ubus.c)
+	config.c device.c bridge.c vlan.c alias.c
+	ubus.c)
+
 
 SET(LIBS
 	ubox ubus uci json blobmsg_json)

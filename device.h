@@ -181,6 +181,7 @@ void device_free_unused(struct device *dev);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);
 void alias_notify_device(const char *name, struct device *dev);
+struct device *device_alias_get(const char *name);
 
 static inline void
 device_set_deferred(struct device *dev, bool value)
