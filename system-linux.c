@@ -154,7 +154,7 @@ static void system_set_sysctl(const char *path, const char *val)
 
 static void system_set_dev_sysctl(const char *path, const char *device, const char *val)
 {
-	snprintf(dev_buf, sizeof(dev_buf), path, val);
+	snprintf(dev_buf, sizeof(dev_buf), path, device);
 	system_set_sysctl(dev_buf, val);
 }
 
