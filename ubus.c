@@ -563,9 +563,9 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 		return UBUS_STATUS_NOT_FOUND;
 
 	if (add)
-		return interface_add_link(iface, dev);
+		ret = interface_add_link(iface, dev);
 	else
-		return interface_remove_link(iface, dev);
+		ret = interface_remove_link(iface, dev);
 
 	device_unlock();
 
