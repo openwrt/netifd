@@ -389,6 +389,17 @@ void device_set_present(struct device *dev, bool state)
 	device_refresh_present(dev);
 }
 
+static int device_refcount(struct device *dev)
+{
+	struct list_head *list;
+	int count = 0;
+
+	list_for_each(list, &dev->users)
+		count++;
+
+	return count;
+}
+
 void device_add_user(struct device_user *dep, struct device *dev)
 {
 	struct list_head *head;
@@ -406,6 +417,7 @@ void device_add_user(struct device_user *dep, struct device *dev)
 	else
 		head = &dev->users;
 	list_add_tail(&dep->list, head);
+	D(DEVICE, "Add user for device '%s', refcount=%d\n", dev->ifname, device_refcount(dev));
 
 	if (dep->cb && dev->present) {
 		dep->cb(dep, DEV_EVENT_ADD);
@@ -446,6 +458,7 @@ void device_remove_user(struct device_user *dep)
 
 	list_del(&dep->list);
 	dep->dev = NULL;
+	D(DEVICE, "Remove user for device '%s', refcount=%d\n", dev->ifname, device_refcount(dev));
 	__device_free_unused(dev);
 }
 
