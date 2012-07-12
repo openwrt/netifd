@@ -632,7 +632,7 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	}
 }
 
-static void
+void
 system_if_apply_settings(struct device *dev, struct device_settings *s)
 {
 	struct ifreq ifr;
@@ -649,7 +649,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s)
 		if (ioctl(sock_ioctl, SIOCSIFTXQLEN, &ifr) < 0)
 			s->flags &= ~DEV_OPT_TXQUEUELEN;
 	}
-	if (s->flags & DEV_OPT_MACADDR) {
+	if ((s->flags & DEV_OPT_MACADDR) && !dev->external) {
 		ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 		memcpy(&ifr.ifr_hwaddr.sa_data, s->macaddr, sizeof(s->macaddr));
 		if (ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr) < 0)

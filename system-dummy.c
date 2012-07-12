@@ -119,6 +119,11 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 	return 0;
 }
 
+void
+system_if_apply_settings(struct device *dev, struct device_settings *s)
+{
+}
+
 int system_add_address(struct device *dev, struct device_addr *addr)
 {
 	uint8_t *a = (uint8_t *) &addr->addr.in;
