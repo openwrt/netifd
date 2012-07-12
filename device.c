@@ -584,6 +584,10 @@ device_create(const char *name, const struct device_type *type,
 	if (odev) {
 		odev->current_config = true;
 		change = device_set_config(odev, type, config);
+		if (odev->external) {
+			system_if_apply_settings(odev, &odev->settings);
+			change = DEV_CONFIG_APPLIED;
+		}
 		switch (change) {
 		case DEV_CONFIG_RESTART:
 		case DEV_CONFIG_APPLIED:
