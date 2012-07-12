@@ -86,6 +86,7 @@ struct interface {
 	bool available;
 	bool autostart;
 	bool config_autostart;
+	bool device_config;
 
 	time_t start_time;
 	enum interface_state state;

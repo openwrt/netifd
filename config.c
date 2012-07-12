@@ -29,7 +29,7 @@ static struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
 static struct blob_buf b;
 
-static void uci_attr_to_blob(struct blob_buf *b, const char *str,
+static bool uci_attr_to_blob(struct blob_buf *b, const char *str,
 			     const char *name, enum blobmsg_type type)
 {
 	char *err;
@@ -45,20 +45,21 @@ static void uci_attr_to_blob(struct blob_buf *b, const char *str,
 		else if (!strcmp(str, "false") || !strcmp(str, "0"))
 			intval = 0;
 		else
-			return;
+			return false;
 
 		blobmsg_add_u8(b, name, intval);
 		break;
 	case BLOBMSG_TYPE_INT32:
 		intval = strtol(str, &err, 0);
 		if (*err)
-			return;
+			return false;
 
 		blobmsg_add_u32(b, name, intval);
 		break;
 	default:
-		break;
+		return false;
 	}
+	return true;
 }
 
 static void uci_array_to_blob(struct blob_buf *b, struct uci_option *o,
@@ -87,14 +88,14 @@ static void uci_array_to_blob(struct blob_buf *b, struct uci_option *o,
 	free(str);
 }
 
-static void __uci_to_blob(struct blob_buf *b, struct uci_section *s,
-			  const struct config_param_list *p)
+static int __uci_to_blob(struct blob_buf *b, struct uci_section *s,
+			 const struct config_param_list *p)
 {
 	const struct blobmsg_policy *attr = NULL;
 	struct uci_element *e;
 	struct uci_option *o;
 	void *array;
-	int i;
+	int i, ret = 0;
 
 	uci_foreach_element(&s->options, e) {
 		for (i = 0; i < p->n_params; i++) {
@@ -115,24 +116,30 @@ static void __uci_to_blob(struct blob_buf *b, struct uci_section *s,
 			array = blobmsg_open_array(b, attr->name);
 			uci_array_to_blob(b, o, p->info[i].type);
 			blobmsg_close_array(b, array);
+			ret++;
 			continue;
 		}
 
 		if (o->type == UCI_TYPE_LIST)
 			continue;
 
-		uci_attr_to_blob(b, o->v.string, attr->name, attr->type);
+		ret += uci_attr_to_blob(b, o->v.string, attr->name, attr->type);
 	}
+
+	return ret;
 }
 
-static void uci_to_blob(struct blob_buf *b, struct uci_section *s,
-			const struct config_param_list *p)
+static int uci_to_blob(struct blob_buf *b, struct uci_section *s,
+		       const struct config_param_list *p)
 {
+	int ret = 0;
 	int i;
 
-	__uci_to_blob(b, s, p);
+	ret += __uci_to_blob(b, s, p);
 	for (i = 0; i < p->n_next; i++)
-		uci_to_blob(b, s, p->next[i]);
+		ret += uci_to_blob(b, s, p->next[i]);
+
+	return ret;
 }
 
 static int
@@ -162,14 +169,18 @@ config_parse_interface(struct uci_section *s, bool alias)
 	const char *type = NULL;
 	struct blob_attr *config;
 	struct device *dev;
+	bool bridge = false;
 
 	blob_buf_init(&b, 0);
 
 	if (!alias)
 		type = uci_lookup_option_string(uci_ctx, s, "type");
-	if (type && !strcmp(type, "bridge"))
+	if (type && !strcmp(type, "bridge")) {
 		if (config_parse_bridge_interface(s))
 			return;
+
+		bridge = true;
+	}
 
 	uci_to_blob(&b, s, &interface_attr_list);
 	iface = calloc(1, sizeof(*iface));
@@ -180,6 +191,9 @@ config_parse_interface(struct uci_section *s, bool alias)
 
 	if (iface->proto_handler && iface->proto_handler->config_params)
 		uci_to_blob(&b, s, iface->proto_handler->config_params);
+
+	if (!bridge && uci_to_blob(&b, s, simple_device_type.config_params))
+		iface->device_config = true;
 
 	config = malloc(blob_pad_len(b.head));
 	if (!config)

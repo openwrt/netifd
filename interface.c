@@ -696,6 +696,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if (!if_old->config_autostart && if_new->config_autostart)
 		if_old->autostart = true;
 
+	if_old->device_config = if_new->device_config;
 	if_old->config_autostart = if_new->config_autostart;
 	if_old->ifname = if_new->ifname;
 	if_old->parent_ifname = if_new->parent_ifname;
