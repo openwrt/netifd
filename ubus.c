@@ -564,6 +564,10 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 
 	if (add) {
 		device_set_present(dev, true);
+		if (iface->device_config)
+			device_set_config(dev, &simple_device_type, iface->config);
+
+		system_if_apply_settings(dev, &dev->settings);
 		ret = interface_add_link(iface, dev);
 	} else {
 		ret = interface_remove_link(iface, dev);
