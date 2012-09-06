@@ -170,8 +170,6 @@ interface_event(struct interface *iface, enum interface_event ev)
 static void
 interface_flush_state(struct interface *iface)
 {
-	if (iface->main_dev.dev)
-		device_release(&iface->main_dev);
 	if (iface->l3_dev.dev)
 		device_release(&iface->l3_dev);
 	interface_data_flush(iface);
@@ -404,6 +402,8 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 
 		netifd_log_message(L_NOTICE, "Interface '%s' is now down\n", iface->name);
 		mark_interface_down(iface);
+		if (iface->main_dev.dev)
+			device_release(&iface->main_dev);
 		interface_handle_config_change(iface);
 		break;
 	case IFPEV_LINK_LOST:
