@@ -124,47 +124,34 @@ system_if_apply_settings(struct device *dev, struct device_settings *s)
 {
 }
 
-int system_add_address(struct device *dev, struct device_addr *addr)
+static int system_address_msg(struct device *dev, struct device_addr *addr, const char *type)
 {
-	uint8_t *a = (uint8_t *) &addr->addr.in;
 	char ipaddr[64];
+	int af = system_get_addr_family(addr->flags);
 
-	if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) {
-		D(SYSTEM, "ifconfig %s add %d.%d.%d.%d/%d\n",
-			dev->ifname, a[0], a[1], a[2], a[3], addr->mask);
-	} else {
-		inet_ntop(AF_INET6, &addr->addr.in6, ipaddr, sizeof(struct in6_addr));
-		D(SYSTEM, "ifconfig %s add %s/%d\n",
-			dev->ifname, ipaddr, addr->mask);
-		return -1;
-	}
+	D(SYSTEM, "ifconfig %s %s %s/%d\n",
+		dev->ifname, type, inet_ntop(af, &addr->addr.in, ipaddr, sizeof(ipaddr)),
+		addr->mask);
 
 	return 0;
+}
+
+int system_add_address(struct device *dev, struct device_addr *addr)
+{
+	return system_address_msg(dev, addr, "add");
 }
 
 int system_del_address(struct device *dev, struct device_addr *addr)
 {
-	uint8_t *a = (uint8_t *) &addr->addr.in;
-	char ipaddr[64];
-
-	if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) {
-		D(SYSTEM, "ifconfig %s del %d.%d.%d.%d\n",
-			dev->ifname, a[0], a[1], a[2], a[3]);
-	} else {
-		inet_ntop(AF_INET6, &addr->addr.in6, ipaddr, sizeof(struct in6_addr));
-		D(SYSTEM, "ifconfig %s del %s/%d\n",
-			dev->ifname, ipaddr, addr->mask);
-		return -1;
-	}
-
-	return 0;
+	return system_address_msg(dev, addr, "del");
 }
 
-int system_add_route(struct device *dev, struct device_route *route)
+static int system_route_msg(struct device *dev, struct device_route *route, const char *type)
 {
-	uint8_t *a1 = (uint8_t *) &route->addr.in;
-	uint8_t *a2 = (uint8_t *) &route->nexthop.in;
-	char addr[40], gw[40] = "", devstr[64] = "";
+	char addr[64], gw[64] = " gw ", devstr[64] = "";
+	int af = system_get_addr_family(route->flags);
+	int alen = system_get_addr_len(route->flags);
+	static uint32_t zero_addr[4];
 
 	if ((route->flags & DEVADDR_FAMILY) != DEVADDR_INET4)
 		return -1;
@@ -172,45 +159,30 @@ int system_add_route(struct device *dev, struct device_route *route)
 	if (!route->mask)
 		sprintf(addr, "default");
 	else
-		sprintf(addr, "%d.%d.%d.%d/%d",
-			a1[0], a1[1], a1[2], a1[3], route->mask);
+		inet_ntop(af, &route->addr.in, addr, sizeof(addr));
 
-	if (memcmp(a2, "\x00\x00\x00\x00", 4) != 0)
-		sprintf(gw, " gw %d.%d.%d.%d",
-			a2[0], a2[1], a2[2], a2[3]);
+	if (memcmp(&route->nexthop.in, (void *) zero_addr, alen) != 0)
+		inet_ntop(af, &route->nexthop.in, gw + 4, sizeof(gw) - 4);
+	else
+		gw[0] = 0;
 
 	sprintf(devstr, " dev %s", dev->ifname);
 
 	if (route->metric > 0)
 		sprintf(devstr, " metric %d", route->metric);
 
-	D(SYSTEM, "route add %s%s%s\n", addr, gw, devstr);
+	D(SYSTEM, "route %s %s%s%s\n", type, addr, gw, devstr);
 	return 0;
+}
+
+int system_add_route(struct device *dev, struct device_route *route)
+{
+	return system_route_msg(dev, route, "add");
 }
 
 int system_del_route(struct device *dev, struct device_route *route)
 {
-	uint8_t *a1 = (uint8_t *) &route->addr.in;
-	uint8_t *a2 = (uint8_t *) &route->nexthop.in;
-	char addr[40], gw[40] = "", devstr[64] = "";
-
-	if ((route->flags & DEVADDR_FAMILY) != DEVADDR_INET4)
-		return -1;
-
-	if (!route->mask)
-		sprintf(addr, "default");
-	else
-		sprintf(addr, "%d.%d.%d.%d/%d",
-			a1[0], a1[1], a1[2], a1[3], route->mask);
-
-	if (memcmp(a2, "\x00\x00\x00\x00", 4) != 0)
-		sprintf(gw, " gw %d.%d.%d.%d",
-			a2[0], a2[1], a2[2], a2[3]);
-
-	sprintf(devstr, " dev %s", dev->ifname);
-
-	D(SYSTEM, "route del %s%s%s\n", addr, gw, devstr);
-	return 0;
+	return system_route_msg(dev, route, "del");
 }
 
 int system_flush_routes(void)

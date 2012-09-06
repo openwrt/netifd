@@ -16,6 +16,7 @@
 
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include "device.h"
 #include "interface-ip.h"
 
@@ -48,6 +49,22 @@ struct bridge_config {
 	int hello_time;
 	int max_age;
 };
+
+static inline int system_get_addr_family(unsigned int flags)
+{
+	if ((flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+		return AF_INET6;
+	else
+		return AF_INET;
+}
+
+static inline int system_get_addr_len(unsigned int flags)
+{
+	if ((flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+		return sizeof(struct in_addr);
+	else
+		return sizeof(struct in6_addr);
+}
 
 int system_init(void);
 
