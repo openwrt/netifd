@@ -376,7 +376,8 @@ netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
 }
 
 static void
-interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6)
+interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6,
+                               bool enabled)
 {
 	struct device_addr *addr;
 	char *buf;
@@ -385,6 +386,9 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6)
 	int af;
 
 	vlist_for_each_element(&ip->addr, addr, node) {
+		if (addr->enabled != enabled)
+			continue;
+
 		if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4)
 			af = AF_INET;
 		else
@@ -406,7 +410,7 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6)
 }
 
 static void
-interface_ip_dump_route_list(struct interface_ip_settings *ip)
+interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 {
 	struct device_route *route;
 	int buflen = 128;
@@ -415,6 +419,9 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip)
 	int af;
 
 	vlist_for_each_element(&ip->route, route, node) {
+		if (route->enabled != enabled)
+			continue;
+
 		if ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET4)
 			af = AF_INET;
 		else
@@ -445,13 +452,17 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip)
 }
 
 static void
-interface_ip_dump_dns_server_list(struct interface_ip_settings *ip)
+interface_ip_dump_dns_server_list(struct interface_ip_settings *ip,
+                                  bool enabled)
 {
 	struct dns_server *dns;
 	int buflen = 128;
 	char *buf;
 
 	vlist_simple_for_each_element(&ip->dns_servers, dns, node) {
+		if (ip->no_dns == enabled)
+			continue;
+
 		buf = blobmsg_alloc_string_buffer(&b, NULL, buflen);
 		inet_ntop(dns->af, &dns->addr, buf, buflen);
 		blobmsg_add_string_buffer(&b);
@@ -459,11 +470,15 @@ interface_ip_dump_dns_server_list(struct interface_ip_settings *ip)
 }
 
 static void
-interface_ip_dump_dns_search_list(struct interface_ip_settings *ip)
+interface_ip_dump_dns_search_list(struct interface_ip_settings *ip,
+                                  bool enabled)
 {
 	struct dns_search_domain *dns;
 
 	vlist_simple_for_each_element(&ip->dns_search, dns, node) {
+		if (ip->no_dns == enabled)
+			continue;
+
 		blobmsg_add_string(&b, NULL, dns->name);
 	}
 }
@@ -476,7 +491,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	struct interface *iface;
 	struct interface_data *data;
 	struct device *dev;
-	void *a;
+	void *a, *inactive;
 
 	iface = container_of(obj, struct interface, ubus);
 
@@ -503,25 +518,48 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	if (iface->state == IFS_UP) {
 		blobmsg_add_u32(&b, "metric", iface->metric);
 		a = blobmsg_open_array(&b, "ipv4-address");
-		interface_ip_dump_address_list(&iface->config_ip, false);
-		interface_ip_dump_address_list(&iface->proto_ip, false);
+		interface_ip_dump_address_list(&iface->config_ip, false, true);
+		interface_ip_dump_address_list(&iface->proto_ip, false, true);
 		blobmsg_close_array(&b, a);
 		a = blobmsg_open_array(&b, "ipv6-address");
-		interface_ip_dump_address_list(&iface->config_ip, true);
-		interface_ip_dump_address_list(&iface->proto_ip, true);
+		interface_ip_dump_address_list(&iface->config_ip, true, true);
+		interface_ip_dump_address_list(&iface->proto_ip, true, true);
 		blobmsg_close_array(&b, a);
 		a = blobmsg_open_array(&b, "route");
-		interface_ip_dump_route_list(&iface->config_ip);
-		interface_ip_dump_route_list(&iface->proto_ip);
+		interface_ip_dump_route_list(&iface->config_ip, true);
+		interface_ip_dump_route_list(&iface->proto_ip, true);
 		blobmsg_close_array(&b, a);
 		a = blobmsg_open_array(&b, "dns-server");
-		interface_ip_dump_dns_server_list(&iface->config_ip);
-		interface_ip_dump_dns_server_list(&iface->proto_ip);
+		interface_ip_dump_dns_server_list(&iface->config_ip, true);
+		interface_ip_dump_dns_server_list(&iface->proto_ip, true);
 		blobmsg_close_array(&b, a);
 		a = blobmsg_open_array(&b, "dns-search");
-		interface_ip_dump_dns_search_list(&iface->config_ip);
-		interface_ip_dump_dns_search_list(&iface->proto_ip);
+		interface_ip_dump_dns_search_list(&iface->config_ip, true);
+		interface_ip_dump_dns_search_list(&iface->proto_ip, true);
 		blobmsg_close_array(&b, a);
+
+		inactive = blobmsg_open_table(&b, "inactive");
+		a = blobmsg_open_array(&b, "ipv4-address");
+		interface_ip_dump_address_list(&iface->config_ip, false, false);
+		interface_ip_dump_address_list(&iface->proto_ip, false, false);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "ipv6-address");
+		interface_ip_dump_address_list(&iface->config_ip, true, false);
+		interface_ip_dump_address_list(&iface->proto_ip, true, false);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "route");
+		interface_ip_dump_route_list(&iface->config_ip, false);
+		interface_ip_dump_route_list(&iface->proto_ip, false);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "dns-server");
+		interface_ip_dump_dns_server_list(&iface->config_ip, false);
+		interface_ip_dump_dns_server_list(&iface->proto_ip, false);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "dns-search");
+		interface_ip_dump_dns_search_list(&iface->config_ip, false);
+		interface_ip_dump_dns_search_list(&iface->proto_ip, false);
+		blobmsg_close_array(&b, a);
+		blobmsg_close_table(&b, inactive);
 	}
 
 	a = blobmsg_open_table(&b, "data");
