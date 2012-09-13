@@ -430,6 +430,9 @@ interface_add_dns_server(struct interface_ip_settings *ip, const char *str)
 	struct dns_server *s;
 
 	s = calloc(1, sizeof(*s));
+	if (!s)
+		return;
+
 	s->af = AF_INET;
 	if (inet_pton(s->af, str, &s->addr.in))
 		goto add;
