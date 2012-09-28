@@ -662,7 +662,7 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 		if (st.flags & DEV_OPT_MTU)
 			blobmsg_add_u32(b, "mtu", st.mtu);
 		if (st.flags & DEV_OPT_MACADDR)
-			blobmsg_add_string(b, "macaddr", ether_ntoa((struct ether_addr *) st.macaddr));
+			blobmsg_add_string(b, "macaddr", format_macaddr(st.macaddr));
 		if (st.flags & DEV_OPT_TXQUEUELEN)
 			blobmsg_add_u32(b, "txqueuelen", st.txqueuelen);
 	}
