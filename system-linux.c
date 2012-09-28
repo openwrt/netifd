@@ -382,7 +382,12 @@ static bool check_ifaddr(struct nlmsghdr *hdr, int ifindex)
 
 static bool check_route(struct nlmsghdr *hdr, int ifindex)
 {
+	struct rtmsg *r = NLMSG_DATA(hdr);
 	struct nlattr *tb[__RTA_MAX];
+
+	if (r->rtm_protocol == RTPROT_KERNEL &&
+	    r->rtm_family == AF_INET6)
+		return false;
 
 	nlmsg_parse(hdr, sizeof(struct rtmsg), tb, __RTA_MAX - 1, NULL);
 	if (!tb[RTA_OIF])
