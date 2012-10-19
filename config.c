@@ -458,7 +458,7 @@ config_init_all(void)
 
 	device_reset_old();
 	device_init_pending();
-	device_free_unused(NULL);
 	vlist_flush(&interfaces);
+	device_free_unused(NULL);
 	interface_start_pending();
 }
