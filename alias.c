@@ -108,7 +108,7 @@ alias_notify_device(const char *name, struct device *dev)
 
 	alias = avl_find_element(&aliases, name, alias, avl);
 	if (!alias)
-		return;
+		goto out;
 
 	alias->cleanup = !dev;
 	if (dev) {
@@ -128,6 +128,7 @@ alias_notify_device(const char *name, struct device *dev)
 		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
 	}
 
+out:
 	device_unlock();
 }
 
