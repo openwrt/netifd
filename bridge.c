@@ -189,6 +189,29 @@ bridge_remove_member(struct bridge_member *bm)
 }
 
 static void
+bridge_free_member(struct bridge_member *bm)
+{
+	struct device *dev = bm->dev.dev;
+
+	bridge_remove_member(bm);
+	device_remove_user(&bm->dev);
+
+	/*
+	 * When reloading the config and moving a device from one bridge to
+	 * another, the other bridge may have tried to claim this device
+	 * before it was removed here.
+	 * Ensure that claiming the device is retried by toggling its present
+	 * state
+	 */
+	if (dev->present) {
+		device_set_present(dev, false);
+		device_set_present(dev, true);
+	}
+
+	free(bm);
+}
+
+static void
 bridge_member_cb(struct device_user *dev, enum device_event ev)
 {
 	struct bridge_member *bm = container_of(dev, struct bridge_member, dev);
@@ -323,9 +346,7 @@ bridge_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
 
 	if (node_old) {
 		bm = container_of(node_old, struct bridge_member, node);
-		bridge_remove_member(bm);
-		device_remove_user(&bm->dev);
-		free(bm);
+		bridge_free_member(bm);
 	}
 }
 
