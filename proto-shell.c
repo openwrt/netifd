@@ -317,6 +317,7 @@ proto_shell_free(struct interface_proto_state *proto)
 	struct proto_shell_state *state;
 
 	state = container_of(proto, struct proto_shell_state, proto);
+	uloop_timeout_cancel(&state->teardown_timeout);
 	proto_shell_clear_host_dep(state);
 	netifd_kill_process(&state->script_task);
 	netifd_kill_process(&state->proto_task);
