@@ -118,10 +118,6 @@ netifd_process_log_read_cb(struct ustream *s, int bytes)
 	} while (1);
 }
 
-static void netifd_process_log_state_cb(struct ustream *s)
-{
-}
-
 static void
 netifd_process_cb(struct uloop_process *proc, int ret)
 {
@@ -180,7 +176,6 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 	system_fd_set_cloexec(pfds[0]);
 	proc->log.stream.string_data = true;
 	proc->log.stream.notify_read = netifd_process_log_read_cb;
-	proc->log.stream.notify_state = netifd_process_log_state_cb;
 	ustream_fd_init(&proc->log, pfds[0]);
 
 	return 0;
