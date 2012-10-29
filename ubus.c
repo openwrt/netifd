@@ -25,7 +25,6 @@
 
 static struct ubus_context *ctx = NULL;
 static struct blob_buf b;
-static struct netifd_fd ubus_fd;
 static const char *ubus_path;
 
 /* global object */
@@ -258,8 +257,7 @@ static void
 netifd_ubus_add_fd(void)
 {
 	ubus_add_uloop(ctx);
-	ubus_fd.fd = ctx->sock.fd;
-	netifd_fd_add(&ubus_fd);
+	system_fd_set_cloexec(ctx->sock.fd);
 }
 
 static void
@@ -283,7 +281,6 @@ netifd_ubus_reconnect_timer(struct uloop_timeout *timeout)
 static void
 netifd_ubus_connection_lost(struct ubus_context *ctx)
 {
-	netifd_fd_delete(&ubus_fd);
 	netifd_ubus_reconnect_timer(NULL);
 }
 

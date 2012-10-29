@@ -99,4 +99,6 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr);
 
 time_t system_get_rtime(void);
 
+void system_fd_set_cloexec(int fd);
+
 #endif

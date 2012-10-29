@@ -13,6 +13,7 @@
  */
 #include "netifd.h"
 #include "system.h"
+#include <fcntl.h>
 
 static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_TYPE] = { "mode", BLOBMSG_TYPE_STRING },
@@ -27,3 +28,10 @@ const struct config_param_list tunnel_attr_list = {
 	.n_params = __TUNNEL_ATTR_MAX,
 	.params = tunnel_attrs,
 };
+
+void system_fd_set_cloexec(int fd)
+{
+#ifdef FD_CLOEXEC
+	fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
+#endif
+}

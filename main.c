@@ -32,7 +32,6 @@ const char *resolv_conf = DEFAULT_RESOLV_CONF;
 static char **global_argv;
 
 static struct list_head process_list = LIST_HEAD_INIT(process_list);
-static struct list_head fds = LIST_HEAD_INIT(fds);
 
 #define DEFAULT_LOG_LEVEL L_NOTICE
 
@@ -58,8 +57,8 @@ netifd_delete_process(struct netifd_process *proc)
 	if (proc->uloop.pending)
 		uloop_process_delete(&proc->uloop);
 	list_del(&proc->list);
-	netifd_fd_delete(&proc->log_fd);
-	close(proc->log_fd.fd);
+	uloop_fd_delete(&proc->log_uloop);
+	close(proc->log_uloop.fd);
 	if (proc->log_buf) {
 		free(proc->log_buf);
 		proc->log_buf = NULL;
@@ -168,7 +167,6 @@ netifd_process_cb(struct uloop_process *proc, int ret)
 int
 netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 {
-	struct netifd_fd *fd;
 	int pfds[2];
 	int pid;
 
@@ -190,13 +188,6 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 		if (proc->dir_fd >= 0)
 			fchdir(proc->dir_fd);
 
-		/* close all non-essential fds */
-		list_for_each_entry(fd, &fds, list) {
-			if (fd->proc == proc)
-				continue;
-			close(fd->fd);
-		}
-
 		dup2(pfds[1], 0);
 		dup2(pfds[1], 1);
 		dup2(pfds[1], 2);
@@ -217,10 +208,10 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 	uloop_process_add(&proc->uloop);
 	list_add_tail(&proc->list, &process_list);
 
+	system_fd_set_cloexec(pfds[0]);
 	proc->log_buf_ofs = 0;
-	proc->log_uloop.fd = proc->log_fd.fd = pfds[0];
+	proc->log_uloop.fd = pfds[0];
 	proc->log_uloop.cb = netifd_process_log_cb;
-	netifd_fd_add(&proc->log_fd);
 	uloop_fd_add(&proc->log_uloop, ULOOP_EDGE_TRIGGER | ULOOP_READ);
 
 	return 0;
@@ -239,18 +230,6 @@ netifd_kill_process(struct netifd_process *proc)
 
 	kill(proc->uloop.pid, SIGKILL);
 	netifd_delete_process(proc);
-}
-
-void
-netifd_fd_add(struct netifd_fd *fd)
-{
-	list_add_tail(&fd->list, &fds);
-}
-
-void
-netifd_fd_delete(struct netifd_fd *fd)
-{
-	list_del(&fd->list);
 }
 
 static void netifd_do_restart(struct uloop_timeout *timeout)
