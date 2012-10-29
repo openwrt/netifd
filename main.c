@@ -57,12 +57,8 @@ netifd_delete_process(struct netifd_process *proc)
 	if (proc->uloop.pending)
 		uloop_process_delete(&proc->uloop);
 	list_del(&proc->list);
-	uloop_fd_delete(&proc->log_uloop);
-	close(proc->log_uloop.fd);
-	if (proc->log_buf) {
-		free(proc->log_buf);
-		proc->log_buf = NULL;
-	}
+	ustream_free(&proc->log.stream);
+	close(proc->log.fd.fd);
 }
 
 void
@@ -82,76 +78,48 @@ netifd_log_message(int priority, const char *format, ...)
 }
 
 static void
-netifd_process_log_cb(struct uloop_fd *fd, unsigned int events)
+netifd_process_log_read_cb(struct ustream *s, int bytes)
 {
 	struct netifd_process *proc;
 	const char *log_prefix;
-	char *buf, *cur;
-	int maxlen, len, read_len;
+	char *data;
+	int len = 0;
 
-	proc = container_of(fd, struct netifd_process, log_uloop);
-
-	if (!proc->log_buf)
-		proc->log_buf = malloc(LOG_BUF_SIZE + 1);
-
+	proc = container_of(s, struct netifd_process, log);
 	log_prefix = proc->log_prefix;
 	if (!log_prefix)
 		log_prefix = "process";
 
-retry:
-	buf = proc->log_buf + proc->log_buf_ofs;
-	maxlen = LOG_BUF_SIZE - proc->log_buf_ofs;
-	read_len = len = read(fd->fd, buf, maxlen);
-	if (len < 0) {
-		if (errno == EINTR)
-			goto retry;
+	do {
+		char *newline;
 
-		goto out;
-	} else if (len == 0)
-		goto out;
-
-	proc->log_buf_ofs += len;
-
-	len = proc->log_buf_ofs;
-	buf = proc->log_buf;
-	while (len > 0) {
-		cur = memchr(buf, '\n', len);
-		if (!cur)
+		data = ustream_get_read_buf(s, &len);
+		if (!len)
 			break;
 
-		*cur = 0;
+		newline = strchr(data, '\n');
 
-		if (!proc->log_overflow)
+		if (proc->log_overflow) {
+			if (newline) {
+				len = newline + 1 - data;
+				proc->log_overflow = false;
+			}
+		} else if (newline) {
+			*newline = 0;
+			len = newline + 1 - data;
 			netifd_log_message(L_NOTICE, "%s (%d): %s\n",
-				log_prefix, proc->uloop.pid, buf);
-		else
-			proc->log_overflow = false;
-
-		cur++;
-		len -= cur - buf;
-		buf = cur;
-	}
-
-	if (buf > proc->log_buf && len > 0)
-		memmove(proc->log_buf, buf, len);
-
-	if (len == LOG_BUF_SIZE) {
-		if (!proc->log_overflow) {
-			proc->log_buf[LOG_BUF_SIZE] = 0;
+				log_prefix, proc->uloop.pid, data);
+		} else if (len == s->r.buffer_len) {
 			netifd_log_message(L_NOTICE, "%s (%d): %s [...]\n",
-				log_prefix, proc->uloop.pid, proc->log_buf);
+				log_prefix, proc->uloop.pid, data);
 			proc->log_overflow = true;
 		}
-		len = 0;
-	}
-	proc->log_buf_ofs = len;
+		ustream_consume(s, len);
+	} while (1);
+}
 
-	if (read_len > 0)
-		goto retry;
-
-out:
-	if (fd->eof)
-		uloop_fd_delete(fd);
+static void netifd_process_log_state_cb(struct ustream *s)
+{
 }
 
 static void
@@ -159,7 +127,8 @@ netifd_process_cb(struct uloop_process *proc, int ret)
 {
 	struct netifd_process *np;
 	np = container_of(proc, struct netifd_process, uloop);
-	netifd_process_log_cb(&np->log_uloop, 0);
+
+	while (ustream_poll(&np->log.stream));
 	netifd_delete_process(np);
 	return np->cb(np, ret);
 }
@@ -209,10 +178,10 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 	list_add_tail(&proc->list, &process_list);
 
 	system_fd_set_cloexec(pfds[0]);
-	proc->log_buf_ofs = 0;
-	proc->log_uloop.fd = pfds[0];
-	proc->log_uloop.cb = netifd_process_log_cb;
-	uloop_fd_add(&proc->log_uloop, ULOOP_EDGE_TRIGGER | ULOOP_READ);
+	proc->log.stream.string_data = true;
+	proc->log.stream.notify_read = netifd_process_log_read_cb;
+	proc->log.stream.notify_state = netifd_process_log_state_cb;
+	ustream_fd_init(&proc->log, pfds[0]);
 
 	return 0;
 

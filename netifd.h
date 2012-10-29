@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include <libubox/uloop.h>
+#include <libubox/ustream.h>
 
 #include <libubus.h>
 
@@ -77,10 +78,8 @@ struct netifd_process {
 	void (*cb)(struct netifd_process *, int ret);
 	int dir_fd;
 
-	struct uloop_fd log_uloop;
+	struct ustream_fd log;
 	const char *log_prefix;
-	char *log_buf;
-	int log_buf_ofs;
 	bool log_overflow;
 };
 
