@@ -54,8 +54,6 @@ static bool use_syslog = true;
 static void
 netifd_delete_process(struct netifd_process *proc)
 {
-	if (proc->uloop.pending)
-		uloop_process_delete(&proc->uloop);
 	list_del(&proc->list);
 	ustream_free(&proc->log.stream);
 	close(proc->log.fd.fd);
@@ -193,6 +191,7 @@ netifd_kill_process(struct netifd_process *proc)
 		return;
 
 	kill(proc->uloop.pid, SIGKILL);
+	uloop_process_delete(&proc->uloop);
 	netifd_delete_process(proc);
 }
 
