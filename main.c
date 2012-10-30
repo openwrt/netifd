@@ -83,7 +83,7 @@ netifd_process_log_read_cb(struct ustream *s, int bytes)
 	char *data;
 	int len = 0;
 
-	proc = container_of(s, struct netifd_process, log);
+	proc = container_of(s, struct netifd_process, log.stream);
 	log_prefix = proc->log_prefix;
 	if (!log_prefix)
 		log_prefix = "process";
