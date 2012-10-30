@@ -17,6 +17,7 @@
 
 #include "netifd.h"
 #include "device.h"
+#include "interface.h"
 
 static struct avl_tree aliases;
 
@@ -80,6 +81,7 @@ alias_device_create(const char *name, struct blob_attr *attr)
 	avl_insert(&aliases, &alias->avl);
 	alias->dep.alias = true;
 	alias->dep.cb = alias_device_cb;
+	device_check_state(&alias->dev);
 
 	return &alias->dev;
 }
@@ -93,23 +95,8 @@ static void alias_device_free(struct device *dev)
 	free(alias);
 }
 
-static const struct device_type alias_device_type = {
-	.name = "Network alias",
-	.create = alias_device_create,
-	.free = alias_device_free,
-};
-
-void
-alias_notify_device(const char *name, struct device *dev)
+static void __alias_notify_device(struct alias_device *alias, struct device *dev)
 {
-	struct alias_device *alias;
-
-	device_lock();
-
-	alias = avl_find_element(&aliases, name, alias, avl);
-	if (!alias)
-		goto out;
-
 	alias->cleanup = !dev;
 	if (dev) {
 		if (dev != alias->dep.dev) {
@@ -127,8 +114,43 @@ alias_notify_device(const char *name, struct device *dev)
 		alias->dev.ifname[0] = 0;
 		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
 	}
+}
 
-out:
+static int alias_check_state(struct device *dev)
+{
+	struct alias_device *alias;
+	struct interface *iface;
+	struct device *ndev = NULL;
+
+	alias = container_of(dev, struct alias_device, dev);
+
+	iface = vlist_find(&interfaces, alias->name, iface, node);
+	if (iface && iface->state == IFS_UP)
+		ndev = iface->main_dev.dev;
+
+	__alias_notify_device(alias, ndev);
+
+	return 0;
+}
+
+static const struct device_type alias_device_type = {
+	.name = "Network alias",
+	.create = alias_device_create,
+	.free = alias_device_free,
+	.check_state = alias_check_state,
+};
+
+void
+alias_notify_device(const char *name, struct device *dev)
+{
+	struct alias_device *alias;
+
+	device_lock();
+
+	alias = avl_find_element(&aliases, name, alias, avl);
+	if (alias)
+		__alias_notify_device(alias, dev);
+
 	device_unlock();
 }
 
