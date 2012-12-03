@@ -727,8 +727,7 @@ netifd_ubus_add_interface(struct interface *iface)
 	struct ubus_object *obj = &iface->ubus;
 	char *name = NULL;
 
-	asprintf(&name, "%s.interface.%s", main_object.name, iface->name);
-	if (!name)
+	if (asprintf(&name, "%s.interface.%s", main_object.name, iface->name) == -1)
 		return;
 
 	obj->name = name;
