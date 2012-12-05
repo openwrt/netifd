@@ -617,6 +617,7 @@ interface_ip_update_complete(struct interface_ip_settings *ip)
 	vlist_simple_flush(&ip->dns_search);
 	vlist_flush(&ip->route);
 	vlist_flush(&ip->addr);
+	interface_write_resolv_conf();
 }
 
 void
