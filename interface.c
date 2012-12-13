@@ -393,7 +393,6 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		iface->state = IFS_UP;
 		iface->start_time = system_get_rtime();
 		interface_event(iface, IFEV_UP);
-		interface_write_resolv_conf();
 		netifd_log_message(L_NOTICE, "Interface '%s' is now up\n", iface->name);
 		break;
 	case IFPEV_DOWN:
@@ -415,6 +414,8 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		iface->state = IFS_SETUP;
 		break;
 	}
+
+	interface_write_resolv_conf();
 }
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state)
