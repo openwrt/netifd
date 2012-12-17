@@ -1,5 +1,13 @@
 . /usr/share/libubox/jshn.sh
 
+append() {
+	local var="$1"
+	local value="$2"
+	local sep="${3:- }"
+
+	eval "export -- \"$var=\${$var:+\${$var}\${value:+\$sep}}\$value\""
+}
+
 proto_config_add_generic() {
 	json_add_array ""
 	json_add_string "" "$1"
@@ -92,13 +100,13 @@ proto_close_data() {
 proto_add_dns_server() {
 	local address="$1"
 
-	jshn_append PROTO_DNS "$address"
+	append PROTO_DNS "$address"
 }
 
 proto_add_dns_search() {
 	local address="$1"
 
-	jshn_append PROTO_DNS_SEARCH "$address"
+	append PROTO_DNS_SEARCH "$address"
 }
 
 proto_add_ipv4_address() {
@@ -107,14 +115,14 @@ proto_add_ipv4_address() {
 	local broadcast="$3"
 	local ptp="$4"
 
-	jshn_append PROTO_IPADDR "$address/$mask/$broadcast/$ptp"
+	append PROTO_IPADDR "$address/$mask/$broadcast/$ptp"
 }
 
 proto_add_ipv6_address() {
 	local address="$1"
 	local mask="$2"
 
-	jshn_append PROTO_IP6ADDR "$address/$mask"
+	append PROTO_IP6ADDR "$address/$mask"
 }
 
 proto_add_ipv4_route() {
@@ -122,7 +130,7 @@ proto_add_ipv4_route() {
 	local mask="$2"
 	local gw="$3"
 
-	jshn_append PROTO_ROUTE "$target/$mask/$gw"
+	append PROTO_ROUTE "$target/$mask/$gw"
 }
 
 proto_add_ipv6_route() {
@@ -130,7 +138,7 @@ proto_add_ipv6_route() {
 	local mask="$2"
 	local gw="$3"
 
-	jshn_append PROTO_ROUTE6 "$target/$mask/$gw"
+	append PROTO_ROUTE6 "$target/$mask/$gw"
 }
 
 _proto_push_ipv4_addr() {
@@ -222,7 +230,7 @@ proto_export() {
 	local var="VAR${_EXPORT_VAR}"
 	_EXPORT_VAR="$(($_EXPORT_VAR + 1))"
 	export -- "$var=$1"
-	jshn_append _EXPORT_VARS "$var"
+	append _EXPORT_VARS "$var"
 }
 
 proto_run_command() {
