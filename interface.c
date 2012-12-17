@@ -80,6 +80,7 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 	int i, len = 0;
 	int *datalen = NULL;
 	char *dest;
+	int subsystem_len = 0, code_len = 0;
 
 	if (n_data) {
 		len = n_data * sizeof(char *);
@@ -90,13 +91,21 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 		}
 	}
 
+	if (subsystem) {
+		subsystem_len = strlen(subsystem) + 1;
+		len += subsystem_len;
+	}
+
+	if (code) {
+		code_len = strlen(code) + 1;
+		len += code_len;
+	}
+
 	error = calloc(1, sizeof(*error) + sizeof(char *) + len);
 	if (!error)
 		return;
 
 	list_add_tail(&error->list, &iface->errors);
-	error->subsystem = subsystem;
-	error->code = code;
 
 	dest = (char *) &error->data[n_data + 1];
 	for (i = 0; i < n_data; i++) {
@@ -104,7 +113,20 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 		memcpy(dest, data[i], datalen[i]);
 		dest += datalen[i];
 	}
-	error->data[n_data] = NULL;
+	error->data[n_data++] = NULL;
+
+	dest = (char *) &error->data[n_data];
+	if (subsystem) {
+		error->subsystem = dest;
+		strcpy(dest, subsystem);
+		dest += subsystem_len;
+	}
+
+	if (code) {
+		error->code = dest;
+		strcpy(dest, code);
+		dest += code_len;
+	}
 }
 
 static void
