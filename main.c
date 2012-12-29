@@ -111,7 +111,9 @@ netifd_process_log_read_cb(struct ustream *s, int bytes)
 			netifd_log_message(L_NOTICE, "%s (%d): %s [...]\n",
 				log_prefix, proc->uloop.pid, data);
 			proc->log_overflow = true;
-		}
+		} else
+			break;
+
 		ustream_consume(s, len);
 	} while (1);
 }
