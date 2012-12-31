@@ -22,6 +22,7 @@
 
 #include <libubox/uloop.h>
 #include <libubox/ustream.h>
+#include <libubox/utils.h>
 
 #include <libubus.h>
 
