@@ -214,8 +214,6 @@ mark_interface_down(struct interface *iface)
 void
 __interface_set_down(struct interface *iface, bool force)
 {
-	interface_clear_errors(iface);
-
 	if (iface->state == IFS_DOWN ||
 		iface->state == IFS_TEARDOWN)
 		return;
