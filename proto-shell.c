@@ -813,15 +813,12 @@ proto_shell_add_handler(const char *script, json_object *obj)
 
 	name = json_object_get_string(tmp);
 
-	handler = calloc(1, sizeof(*handler) +
-			 strlen(script) + 1 +
-			 strlen(name) + 1);
+	handler = calloc_a(sizeof(*handler) + strlen(script) + 1,
+			   &str, strlen(name) + 1);
 	if (!handler)
 		return;
 
 	strcpy(handler->script_name, script);
-
-	str = handler->script_name + strlen(handler->script_name) + 1;
 	strcpy(str, name);
 
 	proto = &handler->proto;
