@@ -592,7 +592,7 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	device_lock();
 
 	dev = device_get(blobmsg_data(tb[DEV_NAME]), add ? 2 : 0);
-	if (add && !dev) {
+	if (!dev) {
 		ret = UBUS_STATUS_NOT_FOUND;
 		goto out;
 	}
