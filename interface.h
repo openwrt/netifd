@@ -59,9 +59,11 @@ struct interface_ip_settings {
 	bool enabled;
 	bool no_defaultroute;
 	bool no_dns;
+	uint8_t assignment_length;
 
 	struct vlist_tree addr;
 	struct vlist_tree route;
+	struct vlist_tree prefix;
 
 	struct vlist_simple_tree dns_servers;
 	struct vlist_simple_tree dns_search;
@@ -124,6 +126,7 @@ struct interface {
 	struct uloop_timeout remove_timer;
 	struct ubus_object ubus;
 };
+
 
 extern struct vlist_tree interfaces;
 extern const struct config_param_list interface_attr_list;

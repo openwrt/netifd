@@ -166,7 +166,8 @@ static int system_route_msg(struct device *dev, struct device_route *route, cons
 	else
 		gw[0] = 0;
 
-	sprintf(devstr, " dev %s", dev->ifname);
+	if (dev)
+		sprintf(devstr, " dev %s", dev->ifname);
 
 	if (route->metric > 0)
 		sprintf(devstr, " metric %d", route->metric);
@@ -206,6 +207,11 @@ int system_del_ip_tunnel(const char *name)
 }
 
 int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
+{
+	return 0;
+}
+
+int system_update_ipv6_mtu(struct device *dev, int mtu)
 {
 	return 0;
 }

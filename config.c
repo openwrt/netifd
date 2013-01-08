@@ -435,6 +435,19 @@ config_init_routes(void)
 		interface_ip_update_complete(&iface->config_ip);
 }
 
+static void
+config_init_globals(void)
+{
+	struct uci_section *globals = uci_lookup_section(
+			uci_ctx, uci_network, "globals");
+	if (!globals)
+		return;
+
+	const char *ula_prefix = uci_lookup_option_string(
+			uci_ctx, globals, "ula_prefix");
+	interface_ip_set_ula_prefix(ula_prefix);
+}
+
 void
 config_init_all(void)
 {
@@ -452,6 +465,7 @@ config_init_all(void)
 	config_init_devices();
 	config_init_interfaces();
 	config_init_routes();
+	config_init_globals();
 
 	config_init = false;
 	device_unlock();

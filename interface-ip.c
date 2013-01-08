@@ -50,6 +50,11 @@ const struct config_param_list route_attr_list = {
 	.params = route_attr,
 };
 
+
+struct list_head prefixes = LIST_HEAD_INIT(prefixes);
+static struct device_prefix *ula_prefix = NULL;
+
+
 static void
 clear_if_addr(union if_addr *a, int mask)
 {
@@ -264,6 +269,19 @@ route_cmp(const void *k1, const void *k2, void *ptr)
 		      offsetof(struct device_route, flags));
 }
 
+static int
+prefix_cmp(const void *k1, const void *k2, void *ptr)
+{
+	return memcmp(k1, k2, sizeof(struct device_prefix) -
+			offsetof(struct device_prefix, addr));
+}
+
+static int
+prefix_assignment_cmp(const void *k1, const void *k2, void *ptr)
+{
+	return strcmp((const char*)k1, (const char*)k2);
+}
+
 static void
 interface_handle_subnet_route(struct interface *iface, struct device_addr *addr, bool add)
 {
@@ -422,6 +440,221 @@ interface_update_host_route(struct vlist_tree *tree,
 
 	if (node_new)
 		system_add_route(dev, route_new);
+}
+
+
+static void
+interface_set_prefix_address(struct interface *iface, bool add,
+		struct device_prefix_assignment *assignment)
+{
+	struct interface *uplink = assignment->prefix->iface;
+	if (!iface->l3_dev.dev)
+		return;
+
+	struct device *l3_downlink = iface->l3_dev.dev;
+
+	struct device_addr addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.addr.in6 = assignment->addr;
+	addr.mask = assignment->length;
+	addr.flags = DEVADDR_INET6;
+	addr.preferred_until = assignment->prefix->preferred_until;
+	addr.valid_until = assignment->prefix->valid_until;
+
+	if (!add) {
+		if (assignment->enabled)
+			system_del_address(l3_downlink, &addr);
+	} else {
+		system_add_address(l3_downlink, &addr);
+
+		if (uplink && uplink->l3_dev.dev) {
+			int mtu = system_update_ipv6_mtu(
+					uplink->l3_dev.dev, 0);
+			if (mtu > 0)
+				system_update_ipv6_mtu(l3_downlink, mtu);
+		}
+	}
+	assignment->enabled = add;
+}
+
+
+static void
+interface_update_prefix_assignments(struct vlist_tree *tree,
+			     struct vlist_node *node_new,
+			     struct vlist_node *node_old)
+{
+	struct device_prefix_assignment *old, *new;
+	old = container_of(node_old, struct device_prefix_assignment, node);
+	new = container_of(node_new, struct device_prefix_assignment, node);
+
+	// Assignments persist across interface reloads etc.
+	// so use indirection to avoid dangling pointers
+	struct interface *iface = vlist_find(&interfaces,
+			(node_new) ? new->name : old->name, iface, node);
+
+	if (node_old && node_new) {
+		new->addr = old->addr;
+		new->length = old->length;
+	} else if (node_old) {
+		if (iface)
+			interface_set_prefix_address(iface, false, old);
+		free(old->name);
+		free(old);
+	} else if (node_new) {
+		struct device_prefix *prefix = new->prefix;
+		uint64_t want = 1ULL << (64 - new->length);
+		prefix->avail &= ~(want - 1);
+		prefix->avail -= want;
+
+		// Invert assignment
+		uint64_t assigned = ~prefix->avail;
+		assigned &= (1ULL << (64 - prefix->length)) - 1;
+		assigned &= ~(want - 1);
+
+		// Assignment
+		new->addr = prefix->addr;
+		new->addr.s6_addr32[0] |=
+				htonl(assigned >> 32);
+		new->addr.s6_addr32[1] |=
+				htonl(assigned & 0xffffffffU);
+		new->addr.s6_addr[15] += 1;
+	}
+
+	if (node_new && (iface->state == IFS_UP || iface->state == IFS_SETUP))
+		interface_set_prefix_address(iface, true, new);
+}
+
+
+void
+interface_ip_set_prefix_assignment(struct device_prefix *prefix,
+		struct interface *iface, uint8_t length)
+{
+	if (!length || length > 64) {
+		struct device_prefix_assignment *assignment = vlist_find(
+				prefix->assignments, &iface, assignment, node);
+		if (assignment)
+			interface_set_prefix_address(iface, false, assignment);
+	} else {
+		uint8_t length = iface->proto_ip.assignment_length;
+		uint64_t want = 1ULL << (64 - length);
+		if (prefix->avail < want && prefix->avail > 0) {
+			do {
+				want = 1ULL << (64 - ++length);
+			} while (want > prefix->avail);
+		}
+
+		if (prefix->avail < want)
+			return;
+
+		// Assignment
+		struct device_prefix_assignment *assignment = calloc(1, sizeof(*assignment));
+		assignment->prefix = prefix;
+		assignment->length = length;
+		assignment->name = strdup(iface->name);
+
+		vlist_add(prefix->assignments, &assignment->node, assignment->name);
+	}
+}
+
+static void
+interface_update_prefix(struct vlist_tree *tree,
+			     struct vlist_node *node_new,
+			     struct vlist_node *node_old)
+{
+	struct device_prefix *prefix_old, *prefix_new;
+	prefix_old = container_of(node_old, struct device_prefix, node);
+	prefix_new = container_of(node_new, struct device_prefix, node);
+
+	struct device_route route;
+	memset(&route, 0, sizeof(route));
+	route.flags = DEVADDR_INET6;
+	route.metric = INT32_MAX;
+	route.mask = (node_new) ? prefix_new->length : prefix_old->length;
+	route.addr.in6 = (node_new) ? prefix_new->addr : prefix_old->addr;
+
+	if (node_old && node_new) {
+		prefix_new->avail = prefix_old->avail;
+		prefix_new->assignments = prefix_old->assignments;
+		prefix_old->assignments = NULL;
+
+		// Update all assignments
+		struct device_prefix_assignment *assignment;
+		struct vlist_tree *assignments = prefix_new->assignments;
+		vlist_for_each_element(assignments, assignment, node)
+			assignments->update(assignments,
+					&assignment->node, &assignment->node);
+	} else if (node_new) {
+		prefix_new->avail = 1ULL << (64 - prefix_new->length);
+		prefix_new->assignments = calloc(1, sizeof(*prefix_new->assignments));
+		vlist_init(prefix_new->assignments, prefix_assignment_cmp,
+				interface_update_prefix_assignments);
+
+		// Create initial assignments for interfaces
+		struct interface *iface;
+		vlist_for_each_element(&interfaces, iface, node)
+			interface_ip_set_prefix_assignment(prefix_new, iface,
+					iface->proto_ip.assignment_length);
+
+		list_add(&prefix_new->head, &prefixes);
+
+		// Set null-route to avoid routing loops
+		system_add_route(NULL, &route);
+	}
+
+	if (node_old) {
+		// Remove null-route
+		system_del_route(NULL, &route);
+
+		list_del(&prefix_old->head);
+
+		if (prefix_old->assignments) {
+			vlist_flush_all(prefix_old->assignments);
+			free(prefix_old->assignments);
+		}
+		free(prefix_old);
+	}
+}
+
+void
+interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
+		uint8_t length, time_t valid_until, time_t preferred_until)
+{
+	struct device_prefix *prefix = calloc(1, sizeof(*prefix));
+	prefix->length = length;
+	prefix->addr = *addr;
+	prefix->preferred_until = preferred_until;
+	prefix->valid_until = valid_until;
+	prefix->iface = iface;
+
+	if (iface)
+		vlist_add(&iface->proto_ip.prefix, &prefix->node, &prefix->addr);
+	else
+		interface_update_prefix(NULL, &prefix->node, NULL);
+}
+
+void
+interface_ip_set_ula_prefix(const char *prefix)
+{
+	char buf[INET6_ADDRSTRLEN + 4] = {0}, *saveptr;
+	strncpy(buf, prefix, sizeof(buf) - 1);
+	char *prefixaddr = strtok_r(buf, "/", &saveptr);
+
+	struct in6_addr addr;
+	if (!prefixaddr || inet_pton(AF_INET6, prefixaddr, &addr) < 1)
+		return;
+
+	int length;
+	char *prefixlen = strtok_r(NULL, ",", &saveptr);
+	if (!prefixlen || (length = atoi(prefixlen)) < 1 || length > 64)
+		return;
+
+	if (ula_prefix && (!IN6_ARE_ADDR_EQUAL(&addr, &ula_prefix->addr) ||
+			ula_prefix->length != length)) {
+		interface_update_prefix(NULL, NULL, &ula_prefix->node);
+		ula_prefix = NULL;
+	}
+
+	interface_ip_add_device_prefix(NULL, &addr, length, 0, 0);
 }
 
 void
@@ -608,6 +841,7 @@ interface_ip_update_start(struct interface_ip_settings *ip)
 	}
 	vlist_update(&ip->route);
 	vlist_update(&ip->addr);
+	vlist_update(&ip->prefix);
 }
 
 void
@@ -617,6 +851,7 @@ interface_ip_update_complete(struct interface_ip_settings *ip)
 	vlist_simple_flush(&ip->dns_search);
 	vlist_flush(&ip->route);
 	vlist_flush(&ip->addr);
+	vlist_flush(&ip->prefix);
 	interface_write_resolv_conf();
 }
 
@@ -629,6 +864,7 @@ interface_ip_flush(struct interface_ip_settings *ip)
 	vlist_simple_flush_all(&ip->dns_search);
 	vlist_flush_all(&ip->route);
 	vlist_flush_all(&ip->addr);
+	vlist_flush_all(&ip->prefix);
 }
 
 static void
@@ -640,6 +876,7 @@ __interface_ip_init(struct interface_ip_settings *ip, struct interface *iface)
 	vlist_simple_init(&ip->dns_servers, struct dns_server, node);
 	vlist_init(&ip->route, route_cmp, interface_update_proto_route);
 	vlist_init(&ip->addr, addr_cmp, interface_update_proto_addr);
+	vlist_init(&ip->prefix, prefix_cmp, interface_update_prefix);
 }
 
 void

@@ -867,6 +867,7 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 {
 	bool v4 = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4);
 	int alen = v4 ? 4 : 16;
+	unsigned int flags = 0;
 	struct ifaddrmsg ifa = {
 		.ifa_family = (alen == 4) ? AF_INET : AF_INET6,
 		.ifa_prefixlen = addr->mask,
@@ -874,8 +875,10 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 	};
 
 	struct nl_msg *msg;
+	if (cmd == RTM_NEWADDR)
+		flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
-	msg = nlmsg_alloc_simple(cmd, 0);
+	msg = nlmsg_alloc_simple(cmd, flags);
 	if (!msg)
 		return -1;
 
@@ -886,6 +889,27 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 			nla_put_u32(msg, IFA_BROADCAST, addr->broadcast);
 		if (addr->point_to_point)
 			nla_put_u32(msg, IFA_ADDRESS, addr->point_to_point);
+	} else {
+		time_t now = system_get_rtime();
+		struct ifa_cacheinfo cinfo = {0xffffffffU, 0xffffffffU, 0, 0};
+
+		if (addr->preferred_until) {
+			int preferred = addr->preferred_until - now;
+			if (preferred < 0)
+				preferred = 0;
+
+			cinfo.ifa_prefered = preferred;
+		}
+
+		if (addr->valid_until) {
+			int valid = addr->valid_until - now;
+			if (valid <= 0)
+				return -1;
+
+			cinfo.ifa_valid = valid;
+		}
+
+		nla_put(msg, IFA_CACHEINFO, sizeof(cinfo), &cinfo);
 	}
 
 	return system_rtnl_call(msg);
@@ -906,7 +930,6 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	int alen = ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET4) ? 4 : 16;
 	bool have_gw;
 	unsigned int flags = 0;
-	int ifindex = dev->ifindex;
 
 	if (alen == 4)
 		have_gw = !!route->nexthop.in.s_addr;
@@ -929,8 +952,14 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	};
 	struct nl_msg *msg;
 
-	if (cmd == RTM_NEWROUTE)
+	if (cmd == RTM_NEWROUTE) {
 		flags |= NLM_F_CREATE | NLM_F_REPLACE;
+
+		if (!dev) { // Add null-route
+			rtm.rtm_scope = RT_SCOPE_UNIVERSE;
+			rtm.rtm_type = RTN_UNREACHABLE;
+		}
+	}
 
 	msg = nlmsg_alloc_simple(cmd, flags);
 	if (!msg)
@@ -947,7 +976,8 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	if (have_gw)
 		nla_put(msg, RTA_GATEWAY, alen, &route->nexthop);
 
-	nla_put_u32(msg, RTA_OIF, ifindex);
+	if (dev)
+		nla_put_u32(msg, RTA_OIF, dev->ifindex);
 
 	return system_rtnl_call(msg);
 }
@@ -1023,6 +1053,33 @@ int system_del_ip_tunnel(const char *name)
 
 	tunnel_parm_init(&p);
 	return tunnel_ioctl(name, SIOCDELTUNNEL, &p);
+}
+
+int system_update_ipv6_mtu(struct device *dev, int mtu)
+{
+	int ret = -1;
+	char buf[64];
+	snprintf(buf, sizeof(buf), "/proc/sys/net/ipv6/conf/%s/mtu",
+			dev->ifname);
+
+	int fd = open(buf, O_RDWR);
+	ssize_t len = read(fd, buf, sizeof(buf) - 1);
+	if (len < 0)
+		goto out;
+
+	buf[len] = 0;
+	ret = atoi(buf);
+
+	if (!mtu || ret <= mtu)
+		goto out;
+
+	lseek(fd, 0, SEEK_SET);
+	if (write(fd, buf, snprintf(buf, sizeof(buf), "%i", mtu)) <= 0)
+		ret = -1;
+
+out:
+	close(fd);
+	return ret;
 }
 
 static int parse_ipaddr(struct blob_attr *attr, __be32 *addr)

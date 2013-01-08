@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 
 #include "netifd.h"
+#include "system.h"
 #include "interface.h"
 #include "interface-ip.h"
 #include "proto.h"
@@ -32,6 +33,8 @@ enum {
 	OPT_BROADCAST,
 	OPT_GATEWAY,
 	OPT_IP6GW,
+	OPT_IP6PREFIX,
+	OPT_IP6ASSIGN,
 	__OPT_MAX,
 };
 
@@ -42,11 +45,14 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_BROADCAST] = { .name = "broadcast", .type = BLOBMSG_TYPE_STRING },
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
+	[OPT_IP6PREFIX] = { .name = "ip6prefix", .type = BLOBMSG_TYPE_ARRAY },
+	[OPT_IP6ASSIGN] = { .name = "ip6assign", .type = BLOBMSG_TYPE_INT32 },
 };
 
 static const union config_param_info proto_ip_attr_info[__OPT_MAX] = {
 	[OPT_IPADDR] = { .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6ADDR] = { .type = BLOBMSG_TYPE_STRING },
+	[OPT_IP6PREFIX] = { .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct config_param_list proto_ip_attr = {
@@ -221,6 +227,89 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 	return true;
 }
 
+static bool
+parse_ip6assign_option(struct interface *iface, struct blob_attr *attr)
+{
+	uint8_t oldval = iface->proto_ip.assignment_length;
+	uint8_t newval = blobmsg_get_u32(attr);
+
+	struct device_prefix *prefix;
+	list_for_each_entry(prefix, &prefixes, head) {
+		if (oldval && oldval != newval)
+			interface_ip_set_prefix_assignment(prefix, iface, 0);
+
+		if (newval && newval <= 64)
+			interface_ip_set_prefix_assignment(prefix, iface, newval);
+	}
+
+	iface->proto_ip.assignment_length = newval;
+	return true;
+}
+
+static bool
+parse_prefix_option(struct interface *iface, const char *str, size_t len)
+{
+	char buf[128] = {0}, *saveptr;
+	if (len > sizeof(buf))
+		return false;
+
+	memcpy(buf, str, len);
+	char *addrstr = strtok_r(buf, "/", &saveptr);
+	if (!addrstr)
+		return false;
+
+	char *lengthstr = strtok_r(NULL, ",", &saveptr);
+	if (!lengthstr)
+		return false;
+
+	char *prefstr = strtok_r(NULL, ",", &saveptr);
+	char *validstr = (!prefstr) ? NULL : strtok_r(NULL, ",", &saveptr);
+
+	uint32_t pref = (!prefstr) ? 0 : strtoul(prefstr, NULL, 10);
+	uint32_t valid = (!validstr) ? 0 : strtoul(validstr, NULL, 10);
+
+	uint8_t length = strtoul(lengthstr, NULL, 10);
+	if (length < 1 || length > 64)
+		return false;
+
+	struct in6_addr addr;
+	if (inet_pton(AF_INET6, addrstr, &addr) < 1)
+		return false;
+
+	time_t now = system_get_rtime();
+	time_t preferred_until = 0;
+	if (prefstr && pref != 0xffffffffU)
+		preferred_until = pref + now;
+
+	time_t valid_until = 0;
+	if (validstr && valid != 0xffffffffU)
+		valid_until = valid + now;
+
+	interface_ip_add_device_prefix(iface, &addr, length,
+			valid_until, preferred_until);
+	return true;
+}
+
+static int
+parse_prefix_list(struct interface *iface, struct blob_attr *attr)
+{
+	struct blob_attr *cur;
+	int n_addr = 0;
+	int rem;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			return -1;
+
+		n_addr++;
+		if (!parse_prefix_option(iface, blobmsg_data(cur),
+				blobmsg_data_len(cur)))
+			return -1;
+	}
+
+	return n_addr;
+}
+
 int
 proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 {
@@ -256,10 +345,16 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 		n_v6 = parse_static_address_option(iface, cur, true,
 			netmask, false, 0);
 
+	if ((cur = tb[OPT_IP6PREFIX]))
+		if (parse_prefix_list(iface, cur) < 0)
+			goto out;
+
+/* TODO: Clarify
 	if (!n_v4 && !n_v6) {
 		error = "NO_ADDRESS";
 		goto error;
 	}
+*/
 
 	if (n_v4 < 0 || n_v6 < 0)
 		goto out;
@@ -273,6 +368,10 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 		if (n_v6 && !parse_gateway_option(iface, cur, true))
 			goto out;
 	}
+
+	if ((cur = tb[OPT_IP6ASSIGN]))
+		if (!parse_ip6assign_option(iface, cur))
+			goto out;
 
 	return 0;
 
@@ -287,7 +386,7 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 {
 	struct blob_attr *tb[__OPT_MAX];
 	struct blob_attr *cur;
-	const char *error;
+//	const char *error;
 	int n_v4 = 0, n_v6 = 0;
 
 	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
@@ -298,10 +397,16 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 	if ((cur = tb[OPT_IP6ADDR]))
 		n_v6 = parse_address_list(iface, cur, true, ext);
 
+	if ((cur = tb[OPT_IP6PREFIX]))
+		if (parse_prefix_list(iface, cur) < 0)
+			goto out;
+
+/* TODO: clarify
 	if (!n_v4 && !n_v6) {
 		error = "NO_ADDRESS";
 		goto error;
 	}
+*/
 
 	if (n_v4 < 0 || n_v6 < 0)
 		goto out;
@@ -316,10 +421,16 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 			goto out;
 	}
 
+	if ((cur = tb[OPT_IP6ASSIGN]))
+		if (!parse_ip6assign_option(iface, cur))
+			goto out;
+
 	return 0;
 
+/* TODO: clarify
 error:
 	interface_add_error(iface, "proto", error, NULL, 0);
+*/
 out:
 	return -1;
 }

@@ -40,6 +40,28 @@ union if_addr {
 	struct in6_addr in6;
 };
 
+struct device_prefix {
+	struct vlist_node node;
+	struct list_head head;
+	struct vlist_tree *assignments;
+	struct interface *iface;
+	uint64_t avail;
+	time_t valid_until;
+	time_t preferred_until;
+
+	struct in6_addr addr;
+	uint8_t length;
+};
+
+struct device_prefix_assignment {
+	struct vlist_node node;
+	struct device_prefix *prefix;
+	struct in6_addr addr;
+	bool enabled;
+	uint8_t length;
+	char *name;
+};
+
 struct device_addr {
 	struct vlist_node node;
 	bool enabled;
@@ -47,6 +69,10 @@ struct device_addr {
 	/* ipv4 only */
 	uint32_t broadcast;
 	uint32_t point_to_point;
+
+	/* ipv6 only */
+	time_t valid_until;
+	time_t preferred_until;
 
 	/* must be last */
 	enum device_addr_flags flags;
@@ -83,6 +109,7 @@ struct dns_search_domain {
 };
 
 extern const struct config_param_list route_attr_list;
+extern struct list_head prefixes;
 
 void interface_ip_init(struct interface *iface);
 void interface_add_dns_server(struct interface_ip_settings *ip, const char *str);
@@ -99,5 +126,11 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled);
 void interface_ip_update_metric(struct interface_ip_settings *ip, int metric);
 
 struct interface *interface_ip_add_target_route(union if_addr *addr, bool v6);
+
+void interface_ip_set_prefix_assignment(struct device_prefix *prefix,
+		struct interface *iface, uint8_t length);
+void interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
+		uint8_t length, time_t valid_until, time_t preferred_until);
+void interface_ip_set_ula_prefix(const char *prefix);
 
 #endif

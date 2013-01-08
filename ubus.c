@@ -446,6 +446,59 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 	}
 }
 
+
+static void
+interface_ip_dump_prefix_list(struct interface_ip_settings *ip)
+{
+	struct device_prefix *prefix;
+	char *buf;
+	void *a, *c;
+	const int buflen = INET6_ADDRSTRLEN;
+
+	vlist_for_each_element(&ip->prefix, prefix, node) {
+		a = blobmsg_open_table(&b, NULL);
+
+		buf = blobmsg_alloc_string_buffer(&b, "address", buflen);
+		inet_ntop(AF_INET6, &prefix->addr, buf, buflen);
+		blobmsg_add_string_buffer(&b);
+
+		blobmsg_add_u32(&b, "mask", prefix->length);
+
+		time_t now = system_get_rtime();
+		if (prefix->preferred_until) {
+			int preferred = prefix->preferred_until - now;
+			if (preferred < 0)
+				preferred = 0;
+			blobmsg_add_u32(&b, "preferred", preferred);
+		}
+
+		if (prefix->valid_until) {
+			int valid = prefix->valid_until - now;
+			if (valid < 0)
+				valid = 0;
+			blobmsg_add_u32(&b, "valid", valid);
+		}
+
+		c = blobmsg_open_table(&b, "assigned");
+		struct device_prefix_assignment *assign;
+		vlist_for_each_element(prefix->assignments, assign, node) {
+			void *d = blobmsg_open_table(&b, assign->name);
+
+			buf = blobmsg_alloc_string_buffer(&b, "address", buflen);
+			inet_ntop(AF_INET6, &assign->addr, buf, buflen);
+			blobmsg_add_string_buffer(&b);
+
+			blobmsg_add_u32(&b, "mask", assign->length);
+
+			blobmsg_close_table(&b, d);
+		}
+		blobmsg_close_table(&b, c);
+
+		blobmsg_close_table(&b, a);
+	}
+}
+
+
 static void
 interface_ip_dump_dns_server_list(struct interface_ip_settings *ip,
                                   bool enabled)
@@ -519,6 +572,10 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		a = blobmsg_open_array(&b, "ipv6-address");
 		interface_ip_dump_address_list(&iface->config_ip, true, true);
 		interface_ip_dump_address_list(&iface->proto_ip, true, true);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "ipv6-prefix");
+		interface_ip_dump_prefix_list(&iface->config_ip);
+		interface_ip_dump_prefix_list(&iface->proto_ip);
 		blobmsg_close_array(&b, a);
 		a = blobmsg_open_array(&b, "route");
 		interface_ip_dump_route_list(&iface->config_ip, true);
