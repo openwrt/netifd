@@ -747,14 +747,14 @@ retry:
 }
 
 static bool
-read_int_file(int dir_fd, const char *file, int *val)
+read_uint64_file(int dir_fd, const char *file, uint64_t *val)
 {
 	char buf[64];
 	bool ret = false;
 
 	ret = read_string_file(dir_fd, file, buf, sizeof(buf));
 	if (ret)
-		*val = strtoul(buf, NULL, 0);
+		*val = strtoull(buf, NULL, 0);
 
 	return ret;
 }
@@ -798,12 +798,13 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	struct ifreq ifr;
 	char buf[64], *s;
 	void *c;
-	int dir_fd, val = 0;
+	int dir_fd;
+	uint64_t val = 0;
 
 	snprintf(buf, sizeof(buf), "/sys/class/net/%s", dev->ifname);
 	dir_fd = open(buf, O_DIRECTORY);
 
-	if (read_int_file(dir_fd, "carrier", &val))
+	if (read_uint64_file(dir_fd, "carrier", &val))
 		blobmsg_add_u8(b, "link", !!val);
 
 	memset(&ecmd, 0, sizeof(ecmd));
@@ -846,7 +847,8 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 	};
 	char buf[64];
 	int stats_dir;
-	int i, val = 0;
+	int i;
+	uint64_t val = 0;
 
 	snprintf(buf, sizeof(buf), "/sys/class/net/%s/statistics", dev->ifname);
 	stats_dir = open(buf, O_DIRECTORY);
@@ -854,8 +856,8 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 		return -1;
 
 	for (i = 0; i < ARRAY_SIZE(counters); i++)
-		if (read_int_file(stats_dir, counters[i], &val))
-			blobmsg_add_u32(b, counters[i], val);
+		if (read_uint64_file(stats_dir, counters[i], &val))
+			blobmsg_add_u64(b, counters[i], val);
 
 	close(stats_dir);
 	return 0;
