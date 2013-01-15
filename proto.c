@@ -349,13 +349,6 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 		if (parse_prefix_list(iface, cur) < 0)
 			goto out;
 
-/* TODO: Clarify
-	if (!n_v4 && !n_v6) {
-		error = "NO_ADDRESS";
-		goto error;
-	}
-*/
-
 	if (n_v4 < 0 || n_v6 < 0)
 		goto out;
 
@@ -386,7 +379,6 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 {
 	struct blob_attr *tb[__OPT_MAX];
 	struct blob_attr *cur;
-//	const char *error;
 	int n_v4 = 0, n_v6 = 0;
 
 	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
@@ -400,13 +392,6 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 	if ((cur = tb[OPT_IP6PREFIX]))
 		if (parse_prefix_list(iface, cur) < 0)
 			goto out;
-
-/* TODO: clarify
-	if (!n_v4 && !n_v6) {
-		error = "NO_ADDRESS";
-		goto error;
-	}
-*/
 
 	if (n_v4 < 0 || n_v6 < 0)
 		goto out;
@@ -427,10 +412,6 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 
 	return 0;
 
-/* TODO: clarify
-error:
-	interface_add_error(iface, "proto", error, NULL, 0);
-*/
 out:
 	return -1;
 }
