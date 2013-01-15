@@ -276,12 +276,6 @@ prefix_cmp(const void *k1, const void *k2, void *ptr)
 			offsetof(struct device_prefix, addr));
 }
 
-static int
-prefix_assignment_cmp(const void *k1, const void *k2, void *ptr)
-{
-	return strcmp((const char*)k1, (const char*)k2);
-}
-
 static void
 interface_handle_subnet_route(struct interface *iface, struct device_addr *addr, bool add)
 {
@@ -586,7 +580,7 @@ interface_update_prefix(struct vlist_tree *tree,
 	} else if (node_new) {
 		prefix_new->avail = 1ULL << (64 - prefix_new->length);
 		prefix_new->assignments = calloc(1, sizeof(*prefix_new->assignments));
-		vlist_init(prefix_new->assignments, prefix_assignment_cmp,
+		vlist_init(prefix_new->assignments, avl_strcmp,
 				interface_update_prefix_assignments);
 
 		// Create initial assignments for interfaces
