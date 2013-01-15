@@ -529,7 +529,6 @@ interface_ip_set_prefix_assignment(struct device_prefix *prefix,
 		if (assignment)
 			interface_set_prefix_address(iface, false, assignment);
 	} else {
-		uint8_t length = iface->proto_ip.assignment_length;
 		uint64_t want = 1ULL << (64 - length);
 		char *name;
 
