@@ -106,4 +106,8 @@ int parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netm
 
 char * format_macaddr(uint8_t *mac);
 
+#ifdef __APPLE__
+#define s6_addr32	__u6_addr.__u6_addr32
+#endif
+
 #endif
