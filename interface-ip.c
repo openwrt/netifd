@@ -492,7 +492,6 @@ interface_update_prefix_assignments(struct vlist_tree *tree,
 	} else if (node_old) {
 		if (iface)
 			interface_set_prefix_address(iface, false, old);
-		free(old->name);
 		free(old);
 	} else if (node_new) {
 		struct device_prefix *prefix = new->prefix;
@@ -523,14 +522,17 @@ void
 interface_ip_set_prefix_assignment(struct device_prefix *prefix,
 		struct interface *iface, uint8_t length)
 {
+	struct device_prefix_assignment *assignment;
+
 	if (!length || length > 64) {
-		struct device_prefix_assignment *assignment = vlist_find(
-				prefix->assignments, &iface, assignment, node);
+		assignment = vlist_find(prefix->assignments, &iface, assignment, node);
 		if (assignment)
 			interface_set_prefix_address(iface, false, assignment);
 	} else {
 		uint8_t length = iface->proto_ip.assignment_length;
 		uint64_t want = 1ULL << (64 - length);
+		char *name;
+
 		if (prefix->avail < want && prefix->avail > 0) {
 			do {
 				want = 1ULL << (64 - ++length);
@@ -540,11 +542,11 @@ interface_ip_set_prefix_assignment(struct device_prefix *prefix,
 		if (prefix->avail < want)
 			return;
 
-		// Assignment
-		struct device_prefix_assignment *assignment = calloc(1, sizeof(*assignment));
+		assignment = calloc_a(sizeof(*assignment),
+			&name, strlen(iface->name) + 1);
 		assignment->prefix = prefix;
 		assignment->length = length;
-		assignment->name = strdup(iface->name);
+		assignment->name = strcpy(name, iface->name);
 
 		vlist_add(prefix->assignments, &assignment->node, assignment->name);
 	}
