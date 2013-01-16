@@ -163,7 +163,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 
 	switch (ev) {
 	case IFEV_UP:
-		adev = iface->main_dev.dev;
+		adev = iface->l3_dev.dev;
 		/* fall through */
 	case IFEV_DOWN:
 		alias_notify_device(iface->name, adev);

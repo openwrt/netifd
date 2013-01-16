@@ -126,7 +126,7 @@ static int alias_check_state(struct device *dev)
 
 	iface = vlist_find(&interfaces, alias->name, iface, node);
 	if (iface && iface->state == IFS_UP)
-		ndev = iface->main_dev.dev;
+		ndev = iface->l3_dev.dev;
 
 	__alias_notify_device(alias, ndev);
 
