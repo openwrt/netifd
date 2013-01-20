@@ -25,11 +25,39 @@ struct alias_device {
 	struct avl_node avl;
 	struct device dev;
 	struct device_user dep;
-	bool cleanup;
+	struct device_user new_dep;
+	bool update;
 	char name[];
 };
 
 static const struct device_type alias_device_type;
+
+static void alias_set_device(struct alias_device *alias, struct device *dev)
+{
+	if (dev == alias->dep.dev)
+		return;
+
+	device_remove_user(&alias->new_dep);
+	if (alias->dev.active) {
+		if (dev)
+			device_add_user(&alias->new_dep, dev);
+
+		alias->update = true;
+		return;
+	}
+
+	alias->update = false;
+	device_remove_user(&alias->dep);
+	alias->dev.hidden = !dev;
+	if (dev) {
+		strcpy(alias->dev.ifname, dev->ifname);
+		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
+		device_add_user(&alias->dep, dev);
+	} else {
+		alias->dev.ifname[0] = 0;
+		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
+	}
+}
 
 static int
 alias_device_set_state(struct device *dev, bool state)
@@ -44,8 +72,9 @@ alias_device_set_state(struct device *dev, bool state)
 		return device_claim(&alias->dep);
 
 	device_release(&alias->dep);
-	if (alias->cleanup)
-		device_remove_user(&alias->dep);
+	if (alias->update)
+		alias_set_device(alias, alias->new_dep.dev);
+
 	return 0;
 }
 
@@ -95,27 +124,6 @@ static void alias_device_free(struct device *dev)
 	free(alias);
 }
 
-static void __alias_notify_device(struct alias_device *alias, struct device *dev)
-{
-	alias->cleanup = !dev;
-	if (dev) {
-		if (dev != alias->dep.dev) {
-			device_remove_user(&alias->dep);
-			strcpy(alias->dev.ifname, dev->ifname);
-			device_add_user(&alias->dep, dev);
-			alias->dev.hidden = false;
-			device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
-		}
-	}
-
-	if (!dev && alias->dep.dev && !alias->dep.dev->active) {
-		device_remove_user(&alias->dep);
-		alias->dev.hidden = true;
-		alias->dev.ifname[0] = 0;
-		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
-	}
-}
-
 static int alias_check_state(struct device *dev)
 {
 	struct alias_device *alias;
@@ -128,7 +136,7 @@ static int alias_check_state(struct device *dev)
 	if (iface && iface->state == IFS_UP)
 		ndev = iface->l3_dev.dev;
 
-	__alias_notify_device(alias, ndev);
+	alias_set_device(alias, ndev);
 
 	return 0;
 }
@@ -149,7 +157,7 @@ alias_notify_device(const char *name, struct device *dev)
 
 	alias = avl_find_element(&aliases, name, alias, avl);
 	if (alias)
-		__alias_notify_device(alias, dev);
+		alias_set_device(alias, dev);
 
 	device_unlock();
 }
