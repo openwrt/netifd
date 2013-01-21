@@ -525,7 +525,7 @@ interface_ip_set_prefix_assignment(struct device_prefix *prefix,
 	struct device_prefix_assignment *assignment;
 
 	if (!length || length > 64) {
-		assignment = vlist_find(prefix->assignments, &iface, assignment, node);
+		assignment = vlist_find(prefix->assignments, iface->name, assignment, node);
 		if (assignment)
 			interface_set_prefix_address(iface, false, assignment);
 	} else {
@@ -575,9 +575,11 @@ interface_update_prefix(struct vlist_tree *tree,
 		// Update all assignments
 		struct device_prefix_assignment *assignment;
 		struct vlist_tree *assignments = prefix_new->assignments;
-		vlist_for_each_element(assignments, assignment, node)
+		vlist_for_each_element(assignments, assignment, node) {
+			assignment->prefix = prefix_new;
 			assignments->update(assignments,
 					&assignment->node, &assignment->node);
+		}
 	} else if (node_new) {
 		prefix_new->avail = 1ULL << (64 - prefix_new->length);
 		prefix_new->assignments = calloc(1, sizeof(*prefix_new->assignments));
@@ -589,8 +591,6 @@ interface_update_prefix(struct vlist_tree *tree,
 		vlist_for_each_element(&interfaces, iface, node)
 			interface_ip_set_prefix_assignment(prefix_new, iface,
 					iface->proto_ip.assignment_length);
-
-		list_add(&prefix_new->head, &prefixes);
 
 		// Set null-route to avoid routing loops
 		system_add_route(NULL, &route);
@@ -608,6 +608,9 @@ interface_update_prefix(struct vlist_tree *tree,
 		}
 		free(prefix_old);
 	}
+
+	if (node_new)
+		list_add(&prefix_new->head, &prefixes);
 }
 
 void
