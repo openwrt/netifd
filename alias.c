@@ -37,6 +37,7 @@ static void alias_set_device(struct alias_device *alias, struct device *dev)
 	if (dev == alias->dep.dev)
 		return;
 
+	device_set_present(&alias->dev, false);
 	device_remove_user(&alias->new_dep);
 	if (alias->dev.active) {
 		if (dev)
