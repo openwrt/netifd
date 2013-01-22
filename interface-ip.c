@@ -634,12 +634,18 @@ void
 interface_ip_set_ula_prefix(const char *prefix)
 {
 	char buf[INET6_ADDRSTRLEN + 4] = {0}, *saveptr;
-	strncpy(buf, prefix, sizeof(buf) - 1);
+	if (prefix)
+		strncpy(buf, prefix, sizeof(buf) - 1);
 	char *prefixaddr = strtok_r(buf, "/", &saveptr);
 
 	struct in6_addr addr;
-	if (!prefixaddr || inet_pton(AF_INET6, prefixaddr, &addr) < 1)
+	if (!prefixaddr || inet_pton(AF_INET6, prefixaddr, &addr) < 1) {
+		if (ula_prefix) {
+			interface_update_prefix(NULL, NULL, &ula_prefix->node);
+			ula_prefix = NULL;
+		}
 		return;
+	}
 
 	int length;
 	char *prefixlen = strtok_r(NULL, ",", &saveptr);
