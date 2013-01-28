@@ -51,6 +51,7 @@ static void alias_set_device(struct alias_device *alias, struct device *dev)
 	device_remove_user(&alias->dep);
 	alias->dev.hidden = !dev;
 	if (dev) {
+		alias->dev.ifindex = dev->ifindex;
 		strcpy(alias->dev.ifname, dev->ifname);
 		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
 		device_add_user(&alias->dep, dev);
