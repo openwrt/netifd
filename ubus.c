@@ -284,41 +284,6 @@ netifd_ubus_connection_lost(struct ubus_context *ctx)
 	netifd_ubus_reconnect_timer(NULL);
 }
 
-int
-netifd_ubus_init(const char *path)
-{
-	int ret;
-
-	uloop_init();
-	ubus_path = path;
-
-	ctx = ubus_connect(path);
-	if (!ctx)
-		return -EIO;
-
-	DPRINTF("connected as %08x\n", ctx->local_id);
-	ctx->connection_lost = netifd_ubus_connection_lost;
-	netifd_ubus_add_fd();
-
-	ret = ubus_add_object(ctx, &main_object);
-	if (ret)
-		goto out;
-
-	ret = ubus_add_object(ctx, &dev_object);
-
-out:
-	if (ret != 0)
-		fprintf(stderr, "Failed to publish object: %s\n", ubus_strerror(ret));
-	return ret;
-}
-
-void
-netifd_ubus_done(void)
-{
-	ubus_free(ctx);
-}
-
-
 /* per-interface object */
 
 static int
@@ -768,6 +733,99 @@ static struct ubus_method iface_object_methods[] = {
 static struct ubus_object_type iface_object_type =
 	UBUS_OBJECT_TYPE("netifd_iface", iface_object_methods);
 
+
+static struct ubus_object iface_object = {
+	.name = "network.interface",
+	.type = &iface_object_type,
+	.n_methods = ARRAY_SIZE(iface_object_methods),
+};
+
+static void netifd_add_object(struct ubus_object *obj)
+{
+	int ret = ubus_add_object(ctx, obj);
+
+	if (ret != 0)
+		fprintf(stderr, "Failed to publish object '%s': %s\n", obj->name, ubus_strerror(ret));
+}
+
+static const struct blobmsg_policy iface_policy = {
+	.name = "interface",
+	.type = BLOBMSG_TYPE_STRING,
+};
+
+static int
+netifd_handle_iface(struct ubus_context *ctx, struct ubus_object *obj,
+		    struct ubus_request_data *req, const char *method,
+		    struct blob_attr *msg)
+{
+	struct interface *iface;
+	struct blob_attr *tb;
+	int i;
+
+	blobmsg_parse(&iface_policy, 1, &tb, blob_data(msg), blob_len(msg));
+	if (!tb)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	iface = vlist_find(&interfaces, blobmsg_data(tb), iface, node);
+	if (!iface)
+		return UBUS_STATUS_NOT_FOUND;
+
+	for (i = 0; i < ARRAY_SIZE(iface_object_methods); i++) {
+		ubus_handler_t cb;
+
+		if (strcmp(method, iface_object_methods[i].name) != 0)
+			continue;
+
+		cb = iface_object_methods[i].handler;
+		return cb(ctx, &iface->ubus, req, method, msg);
+	}
+
+	return UBUS_STATUS_INVALID_ARGUMENT;
+}
+
+static void netifd_add_iface_object(void)
+{
+	struct ubus_method *methods;
+	int i;
+
+	methods = calloc(1, sizeof(iface_object_methods));
+	memcpy(methods, iface_object_methods, sizeof(iface_object_methods));
+	iface_object.methods = methods;
+
+	for (i = 0; i < ARRAY_SIZE(iface_object_methods); i++) {
+		methods[i].handler = netifd_handle_iface;
+		methods[i].policy = &iface_policy;
+		methods[i].n_policy = 1;
+	}
+	netifd_add_object(&iface_object);
+}
+
+int
+netifd_ubus_init(const char *path)
+{
+	uloop_init();
+	ubus_path = path;
+
+	ctx = ubus_connect(path);
+	if (!ctx)
+		return -EIO;
+
+	DPRINTF("connected as %08x\n", ctx->local_id);
+	ctx->connection_lost = netifd_ubus_connection_lost;
+	netifd_ubus_add_fd();
+
+	netifd_add_object(&main_object);
+	netifd_add_object(&dev_object);
+	netifd_add_iface_object();
+
+	return 0;
+}
+
+void
+netifd_ubus_done(void)
+{
+	ubus_free(ctx);
+}
 
 void
 netifd_ubus_interface_event(struct interface *iface, bool up)
