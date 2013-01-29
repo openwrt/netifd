@@ -223,7 +223,8 @@ _proto_push_array() {
 _proto_notify() {
 	local interface="$1"
 	local options="$2"
-	ubus $options call network.interface."$interface" notify_proto "$(json_dump)"
+	json_add_string "interface" "$interface"
+	ubus $options call network.interface notify_proto "$(json_dump)"
 }
 
 proto_send_update() {
