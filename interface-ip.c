@@ -459,7 +459,7 @@ interface_set_prefix_address(struct interface *iface, bool add,
 		if (assignment->enabled) {
 			time_t now = system_get_rtime();
 			addr.preferred_until = now;
-			if (addr.valid_until - now > 7200)
+			if (!addr.valid_until || addr.valid_until - now > 7200)
 				addr.valid_until = now + 7200;
 			system_add_address(l3_downlink, &addr);
 		}
