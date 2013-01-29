@@ -456,8 +456,13 @@ interface_set_prefix_address(struct interface *iface, bool add,
 	addr.valid_until = assignment->prefix->valid_until;
 
 	if (!add) {
-		if (assignment->enabled)
-			system_del_address(l3_downlink, &addr);
+		if (assignment->enabled) {
+			time_t now = system_get_rtime();
+			addr.preferred_until = now;
+			if (addr.valid_until - now > 7200)
+				addr.valid_until = now + 7200;
+			system_add_address(l3_downlink, &addr);
+		}
 	} else {
 		system_add_address(l3_downlink, &addr);
 
