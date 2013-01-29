@@ -321,9 +321,16 @@ interface_claim_device(struct interface *iface)
 		interface_set_available(iface, true);
 }
 
+static void
+interface_cleanup_state(struct interface *iface)
+{
+	interface_flush_state(iface);
+	interface_clear_errors(iface);
+	interface_set_proto_state(iface, NULL);
+}
 
 static void
-interface_cleanup(struct interface *iface, bool reload)
+interface_cleanup(struct interface *iface)
 {
 	struct interface_user *dep, *tmp;
 
@@ -334,19 +341,17 @@ interface_cleanup(struct interface *iface, bool reload)
 		interface_remove_user(dep);
 
 	interface_ip_flush(&iface->config_ip);
-	interface_flush_state(iface);
-	interface_clear_errors(iface);
-
-	if (iface->main_dev.dev && !reload)
+	if (iface->main_dev.dev)
 		interface_set_main_dev(iface, NULL);
-	interface_set_proto_state(iface, NULL);
+
+	interface_cleanup_state(iface);
 }
 
 static void
 interface_do_free(struct interface *iface)
 {
 	interface_event(iface, IFEV_FREE);
-	interface_cleanup(iface, false);
+	interface_cleanup(iface);
 	free(iface->config);
 	netifd_ubus_remove_interface(iface);
 	avl_delete(&interfaces.avl, &iface->node.avl);
@@ -357,7 +362,7 @@ static void
 interface_do_reload(struct interface *iface)
 {
 	interface_event(iface, IFEV_RELOAD);
-	interface_cleanup(iface, true);
+	interface_cleanup_state(iface);
 	proto_init_interface(iface, iface->config);
 	interface_claim_device(iface);
 }
@@ -707,6 +712,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->parent_ifname = if_new->parent_ifname;
 	if_old->proto_handler = if_new->proto_handler;
 
+	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
+	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
+
 #define FIELD_CHANGED_STR(field)					\
 		((!!if_old->field != !!old_ ## field) ||		\
 		 (old_ ## field &&					\
@@ -747,8 +755,6 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
 	}
 
-	UPDATE(proto_ip.no_dns);
-	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
 	interface_write_resolv_conf();
 
 #undef UPDATE
@@ -759,7 +765,7 @@ reload:
 	set_config_state(if_old, IFC_RELOAD);
 out:
 	if_new->config = NULL;
-	interface_cleanup(if_new, false);
+	interface_cleanup(if_new);
 	free(old_config);
 	free(if_new);
 }
