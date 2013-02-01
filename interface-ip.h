@@ -33,6 +33,9 @@ enum device_addr_flags {
 
 	/* route automatically added by kernel */
 	DEVADDR_KERNEL		= (1 << 5),
+
+	/* address is off-link (no subnet-route) */
+	DEVADDR_OFFLINK		= (1 << 6),
 };
 
 union if_addr {
@@ -88,11 +91,12 @@ struct device_route {
 	bool keep;
 
 	union if_addr nexthop;
-	int metric;
 	int mtu;
+	time_t valid_until;
 
 	/* must be last */
 	enum device_addr_flags flags;
+	int metric; // there can be multiple routes to the same target
 	unsigned int mask;
 	union if_addr addr;
 };
@@ -129,8 +133,8 @@ struct interface *interface_ip_add_target_route(union if_addr *addr, bool v6);
 
 void interface_ip_set_prefix_assignment(struct device_prefix *prefix,
 		struct interface *iface, uint8_t length);
-void interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
-		uint8_t length, time_t valid_until, time_t preferred_until);
+struct device_prefix* interface_ip_add_device_prefix(struct interface *iface,
+		struct in6_addr *addr, uint8_t length, time_t valid_until, time_t preferred_until);
 void interface_ip_set_ula_prefix(const char *prefix);
 
 #endif

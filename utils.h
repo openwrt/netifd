@@ -42,6 +42,9 @@ struct vlist_simple_node {
 	int version;
 };
 
+#define vlist_for_each_element_safe(tree, element, node_member, ptr) \
+        avl_for_each_element_safe(&(tree)->avl, element, node_member.avl, ptr)
+
 #define vlist_simple_init(tree, node, member) \
 	__vlist_simple_init(tree, offsetof(node, member))
 

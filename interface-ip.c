@@ -33,6 +33,7 @@ enum {
 	ROUTE_GATEWAY,
 	ROUTE_METRIC,
 	ROUTE_MTU,
+	ROUTE_VALID,
 	__ROUTE_MAX
 };
 
@@ -43,6 +44,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 	[ROUTE_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
+	[ROUTE_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct config_param_list route_attr_list = {
@@ -53,6 +55,7 @@ const struct config_param_list route_attr_list = {
 
 struct list_head prefixes = LIST_HEAD_INIT(prefixes);
 static struct device_prefix *ula_prefix = NULL;
+static struct uloop_timeout valid_until_timeout;
 
 
 static void
@@ -248,6 +251,9 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		route->flags |= DEVROUTE_MTU;
 	}
 
+	if ((cur = tb[ROUTE_VALID]) != NULL)
+		route->valid_until = system_get_rtime() + blobmsg_get_u32(cur);
+
 	vlist_add(&ip->route, &route->node, &route->flags);
 	return;
 
@@ -293,11 +299,14 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 		route.flags |= DEVADDR_KERNEL;
 		system_del_route(dev, &route);
 
-		route.flags &= ~DEVADDR_KERNEL;
-		route.metric = iface->metric;
-		system_add_route(dev, &route);
+		if (!(addr->flags & DEVADDR_OFFLINK)) {
+			route.flags &= ~DEVADDR_KERNEL;
+			route.metric = iface->metric;
+			system_add_route(dev, &route);
+		}
 	} else {
-		system_del_route(dev, &route);
+		if (!(addr->flags & DEVADDR_OFFLINK))
+			system_del_route(dev, &route);
 	}
 }
 
@@ -336,7 +345,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	if (a_new && a_old) {
 		keep = true;
 
-		if (a_old->flags != a_new->flags)
+		if (a_old->flags != a_new->flags ||
+				a_old->valid_until != a_new->valid_until ||
+				a_old->preferred_until != a_new->preferred_until)
 			keep = false;
 
 		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET4 &&
@@ -356,7 +367,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 		a_new->enabled = true;
 		if (!(a_new->flags & DEVADDR_EXTERNAL) && !keep) {
 			system_add_address(dev, a_new);
-			if (iface->metric)
+			if ((a_new->flags & DEVADDR_OFFLINK) || iface->metric)
 				interface_handle_subnet_route(iface, a_new, true);
 		}
 	}
@@ -618,7 +629,7 @@ interface_update_prefix(struct vlist_tree *tree,
 		list_add(&prefix_new->head, &prefixes);
 }
 
-void
+struct device_prefix*
 interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 		uint8_t length, time_t valid_until, time_t preferred_until)
 {
@@ -633,6 +644,8 @@ interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 		vlist_add(&iface->proto_ip.prefix, &prefix->node, &prefix->addr);
 	else
 		interface_update_prefix(NULL, &prefix->node, NULL);
+
+	return prefix;
 }
 
 void
@@ -657,13 +670,13 @@ interface_ip_set_ula_prefix(const char *prefix)
 	if (!prefixlen || (length = atoi(prefixlen)) < 1 || length > 64)
 		return;
 
-	if (ula_prefix && (!IN6_ARE_ADDR_EQUAL(&addr, &ula_prefix->addr) ||
-			ula_prefix->length != length)) {
-		interface_update_prefix(NULL, NULL, &ula_prefix->node);
-		ula_prefix = NULL;
-	}
+	if (!ula_prefix || !IN6_ARE_ADDR_EQUAL(&addr, &ula_prefix->addr) ||
+			ula_prefix->length != length) {
+		if (ula_prefix)
+			interface_update_prefix(NULL, NULL, &ula_prefix->node);
 
-	interface_ip_add_device_prefix(NULL, &addr, length, 0, 0);
+		ula_prefix = interface_ip_add_device_prefix(NULL, &addr, length, 0, 0);
+	}
 }
 
 void
@@ -894,4 +907,42 @@ interface_ip_init(struct interface *iface)
 	__interface_ip_init(&iface->proto_ip, iface);
 	__interface_ip_init(&iface->config_ip, iface);
 	vlist_init(&iface->host_routes, route_cmp, interface_update_host_route);
+
+}
+
+static void
+interface_ip_valid_until_handler(struct uloop_timeout *t)
+{
+	time_t now = system_get_rtime();
+	struct interface *iface;
+	vlist_for_each_element(&interfaces, iface, node) {
+		if (iface->state != IFS_UP)
+			continue;
+
+		struct device_addr *addr, *addrp;
+		struct device_route *route, *routep;
+		struct device_prefix *pref, *prefp;
+
+		vlist_for_each_element_safe(&iface->proto_ip.addr, addr, node, addrp)
+			if (addr->valid_until && addr->valid_until < now)
+				vlist_delete(&iface->proto_ip.addr, &addr->node);
+
+		vlist_for_each_element_safe(&iface->proto_ip.route, route, node, routep)
+			if (route->valid_until && route->valid_until < now)
+				vlist_delete(&iface->proto_ip.route, &route->node);
+
+		vlist_for_each_element_safe(&iface->proto_ip.prefix, pref, node, prefp)
+			if (pref->valid_until && pref->valid_until < now)
+				vlist_delete(&iface->proto_ip.prefix, &pref->node);
+
+	}
+
+	uloop_timeout_set(t, 1000);
+}
+
+static void __init
+interface_ip_init_worker(void)
+{
+	valid_until_timeout.cb = interface_ip_valid_until_handler;
+	uloop_timeout_set(&valid_until_timeout, 1000);
 }

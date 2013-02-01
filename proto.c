@@ -66,6 +66,9 @@ enum {
 	ADDR_MASK,
 	ADDR_BROADCAST,
 	ADDR_PTP,
+	ADDR_PREFERRED,
+	ADDR_VALID,
+	ADDR_OFFLINK,
 	__ADDR_MAX
 };
 
@@ -74,6 +77,9 @@ static const struct blobmsg_policy proto_ip_addr[__ADDR_MAX] = {
 	[ADDR_MASK] = { .name = "mask", .type = BLOBMSG_TYPE_STRING },
 	[ADDR_BROADCAST] = { .name = "broadcast", .type = BLOBMSG_TYPE_STRING },
 	[ADDR_PTP] = { .name = "ptp", .type = BLOBMSG_TYPE_STRING },
+	[ADDR_PREFERRED] = { .name = "preferred", .type = BLOBMSG_TYPE_INT32 },
+	[ADDR_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
+	[ADDR_OFFLINK] = { .name = "offlink", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static struct device_addr *
@@ -169,6 +175,9 @@ parse_address_item(struct blob_attr *attr, bool v6, bool ext)
 	if (!inet_pton(v6 ? AF_INET6 : AF_INET, blobmsg_data(cur), &addr->addr))
 		goto error;
 
+	if ((cur = tb[ADDR_OFFLINK]) && blobmsg_get_bool(cur))
+		addr->flags |= DEVADDR_OFFLINK;
+
 	if (!v6) {
 		if ((cur = tb[ADDR_BROADCAST]) &&
 		    !inet_pton(AF_INET, blobmsg_data(cur), &addr->broadcast))
@@ -176,6 +185,27 @@ parse_address_item(struct blob_attr *attr, bool v6, bool ext)
 		if ((cur = tb[ADDR_PTP]) &&
 		    !inet_pton(AF_INET, blobmsg_data(cur), &addr->point_to_point))
 			goto error;
+	} else {
+		time_t now = system_get_rtime();
+		if ((cur = tb[ADDR_PREFERRED])) {
+			uint32_t preferred = blobmsg_get_u32(cur);
+			if (preferred < UINT32_MAX)
+				addr->preferred_until = now + preferred;
+		}
+
+		if ((cur = tb[ADDR_VALID])) {
+			uint32_t valid = blobmsg_get_u32(cur);
+			if (valid < UINT32_MAX)
+				addr->valid_until = now + valid;
+
+		}
+
+		if (addr->valid_until) {
+			if (!addr->preferred_until)
+				addr->preferred_until = addr->valid_until;
+			else if (addr->preferred_until > addr->valid_until)
+				goto error;
+		}
 	}
 
 	return addr;

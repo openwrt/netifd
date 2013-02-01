@@ -347,6 +347,7 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6,
 	int buflen = 128;
 	int af;
 
+	time_t now = system_get_rtime();
 	vlist_for_each_element(&ip->addr, addr, node) {
 		if (addr->enabled != enabled)
 			continue;
@@ -367,6 +368,16 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6,
 
 		blobmsg_add_u32(&b, "mask", addr->mask);
 
+		if (addr->preferred_until) {
+			int preferred = addr->preferred_until - now;
+			if (preferred < 0)
+				preferred = 0;
+			blobmsg_add_u32(&b, "preferred", preferred);
+		}
+
+		if (addr->valid_until)
+			blobmsg_add_u32(&b, "valid", addr->valid_until - now);
+
 		blobmsg_close_table(&b, a);
 	}
 }
@@ -380,6 +391,7 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 	void *r;
 	int af;
 
+	time_t now = system_get_rtime();
 	vlist_for_each_element(&ip->route, route, node) {
 		if (route->enabled != enabled)
 			continue;
@@ -407,6 +419,9 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 		if (route->flags & DEVROUTE_METRIC)
 			blobmsg_add_u32(&b, "metric", route->metric);
 
+		if (route->valid_until)
+			blobmsg_add_u32(&b, "valid", route->valid_until - now);
+
 		blobmsg_close_table(&b, r);
 	}
 }
@@ -420,6 +435,7 @@ interface_ip_dump_prefix_list(struct interface_ip_settings *ip)
 	void *a, *c;
 	const int buflen = INET6_ADDRSTRLEN;
 
+	time_t now = system_get_rtime();
 	vlist_for_each_element(&ip->prefix, prefix, node) {
 		a = blobmsg_open_table(&b, NULL);
 
@@ -429,7 +445,6 @@ interface_ip_dump_prefix_list(struct interface_ip_settings *ip)
 
 		blobmsg_add_u32(&b, "mask", prefix->length);
 
-		time_t now = system_get_rtime();
 		if (prefix->preferred_until) {
 			int preferred = prefix->preferred_until - now;
 			if (preferred < 0)
@@ -437,12 +452,8 @@ interface_ip_dump_prefix_list(struct interface_ip_settings *ip)
 			blobmsg_add_u32(&b, "preferred", preferred);
 		}
 
-		if (prefix->valid_until) {
-			int valid = prefix->valid_until - now;
-			if (valid < 0)
-				valid = 0;
-			blobmsg_add_u32(&b, "valid", valid);
-		}
+		if (prefix->valid_until)
+			blobmsg_add_u32(&b, "valid", prefix->valid_until - now);
 
 		c = blobmsg_open_table(&b, "assigned");
 		struct device_prefix_assignment *assign;
@@ -460,6 +471,45 @@ interface_ip_dump_prefix_list(struct interface_ip_settings *ip)
 		blobmsg_close_table(&b, c);
 
 		blobmsg_close_table(&b, a);
+	}
+}
+
+
+static void
+interface_ip_dump_prefix_assignment_list(struct interface *iface)
+{
+	void *a;
+	char *buf;
+	const int buflen = INET6_ADDRSTRLEN;
+	time_t now = system_get_rtime();
+
+	struct device_prefix *prefix;
+	list_for_each_entry(prefix, &prefixes, head) {
+		struct device_prefix_assignment *assign;
+		vlist_for_each_element(prefix->assignments, assign, node) {
+			if (strcmp(assign->name, iface->name))
+				continue;
+
+			a = blobmsg_open_table(&b, NULL);
+
+			buf = blobmsg_alloc_string_buffer(&b, "address", buflen);
+			inet_ntop(AF_INET6, &assign->addr, buf, buflen);
+			blobmsg_add_string_buffer(&b);
+
+			blobmsg_add_u32(&b, "mask", assign->length);
+
+			if (prefix->preferred_until) {
+				int preferred = prefix->preferred_until - now;
+				if (preferred < 0)
+					preferred = 0;
+				blobmsg_add_u32(&b, "preferred", preferred);
+			}
+
+			if (prefix->valid_until)
+				blobmsg_add_u32(&b, "valid", prefix->valid_until - now);
+
+			blobmsg_close_table(&b, a);
+		}
 	}
 }
 
@@ -541,6 +591,9 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 		a = blobmsg_open_array(&b, "ipv6-prefix");
 		interface_ip_dump_prefix_list(&iface->config_ip);
 		interface_ip_dump_prefix_list(&iface->proto_ip);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "ipv6-prefix-assignment");
+		interface_ip_dump_prefix_assignment_list(iface);
 		blobmsg_close_array(&b, a);
 		a = blobmsg_open_array(&b, "route");
 		interface_ip_dump_route_list(&iface->config_ip, true);

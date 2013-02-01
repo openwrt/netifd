@@ -122,8 +122,11 @@ proto_add_ipv4_address() {
 proto_add_ipv6_address() {
 	local address="$1"
 	local mask="$2"
+	local preferred="$3"
+	local valid="$4"
+	local offlink="$5"
 
-	append PROTO_IP6ADDR "$address/$mask"
+	append PROTO_IP6ADDR "$address/$mask/$preferred/$valid/$offlink"
 }
 
 proto_add_ipv4_route() {
@@ -131,15 +134,17 @@ proto_add_ipv4_route() {
 	local mask="$2"
 	local gw="$3"
 
-	append PROTO_ROUTE "$target/$mask/$gw"
+	append PROTO_ROUTE "$target/$mask/$gw//"
 }
 
 proto_add_ipv6_route() {
 	local target="$1"
 	local mask="$2"
 	local gw="$3"
+	local metric="$4"
+	local valid="$5"
 
-	append PROTO_ROUTE6 "$target/$mask/$gw"
+	append PROTO_ROUTE6 "$target/$mask/$gw/$metric/$valid"
 }
 
 proto_add_ipv6_prefix() {
@@ -177,15 +182,24 @@ _proto_push_ipv4_addr() {
 
 _proto_push_ipv6_addr() {
 	local str="$1"
-	local address mask
+	local address mask preferred valid offlink
 
 	address="${str%%/*}"
 	str="${str#*/}"
-	mask="$str"
+	mask="${str%%/*}"
+	str="${str#*/}"
+	preferred="${str%%/*}"
+	str="${str#*/}"
+	valid="${str%%/*}"
+	str="${str#*/}"
+	offlink="${str%%/*}"
 
 	json_add_object ""
 	json_add_string ipaddr "$address"
 	[ -n "$mask" ] && json_add_string mask "$mask"
+	[ -n "$preferred" ] && json_add_int preferred "$preferred"
+	[ -n "$valid" ] && json_add_int valid "$valid"
+	[ -n "$offlink" ] && json_add_boolean offlink "$offlink"
 	json_close_object
 }
 
@@ -198,12 +212,19 @@ _proto_push_route() {
 	local target="${str%%/*}"
 	str="${str#*/}"
 	local mask="${str%%/*}"
-	local gw="${str#*/}"
+	str="${str#*/}"
+	local gw="${str%%/*}"
+	str="${str#*/}"
+	local metric="${str%%/*}"
+	str="${str#*/}"
+	local valid="${str%%/*}"
 
 	json_add_object ""
 	json_add_string target "$target"
 	json_add_string netmask "$mask"
 	[ -n "$gw" ] && json_add_string gateway "$gw"
+	[ -n "$metric" ] && json_add_int metric "$metric"
+	[ -n "$valid" ] && json_add_int valid "$valid"
 	json_close_object
 }
 
