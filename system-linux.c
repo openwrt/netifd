@@ -581,6 +581,12 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_snooping",
 		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
 
+	if (cfg->flags & BRIDGE_OPT_PRIORITY) {
+		args[0] = BRCTL_SET_BRIDGE_PRIORITY;
+		args[1] = cfg->priority;
+		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+	}
+
 	if (cfg->flags & BRIDGE_OPT_AGEING_TIME) {
 		args[0] = BRCTL_SET_AGEING_TIME;
 		args[1] = sec_to_jiffies(cfg->ageing_time);

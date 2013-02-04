@@ -38,12 +38,14 @@ enum bridge_opt {
 	BRIDGE_OPT_AGEING_TIME = (1 << 0),
 	BRIDGE_OPT_HELLO_TIME  = (1 << 1),
 	BRIDGE_OPT_MAX_AGE     = (1 << 2),
+	BRIDGE_OPT_PRIORITY    = (1 << 3),
 };
 
 struct bridge_config {
 	enum bridge_opt flags;
 	bool stp;
 	bool igmp_snoop;
+	unsigned short priority;
 	int forward_delay;
 
 	int ageing_time;

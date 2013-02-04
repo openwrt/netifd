@@ -26,6 +26,7 @@ enum {
 	BRIDGE_ATTR_IFNAME,
 	BRIDGE_ATTR_STP,
 	BRIDGE_ATTR_FORWARD_DELAY,
+	BRIDGE_ATTR_PRIORITY,
 	BRIDGE_ATTR_IGMP_SNOOP,
 	BRIDGE_ATTR_AGEING_TIME,
 	BRIDGE_ATTR_HELLO_TIME,
@@ -37,6 +38,7 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_ARRAY },
 	[BRIDGE_ATTR_STP] = { "stp", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_FORWARD_DELAY] = { "forward_delay", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_PRIORITY] = { "priority", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_AGEING_TIME] = { "ageing_time", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_HELLO_TIME] = { "hello_time", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_MAX_AGE] = { "max_age", BLOBMSG_TYPE_INT32 },
@@ -468,6 +470,11 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 
 	if ((cur = tb[BRIDGE_ATTR_FORWARD_DELAY]))
 		cfg->forward_delay = blobmsg_get_u32(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_PRIORITY])) {
+		cfg->priority = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_PRIORITY;
+	}
 
 	if ((cur = tb[BRIDGE_ATTR_IGMP_SNOOP]))
 		cfg->igmp_snoop = blobmsg_get_bool(cur);
