@@ -373,7 +373,7 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 
 	if ((cur = tb[OPT_IP6ADDR]))
 		n_v6 = parse_static_address_option(iface, cur, true,
-			netmask, false, 0);
+			128, false, 0);
 
 	if ((cur = tb[OPT_IP6PREFIX]))
 		if (parse_prefix_list(iface, cur) < 0)
