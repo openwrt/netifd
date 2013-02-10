@@ -183,14 +183,27 @@ static void __init dev_init(void)
 
 static void __device_broadcast_event(struct list_head *head, enum device_event ev)
 {
-	struct device_user *dep, *tmp;
+	struct device_user *dep;
+	static uint8_t idx[__DEV_EVENT_MAX];
+	bool found;
 
-	list_for_each_entry_safe(dep, tmp, head, list) {
-		if (!dep->cb)
-			continue;
+	idx[ev]++;
+	do {
+		found = false;
 
-		dep->cb(dep, ev);
-	}
+		list_for_each_entry(dep, head, list) {
+			if (!dep->cb)
+				continue;
+
+			if (dep->ev_idx[ev] == idx[ev])
+				continue;
+
+			dep->cb(dep, ev);
+			dep->ev_idx[ev] = idx[ev];
+			found = true;
+			break;
+		}
+	} while (found);
 }
 
 void device_broadcast_event(struct device *dev, enum device_event ev)

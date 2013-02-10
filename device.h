@@ -75,6 +75,8 @@ enum device_event {
 
 	DEV_EVENT_LINK_UP,
 	DEV_EVENT_LINK_DOWN,
+
+	__DEV_EVENT_MAX
 };
 
 /*
@@ -86,6 +88,8 @@ struct device_user {
 	bool claimed;
 	bool hotplug;
 	bool alias;
+
+	uint8_t ev_idx[__DEV_EVENT_MAX];
 
 	struct device *dev;
 	void (*cb)(struct device_user *, enum device_event);
