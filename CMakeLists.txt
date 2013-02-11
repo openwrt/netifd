@@ -18,8 +18,9 @@ SET(SOURCES
 	ubus.c)
 
 
+find_library(json NAMES json-c json)
 SET(LIBS
-	ubox ubus uci json blobmsg_json)
+	ubox ubus uci ${json} blobmsg_json)
 
 IF (NOT DEFINED LIBNL_LIBS)
   SET(LIBNL_LIBS -lnl)
