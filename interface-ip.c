@@ -781,10 +781,11 @@ interface_write_resolv_conf(void)
 	struct interface *iface;
 	char *path = alloca(strlen(resolv_conf) + 5);
 	FILE *f;
+	uint32_t crcold, crcnew;
 
 	sprintf(path, "%s.tmp", resolv_conf);
 	unlink(path);
-	f = fopen(path, "w");
+	f = fopen(path, "w+");
 	if (!f) {
 		D(INTERFACE, "Failed to open %s for writing\n", path);
 		return;
@@ -805,8 +806,21 @@ interface_write_resolv_conf(void)
 		if (!iface->proto_ip.no_dns)
 			write_resolv_conf_entries(f, &iface->proto_ip);
 	}
+	fflush(f);
+	rewind(f);
+	crcnew = crc32_file(f);
 	fclose(f);
-	if (rename(path, resolv_conf) < 0) {
+
+	crcold = crcnew + 1;
+	f = fopen(resolv_conf, "r");
+	if (f) {
+		crcold = crc32_file(f);
+		fclose(f);
+	}
+
+	if (crcold == crcnew) {
+		unlink(path);
+	} else if (rename(path, resolv_conf) < 0) {
 		D(INTERFACE, "Failed to replace %s\n", resolv_conf);
 		unlink(path);
 	}

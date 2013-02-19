@@ -140,3 +140,31 @@ format_macaddr(uint8_t *mac)
 
 	return str;
 }
+
+uint32_t
+crc32_file(FILE *fp)
+{
+	static uint32_t *crcvals = NULL;
+	if (!crcvals) {
+		crcvals = malloc(sizeof(*crcvals) * 256);
+
+		for (size_t i = 0; i < 256; ++i) {
+			uint32_t c = i;
+			for (size_t j = 0; j < 8; ++j)
+				c = (c & 1) ? (0xEDB88320 ^ (c >> 1)) : (c >> 1);
+			crcvals[i] = c;
+		}
+	}
+
+	uint8_t buf[1024];
+	size_t len;
+	uint32_t c = 0xFFFFFFFF;
+
+	do {
+		len = fread(buf, 1, sizeof(buf), fp);
+		for (size_t i = 0; i < len; ++i)
+			c = crcvals[(c ^ buf[i]) & 0xFF] ^ (c >> 8);
+	} while (len == sizeof(buf));
+
+	return c ^ 0xFFFFFFFF;
+}

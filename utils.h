@@ -14,6 +14,7 @@
 #ifndef __NETIFD_UTILS_H
 #define __NETIFD_UTILS_H
 
+#include <stdio.h>
 #include <libubox/list.h>
 #include <libubox/avl.h>
 #include <libubox/avl-cmp.h>
@@ -108,6 +109,8 @@ bool split_netmask(char *str, unsigned int *netmask, bool v6);
 int parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask);
 
 char * format_macaddr(uint8_t *mac);
+
+uint32_t crc32_file(FILE *fp);
 
 #ifdef __APPLE__
 #define s6_addr32	__u6_addr.__u6_addr32
