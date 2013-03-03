@@ -23,7 +23,8 @@ SET(LIBS
 	ubox ubus uci ${json} blobmsg_json)
 
 IF (NOT DEFINED LIBNL_LIBS)
-  SET(LIBNL_LIBS -lnl)
+  FIND_LIBRARY(libnl NAMES libnl-3 libnl nl-3 nl)
+  SET(LIBNL_LIBS ${libnl})
 ENDIF()
 
 IF("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" AND NOT DUMMY_MODE)
