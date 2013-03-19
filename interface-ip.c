@@ -760,7 +760,7 @@ write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip)
 	struct dns_server *s;
 	struct dns_search_domain *d;
 	const char *str;
-	char buf[32];
+	char buf[INET6_ADDRSTRLEN];
 
 	vlist_simple_for_each_element(&ip->dns_servers, s, node) {
 		str = inet_ntop(s->af, &s->addr, buf, sizeof(buf));
