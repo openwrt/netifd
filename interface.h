@@ -59,7 +59,9 @@ struct interface_ip_settings {
 	bool enabled;
 	bool no_defaultroute;
 	bool no_dns;
+
 	uint8_t assignment_length;
+	int32_t assignment_hint;
 
 	struct vlist_tree addr;
 	struct vlist_tree route;

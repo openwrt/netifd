@@ -37,6 +37,8 @@ enum {
 	IFACE_ATTR_DNS_SEARCH,
 	IFACE_ATTR_METRIC,
 	IFACE_ATTR_INTERFACE,
+	IFACE_ATTR_IP6ASSIGN,
+	IFACE_ATTR_IP6HINT,
 	IFACE_ATTR_MAX
 };
 
@@ -50,6 +52,8 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IP6ASSIGN] = { .name = "ip6assign", .type = BLOBMSG_TYPE_INT32 },
+	[IFACE_ATTR_IP6HINT] = { .name = "ip6hint", .type = BLOBMSG_TYPE_STRING },
 };
 
 static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
@@ -483,6 +487,14 @@ interface_init(struct interface *iface, const char *name,
 	if ((cur = tb[IFACE_ATTR_METRIC]))
 		iface->metric = blobmsg_get_u32(cur);
 
+	if ((cur = tb[IFACE_ATTR_IP6ASSIGN]))
+		iface->config_ip.assignment_length = blobmsg_get_u32(cur);
+
+	iface->config_ip.assignment_hint = -1;
+	if ((cur = tb[IFACE_ATTR_IP6HINT]))
+		iface->config_ip.assignment_hint = strtol(blobmsg_get_string(cur), NULL, 16) &
+				~((1 << (64 - iface->config_ip.assignment_length)) - 1);
+
 	iface->config_autostart = iface->autostart;
 }
 
@@ -754,6 +766,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_ip_set_enabled(&if_old->proto_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
 	}
+
+	if (UPDATE(config_ip.assignment_length) || UPDATE(config_ip.assignment_hint))
+		interface_refresh_assignments(true);
 
 	interface_write_resolv_conf();
 

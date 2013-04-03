@@ -457,11 +457,17 @@ interface_ip_dump_prefix_list(struct interface_ip_settings *ip)
 
 		c = blobmsg_open_table(&b, "assigned");
 		struct device_prefix_assignment *assign;
-		vlist_for_each_element(prefix->assignments, assign, node) {
+		list_for_each_entry(assign, &prefix->assignments, head) {
+			if (!assign->name[0])
+				continue;
+
+			struct in6_addr addr = prefix->addr;
+			addr.s6_addr32[1] |= htonl(assign->assigned);
+
 			void *d = blobmsg_open_table(&b, assign->name);
 
 			buf = blobmsg_alloc_string_buffer(&b, "address", buflen);
-			inet_ntop(AF_INET6, &assign->addr, buf, buflen);
+			inet_ntop(AF_INET6, &addr, buf, buflen);
 			blobmsg_add_string_buffer(&b);
 
 			blobmsg_add_u32(&b, "mask", assign->length);
@@ -486,14 +492,17 @@ interface_ip_dump_prefix_assignment_list(struct interface *iface)
 	struct device_prefix *prefix;
 	list_for_each_entry(prefix, &prefixes, head) {
 		struct device_prefix_assignment *assign;
-		vlist_for_each_element(prefix->assignments, assign, node) {
+		list_for_each_entry(assign, &prefix->assignments, head) {
 			if (strcmp(assign->name, iface->name))
 				continue;
+
+			struct in6_addr addr = prefix->addr;
+			addr.s6_addr32[1] |= htonl(assign->assigned);
 
 			a = blobmsg_open_table(&b, NULL);
 
 			buf = blobmsg_alloc_string_buffer(&b, "address", buflen);
-			inet_ntop(AF_INET6, &assign->addr, buf, buflen);
+			inet_ntop(AF_INET6, &addr, buf, buflen);
 			blobmsg_add_string_buffer(&b);
 
 			blobmsg_add_u32(&b, "mask", assign->length);

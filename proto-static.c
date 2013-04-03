@@ -54,6 +54,7 @@ static_handler(struct interface_proto_state *proto,
 	case PROTO_CMD_TEARDOWN:
 		break;
 	}
+
 	return ret;
 }
 

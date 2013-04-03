@@ -34,7 +34,6 @@ enum {
 	OPT_GATEWAY,
 	OPT_IP6GW,
 	OPT_IP6PREFIX,
-	OPT_IP6ASSIGN,
 	__OPT_MAX,
 };
 
@@ -46,7 +45,6 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6PREFIX] = { .name = "ip6prefix", .type = BLOBMSG_TYPE_ARRAY },
-	[OPT_IP6ASSIGN] = { .name = "ip6assign", .type = BLOBMSG_TYPE_INT32 },
 };
 
 static const union config_param_info proto_ip_attr_info[__OPT_MAX] = {
@@ -258,25 +256,6 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 }
 
 static bool
-parse_ip6assign_option(struct interface *iface, struct blob_attr *attr)
-{
-	uint8_t oldval = iface->proto_ip.assignment_length;
-	uint8_t newval = blobmsg_get_u32(attr);
-
-	struct device_prefix *prefix;
-	list_for_each_entry(prefix, &prefixes, head) {
-		if (oldval && oldval != newval)
-			interface_ip_set_prefix_assignment(prefix, iface, 0);
-
-		if (newval && newval <= 64)
-			interface_ip_set_prefix_assignment(prefix, iface, newval);
-	}
-
-	iface->proto_ip.assignment_length = newval;
-	return true;
-}
-
-static bool
 parse_prefix_option(struct interface *iface, const char *str, size_t len)
 {
 	char buf[128] = {0}, *saveptr;
@@ -294,17 +273,32 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 
 	char *prefstr = strtok_r(NULL, ",", &saveptr);
 	char *validstr = (!prefstr) ? NULL : strtok_r(NULL, ",", &saveptr);
+	char *excludestr = (!validstr) ? NULL : strtok_r(NULL, ",", &saveptr);
 
 	uint32_t pref = (!prefstr) ? 0 : strtoul(prefstr, NULL, 10);
 	uint32_t valid = (!validstr) ? 0 : strtoul(validstr, NULL, 10);
 
-	uint8_t length = strtoul(lengthstr, NULL, 10);
+	uint8_t length = strtoul(lengthstr, NULL, 10), excl_length = 0;
 	if (length < 1 || length > 64)
 		return false;
 
-	struct in6_addr addr;
+	struct in6_addr addr, excluded, *excludedp = NULL;
 	if (inet_pton(AF_INET6, addrstr, &addr) < 1)
 		return false;
+
+	if (excludestr) {
+		char *sep = strchr(excludestr, '/');
+		if (!sep)
+			return false;
+
+		*sep = 0;
+		excl_length = atoi(sep + 1);
+
+		if (inet_pton(AF_INET6, excludestr, &excluded) < 1)
+			return false;
+
+		excludedp = &excluded;
+	}
 
 	time_t now = system_get_rtime();
 	time_t preferred_until = 0;
@@ -316,7 +310,8 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 		valid_until = valid + now;
 
 	interface_ip_add_device_prefix(iface, &addr, length,
-			valid_until, preferred_until);
+			valid_until, preferred_until,
+			excludedp, excl_length);
 	return true;
 }
 
@@ -392,10 +387,6 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 			goto out;
 	}
 
-	if ((cur = tb[OPT_IP6ASSIGN]))
-		if (!parse_ip6assign_option(iface, cur))
-			goto out;
-
 	return 0;
 
 error:
@@ -435,10 +426,6 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 		if (n_v6 && !parse_gateway_option(iface, cur, true))
 			goto out;
 	}
-
-	if ((cur = tb[OPT_IP6ASSIGN]))
-		if (!parse_ip6assign_option(iface, cur))
-			goto out;
 
 	return 0;
 

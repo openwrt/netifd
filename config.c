@@ -474,5 +474,6 @@ config_init_all(void)
 	device_init_pending();
 	vlist_flush(&interfaces);
 	device_free_unused(NULL);
+	interface_refresh_assignments(false);
 	interface_start_pending();
 }

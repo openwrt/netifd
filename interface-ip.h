@@ -43,26 +43,27 @@ union if_addr {
 	struct in6_addr in6;
 };
 
+struct device_prefix_assignment {
+	struct list_head head;
+	int32_t assigned;
+	uint8_t length;
+	bool enabled;
+	char name[];
+};
+
 struct device_prefix {
 	struct vlist_node node;
 	struct list_head head;
-	struct vlist_tree *assignments;
+	struct list_head assignments;
 	struct interface *iface;
-	uint64_t avail;
 	time_t valid_until;
 	time_t preferred_until;
 
 	struct in6_addr addr;
-	uint8_t length;
-};
+	struct in6_addr excl_addr;
 
-struct device_prefix_assignment {
-	struct vlist_node node;
-	struct device_prefix *prefix;
-	struct in6_addr addr;
-	bool enabled;
 	uint8_t length;
-	char *name;
+	uint8_t excl_length;
 };
 
 struct device_addr {
@@ -131,10 +132,10 @@ void interface_ip_update_metric(struct interface_ip_settings *ip, int metric);
 
 struct interface *interface_ip_add_target_route(union if_addr *addr, bool v6);
 
-void interface_ip_set_prefix_assignment(struct device_prefix *prefix,
-		struct interface *iface, uint8_t length);
 struct device_prefix* interface_ip_add_device_prefix(struct interface *iface,
-		struct in6_addr *addr, uint8_t length, time_t valid_until, time_t preferred_until);
+		struct in6_addr *addr, uint8_t length, time_t valid_until, time_t preferred_until,
+		struct in6_addr *excl_addr, uint8_t excl_length);
 void interface_ip_set_ula_prefix(const char *prefix);
+void interface_refresh_assignments(bool hint);
 
 #endif
