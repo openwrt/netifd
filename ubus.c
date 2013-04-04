@@ -419,6 +419,9 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 		if (route->flags & DEVROUTE_METRIC)
 			blobmsg_add_u32(&b, "metric", route->metric);
 
+		if (route->flags & DEVROUTE_TABLE)
+			blobmsg_add_u32(&b, "table", route->table);
+
 		if (route->valid_until)
 			blobmsg_add_u32(&b, "valid", route->valid_until - now);
 
