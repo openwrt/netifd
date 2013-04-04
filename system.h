@@ -19,6 +19,7 @@
 #include <arpa/inet.h>
 #include "device.h"
 #include "interface-ip.h"
+#include "iprule.h"
 
 enum tunnel_param {
 	TUNNEL_ATTR_TYPE,
@@ -98,6 +99,12 @@ bool system_resolve_rt_table(const char *name, unsigned int *id);
 
 int system_del_ip_tunnel(const char *name);
 int system_add_ip_tunnel(const char *name, struct blob_attr *attr);
+
+int system_add_iprule(struct iprule *rule);
+int system_del_iprule(struct iprule *rule);
+int system_flush_iprules(void);
+
+bool system_resolve_iprule_action(const char *action, unsigned int *id);
 
 time_t system_get_rtime(void);
 

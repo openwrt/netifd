@@ -196,6 +196,27 @@ int system_resolve_rt_table(const char *name, struct device_route *route)
 	return 0;
 }
 
+int system_add_iprule(struct iprule *rule)
+{
+	return 0;
+}
+
+int system_del_iprule(struct iprule *rule)
+{
+	return 0;
+}
+
+int system_flush_iprules(void)
+{
+	return 0;
+}
+
+bool system_resolve_iprule_action(const char *action, unsigned int *id)
+{
+	*id = 0;
+	return true;
+}
+
 time_t system_get_rtime(void)
 {
 	struct timeval tv;

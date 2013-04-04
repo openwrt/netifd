@@ -20,6 +20,7 @@
 #include "netifd.h"
 #include "interface.h"
 #include "interface-ip.h"
+#include "iprule.h"
 #include "proto.h"
 #include "config.h"
 
@@ -246,6 +247,18 @@ config_parse_route(struct uci_section *s, bool v6)
 }
 
 static void
+config_parse_rule(struct uci_section *s, bool v6)
+{
+	void *rule;
+
+	blob_buf_init(&b, 0);
+	rule = blobmsg_open_array(&b, "rule");
+	uci_to_blob(&b, s, &rule_attr_list);
+	blobmsg_close_array(&b, rule);
+	iprule_add(blob_data(b.head), v6);
+}
+
+static void
 config_init_devices(void)
 {
 	struct uci_element *e;
@@ -436,6 +449,25 @@ config_init_routes(void)
 }
 
 static void
+config_init_rules(void)
+{
+	struct uci_element *e;
+
+	iprule_update_start();
+
+	uci_foreach_element(&uci_network->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+
+		if (!strcmp(s->type, "rule"))
+			config_parse_rule(s, false);
+		else if (!strcmp(s->type, "rule6"))
+			config_parse_rule(s, true);
+	}
+
+	iprule_update_complete();
+}
+
+static void
 config_init_globals(void)
 {
 	struct uci_section *globals = uci_lookup_section(
@@ -465,6 +497,7 @@ config_init_all(void)
 	config_init_devices();
 	config_init_interfaces();
 	config_init_routes();
+	config_init_rules();
 	config_init_globals();
 
 	config_init = false;

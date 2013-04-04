@@ -1,6 +1,7 @@
 /*
  * netifd - network interface daemon
  * Copyright (C) 2012 Felix Fietkau <nbd@openwrt.org>
+ * Copyright (C) 2013 Jo-Philipp Wich <jow@openwrt.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -31,6 +32,7 @@
 #include <linux/if_bridge.h>
 #include <linux/if_tunnel.h>
 #include <linux/ethtool.h>
+#include <linux/fib_rules.h>
 
 #include <unistd.h>
 #include <string.h>
@@ -396,6 +398,11 @@ static bool check_route(struct nlmsghdr *hdr, int ifindex)
 	return *(int *)RTA_DATA(tb[RTA_OIF]) == ifindex;
 }
 
+static bool check_rule(struct nlmsghdr *hdr, int ifindex)
+{
+	return true;
+}
+
 static int cb_clear_event(struct nl_msg *msg, void *arg)
 {
 	struct clear_data *clr = arg;
@@ -418,16 +425,26 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 
 		cb = check_route;
 		break;
+	case RTM_GETRULE:
+		type = RTM_DELRULE;
+		if (hdr->nlmsg_type != RTM_NEWRULE)
+			return NL_SKIP;
+
+		cb = check_rule;
+		break;
 	default:
 		return NL_SKIP;
 	}
 
-	if (!cb(hdr, clr->dev->ifindex))
+	if (!cb(hdr, clr->dev ? clr->dev->ifindex : 0))
 		return NL_SKIP;
 
-	D(SYSTEM, "Remove %s from device %s\n",
-	  type == RTM_DELADDR ? "an address" : "a route",
-	  clr->dev->ifname);
+	if (type == RTM_DELRULE)
+		D(SYSTEM, "Remove a rule\n");
+	else
+		D(SYSTEM, "Remove %s from device %s\n",
+		  type == RTM_DELADDR ? "an address" : "a route",
+		  clr->dev->ifname);
 	memcpy(nlmsg_hdr(clr->msg), hdr, hdr->nlmsg_len);
 	hdr = nlmsg_hdr(clr->msg);
 	hdr->nlmsg_type = type;
@@ -472,6 +489,7 @@ system_if_clear_entries(struct device *dev, int type, int af)
 	clr.type = type;
 	switch (type) {
 	case RTM_GETADDR:
+	case RTM_GETRULE:
 		clr.size = sizeof(struct rtgenmsg);
 		break;
 	case RTM_GETROUTE:
@@ -1063,6 +1081,174 @@ bool system_resolve_rt_table(const char *name, unsigned int *id)
 		table = RT_TABLE_UNSPEC;
 
 	*id = table;
+	return true;
+}
+
+static int system_iprule(struct iprule *rule, int cmd)
+{
+	int alen = ((rule->flags & IPRULE_FAMILY) == IPRULE_INET4) ? 4 : 16;
+
+	struct nl_msg *msg;
+	struct rtmsg rtm = {
+		.rtm_family = (alen == 4) ? AF_INET : AF_INET6,
+		.rtm_protocol = RTPROT_STATIC,
+		.rtm_scope = RT_SCOPE_UNIVERSE,
+		.rtm_table = RT_TABLE_UNSPEC,
+		.rtm_type = RTN_UNSPEC,
+		.rtm_flags = 0,
+	};
+
+	if (cmd == RTM_NEWRULE) {
+		rtm.rtm_type = RTN_UNICAST;
+		rtm.rtm_flags |= NLM_F_REPLACE | NLM_F_EXCL;
+	}
+
+	if (rule->invert)
+		rtm.rtm_flags |= FIB_RULE_INVERT;
+
+	if (rule->flags & IPRULE_SRC)
+		rtm.rtm_src_len = rule->src_mask;
+
+	if (rule->flags & IPRULE_DEST)
+		rtm.rtm_dst_len = rule->dest_mask;
+
+	if (rule->flags & IPRULE_TOS)
+		rtm.rtm_tos = rule->tos;
+
+	if (rule->flags & IPRULE_LOOKUP) {
+		if (rule->lookup < 256)
+			rtm.rtm_table = rule->lookup;
+	}
+
+	if (rule->flags & IPRULE_ACTION)
+		rtm.rtm_type = rule->action;
+	else if (rule->flags & IPRULE_GOTO)
+		rtm.rtm_type = FR_ACT_GOTO;
+	else if (!(rule->flags & (IPRULE_LOOKUP | IPRULE_ACTION | IPRULE_GOTO)))
+		rtm.rtm_type = FR_ACT_NOP;
+
+	msg = nlmsg_alloc_simple(cmd, NLM_F_REQUEST);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &rtm, sizeof(rtm), 0);
+
+	if (rule->flags & IPRULE_IN)
+		nla_put(msg, FRA_IFNAME, strlen(rule->in_dev) + 1, rule->in_dev);
+
+	if (rule->flags & IPRULE_OUT)
+		nla_put(msg, FRA_OIFNAME, strlen(rule->out_dev) + 1, rule->out_dev);
+
+	if (rule->flags & IPRULE_SRC)
+		nla_put(msg, FRA_SRC, alen, &rule->src_addr);
+
+	if (rule->flags & IPRULE_DEST)
+		nla_put(msg, FRA_DST, alen, &rule->dest_addr);
+
+	if (rule->flags & IPRULE_PRIORITY)
+		nla_put_u32(msg, FRA_PRIORITY, rule->priority);
+
+	if (rule->flags & IPRULE_FWMARK)
+		nla_put_u32(msg, FRA_FWMARK, rule->fwmark);
+
+	if (rule->flags & IPRULE_FWMASK)
+		nla_put_u32(msg, FRA_FWMASK, rule->fwmask);
+
+	if (rule->flags & IPRULE_LOOKUP) {
+		if (rule->lookup >= 256)
+			nla_put_u32(msg, FRA_TABLE, rule->lookup);
+	}
+
+	if (rule->flags & IPRULE_GOTO)
+		nla_put_u32(msg, FRA_GOTO, rule->gotoid);
+
+	return system_rtnl_call(msg);
+}
+
+int system_add_iprule(struct iprule *rule)
+{
+	return system_iprule(rule, RTM_NEWRULE);
+}
+
+int system_del_iprule(struct iprule *rule)
+{
+	return system_iprule(rule, RTM_DELRULE);
+}
+
+int system_flush_iprules(void)
+{
+	int rv = 0;
+	struct iprule rule;
+
+	system_if_clear_entries(NULL, RTM_GETRULE, AF_INET);
+	system_if_clear_entries(NULL, RTM_GETRULE, AF_INET6);
+
+	memset(&rule, 0, sizeof(rule));
+
+
+	rule.flags = IPRULE_INET4 | IPRULE_PRIORITY | IPRULE_LOOKUP;
+
+	rule.priority = 0;
+	rule.lookup = RT_TABLE_LOCAL;
+	rv |= system_iprule(&rule, RTM_NEWRULE);
+
+	rule.priority = 32766;
+	rule.lookup = RT_TABLE_MAIN;
+	rv |= system_iprule(&rule, RTM_NEWRULE);
+
+	rule.priority = 32767;
+	rule.lookup = RT_TABLE_DEFAULT;
+	rv |= system_iprule(&rule, RTM_NEWRULE);
+
+
+	rule.flags = IPRULE_INET6 | IPRULE_PRIORITY | IPRULE_LOOKUP;
+
+	rule.priority = 0;
+	rule.lookup = RT_TABLE_LOCAL;
+	rv |= system_iprule(&rule, RTM_NEWRULE);
+
+	rule.priority = 32766;
+	rule.lookup = RT_TABLE_MAIN;
+	rv |= system_iprule(&rule, RTM_NEWRULE);
+
+	return rv;
+}
+
+bool system_resolve_iprule_action(const char *action, unsigned int *id)
+{
+	char *e;
+	unsigned int n;
+
+	if (!strcmp(action, "local"))
+		n = RTN_LOCAL;
+	else if (!strcmp(action, "nat"))
+		n = RTN_NAT;
+	else if (!strcmp(action, "broadcast"))
+		n = RTN_BROADCAST;
+	else if (!strcmp(action, "anycast"))
+		n = RTN_ANYCAST;
+	else if (!strcmp(action, "multicast"))
+		n = RTN_MULTICAST;
+	else if (!strcmp(action, "prohibit"))
+		n = RTN_PROHIBIT;
+	else if (!strcmp(action, "unreachable"))
+		n = RTN_UNREACHABLE;
+	else if (!strcmp(action, "blackhole"))
+		n = RTN_BLACKHOLE;
+	else if (!strcmp(action, "xresolve"))
+		n = RTN_XRESOLVE;
+	else if (!strcmp(action, "unicast"))
+		n = RTN_UNICAST;
+	else if (!strcmp(action, "throw"))
+		n = RTN_THROW;
+	else {
+		n = strtoul(action, &e, 0);
+		if (!e || *e || e == action || n > 255)
+			return false;
+	}
+
+	*id = n;
 	return true;
 }
 
