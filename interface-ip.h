@@ -36,6 +36,9 @@ enum device_addr_flags {
 
 	/* address is off-link (no subnet-route) */
 	DEVADDR_OFFLINK		= (1 << 6),
+
+	/* route resides in different table */
+	DEVROUTE_TABLE		= (1 << 7),
 };
 
 union if_addr {
@@ -93,6 +96,7 @@ struct device_route {
 
 	union if_addr nexthop;
 	int mtu;
+	unsigned int table;
 	time_t valid_until;
 
 	/* must be last */

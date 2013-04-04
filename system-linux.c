@@ -942,10 +942,12 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	unsigned char scope = (cmd == RTM_DELROUTE) ? RT_SCOPE_NOWHERE :
 			(have_gw) ? RT_SCOPE_UNIVERSE : RT_SCOPE_LINK;
 
+	unsigned int table = (route->flags & DEVROUTE_TABLE) ? route->table : RT_TABLE_MAIN;
+
 	struct rtmsg rtm = {
 		.rtm_family = (alen == 4) ? AF_INET : AF_INET6,
 		.rtm_dst_len = route->mask,
-		.rtm_table = RT_TABLE_MAIN,
+		.rtm_table = (table < 256) ? table : RT_TABLE_UNSPEC,
 		.rtm_protocol = (route->flags & DEVADDR_KERNEL) ? RTPROT_KERNEL : RTPROT_STATIC,
 		.rtm_scope = scope,
 		.rtm_type = (cmd == RTM_DELROUTE) ? 0: RTN_UNICAST,
@@ -979,6 +981,9 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	if (dev)
 		nla_put_u32(msg, RTA_OIF, dev->ifindex);
 
+	if (table >= 256)
+		nla_put_u32(msg, RTA_TABLE, table);
+
 	return system_rtnl_call(msg);
 }
 
@@ -1009,6 +1014,56 @@ int system_flush_routes(void)
 		close(fd);
 	}
 	return 0;
+}
+
+bool system_resolve_rt_table(const char *name, unsigned int *id)
+{
+	FILE *f;
+	char *e, buf[128];
+	unsigned int n, table = RT_TABLE_UNSPEC;
+
+	/* first try to parse table as number */
+	if ((n = strtoul(name, &e, 0)) > 0 && !*e)
+		table = n;
+
+	/* handle well known aliases */
+	else if (!strcmp(name, "default"))
+		table = RT_TABLE_DEFAULT;
+	else if (!strcmp(name, "main"))
+		table = RT_TABLE_MAIN;
+	else if (!strcmp(name, "local"))
+		table = RT_TABLE_LOCAL;
+
+	/* try to look up name in /etc/iproute2/rt_tables */
+	else if ((f = fopen("/etc/iproute2/rt_tables", "r")) != NULL)
+	{
+		while (fgets(buf, sizeof(buf) - 1, f) != NULL)
+		{
+			if ((e = strtok(buf, " \t\n")) == NULL || *e == '#')
+				continue;
+
+			n = strtoul(e, NULL, 10);
+			e = strtok(NULL, " \t\n");
+
+			if (e && !strcmp(e, name))
+			{
+				table = n;
+				break;
+			}
+		}
+
+		fclose(f);
+	}
+
+	if (table == RT_TABLE_UNSPEC)
+		return false;
+
+	/* do not consider main table special */
+	if (table == RT_TABLE_MAIN)
+		table = RT_TABLE_UNSPEC;
+
+	*id = table;
+	return true;
 }
 
 time_t system_get_rtime(void)

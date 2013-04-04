@@ -191,6 +191,11 @@ int system_flush_routes(void)
 	return 0;
 }
 
+int system_resolve_rt_table(const char *name, struct device_route *route)
+{
+	return 0;
+}
+
 time_t system_get_rtime(void)
 {
 	struct timeval tv;

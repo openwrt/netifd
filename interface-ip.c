@@ -34,6 +34,7 @@ enum {
 	ROUTE_METRIC,
 	ROUTE_MTU,
 	ROUTE_VALID,
+	ROUTE_TABLE,
 	__ROUTE_MAX
 };
 
@@ -44,6 +45,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 	[ROUTE_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
+	[ROUTE_TABLE] = { .name = "table", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
 };
 
@@ -122,6 +124,9 @@ __find_ip_route_target(struct interface_ip_settings *ip, union if_addr *a,
 			continue;
 
 		if (!match_if_addr(&route->addr, a, route->mask))
+			continue;
+
+		if (route->flags & DEVROUTE_TABLE)
 			continue;
 
 		if (!*res || route->mask < (*res)->mask)
@@ -249,6 +254,16 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_MTU]) != NULL) {
 		route->mtu = blobmsg_get_u32(cur);
 		route->flags |= DEVROUTE_MTU;
+	}
+
+	if ((cur = tb[ROUTE_TABLE]) != NULL) {
+		if (!system_resolve_rt_table(blobmsg_data(cur), &route->table)) {
+			DPRINTF("Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+
+		if (route->table)
+			route->flags |= DEVROUTE_TABLE;
 	}
 
 	if ((cur = tb[ROUTE_VALID]) != NULL)
