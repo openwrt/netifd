@@ -191,9 +191,10 @@ int system_flush_routes(void)
 	return 0;
 }
 
-int system_resolve_rt_table(const char *name, struct device_route *route)
+bool system_resolve_rt_table(const char *name, unsigned int *id)
 {
-	return 0;
+	*id = 0;
+	return true;
 }
 
 int system_add_iprule(struct iprule *rule)
