@@ -96,12 +96,12 @@ struct device_route {
 
 	union if_addr nexthop;
 	int mtu;
-	unsigned int table;
 	time_t valid_until;
 
 	/* must be last */
 	enum device_addr_flags flags;
 	int metric; // there can be multiple routes to the same target
+	unsigned int table;
 	unsigned int mask;
 	union if_addr addr;
 };
