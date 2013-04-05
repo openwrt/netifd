@@ -647,7 +647,7 @@ interface_update_prefix(struct vlist_tree *tree,
 
 	if (node_old && node_new) {
 		// Move assignments and refresh addresses to update valid times
-		list_splice_init(&prefix_old->assignments, &prefix_new->assignments);
+		list_splice(&prefix_old->assignments, &prefix_new->assignments);
 
 		list_for_each_entry(c, &prefix_new->assignments, head)
 			if ((iface = vlist_find(&interfaces, c->name, iface, node)))
@@ -656,7 +656,6 @@ interface_update_prefix(struct vlist_tree *tree,
 		// Set null-route to avoid routing loops
 		system_add_route(NULL, &route);
 
-		INIT_LIST_HEAD(&prefix_new->assignments);
 		interface_update_prefix_assignments(prefix_new, true);
 	} else if (node_old) {
 		interface_update_prefix_assignments(prefix_old, false);
@@ -686,6 +685,7 @@ interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 	prefix->preferred_until = preferred_until;
 	prefix->valid_until = valid_until;
 	prefix->iface = iface;
+	INIT_LIST_HEAD(&prefix->assignments);
 
 	if (excl_addr) {
 		prefix->excl_addr = *excl_addr;
