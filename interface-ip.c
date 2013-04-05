@@ -194,7 +194,7 @@ done:
 	if (defaultroute_target)
 		free(route);
 	else
-		vlist_add(&iface->host_routes, &route->node, &route->flags);
+		vlist_add(&iface->host_routes, &route->node, route);
 	return iface;
 }
 
@@ -270,7 +270,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_VALID]) != NULL)
 		route->valid_until = system_get_rtime() + blobmsg_get_u32(cur);
 
-	vlist_add(&ip->route, &route->node, &route->flags);
+	vlist_add(&ip->route, &route->node, route);
 	return;
 
 error:
@@ -287,8 +287,18 @@ addr_cmp(const void *k1, const void *k2, void *ptr)
 static int
 route_cmp(const void *k1, const void *k2, void *ptr)
 {
-	return memcmp(k1, k2, sizeof(struct device_route) -
-		      offsetof(struct device_route, flags));
+	const struct device_route *r1 = k1, *r2 = k2;
+
+	if (r1->mask != r2->mask);
+		return r2->mask - r1->mask;
+
+	if (r1->metric != r2->metric);
+		return r1->metric - r2->metric;
+
+	if (r1->flags != r2->flags)
+		return r2->flags - r1->flags;
+
+	return memcmp(&r1->addr, &r2->addr, sizeof(r1->addr));
 }
 
 static int
