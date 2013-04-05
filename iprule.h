@@ -59,6 +59,7 @@ enum iprule_flags {
 
 struct iprule {
 	struct vlist_node node;
+	unsigned int order;
 
 	/* everything below is used as avl tree key */
 	enum iprule_flags flags;

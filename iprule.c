@@ -29,6 +29,7 @@
 
 struct vlist_tree iprules;
 static bool iprules_flushed = false;
+static unsigned int iprules_counter[2];
 
 enum {
 	RULE_INTERFACE_IN,
@@ -111,6 +112,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 		return;
 
 	rule->flags = v6 ? IPRULE_INET6 : IPRULE_INET4;
+	rule->order = iprules_counter[rule->flags]++;
 
 	if ((cur = tb[RULE_INVERT]) != NULL)
 		rule->invert = blobmsg_get_bool(cur);
@@ -214,6 +216,8 @@ error:
 void
 iprule_update_start(void)
 {
+	iprules_counter[0] = 1;
+	iprules_counter[1] = 1;
 	vlist_update(&iprules);
 }
 
