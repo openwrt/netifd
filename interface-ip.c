@@ -289,10 +289,10 @@ route_cmp(const void *k1, const void *k2, void *ptr)
 {
 	const struct device_route *r1 = k1, *r2 = k2;
 
-	if (r1->mask != r2->mask);
+	if (r1->mask != r2->mask)
 		return r2->mask - r1->mask;
 
-	if (r1->metric != r2->metric);
+	if (r1->metric != r2->metric)
 		return r1->metric - r2->metric;
 
 	if (r1->flags != r2->flags)
