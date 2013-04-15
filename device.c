@@ -180,36 +180,22 @@ static void __init dev_init(void)
 	avl_init(&devices, avl_strcmp, true, NULL);
 }
 
-
-static void __device_broadcast_event(struct list_head *head, enum device_event ev)
+static int device_broadcast_cb(void *ctx, struct safe_list *list)
 {
-	struct device_user *dep;
-	static uint8_t idx[__DEV_EVENT_MAX];
-	bool found;
+	struct device_user *dep = container_of(list, struct device_user, list);
+	int *ev = ctx;
 
-	idx[ev]++;
-	do {
-		found = false;
-
-		list_for_each_entry(dep, head, list) {
-			if (!dep->cb)
-				continue;
-
-			if (dep->ev_idx[ev] == idx[ev])
-				continue;
-
-			dep->cb(dep, ev);
-			dep->ev_idx[ev] = idx[ev];
-			found = true;
-			break;
-		}
-	} while (found);
+	if (dep->cb)
+		dep->cb(dep, *ev);
+	return 0;
 }
 
 void device_broadcast_event(struct device *dev, enum device_event ev)
 {
-	__device_broadcast_event(&dev->aliases, ev);
-	__device_broadcast_event(&dev->users, ev);
+	int dev_ev = ev;
+
+	safe_list_for_each(&dev->aliases, device_broadcast_cb, &dev_ev);
+	safe_list_for_each(&dev->users, device_broadcast_cb, &dev_ev);
 }
 
 int device_claim(struct device_user *dep)
@@ -276,8 +262,8 @@ void device_init_virtual(struct device *dev, const struct device_type *type, con
 		strncpy(dev->ifname, name, IFNAMSIZ);
 
 	D(DEVICE, "Initialize device '%s'\n", dev->ifname);
-	INIT_LIST_HEAD(&dev->users);
-	INIT_LIST_HEAD(&dev->aliases);
+	INIT_SAFE_LIST(&dev->users);
+	INIT_SAFE_LIST(&dev->aliases);
 	dev->type = type;
 
 	if (!dev->set_state)
@@ -356,19 +342,21 @@ device_delete(struct device *dev)
 	dev->avl.key = NULL;
 }
 
+static int device_cleanup_cb(void *ctx, struct safe_list *list)
+{
+	struct device_user *dep = container_of(list, struct device_user, list);
+	if (dep->cb)
+		dep->cb(dep, DEV_EVENT_REMOVE);
+
+	device_release(dep);
+	return 0;
+}
+
 void device_cleanup(struct device *dev)
 {
-	struct device_user *dep, *tmp;
-
 	D(DEVICE, "Clean up device '%s'\n", dev->ifname);
-	list_for_each_entry_safe(dep, tmp, &dev->users, list) {
-		if (!dep->cb)
-			continue;
-
-		dep->cb(dep, DEV_EVENT_REMOVE);
-		device_release(dep);
-	}
-
+	safe_list_for_each(&dev->users, device_cleanup_cb, NULL);
+	safe_list_for_each(&dev->aliases, device_cleanup_cb, NULL);
 	device_delete(dev);
 }
 
@@ -407,7 +395,10 @@ static int device_refcount(struct device *dev)
 	struct list_head *list;
 	int count = 0;
 
-	list_for_each(list, &dev->users)
+	list_for_each(list, &dev->users.list)
+		count++;
+
+	list_for_each(list, &dev->aliases.list)
 		count++;
 
 	return count;
@@ -415,7 +406,7 @@ static int device_refcount(struct device *dev)
 
 void device_add_user(struct device_user *dep, struct device *dev)
 {
-	struct list_head *head;
+	struct safe_list *head;
 
 	if (dep->dev)
 		device_remove_user(dep);
@@ -429,7 +420,8 @@ void device_add_user(struct device_user *dep, struct device *dev)
 		head = &dev->aliases;
 	else
 		head = &dev->users;
-	list_add_tail(&dep->list, head);
+
+	safe_list_add(&dep->list, head);
 	D(DEVICE, "Add user for device '%s', refcount=%d\n", dev->ifname, device_refcount(dev));
 
 	if (dep->cb && dev->present) {
@@ -452,7 +444,9 @@ device_free(struct device *dev)
 static void
 __device_free_unused(struct device *dev)
 {
-	if (!list_empty(&dev->users) || dev->current_config || __devlock)
+	if (!safe_list_empty(&dev->users) ||
+		!safe_list_empty(&dev->aliases) ||
+	    dev->current_config || __devlock)
 		return;
 
 	device_free(dev);
@@ -469,7 +463,7 @@ void device_remove_user(struct device_user *dep)
 	if (dep->claimed)
 		device_release(dep);
 
-	list_del(&dep->list);
+	safe_list_del(&dep->list);
 	dep->dev = NULL;
 	D(DEVICE, "Remove user for device '%s', refcount=%d\n", dev->ifname, device_refcount(dev));
 	__device_free_unused(dev);
@@ -545,9 +539,10 @@ device_replace(struct device *dev, struct device *odev)
 	if (present)
 		device_set_present(odev, false);
 
-	list_for_each_entry_safe(dep, tmp, &odev->users, list) {
+	list_for_each_entry_safe(dep, tmp, &odev->users.list, list.list) {
 		device_release(dep);
-		list_move_tail(&dep->list, &dev->users);
+		safe_list_del(&dep->list);
+		safe_list_add(&dep->list, &dev->users);
 		dep->dev = dev;
 	}
 	device_free(odev);

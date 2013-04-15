@@ -15,6 +15,7 @@
 #define __LL_H
 
 #include <libubox/avl.h>
+#include <libubox/safe_list.h>
 #include <netinet/in.h>
 
 struct device;
@@ -83,7 +84,7 @@ enum device_event {
  * device dependency with callbacks
  */
 struct device_user {
-	struct list_head list;
+	struct safe_list list;
 
 	bool claimed;
 	bool hotplug;
@@ -110,8 +111,8 @@ struct device {
 	const struct device_type *type;
 
 	struct avl_node avl;
-	struct list_head users;
-	struct list_head aliases;
+	struct safe_list users;
+	struct safe_list aliases;
 
 	char ifname[IFNAMSIZ + 1];
 	int ifindex;

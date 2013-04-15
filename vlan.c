@@ -99,7 +99,7 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	struct device_user *dep;
 
 	/* look for an existing interface before creating a new one */
-	list_for_each_entry(dep, &dev->users, list) {
+	list_for_each_entry(dep, &dev->users.list, list.list) {
 		if (dep->cb != vlan_dev_cb)
 			continue;
 
