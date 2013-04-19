@@ -640,7 +640,13 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	while (!list_empty(&assign_later)) {
 		c = list_first_entry(&assign_later, struct device_prefix_assignment, head);
 		list_del(&c->head);
-		if (!interface_prefix_assign(&prefix->assignments, c)) {
+
+		bool assigned = false;
+		do {
+			assigned = interface_prefix_assign(&prefix->assignments, c);
+		} while (!assigned && ++c->length <= 64);
+
+		if (!assigned) {
 			netifd_log_message(L_WARNING, "Failed to assign subprefix "
 					"of size %hhu for %s\n", c->length, c->name);
 			free(c);
