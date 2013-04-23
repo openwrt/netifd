@@ -464,6 +464,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->stp = false;
 	cfg->forward_delay = 2;
 	cfg->igmp_snoop = true;
+	cfg->priority = 0x7FFF;
 
 	if ((cur = tb[BRIDGE_ATTR_STP]))
 		cfg->stp = blobmsg_get_bool(cur);
@@ -471,10 +472,8 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	if ((cur = tb[BRIDGE_ATTR_FORWARD_DELAY]))
 		cfg->forward_delay = blobmsg_get_u32(cur);
 
-	if ((cur = tb[BRIDGE_ATTR_PRIORITY])) {
+	if ((cur = tb[BRIDGE_ATTR_PRIORITY]))
 		cfg->priority = blobmsg_get_u32(cur);
-		cfg->flags |= BRIDGE_OPT_PRIORITY;
-	}
 
 	if ((cur = tb[BRIDGE_ATTR_IGMP_SNOOP]))
 		cfg->igmp_snoop = blobmsg_get_bool(cur);
