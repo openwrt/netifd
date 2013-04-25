@@ -709,11 +709,36 @@ static void
 interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
-	const char *old_ifname = if_old->ifname;
-	const char *old_parent_ifname = if_old->parent_ifname;
-	const struct proto_handler *proto = if_old->proto_handler;
+	bool reload = false, reload_ip = false, reload_assignment = false;
 
-	interface_clear_errors(if_old);
+#define FIELD_CHANGED_STR(field)					\
+		((!!if_old->field != !!if_new->field) ||		\
+		 (if_old->field &&					\
+		  strcmp(if_old->field, if_new->field) != 0))
+
+	if (FIELD_CHANGED_STR(parent_ifname)) {
+		if (if_old->parent_iface.iface)
+			interface_remove_user(&if_old->parent_iface);
+		reload = true;
+	}
+
+	if (FIELD_CHANGED_STR(ifname) ||
+	    if_old->proto_handler != if_new->proto_handler)
+		reload = true;
+
+	if (!if_old->proto_handler->config_params)
+		D(INTERFACE, "No config parameters for interface '%s'\n",
+		  if_old->name);
+	else if (!config_check_equal(if_old->config, if_new->config,
+				     if_old->proto_handler->config_params))
+		reload = true;
+
+#define UPDATE(field, __var) ({						\
+		bool __changed = (if_old->field != if_new->field);	\
+		if_old->field = if_new->field;				\
+		__var |= __changed;					\
+	})
+
 	if_old->config = if_new->config;
 	if (!if_old->config_autostart && if_new->config_autostart)
 		if_old->autostart = true;
@@ -727,57 +752,33 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
 
-#define FIELD_CHANGED_STR(field)					\
-		((!!if_old->field != !!old_ ## field) ||		\
-		 (old_ ## field &&					\
-		  strcmp(old_ ## field, if_old->field) != 0))
+	UPDATE(metric, reload_ip);
+	UPDATE(proto_ip.no_defaultroute, reload_ip);
+	UPDATE(config_ip.assignment_length, reload_assignment);
+	UPDATE(config_ip.assignment_hint, reload_assignment);
 
-	if (FIELD_CHANGED_STR(parent_ifname)) {
-		if (if_old->parent_iface.iface)
-			interface_remove_user(&if_old->parent_iface);
-		goto reload;
-	}
+#undef UPDATE
 
-	if (FIELD_CHANGED_STR(ifname) || proto != if_new->proto_handler) {
-		D(INTERFACE, "Reload interface '%s' because of ifname/proto change\n",
-		  if_old->name);
-		goto reload;
-	}
-
-	if (!proto->config_params)
-		D(INTERFACE, "No config parameters for interface '%s'\n",
-		  if_old->name);
-	else if (!config_check_equal(old_config, if_new->config,
-				proto->config_params)) {
+	if (reload) {
 		D(INTERFACE, "Reload interface '%s because of config changes\n",
 		  if_old->name);
-		goto reload;
+		interface_clear_errors(if_old);
+		set_config_state(if_old, IFC_RELOAD);
+		goto out;
 	}
 
-#define UPDATE(field) ({						\
-		bool __changed = (if_old->field != if_new->field);	\
-		if_old->field = if_new->field;				\
-		__changed;						\
-	})
-
-	if (UPDATE(metric) || UPDATE(proto_ip.no_defaultroute)) {
+	if (reload_ip) {
 		interface_ip_set_enabled(&if_old->config_ip, false);
 		interface_ip_set_enabled(&if_old->config_ip, if_new->config_ip.enabled);
 		interface_ip_set_enabled(&if_old->proto_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
 	}
 
-	if (UPDATE(config_ip.assignment_length) || UPDATE(config_ip.assignment_hint))
+	if (reload_assignment)
 		interface_refresh_assignments(true);
 
 	interface_write_resolv_conf();
 
-#undef UPDATE
-
-	goto out;
-
-reload:
-	set_config_state(if_old, IFC_RELOAD);
 out:
 	if_new->config = NULL;
 	interface_cleanup(if_new);
