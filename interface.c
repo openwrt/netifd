@@ -328,9 +328,14 @@ interface_claim_device(struct interface *iface)
 static void
 interface_cleanup_state(struct interface *iface)
 {
+	interface_set_available(iface, false);
+
 	interface_flush_state(iface);
 	interface_clear_errors(iface);
 	interface_set_proto_state(iface, NULL);
+
+	if (iface->main_dev.dev)
+		interface_set_main_dev(iface, NULL);
 }
 
 static void
@@ -345,9 +350,6 @@ interface_cleanup(struct interface *iface)
 		interface_remove_user(dep);
 
 	interface_ip_flush(&iface->config_ip);
-	if (iface->main_dev.dev)
-		interface_set_main_dev(iface, NULL);
-
 	interface_cleanup_state(iface);
 }
 
