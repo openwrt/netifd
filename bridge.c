@@ -463,7 +463,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	/* defaults */
 	cfg->stp = false;
 	cfg->forward_delay = 2;
-	cfg->igmp_snoop = true;
+	cfg->igmp_snoop = false;
 	cfg->priority = 0x7FFF;
 
 	if ((cur = tb[BRIDGE_ATTR_STP]))
@@ -569,5 +569,3 @@ bridge_create(const char *name, struct blob_attr *attr)
 
 	return dev;
 }
-
-
