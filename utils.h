@@ -63,7 +63,7 @@ static inline void vlist_simple_update(struct vlist_simple_tree *tree)
 static inline void vlist_simple_add(struct vlist_simple_tree *tree, struct vlist_simple_node *node)
 {
 	node->version = tree->version;
-	list_add(&node->list, &tree->list);
+	list_add_tail(&node->list, &tree->list);
 }
 
 #define vlist_simple_for_each_element(tree, element, node_member) \
