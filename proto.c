@@ -274,7 +274,7 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 
 	char *prefstr = strtok_r(NULL, ",", &saveptr);
 	char *validstr = (!prefstr) ? NULL : strtok_r(NULL, ",", &saveptr);
-	char *excludestr = (!validstr) ? NULL : strtok_r(NULL, ",", &saveptr);
+	char *addstr = (!validstr) ? NULL : strtok_r(NULL, ",", &saveptr);
 
 	uint32_t pref = (!prefstr) ? 0 : strtoul(prefstr, NULL, 10);
 	uint32_t valid = (!validstr) ? 0 : strtoul(validstr, NULL, 10);
@@ -287,19 +287,30 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 	if (inet_pton(AF_INET6, addrstr, &addr) < 1)
 		return false;
 
-	if (excludestr) {
-		char *sep = strchr(excludestr, '/');
-		if (!sep)
-			return false;
+	for (; addstr; addstr = strtok_r(NULL, ",", &saveptr)) {
+		char *key = NULL, *val = NULL, *addsaveptr;
+		if (!(key = strtok_r(addstr, "=", &addsaveptr)) ||
+				!(val = strtok_r(NULL, ",", &addsaveptr)))
+			continue;
 
-		*sep = 0;
-		excl_length = atoi(sep + 1);
+		if (!strcmp(key, "excluded")) {
+			char *sep = strchr(val, '/');
+			if (!sep)
+				return false;
 
-		if (inet_pton(AF_INET6, excludestr, &excluded) < 1)
-			return false;
+			*sep = 0;
+			excl_length = atoi(sep + 1);
 
-		excludedp = &excluded;
+			if (inet_pton(AF_INET6, val, &excluded) < 1)
+				return false;
+
+			excludedp = &excluded;
+		}
+
 	}
+
+
+
 
 	time_t now = system_get_rtime();
 	time_t preferred_until = 0;
