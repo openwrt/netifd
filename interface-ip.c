@@ -90,6 +90,19 @@ match_if_addr(union if_addr *a1, union if_addr *a2, int mask)
 	return !memcmp(p1, p2, sizeof(*p1));
 }
 
+static int set_ipv6_source_policy(bool add, const union if_addr *addr, uint8_t mask, int ifindex)
+{
+	struct iprule rule = {
+		.flags = IPRULE_INET6 | IPRULE_SRC | IPRULE_LOOKUP | IPRULE_PRIORITY,
+		.priority = 65535,
+		.lookup = interface_ip_resolve_v6_rtable(ifindex),
+		.src_addr = *addr,
+		.src_mask = mask,
+	};
+
+	return (add) ? system_add_iprule(&rule) : system_del_iprule(&rule);
+}
+
 static bool
 __find_ip_addr_target(struct interface_ip_settings *ip, union if_addr *a, bool v6)
 {
@@ -102,7 +115,13 @@ __find_ip_addr_target(struct interface_ip_settings *ip, union if_addr *a, bool v
 		if (v6 != ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
 			continue;
 
-		if (!match_if_addr(&addr->addr, a, addr->mask))
+		// Handle offlink addresses correctly
+		unsigned int mask = addr->mask;
+		if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6 &&
+				(addr->flags & DEVADDR_OFFLINK))
+			mask = 128;
+
+		if (!match_if_addr(&addr->addr, a, mask))
 			continue;
 
 		return true;
@@ -188,6 +207,7 @@ interface_ip_add_target_route(union if_addr *addr, bool v6)
 	memcpy(&route->nexthop, &r_next->nexthop, sizeof(route->nexthop));
 	route->mtu = r_next->mtu;
 	route->metric = r_next->metric;
+	route->table = r_next->table;
 
 done:
 	route->iface = iface;
@@ -205,6 +225,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	struct blob_attr *tb[__ROUTE_MAX], *cur;
 	struct device_route *route;
 	int af = v6 ? AF_INET6 : AF_INET;
+	bool is_v6_proto_route = v6 && iface;
 
 	blobmsg_parse(route_attr, __ROUTE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
 
@@ -255,6 +276,12 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_MTU]) != NULL) {
 		route->mtu = blobmsg_get_u32(cur);
 		route->flags |= DEVROUTE_MTU;
+	}
+
+	// Use source-based routing
+	if (is_v6_proto_route) {
+		route->table = interface_ip_resolve_v6_rtable(iface->l3_dev.dev->ifindex);
+		route->flags |= DEVROUTE_SRCTABLE;
 	}
 
 	if ((cur = tb[ROUTE_TABLE]) != NULL) {
@@ -384,6 +411,10 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	if (node_old) {
 		if (!(a_old->flags & DEVADDR_EXTERNAL) && a_old->enabled && !keep) {
 			interface_handle_subnet_route(iface, a_old, false);
+
+			if ((a_old->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+				set_ipv6_source_policy(false, &a_old->addr, a_old->mask, dev->ifindex);
+
 			system_del_address(dev, a_old);
 		}
 		free(a_old);
@@ -393,6 +424,10 @@ interface_update_proto_addr(struct vlist_tree *tree,
 		a_new->enabled = true;
 		if (!(a_new->flags & DEVADDR_EXTERNAL) && !keep) {
 			system_add_address(dev, a_new);
+
+			if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+				set_ipv6_source_policy(true, &a_new->addr, a_new->mask, dev->ifindex);
+
 			if ((a_new->flags & DEVADDR_OFFLINK) || iface->metric)
 				interface_handle_subnet_route(iface, a_new, true);
 		}
@@ -687,6 +722,7 @@ interface_update_prefix(struct vlist_tree *tree,
 	route.mask = (node_new) ? prefix_new->length : prefix_old->length;
 	route.addr.in6 = (node_new) ? prefix_new->addr : prefix_old->addr;
 
+
 	struct device_prefix_assignment *c;
 	struct interface *iface;
 
@@ -698,14 +734,21 @@ interface_update_prefix(struct vlist_tree *tree,
 			if ((iface = vlist_find(&interfaces, c->name, iface, node)))
 				interface_set_prefix_address(c, prefix_new, iface, true);
 	} else if (node_new) {
-		// Set null-route to avoid routing loops
+		// Set null-route to avoid routing loops and set routing policy
 		system_add_route(NULL, &route);
+		if (prefix_new->iface)
+			set_ipv6_source_policy(true, &route.addr, route.mask,
+					prefix_new->iface->l3_dev.dev->ifindex);
+
 
 		interface_update_prefix_assignments(prefix_new, true);
 	} else if (node_old) {
 		interface_update_prefix_assignments(prefix_old, false);
 
 		// Remove null-route
+		if (prefix_old->iface)
+			set_ipv6_source_policy(false, &route.addr, route.mask,
+					prefix_old->iface->l3_dev.dev->ifindex);
 		system_del_route(NULL, &route);
 	}
 
@@ -775,6 +818,11 @@ interface_ip_set_ula_prefix(const char *prefix)
 		ula_prefix = interface_ip_add_device_prefix(NULL, &addr, length,
 				0, 0, NULL, 0);
 	}
+}
+
+int interface_ip_resolve_v6_rtable(int ifindex)
+{
+	return ifindex + 1000;
 }
 
 void

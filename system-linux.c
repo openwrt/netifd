@@ -965,7 +965,8 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	unsigned char scope = (cmd == RTM_DELROUTE) ? RT_SCOPE_NOWHERE :
 			(have_gw) ? RT_SCOPE_UNIVERSE : RT_SCOPE_LINK;
 
-	unsigned int table = (route->flags & DEVROUTE_TABLE) ? route->table : RT_TABLE_MAIN;
+	unsigned int table = (route->flags & (DEVROUTE_TABLE | DEVROUTE_SRCTABLE))
+			? route->table : RT_TABLE_MAIN;
 
 	struct rtmsg rtm = {
 		.rtm_family = (alen == 4) ? AF_INET : AF_INET6,
