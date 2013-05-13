@@ -1342,9 +1342,14 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 		return -EINVAL;
 
 	unsigned int link = 0;
-	if ((cur = tb[TUNNEL_ATTR_LINK]) &&
-			!(link = if_nametoindex((const char*)blobmsg_data(cur))))
-		return -EINVAL;
+	if ((cur = tb[TUNNEL_ATTR_LINK])) {
+		struct interface *iface = vlist_find(&interfaces, blobmsg_data(cur), iface, node);
+		if (!iface)
+			return -EINVAL;
+
+		if (iface->l3_dev.dev)
+			link = iface->l3_dev.dev->ifindex;
+	}
 
 
 	if (!strcmp(str, "sit")) {
