@@ -103,6 +103,18 @@ static int set_ipv6_source_policy(bool add, const union if_addr *addr, uint8_t m
 	return (add) ? system_add_iprule(&rule) : system_del_iprule(&rule);
 }
 
+static int set_ipv6_lo_policy(bool add, int ifindex)
+{
+	struct iprule rule = {
+		.flags = IPRULE_INET6 | IPRULE_IN | IPRULE_LOOKUP | IPRULE_PRIORITY,
+		.priority = 65535,
+		.lookup = interface_ip_resolve_v6_rtable(ifindex),
+		.in_dev = "lo"
+	};
+
+	return (add) ? system_add_iprule(&rule) : system_del_iprule(&rule);
+}
+
 static bool
 __find_ip_addr_target(struct interface_ip_settings *ip, union if_addr *a, bool v6)
 {
@@ -1028,6 +1040,8 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		list_for_each_entry(a, &c->assignments, head)
 			if (!strcmp(a->name, ip->iface->name))
 				interface_set_prefix_address(a, c, ip->iface, enabled);
+
+	set_ipv6_lo_policy(enabled, dev->ifindex);
 }
 
 void
