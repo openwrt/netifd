@@ -50,12 +50,14 @@ netifd_handle_reload(struct ubus_context *ctx, struct ubus_object *obj,
 enum {
 	HR_TARGET,
 	HR_V6,
+	HR_INTERFACE,
 	__HR_MAX
 };
 
 static const struct blobmsg_policy route_policy[__HR_MAX] = {
 	[HR_TARGET] = { .name = "target", .type = BLOBMSG_TYPE_STRING },
 	[HR_V6] = { .name = "v6", .type = BLOBMSG_TYPE_BOOL },
+	[HR_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
 };
 
 static int
@@ -64,7 +66,7 @@ netifd_add_host_route(struct ubus_context *ctx, struct ubus_object *obj,
 		      struct blob_attr *msg)
 {
 	struct blob_attr *tb[__HR_MAX];
-	struct interface *iface;
+	struct interface *iface = NULL;
 	union if_addr a;
 	bool v6 = false;
 
@@ -75,12 +77,15 @@ netifd_add_host_route(struct ubus_context *ctx, struct ubus_object *obj,
 	if (tb[HR_V6])
 		v6 = blobmsg_get_bool(tb[HR_V6]);
 
+	if (tb[HR_INTERFACE])
+		iface = vlist_find(&interfaces, blobmsg_data(tb[HR_INTERFACE]), iface, node);
+
 	memset(&a, 0, sizeof(a));
 	if (!inet_pton(v6 ? AF_INET6 : AF_INET, blobmsg_data(tb[HR_TARGET]), &a))
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
 
-	iface = interface_ip_add_target_route(&a, v6);
+	iface = interface_ip_add_target_route(&a, v6, iface);
 	if (!iface)
 		return UBUS_STATUS_NOT_FOUND;
 

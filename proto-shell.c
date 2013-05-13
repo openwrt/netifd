@@ -58,6 +58,8 @@ struct proto_shell_dependency {
 
 	union if_addr host;
 	bool v6;
+
+	char interface[];
 };
 
 struct proto_shell_state {
@@ -105,12 +107,15 @@ proto_shell_if_down_cb(struct interface_user *dep, struct interface *iface,
 static void
 proto_shell_update_host_dep(struct proto_shell_dependency *dep)
 {
-	struct interface *iface;
+	struct interface *iface = NULL;
 
 	if (dep->dep.iface)
 		goto out;
 
-	iface = interface_ip_add_target_route(&dep->host, dep->v6);
+	if (dep->interface[0])
+		iface = vlist_find(&interfaces, dep->interface, iface, node);
+
+	iface = interface_ip_add_target_route(&dep->host, dep->v6, iface);
 	if (!iface)
 		goto out;
 
@@ -616,17 +621,28 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 {
 	struct proto_shell_dependency *dep;
 	struct blob_attr *host = tb[NOTIFY_HOST];
+	struct blob_attr *ifname = tb[NOTIFY_IFNAME];
+	size_t ifnamelen = (ifname) ? blobmsg_data_len(ifname) : 1;
 
 	if (!host)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	dep = calloc(1, sizeof(*dep));
-	if (!inet_pton(AF_INET, blobmsg_data(host), &dep->host)) {
-		free(dep);
-		return UBUS_STATUS_INVALID_ARGUMENT;
+	dep = calloc(1, sizeof(*dep) + ifnamelen);
+	if (inet_pton(AF_INET, blobmsg_data(host), &dep->host) < 1) {
+		if (inet_pton(AF_INET6, blobmsg_data(host), &dep->host) < 1) {
+			free(dep);
+			return UBUS_STATUS_INVALID_ARGUMENT;
+		} else {
+			dep->v6 = true;
+		}
 	}
 
 	dep->proto = state;
+	if (ifname)
+		memcpy(dep->interface, blobmsg_data(ifname), ifnamelen);
+	else
+		dep->interface[0] = 0;
+
 	dep->dep.cb = proto_shell_if_up_cb;
 	interface_add_user(&dep->dep, NULL);
 	list_add(&dep->list, &state->deps);
