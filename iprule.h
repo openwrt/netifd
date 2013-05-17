@@ -17,6 +17,9 @@
 
 #include "interface-ip.h"
 
+#define IPRULE_PRIORITY_ADDR 80000
+#define IPRULE_PRIORITY_NW 90000
+
 enum iprule_flags {
 	/* address family for rule */
 	IPRULE_INET4		= (0 << 0),

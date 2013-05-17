@@ -252,8 +252,9 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 	route->mask = 0;
 	route->flags = (v6 ? DEVADDR_INET6 : DEVADDR_INET4);
 
-	if (v6) {
-		route->table = interface_ip_resolve_v6_rtable(iface->l3_dev.dev->ifindex);
+	unsigned int table = (v6) ? iface->ip6table : iface->ip4table;
+	if (table) {
+		route->table = table;
 		route->flags |= DEVROUTE_SRCTABLE;
 	}
 

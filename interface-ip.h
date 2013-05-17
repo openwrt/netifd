@@ -144,6 +144,5 @@ struct device_prefix* interface_ip_add_device_prefix(struct interface *iface,
 		struct in6_addr *excl_addr, uint8_t excl_length);
 void interface_ip_set_ula_prefix(const char *prefix);
 void interface_refresh_assignments(bool hint);
-int interface_ip_resolve_v6_rtable(int ifindex);
 
 #endif

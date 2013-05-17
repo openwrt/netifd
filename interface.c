@@ -26,6 +26,7 @@
 
 struct vlist_tree interfaces;
 static LIST_HEAD(iface_all_users);
+static unsigned int interface_serial = 0;
 
 enum {
 	IFACE_ATTR_IFNAME,
@@ -39,6 +40,8 @@ enum {
 	IFACE_ATTR_INTERFACE,
 	IFACE_ATTR_IP6ASSIGN,
 	IFACE_ATTR_IP6HINT,
+	IFACE_ATTR_IP4TABLE,
+	IFACE_ATTR_IP6TABLE,
 	IFACE_ATTR_MAX
 };
 
@@ -54,6 +57,8 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6ASSIGN] = { .name = "ip6assign", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_IP6HINT] = { .name = "ip6hint", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IP4TABLE] = { .name = "ip4table", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IP6TABLE] = { .name = "ip6table", .type = BLOBMSG_TYPE_STRING },
 };
 
 static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
@@ -496,6 +501,18 @@ interface_init(struct interface *iface, const char *name,
 	if ((cur = tb[IFACE_ATTR_IP6HINT]))
 		iface->config_ip.assignment_hint = strtol(blobmsg_get_string(cur), NULL, 16) &
 				~((1 << (64 - iface->config_ip.assignment_length)) - 1);
+
+	if ((cur = tb[IFACE_ATTR_IP4TABLE])) {
+		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip4table))
+			DPRINTF("Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+	}
+
+	// Set a default exteranl routing table for IPv6 to do source-based-filtering
+	iface->ip6table = 1000 + ++interface_serial;
+	if ((cur = tb[IFACE_ATTR_IP6TABLE])) {
+		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip6table))
+			DPRINTF("Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+	}
 
 	iface->config_autostart = iface->autostart;
 }

@@ -118,6 +118,8 @@ struct interface {
 	struct vlist_tree host_routes;
 
 	int metric;
+	unsigned int ip4table;
+	unsigned int ip6table;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
