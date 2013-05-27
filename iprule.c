@@ -28,7 +28,6 @@
 #include "system.h"
 
 struct vlist_tree iprules;
-static bool iprules_flushed = false;
 static unsigned int iprules_counter[2];
 
 enum {
@@ -197,13 +196,6 @@ iprule_add(struct blob_attr *attr, bool v6)
 	if ((cur = tb[RULE_GOTO]) != NULL) {
 		rule->gotoid = blobmsg_get_u32(cur);
 		rule->flags |= IPRULE_GOTO;
-	}
-
-	/* trigger flush of existing rules when adding first uci rule the first time */
-	if (!iprules_flushed)
-	{
-		system_flush_iprules();
-		iprules_flushed = true;
 	}
 
 	vlist_add(&iprules, &rule->node, &rule->flags);

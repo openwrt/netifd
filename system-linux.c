@@ -65,6 +65,8 @@ static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
 
 static char dev_buf[256];
 
+static bool iprules_flushed = false;
+
 static void
 handler_nl_event(struct uloop_fd *u, unsigned int events)
 {
@@ -1177,6 +1179,13 @@ static int system_iprule(struct iprule *rule, int cmd)
 
 int system_add_iprule(struct iprule *rule)
 {
+	/* trigger flush of existing rules when adding first rule the first time */
+	if (!iprules_flushed)
+	{
+		system_flush_iprules();
+		iprules_flushed = true;
+	}
+
 	return system_iprule(rule, RTM_NEWRULE);
 }
 
