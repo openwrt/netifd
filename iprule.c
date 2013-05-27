@@ -247,5 +247,6 @@ iprule_update_rule(struct vlist_tree *tree,
 static void __init
 iprule_init_list(void)
 {
+	system_flush_iprules();
 	vlist_init(&iprules, rule_cmp, iprule_update_rule);
 }
