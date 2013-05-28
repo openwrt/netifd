@@ -918,17 +918,21 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 		struct ifa_cacheinfo cinfo = {0xffffffffU, 0xffffffffU, 0, 0};
 
 		if (addr->preferred_until) {
-			int preferred = addr->preferred_until - now;
+			int64_t preferred = addr->preferred_until - now;
 			if (preferred < 0)
 				preferred = 0;
+			else if (preferred > UINT32_MAX)
+				preferred = UINT32_MAX;
 
 			cinfo.ifa_prefered = preferred;
 		}
 
 		if (addr->valid_until) {
-			int valid = addr->valid_until - now;
+			int64_t valid = addr->valid_until - now;
 			if (valid <= 0)
 				return -1;
+			else if (valid > UINT32_MAX)
+				valid = UINT32_MAX;
 
 			cinfo.ifa_valid = valid;
 		}
