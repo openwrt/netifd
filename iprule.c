@@ -28,6 +28,7 @@
 #include "system.h"
 
 struct vlist_tree iprules;
+static bool iprules_flushed = false;
 static unsigned int iprules_counter[2];
 
 enum {
@@ -208,6 +209,11 @@ error:
 void
 iprule_update_start(void)
 {
+	if (!iprules_flushed) {
+		system_flush_iprules();
+		iprules_flushed = true;
+	}
+
 	iprules_counter[0] = 1;
 	iprules_counter[1] = 1;
 	vlist_update(&iprules);
@@ -247,6 +253,5 @@ iprule_update_rule(struct vlist_tree *tree,
 static void __init
 iprule_init_list(void)
 {
-	system_flush_iprules();
 	vlist_init(&iprules, rule_cmp, iprule_update_rule);
 }
