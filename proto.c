@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -187,15 +188,17 @@ parse_address_item(struct blob_attr *attr, bool v6, bool ext)
 	} else {
 		time_t now = system_get_rtime();
 		if ((cur = tb[ADDR_PREFERRED])) {
-			uint32_t preferred = blobmsg_get_u32(cur);
-			if (preferred < UINT32_MAX)
-				addr->preferred_until = now + preferred;
+			int64_t preferred = blobmsg_get_u32(cur);
+			int64_t preferred_until = preferred + (int64_t)now;
+			if (preferred_until <= LONG_MAX && preferred != 0xffffffffLL)
+				addr->preferred_until = preferred_until;
 		}
 
 		if ((cur = tb[ADDR_VALID])) {
-			uint32_t valid = blobmsg_get_u32(cur);
-			if (valid < UINT32_MAX)
-				addr->valid_until = now + valid;
+			int64_t valid = blobmsg_get_u32(cur);
+			int64_t valid_until = valid + (int64_t)now;
+			if (valid_until <= LONG_MAX && valid != 0xffffffffLL)
+				addr->valid_until = valid_until;
 
 		}
 
@@ -283,8 +286,8 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 	char *validstr = (!prefstr) ? NULL : strtok_r(NULL, ",", &saveptr);
 	char *addstr = (!validstr) ? NULL : strtok_r(NULL, ",", &saveptr);
 
-	uint32_t pref = (!prefstr) ? 0 : strtoul(prefstr, NULL, 10);
-	uint32_t valid = (!validstr) ? 0 : strtoul(validstr, NULL, 10);
+	int64_t pref = (!prefstr) ? 0 : strtoul(prefstr, NULL, 10);
+	int64_t valid = (!validstr) ? 0 : strtoul(validstr, NULL, 10);
 
 	uint8_t length = strtoul(lengthstr, NULL, 10), excl_length = 0;
 	if (length < 1 || length > 64)
@@ -319,13 +322,13 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 
 
 
-	time_t now = system_get_rtime();
+	int64_t now = system_get_rtime();
 	time_t preferred_until = 0;
-	if (prefstr && pref != 0xffffffffU)
+	if (prefstr && pref != 0xffffffffLL && pref + now <= LONG_MAX)
 		preferred_until = pref + now;
 
 	time_t valid_until = 0;
-	if (validstr && valid != 0xffffffffU)
+	if (validstr && valid != 0xffffffffLL && valid + now <= LONG_MAX)
 		valid_until = valid + now;
 
 	interface_ip_add_device_prefix(iface, &addr, length,

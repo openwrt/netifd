@@ -508,6 +508,7 @@ interface_init(struct interface *iface, const char *name,
 	}
 
 	// Set a default exteranl routing table for IPv6 to do source-based-filtering
+
 	iface->ip6table = 1000 + ++interface_serial;
 	if ((cur = tb[IFACE_ATTR_IP6TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip6table))

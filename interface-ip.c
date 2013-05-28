@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <limits.h>
 #include <arpa/inet.h>
 
 #include "netifd.h"
@@ -328,8 +329,12 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 			route->flags |= DEVROUTE_TABLE;
 	}
 
-	if ((cur = tb[ROUTE_VALID]) != NULL)
-		route->valid_until = system_get_rtime() + blobmsg_get_u32(cur);
+	if ((cur = tb[ROUTE_VALID]) != NULL) {
+		int64_t valid = blobmsg_get_u32(cur);
+		int64_t valid_until = valid + (int64_t)system_get_rtime();
+		if (valid_until <= LONG_MAX && valid != 0xffffffffLL) // Catch overflow
+			route->valid_until = valid_until;
+	}
 
 	vlist_add(&ip->route, &route->node, route);
 	return;
