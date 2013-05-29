@@ -565,41 +565,6 @@ interface_update_host_route(struct vlist_tree *tree,
 
 static void
 interface_set_prefix_address(struct device_prefix_assignment *assignment,
-		const struct device_prefix *prefix, struct interface *iface, bool add);
-
-static void interface_trigger_ula_prefix(struct interface *iface,
-		const struct device_prefix *prefix, bool enable)
-{
-	if (prefix == ula_prefix || (prefix->addr.s6_addr[0] & 0xfe) != 0xfc)
-		return;
-
-	bool external_ula = false;
-	struct device_prefix_assignment *ula_assign = NULL;
-	struct device_prefix *c;
-	list_for_each_entry(c, &prefixes, head) {
-		if (c != ula_prefix && (c->addr.s6_addr[0] & 0xfe) != 0xfc)
-			continue;
-
-		struct device_prefix_assignment *a;
-		list_for_each_entry(a, &c->assignments, head) {
-			if (!strcmp(a->name, iface->name)) {
-				if (c == ula_prefix)
-					ula_assign = a;
-				else if (a->enabled)
-					external_ula = true;
-			}
-		}
-
-	}
-
-	// Remove ULA assignment if there is an externally managed ULA and vice versa
-	if (ula_assign && ((enable && !external_ula) || (!enable && external_ula)))
-		interface_set_prefix_address(ula_assign, ula_prefix, iface, enable);
-}
-
-
-static void
-interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		const struct device_prefix *prefix, struct interface *iface, bool add)
 {
 	const struct interface *uplink = prefix->iface;
@@ -625,8 +590,6 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			addr.valid_until = now + 7200;
 		system_add_address(l3_downlink, &addr);
 		assignment->enabled = false;
-
-		interface_trigger_ula_prefix(iface, prefix, true);
 	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP)) {
 		system_add_address(l3_downlink, &addr);
 		if (uplink && uplink->l3_dev.dev) {
@@ -636,8 +599,6 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 				system_update_ipv6_mtu(l3_downlink, mtu);
 		}
 		assignment->enabled = true;
-
-		interface_trigger_ula_prefix(iface, prefix, false);
 	}
 }
 
