@@ -60,9 +60,6 @@ struct interface_ip_settings {
 	bool no_defaultroute;
 	bool no_dns;
 
-	uint8_t assignment_length;
-	int32_t assignment_hint;
-
 	struct vlist_tree addr;
 	struct vlist_tree route;
 	struct vlist_tree prefix;
@@ -74,6 +71,11 @@ struct interface_ip_settings {
 struct interface_data {
 	struct avl_node node;
 	struct blob_attr data[];
+};
+
+struct interface_assignment_class {
+	struct list_head head;
+	char name[];
 };
 
 /*
@@ -120,6 +122,11 @@ struct interface {
 	int metric;
 	unsigned int ip4table;
 	unsigned int ip6table;
+
+	/* IPv6 assignment parameters */
+	uint8_t assignment_length;
+	int32_t assignment_hint;
+	struct list_head assignment_classes;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;

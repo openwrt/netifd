@@ -42,6 +42,7 @@ enum {
 	IFACE_ATTR_IP6HINT,
 	IFACE_ATTR_IP4TABLE,
 	IFACE_ATTR_IP6TABLE,
+	IFACE_ATTR_IP6CLASS,
 	IFACE_ATTR_MAX
 };
 
@@ -59,10 +60,12 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6HINT] = { .name = "ip6hint", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP4TABLE] = { .name = "ip4table", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6TABLE] = { .name = "ip6table", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IP6CLASS] = { .name = "ip6class", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_DNS] = { .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IP6CLASS] = { .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct config_param_list interface_attr_list = {
@@ -280,6 +283,77 @@ interface_remove_user(struct interface_user *dep)
 }
 
 static void
+interface_add_assignment_classes(struct interface *iface, struct blob_attr *list)
+{
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			continue;
+
+		if (!blobmsg_check_attr(cur, NULL))
+			continue;
+
+		struct interface_assignment_class *c = malloc(sizeof(*c) + blobmsg_data_len(cur));
+		memcpy(c->name, blobmsg_data(cur), blobmsg_data_len(cur));
+		list_add(&c->head, &iface->assignment_classes);
+	}
+}
+
+static void
+interface_clear_assignment_classes(struct interface *iface)
+{
+	while (!list_empty(&iface->assignment_classes)) {
+		struct interface_assignment_class *c = list_first_entry(&iface->assignment_classes,
+				struct interface_assignment_class, head);
+		list_del(&c->head);
+		free(c);
+	}
+}
+
+static void
+interface_merge_assignment_data(struct interface *old, struct interface *new)
+{
+	bool changed = (old->assignment_hint != new->assignment_hint ||
+			old->assignment_length != new->assignment_length ||
+			list_empty(&old->assignment_classes) != list_empty(&new->assignment_classes));
+
+	struct interface_assignment_class *c;
+	list_for_each_entry(c, &new->assignment_classes, head) {
+		// Compare list entries one-by-one to see if there was a change
+		if (list_empty(&old->assignment_classes)) // The new list is longer
+			changed = true;
+
+		if (changed)
+			break;
+
+		struct interface_assignment_class *c_old = list_first_entry(&old->assignment_classes,
+				struct interface_assignment_class, head);
+
+		if (strcmp(c_old->name, c->name)) // An entry didn't match
+			break;
+
+		list_del(&c_old->head);
+		free(c_old);
+	}
+
+	// The old list was longer than the new one or the last entry didn't match
+	if (!list_empty(&old->assignment_classes)) {
+		interface_clear_assignment_classes(old);
+		changed = true;
+	}
+
+	list_splice_init(&new->assignment_classes, &old->assignment_classes);
+
+	if (changed) {
+		old->assignment_hint = new->assignment_hint;
+		old->assignment_length = new->assignment_length;
+		interface_refresh_assignments(true);
+	}
+}
+
+static void
 interface_alias_cb(struct interface_user *dep, struct interface *iface, enum interface_event ev)
 {
 	struct interface *alias = container_of(dep, struct interface, parent_iface);
@@ -354,6 +428,7 @@ interface_cleanup(struct interface *iface)
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
 
+	interface_clear_assignment_classes(iface);
 	interface_ip_flush(&iface->config_ip);
 	interface_cleanup_state(iface);
 }
@@ -465,6 +540,7 @@ interface_init(struct interface *iface, const char *name,
 	INIT_LIST_HEAD(&iface->errors);
 	INIT_LIST_HEAD(&iface->users);
 	INIT_LIST_HEAD(&iface->hotplug_list);
+	INIT_LIST_HEAD(&iface->assignment_classes);
 	interface_ip_init(iface);
 	avl_init(&iface->data, avl_strcmp, false, NULL);
 	iface->config_ip.enabled = false;
@@ -495,12 +571,16 @@ interface_init(struct interface *iface, const char *name,
 		iface->metric = blobmsg_get_u32(cur);
 
 	if ((cur = tb[IFACE_ATTR_IP6ASSIGN]))
-		iface->config_ip.assignment_length = blobmsg_get_u32(cur);
+		iface->assignment_length = blobmsg_get_u32(cur);
 
-	iface->config_ip.assignment_hint = -1;
+	iface->assignment_hint = -1;
 	if ((cur = tb[IFACE_ATTR_IP6HINT]))
-		iface->config_ip.assignment_hint = strtol(blobmsg_get_string(cur), NULL, 16) &
-				~((1 << (64 - iface->config_ip.assignment_length)) - 1);
+		iface->assignment_hint = strtol(blobmsg_get_string(cur), NULL, 16) &
+				~((1 << (64 - iface->assignment_length)) - 1);
+
+	if ((cur = tb[IFACE_ATTR_IP6CLASS]))
+		interface_add_assignment_classes(iface, cur);
+
 
 	if ((cur = tb[IFACE_ATTR_IP4TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip4table))
@@ -729,7 +809,7 @@ static void
 interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
-	bool reload = false, reload_ip = false, reload_assignment = false;
+	bool reload = false, reload_ip = false;
 
 #define FIELD_CHANGED_STR(field)					\
 		((!!if_old->field != !!if_new->field) ||		\
@@ -774,8 +854,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	UPDATE(metric, reload_ip);
 	UPDATE(proto_ip.no_defaultroute, reload_ip);
-	UPDATE(config_ip.assignment_length, reload_assignment);
-	UPDATE(config_ip.assignment_hint, reload_assignment);
+	interface_merge_assignment_data(if_old, if_new);
 
 #undef UPDATE
 
@@ -793,9 +872,6 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_ip_set_enabled(&if_old->proto_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
 	}
-
-	if (reload_assignment)
-		interface_refresh_assignments(true);
 
 	interface_write_resolv_conf();
 

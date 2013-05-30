@@ -285,6 +285,7 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 	char *prefstr = strtok_r(NULL, ",", &saveptr);
 	char *validstr = (!prefstr) ? NULL : strtok_r(NULL, ",", &saveptr);
 	char *addstr = (!validstr) ? NULL : strtok_r(NULL, ",", &saveptr);
+	const char *pclass = NULL;
 
 	int64_t pref = (!prefstr) ? 0 : strtoul(prefstr, NULL, 10);
 	int64_t valid = (!validstr) ? 0 : strtoul(validstr, NULL, 10);
@@ -315,6 +316,8 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 				return false;
 
 			excludedp = &excluded;
+		} else if (!strcmp(key, "class")) {
+			pclass = val;
 		}
 
 	}
@@ -333,7 +336,7 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 
 	interface_ip_add_device_prefix(iface, &addr, length,
 			valid_until, preferred_until,
-			excludedp, excl_length);
+			excludedp, excl_length, pclass);
 	return true;
 }
 

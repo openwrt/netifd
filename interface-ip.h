@@ -70,6 +70,8 @@ struct device_prefix {
 
 	uint8_t length;
 	uint8_t excl_length;
+
+	char pclass[];
 };
 
 struct device_addr {
@@ -141,7 +143,7 @@ struct interface *interface_ip_add_target_route(union if_addr *addr, bool v6, st
 
 struct device_prefix* interface_ip_add_device_prefix(struct interface *iface,
 		struct in6_addr *addr, uint8_t length, time_t valid_until, time_t preferred_until,
-		struct in6_addr *excl_addr, uint8_t excl_length);
+		struct in6_addr *excl_addr, uint8_t excl_length, const char *pclass);
 void interface_ip_set_ula_prefix(const char *prefix);
 void interface_refresh_assignments(bool hint);
 

@@ -665,14 +665,30 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	bool assigned_any = false;
 	struct list_head assign_later = LIST_HEAD_INIT(assign_later);
 	vlist_for_each_element(&interfaces, iface, node) {
-		if (iface->config_ip.assignment_length < 48 ||
-				iface->config_ip.assignment_length > 64)
+		if (iface->assignment_length < 48 ||
+				iface->assignment_length > 64)
 			continue;
+
+		// Test whether there is a matching class
+		if (!list_empty(&iface->assignment_classes)) {
+			bool found = false;
+
+			struct interface_assignment_class *c;
+			list_for_each_entry(c, &iface->assignment_classes, head) {
+				if (!strcmp(c->name, prefix->pclass)) {
+					found = true;
+					break;
+				}
+			}
+
+			if (!found)
+				continue;
+		}
 
 		size_t namelen = strlen(iface->name) + 1;
 		c = malloc(sizeof(*c) + namelen);
-		c->length = iface->config_ip.assignment_length;
-		c->assigned = iface->config_ip.assignment_hint;
+		c->length = iface->assignment_length;
+		c->assigned = iface->assignment_hint;
 		c->enabled = false;
 		memcpy(c->name, iface->name, namelen);
 
@@ -790,9 +806,12 @@ interface_update_prefix(struct vlist_tree *tree,
 struct device_prefix*
 interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 		uint8_t length, time_t valid_until, time_t preferred_until,
-		struct in6_addr *excl_addr, uint8_t excl_length)
+		struct in6_addr *excl_addr, uint8_t excl_length, const char *pclass)
 {
-	struct device_prefix *prefix = calloc(1, sizeof(*prefix));
+	if (!pclass)
+		pclass = (iface) ? iface->name : "local";
+
+	struct device_prefix *prefix = calloc(1, sizeof(*prefix) + strlen(pclass) + 1);
 	prefix->length = length;
 	prefix->addr = *addr;
 	prefix->preferred_until = preferred_until;
@@ -804,6 +823,8 @@ interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 		prefix->excl_addr = *excl_addr;
 		prefix->excl_length = excl_length;
 	}
+
+	strcpy(prefix->pclass, pclass);
 
 	if (iface)
 		vlist_add(&iface->proto_ip.prefix, &prefix->node, &prefix->addr);
@@ -841,7 +862,7 @@ interface_ip_set_ula_prefix(const char *prefix)
 			interface_update_prefix(NULL, NULL, &ula_prefix->node);
 
 		ula_prefix = interface_ip_add_device_prefix(NULL, &addr, length,
-				0, 0, NULL, 0);
+				0, 0, NULL, 0, NULL);
 	}
 }
 

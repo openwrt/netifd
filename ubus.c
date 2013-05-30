@@ -463,6 +463,8 @@ interface_ip_dump_prefix_list(struct interface_ip_settings *ip)
 		if (prefix->valid_until)
 			blobmsg_add_u32(&b, "valid", prefix->valid_until - now);
 
+		blobmsg_add_string(&b, "class", prefix->pclass);
+
 		c = blobmsg_open_table(&b, "assigned");
 		struct device_prefix_assignment *assign;
 		list_for_each_entry(assign, &prefix->assignments, head) {
