@@ -854,6 +854,8 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	UPDATE(metric, reload_ip);
 	UPDATE(proto_ip.no_defaultroute, reload_ip);
+	UPDATE(ip4table, reload_ip);
+	UPDATE(ip6table, reload_ip);
 	interface_merge_assignment_data(if_old, if_new);
 
 #undef UPDATE
