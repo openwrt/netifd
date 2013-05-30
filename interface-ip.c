@@ -662,6 +662,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 		list_add(&c->head, &prefix->assignments);
 	}
 
+	bool assigned_any = false;
 	struct list_head assign_later = LIST_HEAD_INIT(assign_later);
 	vlist_for_each_element(&interfaces, iface, node) {
 		if (iface->config_ip.assignment_length < 48 ||
@@ -684,6 +685,9 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 			}
 			list_add_tail(&c->head, &assign_later);
 		}
+
+		if (c->assigned != -1)
+			assigned_any = true;
 	}
 
 	// Then try to assign all other + failed custom assignments
@@ -700,12 +704,18 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 			netifd_log_message(L_WARNING, "Failed to assign subprefix "
 					"of size %hhu for %s\n", c->length, c->name);
 			free(c);
+		} else {
+			assigned_any = true;
 		}
 	}
 
 	list_for_each_entry(c, &prefix->assignments, head)
 		if ((iface = vlist_find(&interfaces, c->name, iface, node)))
 			interface_set_prefix_address(c, prefix, iface, true);
+
+	if (!assigned_any)
+		netifd_log_message(L_WARNING, "You have delegated IPv6-prefixes but haven't assigned them "
+				"to any interface. Did you forget to set option ip6assign on your lan-interfaces?");
 }
 
 
