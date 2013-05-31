@@ -370,7 +370,7 @@ route_cmp(const void *k1, const void *k2, void *ptr)
 static int
 prefix_cmp(const void *k1, const void *k2, void *ptr)
 {
-	return memcmp(k1, k2, sizeof(struct device_prefix) -
+	return memcmp(k1, k2, offsetof(struct device_prefix, pclass) -
 			offsetof(struct device_prefix, addr));
 }
 
