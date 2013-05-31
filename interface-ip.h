@@ -65,11 +65,11 @@ struct device_prefix {
 	time_t valid_until;
 	time_t preferred_until;
 
-	struct in6_addr addr;
 	struct in6_addr excl_addr;
-
-	uint8_t length;
 	uint8_t excl_length;
+
+	struct in6_addr addr;
+	uint8_t length;
 
 	char pclass[];
 };
