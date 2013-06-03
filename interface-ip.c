@@ -92,20 +92,35 @@ match_if_addr(union if_addr *a1, union if_addr *a2, int mask)
 }
 
 static int set_ip_source_policy(bool add, bool v6, unsigned int priority,
-		const union if_addr *addr, uint8_t mask, struct interface *iface)
+		const union if_addr *addr, uint8_t mask, struct interface *iface,
+		struct interface *in_iface, const char *action)
 {
-
-
 	struct iprule rule = {
-		.flags = IPRULE_SRC | IPRULE_LOOKUP | IPRULE_PRIORITY,
-		.priority = priority,
-		.lookup = (v6) ? iface->ip6table : iface->ip4table,
-		.src_addr = *addr,
-		.src_mask = mask,
+		.flags = IPRULE_PRIORITY,
+		.priority = priority
 	};
 
-	if (!rule.lookup)
-		return 0;
+	if (addr) {
+		rule.flags |= IPRULE_SRC;
+		rule.src_addr = *addr;
+		rule.src_mask = mask;
+	}
+
+	if (iface) {
+		rule.flags |= IPRULE_LOOKUP;
+		rule.lookup = (v6) ? iface->ip6table : iface->ip4table;
+
+		if (!rule.lookup)
+			return 0;
+	} else if (action) {
+		rule.flags |= IPRULE_ACTION;
+		system_resolve_iprule_action(action, &rule.action);
+	}
+
+	if (in_iface && in_iface->l3_dev.dev) {
+		rule.flags |= IPRULE_IN;
+		strcpy(rule.in_dev, in_iface->l3_dev.dev->ifname);
+	}
 
 	rule.flags |= (v6) ? IPRULE_INET6 : IPRULE_INET4;
 
@@ -460,9 +475,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			//only the network-rule will cause packets to be routed through the
 			//first matching network (source IP matches both masks).
 			set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &a_old->addr,
-				(v6) ? 128 : 32, iface);
+				(v6) ? 128 : 32, iface, NULL, NULL);
 			set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
-				a_old->mask, iface);
+				a_old->mask, iface, NULL, NULL);
 
 			system_del_address(dev, a_old);
 		}
@@ -478,9 +493,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				v6 = true;
 
 			set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
-				(v6) ? 128 : 32, iface);
+				(v6) ? 128 : 32, iface, NULL, NULL);
 			set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
-				a_new->mask, iface);
+				a_new->mask, iface, NULL, NULL);
 
 			if ((a_new->flags & DEVADDR_OFFLINK) || iface->metric)
 				interface_handle_subnet_route(iface, a_new, true);
@@ -589,9 +604,24 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		if (!addr.valid_until || addr.valid_until - now > 7200)
 			addr.valid_until = now + 7200;
 		system_add_address(l3_downlink, &addr);
+		if (prefix->iface) {
+			set_ip_source_policy(false, true, IPRULE_PRIORITY_NW, &addr.addr,
+							addr.mask, prefix->iface, iface, NULL);
+
+			set_ip_source_policy(false, true, IPRULE_PRIORITY_REJECT, &addr.addr,
+							addr.mask, NULL, iface, "unreachable");
+		}
+
 		assignment->enabled = false;
 	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP)) {
 		system_add_address(l3_downlink, &addr);
+		if (prefix->iface && !assignment->enabled) {
+			set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
+					addr.mask, NULL, iface, "unreachable");
+
+			set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &addr.addr,
+					addr.mask, prefix->iface, iface, NULL);
+		}
 		if (uplink && uplink->l3_dev.dev) {
 			int mtu = system_update_ipv6_mtu(
 					uplink->l3_dev.dev, 0);
@@ -775,21 +805,12 @@ interface_update_prefix(struct vlist_tree *tree,
 			if ((iface = vlist_find(&interfaces, c->name, iface, node)))
 				interface_set_prefix_address(c, prefix_new, iface, true);
 	} else if (node_new) {
-		// Set null-route to avoid routing loops and set routing policy
+		// Set null-route to avoid routing loops
 		system_add_route(NULL, &route);
-		if (prefix_new->iface)
-			set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &route.addr,
-					route.mask, prefix_new->iface);
-
-
 		interface_update_prefix_assignments(prefix_new, true);
 	} else if (node_old) {
-		interface_update_prefix_assignments(prefix_old, false);
-
 		// Remove null-route
-		if (prefix_old->iface)
-			set_ip_source_policy(false, true, IPRULE_PRIORITY_NW, &route.addr,
-					route.mask, prefix_old->iface);
+		interface_update_prefix_assignments(prefix_old, false);
 		system_del_route(NULL, &route);
 	}
 
@@ -1061,8 +1082,13 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			if (!strcmp(a->name, ip->iface->name))
 				interface_set_prefix_address(a, c, ip->iface, enabled);
 
-	set_ip_lo_policy(enabled, true, ip->iface);
-	set_ip_lo_policy(enabled, false, ip->iface);
+	if (ip->iface && ip->iface->l3_dev.dev) {
+		set_ip_lo_policy(enabled, true, ip->iface);
+		set_ip_lo_policy(enabled, false, ip->iface);
+
+		set_ip_source_policy(enabled, true, IPRULE_PRIORITY_REJECT + ip->iface->l3_dev.dev->ifindex,
+			NULL, 0, NULL, ip->iface, "failed_policy");
+	}
 }
 
 void

@@ -19,6 +19,7 @@
 
 #define IPRULE_PRIORITY_ADDR 80000
 #define IPRULE_PRIORITY_NW 90000
+#define IPRULE_PRIORITY_REJECT 2000000000
 
 enum iprule_flags {
 	/* address family for rule */

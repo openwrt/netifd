@@ -36,6 +36,10 @@
 #include <linux/ethtool.h>
 #include <linux/fib_rules.h>
 
+#ifndef RTN_FAILED_POLICY
+#define RTN_FAILED_POLICY 12
+#endif
+
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
@@ -1255,6 +1259,8 @@ bool system_resolve_iprule_action(const char *action, unsigned int *id)
 		n = RTN_UNICAST;
 	else if (!strcmp(action, "throw"))
 		n = RTN_THROW;
+	else if (!strcmp(action, "failed_policy"))
+		n = RTN_FAILED_POLICY;
 	else {
 		n = strtoul(action, &e, 0);
 		if (!e || *e || e == action || n > 255)
