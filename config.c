@@ -30,119 +30,6 @@ static struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
 static struct blob_buf b;
 
-static bool uci_attr_to_blob(struct blob_buf *b, const char *str,
-			     const char *name, enum blobmsg_type type)
-{
-	char *err;
-	int intval;
-
-	switch (type) {
-	case BLOBMSG_TYPE_STRING:
-		blobmsg_add_string(b, name, str);
-		break;
-	case BLOBMSG_TYPE_BOOL:
-		if (!strcmp(str, "true") || !strcmp(str, "1"))
-			intval = 1;
-		else if (!strcmp(str, "false") || !strcmp(str, "0"))
-			intval = 0;
-		else
-			return false;
-
-		blobmsg_add_u8(b, name, intval);
-		break;
-	case BLOBMSG_TYPE_INT32:
-		intval = strtol(str, &err, 0);
-		if (*err)
-			return false;
-
-		blobmsg_add_u32(b, name, intval);
-		break;
-	default:
-		return false;
-	}
-	return true;
-}
-
-static void uci_array_to_blob(struct blob_buf *b, struct uci_option *o,
-			      enum blobmsg_type type)
-{
-	struct uci_element *e;
-	char *str, *next, *word;
-
-	if (o->type == UCI_TYPE_LIST) {
-		uci_foreach_element(&o->v.list, e) {
-			uci_attr_to_blob(b, e->name, NULL, type);
-		}
-		return;
-	}
-
-	str = strdup(o->v.string);
-	next = str;
-
-	while ((word = strsep(&next, " \t")) != NULL) {
-		if (!*word)
-			continue;
-
-		uci_attr_to_blob(b, word, NULL, type);
-	}
-
-	free(str);
-}
-
-static int __uci_to_blob(struct blob_buf *b, struct uci_section *s,
-			 const struct config_param_list *p)
-{
-	const struct blobmsg_policy *attr = NULL;
-	struct uci_element *e;
-	struct uci_option *o;
-	void *array;
-	int i, ret = 0;
-
-	uci_foreach_element(&s->options, e) {
-		for (i = 0; i < p->n_params; i++) {
-			attr = &p->params[i];
-			if (!strcmp(attr->name, e->name))
-				break;
-		}
-
-		if (i == p->n_params)
-			continue;
-
-		o = uci_to_option(e);
-
-		if (attr->type == BLOBMSG_TYPE_ARRAY) {
-			if (!p->info)
-				continue;
-
-			array = blobmsg_open_array(b, attr->name);
-			uci_array_to_blob(b, o, p->info[i].type);
-			blobmsg_close_array(b, array);
-			ret++;
-			continue;
-		}
-
-		if (o->type == UCI_TYPE_LIST)
-			continue;
-
-		ret += uci_attr_to_blob(b, o->v.string, attr->name, attr->type);
-	}
-
-	return ret;
-}
-
-static int uci_to_blob(struct blob_buf *b, struct uci_section *s,
-		       const struct config_param_list *p)
-{
-	int ret = 0;
-	int i;
-
-	ret += __uci_to_blob(b, s, p);
-	for (i = 0; i < p->n_next; i++)
-		ret += uci_to_blob(b, s, p->next[i]);
-
-	return ret;
-}
-
 static int
 config_parse_bridge_interface(struct uci_section *s)
 {
@@ -196,11 +83,9 @@ config_parse_interface(struct uci_section *s, bool alias)
 	if (!bridge && uci_to_blob(&b, s, simple_device_type.config_params))
 		iface->device_config = true;
 
-	config = malloc(blob_pad_len(b.head));
+	config = blob_memdup(b.head);
 	if (!config)
 		goto error;
-
-	memcpy(config, b.head, blob_pad_len(b.head));
 
 	if (alias) {
 		if (!interface_add_alias(iface, config))
@@ -290,80 +175,6 @@ config_init_devices(void)
 		uci_to_blob(&b, s, devtype->config_params);
 		device_create(name, devtype, b.head);
 	}
-}
-
-bool
-config_diff(struct blob_attr **tb1, struct blob_attr **tb2,
-	    const struct config_param_list *config, unsigned long *diff)
-{
-	bool ret = false;
-	int i;
-
-	for (i = 0; i < config->n_params; i++) {
-		if (!tb1[i] && !tb2[i])
-			continue;
-
-		if (!!tb1[i] != !!tb2[i])
-			goto mark;
-
-		if (blob_len(tb1[i]) != blob_len(tb2[i]))
-			goto mark;
-
-		if (memcmp(tb1[i], tb2[i], blob_raw_len(tb1[i])) != 0)
-			goto mark;
-
-		continue;
-
-mark:
-		ret = true;
-		if (diff)
-			set_bit(diff, i);
-		else
-			return ret;
-	}
-
-	return ret;
-}
-
-
-static bool
-__config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
-		     const struct config_param_list *config)
-{
-	struct blob_attr **tb1, **tb2;
-
-	if (!!c1 ^ !!c2)
-		return false;
-
-	if (!c1 && !c2)
-		return true;
-
-	tb1 = alloca(config->n_params * sizeof(struct blob_attr *));
-	blobmsg_parse(config->params, config->n_params, tb1,
-		blob_data(c1), blob_len(c1));
-
-	tb2 = alloca(config->n_params * sizeof(struct blob_attr *));
-	blobmsg_parse(config->params, config->n_params, tb2,
-		blob_data(c2), blob_len(c2));
-
-	return !config_diff(tb1, tb2, config, NULL);
-}
-
-bool
-config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
-		   const struct config_param_list *config)
-{
-	int i;
-
-	if (!__config_check_equal(c1, c2, config))
-		return false;
-
-	for (i = 0; i < config->n_next; i++) {
-		if (!__config_check_equal(c1, c2, config->next[i]))
-			return false;
-	}
-
-	return true;
 }
 
 static struct uci_package *

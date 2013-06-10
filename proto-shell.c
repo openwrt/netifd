@@ -44,7 +44,7 @@ enum proto_shell_sm {
 struct proto_shell_handler {
 	struct list_head list;
 	struct proto_handler proto;
-	struct config_param_list config;
+	struct uci_blob_param_list config;
 	char *config_buf;
 	bool init_available;
 	char script_name[];
@@ -755,7 +755,7 @@ get_field(json_object *obj, const char *name, json_type type)
 }
 
 static char *
-proto_shell_parse_config(struct config_param_list *config, json_object *obj)
+proto_shell_parse_config(struct uci_blob_param_list *config, json_object *obj)
 {
 	struct blobmsg_policy *attrs;
 	char *str_buf, *str_cur;

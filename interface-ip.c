@@ -51,7 +51,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
 };
 
-const struct config_param_list route_attr_list = {
+const struct uci_blob_param_list route_attr_list = {
 	.n_params = __ROUTE_MAX,
 	.params = route_attr,
 };

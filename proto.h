@@ -55,13 +55,13 @@ struct proto_handler {
 	unsigned int flags;
 
 	const char *name;
-	const struct config_param_list *config_params;
+	const struct uci_blob_param_list *config_params;
 
 	struct interface_proto_state *(*attach)(const struct proto_handler *h,
 		struct interface *iface, struct blob_attr *attr);
 };
 
-extern const struct config_param_list proto_ip_attr;
+extern const struct uci_blob_param_list proto_ip_attr;
 
 void add_proto_handler(struct proto_handler *p);
 void proto_init_interface(struct interface *iface, struct blob_attr *attr);

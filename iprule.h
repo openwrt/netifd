@@ -91,7 +91,7 @@ struct iprule {
 };
 
 extern struct vlist_tree iprules;
-extern const struct config_param_list rule_attr_list;
+extern const struct uci_blob_param_list rule_attr_list;
 
 void iprule_add(struct blob_attr *attr, bool v6);
 void iprule_update_start(void);

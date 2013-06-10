@@ -63,12 +63,12 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6CLASS] = { .name = "ip6class", .type = BLOBMSG_TYPE_ARRAY },
 };
 
-static const union config_param_info iface_attr_info[IFACE_ATTR_MAX] = {
+static const struct uci_blob_param_info iface_attr_info[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_DNS] = { .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6CLASS] = { .type = BLOBMSG_TYPE_STRING },
 };
 
-const struct config_param_list interface_attr_list = {
+const struct uci_blob_param_list interface_attr_list = {
 	.n_params = IFACE_ATTR_MAX,
 	.params = iface_attrs,
 	.info = iface_attr_info,
@@ -833,8 +833,8 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if (!if_old->proto_handler->config_params)
 		D(INTERFACE, "No config parameters for interface '%s'\n",
 		  if_old->name);
-	else if (!config_check_equal(if_old->config, if_new->config,
-				     if_old->proto_handler->config_params))
+	else if (!uci_blob_check_equal(if_old->config, if_new->config,
+				       if_old->proto_handler->config_params))
 		reload = true;
 
 #define UPDATE(field, __var) ({						\

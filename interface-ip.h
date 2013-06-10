@@ -122,7 +122,7 @@ struct dns_search_domain {
 	char name[];
 };
 
-extern const struct config_param_list route_attr_list;
+extern const struct uci_blob_param_list route_attr_list;
 extern struct list_head prefixes;
 
 void interface_ip_init(struct interface *iface);

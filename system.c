@@ -25,7 +25,7 @@ static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_LINK] = { "link", BLOBMSG_TYPE_STRING },
 };
 
-const struct config_param_list tunnel_attr_list = {
+const struct uci_blob_param_list tunnel_attr_list = {
 	.n_params = __TUNNEL_ATTR_MAX,
 	.params = tunnel_attrs,
 };

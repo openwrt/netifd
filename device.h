@@ -45,7 +45,7 @@ struct device_type {
 	struct list_head list;
 	const char *name;
 
-	const struct config_param_list *config_params;
+	const struct uci_blob_param_list *config_params;
 
 	struct device *(*create)(const char *name, struct blob_attr *attr);
 	void (*config_init)(struct device *);
@@ -148,7 +148,7 @@ struct device_hotplug_ops {
 	int (*del)(struct device *main, struct device *member);
 };
 
-extern const struct config_param_list device_attr_list;
+extern const struct uci_blob_param_list device_attr_list;
 extern const struct device_type simple_device_type;
 extern const struct device_type bridge_device_type;
 extern const struct device_type tunnel_device_type;

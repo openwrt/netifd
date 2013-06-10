@@ -45,11 +45,11 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_IGMP_SNOOP] = { "igmp_snooping", BLOBMSG_TYPE_BOOL },
 };
 
-static const union config_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
+static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_IFNAME] = { .type = BLOBMSG_TYPE_STRING },
 };
 
-static const struct config_param_list bridge_attr_list = {
+static const struct uci_blob_param_list bridge_attr_list = {
 	.n_params = __BRIDGE_ATTR_MAX,
 	.params = bridge_attrs,
 	.info = bridge_attr_info,
@@ -525,7 +525,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 			blob_data(bst->config_data), blob_len(bst->config_data));
 
 		diff = 0;
-		config_diff(tb_dev, otb_dev, &device_attr_list, &diff);
+		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, &diff);
 		if (diff & ~(1 << DEV_ATTR_IFNAME))
 		    ret = DEV_CONFIG_RESTART;
 
@@ -533,7 +533,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 			blob_data(bst->config_data), blob_len(bst->config_data));
 
 		diff = 0;
-		config_diff(tb_br, otb_br, &bridge_attr_list, &diff);
+		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, &diff);
 		if (diff & ~(1 << BRIDGE_ATTR_IFNAME))
 		    ret = DEV_CONFIG_RESTART;
 

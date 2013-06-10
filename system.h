@@ -32,7 +32,7 @@ enum tunnel_param {
 	__TUNNEL_ATTR_MAX
 };
 
-const struct config_param_list tunnel_attr_list;
+const struct uci_blob_param_list tunnel_attr_list;
 
 enum bridge_opt {
 	/* stp and forward delay always set */

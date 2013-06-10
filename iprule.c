@@ -60,7 +60,7 @@ static const struct blobmsg_policy rule_attr[__RULE_MAX] = {
 	[RULE_GOTO]   = { .name = "goto", .type = BLOBMSG_TYPE_INT32 },
 };
 
-const struct config_param_list rule_attr_list = {
+const struct uci_blob_param_list rule_attr_list = {
 	.n_params = __RULE_MAX,
 	.params = rule_attr,
 };

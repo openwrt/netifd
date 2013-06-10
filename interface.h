@@ -140,7 +140,7 @@ struct interface {
 
 
 extern struct vlist_tree interfaces;
-extern const struct config_param_list interface_attr_list;
+extern const struct uci_blob_param_list interface_attr_list;
 
 void interface_init(struct interface *iface, const char *name,
 		    struct blob_attr *config);

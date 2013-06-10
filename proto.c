@@ -49,13 +49,13 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_IP6PREFIX] = { .name = "ip6prefix", .type = BLOBMSG_TYPE_ARRAY },
 };
 
-static const union config_param_info proto_ip_attr_info[__OPT_MAX] = {
+static const struct uci_blob_param_info proto_ip_attr_info[__OPT_MAX] = {
 	[OPT_IPADDR] = { .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6ADDR] = { .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6PREFIX] = { .type = BLOBMSG_TYPE_STRING },
 };
 
-const struct config_param_list proto_ip_attr = {
+const struct uci_blob_param_list proto_ip_attr = {
 	.n_params = __OPT_MAX,
 	.params = proto_ip_attributes,
 	.info = proto_ip_attr_info,

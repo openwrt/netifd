@@ -39,7 +39,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_ENABLED] = { "enabled", BLOBMSG_TYPE_BOOL },
 };
 
-const struct config_param_list device_attr_list = {
+const struct uci_blob_param_list device_attr_list = {
 	.n_params = __DEV_ATTR_MAX,
 	.params = dev_attrs,
 };
@@ -499,9 +499,9 @@ static enum dev_change_type
 device_reload_config(struct device *dev, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__DEV_ATTR_MAX];
-	const struct config_param_list *cfg = dev->type->config_params;
+	const struct uci_blob_param_list *cfg = dev->type->config_params;
 
-	if (config_check_equal(dev->config, attr, cfg))
+	if (uci_blob_check_equal(dev->config, attr, cfg))
 		return DEV_CONFIG_NO_CHANGE;
 
 	if (cfg == &device_attr_list) {
