@@ -588,8 +588,12 @@ interface_init(struct interface *iface, const char *name,
 	}
 
 	// Set a default exteranl routing table for IPv6 to do source-based-filtering
+	struct interface *iface_old = vlist_find(&interfaces, name, iface_old, node);
+	if (iface_old && iface_old->ip6table > 1000 && iface_old->ip6table < 2000)
+		iface->ip6table = iface_old->ip6table;
+	else
+		iface->ip6table = 1000 + ++interface_serial;
 
-	iface->ip6table = 1000 + ++interface_serial;
 	if ((cur = tb[IFACE_ATTR_IP6TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip6table))
 			DPRINTF("Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
