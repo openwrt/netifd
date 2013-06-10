@@ -874,9 +874,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	if (reload_ip) {
 		interface_ip_set_enabled(&if_old->config_ip, false);
-		interface_ip_set_enabled(&if_old->config_ip, if_new->config_ip.enabled);
 		interface_ip_set_enabled(&if_old->proto_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, if_new->proto_ip.enabled);
+		interface_ip_set_enabled(&if_old->config_ip, if_new->config_ip.enabled);
 	}
 
 	interface_write_resolv_conf();
