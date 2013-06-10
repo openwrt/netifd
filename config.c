@@ -366,20 +366,6 @@ config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
 	return true;
 }
 
-struct blob_attr *
-config_memdup(struct blob_attr *attr)
-{
-	struct blob_attr *ret;
-	int size = blob_pad_len(attr);
-
-	ret = malloc(size);
-	if (!ret)
-		return NULL;
-
-	memcpy(ret, attr, size);
-	return ret;
-}
-
 static struct uci_package *
 config_init_package(const char *config)
 {

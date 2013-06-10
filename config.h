@@ -58,6 +58,4 @@ bool config_check_equal(struct blob_attr *c1, struct blob_attr *c2,
 bool config_diff(struct blob_attr **tb1, struct blob_attr **tb2,
 		 const struct config_param_list *config, unsigned long *diff);
 
-struct blob_attr *config_memdup(struct blob_attr *attr);
-
 #endif

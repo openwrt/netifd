@@ -584,7 +584,7 @@ device_create(const char *name, const struct device_type *type,
 	struct device *odev = NULL, *dev;
 	enum dev_change_type change;
 
-	config = config_memdup(config);
+	config = blob_memdup(config);
 	if (!config)
 		return NULL;
 
