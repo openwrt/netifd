@@ -733,7 +733,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 			struct list_head *next = &assign_later;
 			struct device_prefix_assignment *n;
 			list_for_each_entry(n, &assign_later, head) {
-				if (n->length > c->length) {
+				if (n->length < c->length) {
 					next = &n->head;
 					break;
 				}
