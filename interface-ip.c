@@ -729,7 +729,16 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 				netifd_log_message(L_WARNING, "Failed to assign requested subprefix "
 						"of size %hhu for %s, trying other\n", c->length, c->name);
 			}
-			list_add_tail(&c->head, &assign_later);
+
+			struct list_head *next = &assign_later;
+			struct device_prefix_assignment *n;
+			list_for_each_entry(n, &assign_later, head) {
+				if (n->length > c->length) {
+					next = &n->head;
+					break;
+				}
+			}
+			list_add_tail(&c->head, next);
 		}
 
 		if (c->assigned != -1)
