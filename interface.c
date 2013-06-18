@@ -675,6 +675,9 @@ interface_set_main_dev(struct interface *iface, struct device *dev)
 		interface_set_l3_dev(iface, dev);
 
 	device_add_user(&iface->main_dev, dev);
+	if (!dev)
+		return;
+
 	if (claimed)
 		device_claim(&iface->l3_dev);
 
