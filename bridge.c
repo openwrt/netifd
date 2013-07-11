@@ -31,6 +31,7 @@ enum {
 	BRIDGE_ATTR_AGEING_TIME,
 	BRIDGE_ATTR_HELLO_TIME,
 	BRIDGE_ATTR_MAX_AGE,
+	BRIDGE_ATTR_BRIDGE_EMPTY,
 	__BRIDGE_ATTR_MAX
 };
 
@@ -43,6 +44,7 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_HELLO_TIME] = { "hello_time", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_MAX_AGE] = { "max_age", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_IGMP_SNOOP] = { "igmp_snooping", BLOBMSG_TYPE_BOOL },
+	[BRIDGE_ATTR_BRIDGE_EMPTY] = { "bridge_empty", BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -184,6 +186,9 @@ bridge_remove_member(struct bridge_member *bm)
 
 	bm->present = false;
 	bm->bst->n_present--;
+
+	if (bst->config.bridge_empty)
+		return;
 
 	bst->force_active = false;
 	if (bst->n_present == 0)
@@ -444,6 +449,11 @@ bridge_config_init(struct device *dev)
 
 	bst = container_of(dev, struct bridge_state, dev);
 
+	if (bst->config.bridge_empty) {
+		bst->force_active = true;
+		device_set_present(&bst->dev, true);
+	}
+
 	if (!bst->ifnames)
 		return;
 
@@ -464,6 +474,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->stp = false;
 	cfg->forward_delay = 2;
 	cfg->igmp_snoop = false;
+	cfg->bridge_empty = false;
 	cfg->priority = 0x7FFF;
 
 	if ((cur = tb[BRIDGE_ATTR_STP]))
@@ -492,6 +503,9 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 		cfg->max_age = blobmsg_get_u32(cur);
 		cfg->flags |= BRIDGE_OPT_MAX_AGE;
 	}
+
+	if ((cur = tb[BRIDGE_ATTR_BRIDGE_EMPTY]))
+		cfg->bridge_empty = blobmsg_get_bool(cur);
 }
 
 enum dev_change_type

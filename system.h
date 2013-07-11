@@ -47,6 +47,7 @@ struct bridge_config {
 	bool igmp_snoop;
 	unsigned short priority;
 	int forward_delay;
+	bool bridge_empty;
 
 	int ageing_time;
 	int hello_time;
