@@ -639,7 +639,7 @@ static bool interface_prefix_assign(struct list_head *list,
 	struct device_prefix_assignment *c;
 	list_for_each_entry(c, list, head) {
 		if (assign->assigned != -1) {
-			if (assign->assigned > current && assign->assigned + asize < c->assigned) {
+			if (assign->assigned >= current && assign->assigned + asize < c->assigned) {
 				list_add_tail(&assign->head, &c->head);
 				return true;
 			}
