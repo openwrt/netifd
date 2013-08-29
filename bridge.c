@@ -454,12 +454,11 @@ bridge_config_init(struct device *dev)
 		device_set_present(&bst->dev, true);
 	}
 
-	if (!bst->ifnames)
-		return;
-
 	vlist_update(&bst->members);
-	blobmsg_for_each_attr(cur, bst->ifnames, rem) {
-		bridge_add_member(bst, blobmsg_data(cur));
+	if (bst->ifnames) {
+		blobmsg_for_each_attr(cur, bst->ifnames, rem) {
+			bridge_add_member(bst, blobmsg_data(cur));
+		}
 	}
 	vlist_flush(&bst->members);
 }
