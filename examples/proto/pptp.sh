@@ -1,6 +1,5 @@
 #!/bin/sh
-
-. ../netifd-proto.sh
+. ../../scripts/netifd-proto.sh
 init_proto "$@"
 
 proto_pptp_init_config() {

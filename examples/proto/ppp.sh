@@ -1,6 +1,7 @@
 #!/bin/sh
+DUMMY=1
+. ../../scripts/netifd-proto.sh
 
-. ../netifd-proto.sh
 init_proto "$@"
 
 ppp_generic_init_config() {

@@ -29,8 +29,8 @@
 #include "utils.h"
 
 #ifdef DUMMY_MODE
-#define DEFAULT_MAIN_PATH	"./dummy"
-#define DEFAULT_HOTPLUG_PATH	"./scripts/hotplug-cmd"
+#define DEFAULT_MAIN_PATH	"./examples"
+#define DEFAULT_HOTPLUG_PATH	"./examples/hotplug-cmd"
 #define DEFAULT_RESOLV_CONF	"./tmp/resolv.conf"
 #else
 #define DEFAULT_MAIN_PATH	"/lib/netifd"
