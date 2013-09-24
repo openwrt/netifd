@@ -1,5 +1,7 @@
 #!/bin/sh
-. ../../scripts/netifd-proto.sh
+NETIFD_MAIN_DIR=../../scripts
+. $NETIFD_MAIN_DIR/netifd-proto.sh
+
 init_proto "$@"
 
 proto_pptp_init_config() {

@@ -1,37 +1,18 @@
+NETIFD_MAIN_DIR="${NETIFD_MAIN_DIR:-/lib/netifd}"
+
 . /usr/share/libubox/jshn.sh
-
-append() {
-	local var="$1"
-	local value="$2"
-	local sep="${3:- }"
-
-	eval "export -- \"$var=\${$var:+\${$var}\${value:+\$sep}}\$value\""
-}
-
-proto_config_add_generic() {
-	json_add_array ""
-	json_add_string "" "$1"
-	json_add_int "" "$2"
-	json_close_array
-}
+. $NETIFD_MAIN_DIR/utils.sh
 
 proto_config_add_int() {
-	proto_config_add_generic "$1" 5
+	_config_add_generic "$1" 5
 }
 
 proto_config_add_string() {
-	proto_config_add_generic "$1" 3
+	_config_add_generic "$1" 3
 }
 
 proto_config_add_boolean() {
-	proto_config_add_generic "$1" 7
-}
-
-add_default_handler() {
-	case "$(type $1 2>/dev/null)" in
-		*function*) return;;
-		*) eval "$1() { return; }"
-	esac
+	_config_add_generic "$1" 7
 }
 
 _proto_do_teardown() {
