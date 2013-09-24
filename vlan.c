@@ -115,14 +115,14 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 
 	vldev = calloc(1, sizeof(*vldev));
 
+	vldev->id = id;
+	vlan_dev_set_name(vldev, dev);
+
 	device_init_virtual(&vldev->dev, &vlan_type, NULL);
 	vldev->dev.default_config = true;
 
 	vldev->set_state = vldev->dev.set_state;
 	vldev->dev.set_state = vlan_set_device_state;
-
-	vldev->id = id;
-	vlan_dev_set_name(vldev, dev);
 
 	vldev->dep.cb = vlan_dev_cb;
 	device_add_user(&vldev->dep, dev);
