@@ -60,7 +60,24 @@ out:
 }
 
 static void
-netifd_init_script_handler(const char *name, script_dump_cb cb)
+netifd_init_script_handler(const char *script, json_object *obj, script_dump_cb cb)
+{
+	json_object *tmp;
+	const char *name;
+
+	if (!json_check_type(obj, json_type_object))
+		return;
+
+	tmp = json_get_field(obj, "name", json_type_string);
+	if (!tmp)
+		return;
+
+	name = json_object_get_string(tmp);
+	cb(script, name, obj);
+}
+
+static void
+netifd_parse_script_handler(const char *name, script_dump_cb cb)
 {
 	struct json_tokener *tok = NULL;
 	json_object *obj;
@@ -90,7 +107,7 @@ netifd_init_script_handler(const char *name, script_dump_cb cb)
 
 		obj = json_tokener_parse_ex(tok, start, len);
 		if (!is_error(obj)) {
-			cb(name, obj);
+			netifd_init_script_handler(name, obj, cb);
 			json_object_put(obj);
 			json_tokener_free(tok);
 			tok = NULL;
@@ -114,7 +131,7 @@ void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 	prev_fd = netifd_dir_push(dir_fd);
 	glob("./*.sh", 0, NULL, &g);
 	for (i = 0; i < g.gl_pathc; i++)
-		netifd_init_script_handler(g.gl_pathv[i], cb);
+		netifd_parse_script_handler(g.gl_pathv[i], cb);
 	netifd_dir_pop(prev_fd);
 }
 

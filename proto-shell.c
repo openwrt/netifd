@@ -734,29 +734,13 @@ error:
 	return NULL;
 }
 
-static inline json_object *
-get_field(json_object *obj, const char *name, json_type type)
-{
-	return json_check_type(json_object_object_get(obj, name), type);
-}
-
 static void
-proto_shell_add_handler(const char *script, json_object *obj)
+proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 {
 	struct proto_shell_handler *handler;
 	struct proto_handler *proto;
 	json_object *config, *tmp;
-	const char *name;
 	char *str;
-
-	if (!json_check_type(obj, json_type_object))
-		return;
-
-	tmp = get_field(obj, "name", json_type_string);
-	if (!tmp)
-		return;
-
-	name = json_object_get_string(tmp);
 
 	handler = calloc_a(sizeof(*handler) + strlen(script) + 1,
 			   &str, strlen(name) + 1);
@@ -771,15 +755,15 @@ proto_shell_add_handler(const char *script, json_object *obj)
 	proto->config_params = &handler->config;
 	proto->attach = proto_shell_attach;
 
-	tmp = get_field(obj, "no-device", json_type_boolean);
+	tmp = json_get_field(obj, "no-device", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_NODEV;
 
-	tmp = get_field(obj, "available", json_type_boolean);
+	tmp = json_get_field(obj, "available", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_INIT_AVAILABLE;
 
-	config = get_field(obj, "config", json_type_array);
+	config = json_get_field(obj, "config", json_type_array);
 	if (config)
 		handler->config_buf = netifd_handler_parse_config(&handler->config, config);
 

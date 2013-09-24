@@ -16,7 +16,7 @@
 
 #include <libubox/blobmsg_json.h>
 
-typedef void (*script_dump_cb)(const char *name, json_object *obj);
+typedef void (*script_dump_cb)(const char *script, const char *name, json_object *obj);
 
 static inline json_object *
 json_check_type(json_object *obj, json_type type)
@@ -28,6 +28,12 @@ json_check_type(json_object *obj, json_type type)
 		return NULL;
 
 	return obj;
+}
+
+static inline json_object *
+json_get_field(json_object *obj, const char *name, json_type type)
+{
+	return json_check_type(json_object_object_get(obj, name), type);
 }
 
 int netifd_open_subdir(const char *name);
