@@ -117,3 +117,60 @@ void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 		netifd_init_script_handler(g.gl_pathv[i], cb);
 	netifd_dir_pop(prev_fd);
 }
+
+char *
+netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj)
+{
+	struct blobmsg_policy *attrs;
+	char *str_buf, *str_cur;
+	int str_len = 0;
+	int i;
+
+	config->n_params = json_object_array_length(obj);
+	attrs = calloc(1, sizeof(*attrs) * config->n_params);
+	if (!attrs)
+		return NULL;
+
+	config->params = attrs;
+	for (i = 0; i < config->n_params; i++) {
+		json_object *cur, *name, *type;
+
+		cur = json_check_type(json_object_array_get_idx(obj, i), json_type_array);
+		if (!cur)
+			goto error;
+
+		name = json_check_type(json_object_array_get_idx(cur, 0), json_type_string);
+		if (!name)
+			goto error;
+
+		type = json_check_type(json_object_array_get_idx(cur, 1), json_type_int);
+		if (!type)
+			goto error;
+
+		attrs[i].name = json_object_get_string(name);
+		attrs[i].type = json_object_get_int(type);
+		if (attrs[i].type > BLOBMSG_TYPE_LAST)
+			goto error;
+
+		str_len += strlen(attrs[i].name) + 1;
+	}
+
+	str_buf = malloc(str_len);
+	if (!str_buf)
+		goto error;
+
+	str_cur = str_buf;
+	for (i = 0; i < config->n_params; i++) {
+		const char *name = attrs[i].name;
+
+		attrs[i].name = str_cur;
+		str_cur += sprintf(str_cur, "%s", name) + 1;
+	}
+
+	return str_buf;
+
+error:
+	free(attrs);
+	config->n_params = 0;
+	return NULL;
+}

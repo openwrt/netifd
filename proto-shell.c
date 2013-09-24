@@ -734,79 +734,10 @@ error:
 	return NULL;
 }
 
-static json_object *
-check_type(json_object *obj, json_type type)
-{
-	if (!obj)
-		return NULL;
-
-	if (json_object_get_type(obj) != type)
-		return NULL;
-
-	return obj;
-}
-
 static inline json_object *
 get_field(json_object *obj, const char *name, json_type type)
 {
-	return check_type(json_object_object_get(obj, name), type);
-}
-
-static char *
-proto_shell_parse_config(struct uci_blob_param_list *config, json_object *obj)
-{
-	struct blobmsg_policy *attrs;
-	char *str_buf, *str_cur;
-	int str_len = 0;
-	int i;
-
-	config->n_params = json_object_array_length(obj);
-	attrs = calloc(1, sizeof(*attrs) * config->n_params);
-	if (!attrs)
-		return NULL;
-
-	config->params = attrs;
-	for (i = 0; i < config->n_params; i++) {
-		json_object *cur, *name, *type;
-
-		cur = check_type(json_object_array_get_idx(obj, i), json_type_array);
-		if (!cur)
-			goto error;
-
-		name = check_type(json_object_array_get_idx(cur, 0), json_type_string);
-		if (!name)
-			goto error;
-
-		type = check_type(json_object_array_get_idx(cur, 1), json_type_int);
-		if (!type)
-			goto error;
-
-		attrs[i].name = json_object_get_string(name);
-		attrs[i].type = json_object_get_int(type);
-		if (attrs[i].type > BLOBMSG_TYPE_LAST)
-			goto error;
-
-		str_len += strlen(attrs[i].name) + 1;
-	}
-
-	str_buf = malloc(str_len);
-	if (!str_buf)
-		goto error;
-
-	str_cur = str_buf;
-	for (i = 0; i < config->n_params; i++) {
-		const char *name = attrs[i].name;
-
-		attrs[i].name = str_cur;
-		str_cur += sprintf(str_cur, "%s", name) + 1;
-	}
-
-	return str_buf;
-
-error:
-	free(attrs);
-	config->n_params = 0;
-	return NULL;
+	return json_check_type(json_object_object_get(obj, name), type);
 }
 
 static void
@@ -818,7 +749,7 @@ proto_shell_add_handler(const char *script, json_object *obj)
 	const char *name;
 	char *str;
 
-	if (!check_type(obj, json_type_object))
+	if (!json_check_type(obj, json_type_object))
 		return;
 
 	tmp = get_field(obj, "name", json_type_string);
@@ -850,7 +781,7 @@ proto_shell_add_handler(const char *script, json_object *obj)
 
 	config = get_field(obj, "config", json_type_array);
 	if (config)
-		handler->config_buf = proto_shell_parse_config(&handler->config, config);
+		handler->config_buf = netifd_handler_parse_config(&handler->config, config);
 
 	DPRINTF("Add handler for script %s: %s\n", script, proto->name);
 	add_proto_handler(proto);

@@ -18,7 +18,20 @@
 
 typedef void (*script_dump_cb)(const char *name, json_object *obj);
 
+static inline json_object *
+json_check_type(json_object *obj, json_type type)
+{
+	if (!obj)
+		return NULL;
+
+	if (json_object_get_type(obj) != type)
+		return NULL;
+
+	return obj;
+}
+
 int netifd_open_subdir(const char *name);
 void netifd_init_script_handlers(int dir_fd, script_dump_cb cb);
+char *netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj);
 
 #endif
