@@ -858,7 +858,48 @@ proto_shell_add_handler(const char *script, json_object *obj)
 	add_proto_handler(proto);
 }
 
-static void proto_shell_add_script(const char *name)
+typedef void (*script_dump_cb)(const char *name, json_object *obj);
+
+static int
+netifd_dir_push(int fd)
+{
+	int prev_fd = open(".", O_RDONLY | O_DIRECTORY);
+	system_fd_set_cloexec(prev_fd);
+	if (fd >= 0)
+		fchdir(fd);
+	return prev_fd;
+}
+
+static void
+netifd_dir_pop(int prev_fd)
+{
+	fchdir(prev_fd);
+	close(prev_fd);
+}
+
+static int
+netifd_open_subdir(const char *name)
+{
+	int prev_dir;
+	int ret = -1;
+
+	prev_dir = netifd_dir_push(-1);
+	if (chdir(main_path)) {
+		perror("chdir(main path)");
+		goto out;
+	}
+
+	ret = open(name, O_RDONLY | O_DIRECTORY);
+	if (ret >= 0)
+		system_fd_set_cloexec(ret);
+
+out:
+	netifd_dir_pop(prev_dir);
+	return ret;
+}
+
+static void
+netifd_init_script_handler(const char *name, script_dump_cb cb)
 {
 	struct json_tokener *tok = NULL;
 	json_object *obj;
@@ -888,7 +929,7 @@ static void proto_shell_add_script(const char *name)
 
 		obj = json_tokener_parse_ex(tok, start, len);
 		if (!is_error(obj)) {
-			proto_shell_add_handler(name, obj);
+			cb(name, obj);
 			json_object_put(obj);
 			json_tokener_free(tok);
 			tok = NULL;
@@ -904,34 +945,24 @@ static void proto_shell_add_script(const char *name)
 	pclose(f);
 }
 
-static void __init proto_shell_init(void)
+static void
+netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 {
 	glob_t g;
-	int main_fd;
-	int i;
+	int i, prev_fd;
 
-	main_fd = open(".", O_RDONLY | O_DIRECTORY);
-	if (main_fd < 0)
-		return;
-
-	if (chdir(main_path)) {
-		perror("chdir(main path)");
-		goto close_cur;
-	}
-
-	if (chdir("./proto"))
-		goto close_cur;
-
-	proto_fd = open(".", O_RDONLY | O_DIRECTORY);
-	if (proto_fd < 0)
-		goto close_cur;
-
-	system_fd_set_cloexec(proto_fd);
+	prev_fd = netifd_dir_push(dir_fd);
 	glob("./*.sh", 0, NULL, &g);
 	for (i = 0; i < g.gl_pathc; i++)
-		proto_shell_add_script(g.gl_pathv[i]);
+		netifd_init_script_handler(g.gl_pathv[i], cb);
+	netifd_dir_pop(prev_fd);
+}
 
-close_cur:
-	fchdir(main_fd);
-	close(main_fd);
+static void __init proto_shell_init(void)
+{
+	proto_fd = netifd_open_subdir("proto");
+	if (proto_fd < 0)
+		return;
+
+	netifd_init_script_handlers(proto_fd, proto_shell_add_handler);
 }
