@@ -24,6 +24,10 @@ config_add_int() {
 	_config_add_generic "$1" 5
 }
 
+config_add_array() {
+	_config_add_generic "$1" 1
+}
+
 config_add_string() {
 	_config_add_generic "$1" 3
 }
