@@ -426,6 +426,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	struct interface *iface;
 	struct device *dev;
 	struct device_addr *a_new = NULL, *a_old = NULL;
+	bool replace = false;
 	bool keep = false;
 	bool v6 = false;
 
@@ -453,10 +454,12 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	if (a_new && a_old) {
 		keep = true;
 
-		if (a_old->flags != a_new->flags ||
-				a_old->valid_until != a_new->valid_until ||
-				a_old->preferred_until != a_new->preferred_until)
+		if (a_old->flags != a_new->flags)
 			keep = false;
+
+		if (a_old->valid_until != a_new->valid_until ||
+				a_old->preferred_until != a_new->preferred_until)
+			replace = true;
 
 		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET4 &&
 		    a_new->broadcast != a_old->broadcast)
@@ -486,16 +489,18 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 	if (node_new) {
 		a_new->enabled = true;
-		if (!(a_new->flags & DEVADDR_EXTERNAL) && !keep) {
+		if (!(a_new->flags & DEVADDR_EXTERNAL) && (!keep || replace)) {
 			system_add_address(dev, a_new);
 
-			if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
-				v6 = true;
+			if (!keep) {
+				if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+					v6 = true;
 
-			set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
-				(v6) ? 128 : 32, iface, NULL, NULL);
-			set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
-				a_new->mask, iface, NULL, NULL);
+				set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
+						(v6) ? 128 : 32, iface, NULL, NULL);
+				set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
+						a_new->mask, iface, NULL, NULL);
+			}
 
 			if ((a_new->flags & DEVADDR_OFFLINK) || iface->metric)
 				interface_handle_subnet_route(iface, a_new, true);
