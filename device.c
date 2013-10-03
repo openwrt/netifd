@@ -216,7 +216,7 @@ int device_claim(struct device_user *dep)
 	if (ret == 0)
 		device_broadcast_event(dev, DEV_EVENT_UP);
 	else {
-		D(DEVICE, "claim device %s failed: %d\n", dev->ifname, ret);
+		D(DEVICE, "claim %s %s failed: %d\n", dev->type->name, dev->ifname, ret);
 		dev->active = 0;
 		dep->claimed = false;
 	}
