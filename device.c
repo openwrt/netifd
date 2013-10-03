@@ -408,6 +408,9 @@ void device_add_user(struct device_user *dep, struct device *dev)
 {
 	struct safe_list *head;
 
+	if (dep->dev == dev)
+		return;
+
 	if (dep->dev)
 		device_remove_user(dep);
 
