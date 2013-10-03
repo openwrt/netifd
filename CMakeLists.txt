@@ -15,7 +15,7 @@ SET(SOURCES
 	interface.c interface-ip.c interface-event.c
 	iprule.c proto.c proto-static.c proto-shell.c
 	config.c device.c bridge.c vlan.c alias.c
-	ubus.c)
+	macvlan.c ubus.c)
 
 
 find_library(json NAMES json-c json)

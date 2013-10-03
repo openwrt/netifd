@@ -166,6 +166,8 @@ config_init_devices(void)
 				devtype = &bridge_device_type;
 			else if (!strcmp(type, "tunnel"))
 				devtype = &tunnel_device_type;
+			else if (!strcmp(type, "macvlan"))
+				devtype = &macvlan_device_type;
 		}
 
 		if (!devtype)

@@ -29,6 +29,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/sockios.h>
 #include <linux/ip.h>
+#include <linux/if_link.h>
 #include <linux/if_vlan.h>
 #include <linux/if_bridge.h>
 #include <linux/if_tunnel.h>
@@ -607,6 +608,93 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 		args[1] = sec_to_jiffies(cfg->max_age);
 		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
 	}
+
+	return 0;
+}
+
+int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvlan_config *cfg)
+{
+	struct nl_msg *msg;
+	struct nlattr *linkinfo, *data;
+	struct ifinfomsg iim = { .ifi_family = AF_INET };
+	int ifindex = system_if_resolve(dev);
+	int i, rv;
+	static const struct {
+		const char *name;
+		enum macvlan_mode val;
+	} modes[] = {
+		{ "private", MACVLAN_MODE_PRIVATE },
+		{ "vepa", MACVLAN_MODE_VEPA },
+		{ "bridge", MACVLAN_MODE_BRIDGE },
+		{ "passthru", MACVLAN_MODE_PASSTHRU },
+	};
+
+	if (ifindex == 0)
+		return -ENOENT;
+
+	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+
+	if (cfg->flags & MACVLAN_OPT_MACADDR)
+		nla_put(msg, IFLA_ADDRESS, sizeof(cfg->macaddr), cfg->macaddr);
+	nla_put(msg, IFLA_IFNAME, IFNAMSIZ, macvlan->ifname);
+	nla_put_u32(msg, IFLA_LINK, ifindex);
+
+	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
+		goto nla_put_failure;
+
+	nla_put(msg, IFLA_INFO_KIND, strlen("macvlan"), "macvlan");
+
+	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
+		goto nla_put_failure;
+
+	if (cfg->mode) {
+		for (i = 0; i < ARRAY_SIZE(modes); i++) {
+			if (strcmp(cfg->mode, modes[i].name) != 0)
+				continue;
+
+			nla_put_u32(msg, IFLA_MACVLAN_MODE, modes[i].val);
+			break;
+		}
+	}
+
+	nla_nest_end(msg, data);
+	nla_nest_end(msg, linkinfo);
+
+	rv = system_rtnl_call(msg);
+	if (rv)
+		D(SYSTEM, "Error adding macvlan '%s' over '%s': %d\n", macvlan->ifname, dev->ifname, rv);
+
+	return rv;
+
+nla_put_failure:
+	nlmsg_free(msg);
+	return -ENOMEM;
+}
+
+int system_macvlan_del(struct device *macvlan)
+{
+	struct nl_msg *msg;
+	struct ifinfomsg iim;
+
+	iim.ifi_family = AF_INET;
+	iim.ifi_index  = 0;
+
+	msg = nlmsg_alloc_simple(RTM_DELLINK, 0);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+
+	nla_put(msg, IFLA_INFO_KIND, strlen("macvlan"), "macvlan");
+	nla_put(msg, IFLA_IFNAME, sizeof(macvlan->ifname), macvlan->ifname);
+
+	system_rtnl_call(msg);
 
 	return 0;
 }

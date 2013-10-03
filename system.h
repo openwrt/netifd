@@ -54,6 +54,17 @@ struct bridge_config {
 	int max_age;
 };
 
+enum macvlan_opt {
+	MACVLAN_OPT_MACADDR = (1 << 0),
+};
+
+struct macvlan_config {
+	const char *mode;
+
+	enum macvlan_opt flags;
+	unsigned char macaddr[6];
+};
+
 static inline int system_get_addr_family(unsigned int flags)
 {
 	if ((flags & DEVADDR_FAMILY) == DEVADDR_INET6)
@@ -76,6 +87,9 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg);
 int system_bridge_delbr(struct device *bridge);
 int system_bridge_addif(struct device *bridge, struct device *dev);
 int system_bridge_delif(struct device *bridge, struct device *dev);
+
+int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvlan_config *cfg);
+int system_macvlan_del(struct device *macvlan);
 
 int system_vlan_add(struct device *dev, int id);
 int system_vlan_del(struct device *dev);

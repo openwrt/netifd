@@ -242,3 +242,13 @@ int system_update_ipv6_mtu(struct device *dev, int mtu)
 {
 	return 0;
 }
+
+int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvlan_config *cfg)
+{
+	return 0;
+}
+
+int system_macvlan_del(struct device *macvlan)
+{
+	return 0;
+}

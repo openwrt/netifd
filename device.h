@@ -103,7 +103,7 @@ struct device_settings {
 	uint8_t macaddr[6];
 };
 
-/* 
+/*
  * link layer device. typically represents a linux network device.
  * can be used to support VLANs as well
  */
@@ -152,6 +152,7 @@ extern const struct uci_blob_param_list device_attr_list;
 extern const struct device_type simple_device_type;
 extern const struct device_type bridge_device_type;
 extern const struct device_type tunnel_device_type;
+extern const struct device_type macvlan_device_type;
 
 void device_lock(void);
 void device_unlock(void);
