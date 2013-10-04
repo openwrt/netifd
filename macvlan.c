@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <errno.h>
-#include <netinet/ether.h>
+#include <net/ethernet.h>
 
 #include "netifd.h"
 #include "device.h"
