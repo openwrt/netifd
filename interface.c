@@ -536,15 +536,17 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 	state->iface = iface;
 }
 
-void
-interface_init(struct interface *iface, const char *name,
-	       struct blob_attr *config)
+struct interface *
+interface_alloc(const char *name, struct blob_attr *config)
 {
+	struct interface *iface;
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
 	const char *proto_name = NULL;
+	char *iface_name;
 
-	strncpy(iface->name, name, sizeof(iface->name) - 1);
+	iface = calloc_a(sizeof(*iface), &iface_name, strlen(name) + 1);
+	iface->name = strcpy(iface_name, name);
 	INIT_LIST_HEAD(&iface->errors);
 	INIT_LIST_HEAD(&iface->users);
 	INIT_LIST_HEAD(&iface->hotplug_list);
@@ -610,6 +612,7 @@ interface_init(struct interface *iface, const char *name,
 	iface->proto_ip.no_delegation = !blobmsg_get_bool_default(tb[IFACE_ATTR_DELEGATE], true);
 
 	iface->config_autostart = iface->autostart;
+	return iface;
 }
 
 void interface_set_dynamic(struct interface *iface)

@@ -71,11 +71,10 @@ config_parse_interface(struct uci_section *s, bool alias)
 	}
 
 	uci_to_blob(&b, s, &interface_attr_list);
-	iface = calloc(1, sizeof(*iface));
+
+	iface = interface_alloc(s->e.name, b.head);
 	if (!iface)
 		return;
-
-	interface_init(iface, s->e.name, b.head);
 
 	if (iface->proto_handler && iface->proto_handler->config_params)
 		uci_to_blob(&b, s, iface->proto_handler->config_params);

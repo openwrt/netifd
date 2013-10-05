@@ -88,7 +88,7 @@ struct interface {
 	struct list_head hotplug_list;
 	enum interface_event hotplug_ev;
 
-	char name[IFNAMSIZ];
+	const char *name;
 	const char *ifname;
 
 	bool available;
@@ -145,8 +145,7 @@ struct interface {
 extern struct vlist_tree interfaces;
 extern const struct uci_blob_param_list interface_attr_list;
 
-void interface_init(struct interface *iface, const char *name,
-		    struct blob_attr *config);
+struct interface *interface_alloc(const char *name, struct blob_attr *config);
 
 void interface_set_dynamic(struct interface *iface);
 

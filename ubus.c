@@ -135,11 +135,10 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 
 	const char *name = blobmsg_get_string(tb[DI_NAME]);
 
-	iface = calloc(1, sizeof(*iface));
+	iface = interface_alloc(name, msg);
 	if (!iface)
 		return UBUS_STATUS_UNKNOWN_ERROR;
 
-	interface_init(iface, name, msg);
 	interface_set_dynamic(iface);
 	iface->device_config = true;
 
