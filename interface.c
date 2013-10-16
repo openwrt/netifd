@@ -151,7 +151,7 @@ interface_add_data(struct interface *iface, const struct blob_attr *data)
 
 	n = calloc(1, sizeof(*n) + blob_pad_len(data));
 	memcpy(n->data, data, blob_pad_len(data));
-	n->node.key = blobmsg_name(data);
+	n->node.key = blobmsg_name(n->data);
 
 	o = avl_find_element(&iface->data, n->node.key, o, node);
 	if (o)
