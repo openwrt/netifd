@@ -565,19 +565,14 @@ interface_ip_dump_dns_search_list(struct interface_ip_settings *ip,
 	}
 }
 
-static int
-netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
-		     struct ubus_request_data *req, const char *method,
-		     struct blob_attr *msg)
+static void
+netifd_dump_status(struct interface *iface)
 {
-	struct interface *iface;
 	struct interface_data *data;
 	struct device *dev;
 	void *a, *inactive;
 
-	iface = container_of(obj, struct interface, ubus);
-
-	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "name", iface->name);
 	blobmsg_add_u8(&b, "up", iface->state == IFS_UP);
 	blobmsg_add_u8(&b, "pending", iface->state == IFS_SETUP);
 	blobmsg_add_u8(&b, "available", iface->available);
@@ -659,7 +654,38 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 
 	if (!list_is_empty(&iface->errors))
 		netifd_add_interface_errors(&b, iface);
+}
 
+static int
+netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
+		     struct ubus_request_data *req, const char *method,
+		     struct blob_attr *msg)
+{
+	struct interface *iface = container_of(obj, struct interface, ubus);
+
+	blob_buf_init(&b, 0);
+	netifd_dump_status(iface);
+	ubus_send_reply(ctx, req, b.head);
+
+	return 0;
+}
+
+static int
+netifd_handle_dump(struct ubus_context *ctx, struct ubus_object *obj,
+		     struct ubus_request_data *req, const char *method,
+		     struct blob_attr *msg)
+{
+	blob_buf_init(&b, 0);
+	void *a = blobmsg_open_array(&b, "interface");
+
+	struct interface *iface;
+	vlist_for_each_element(&interfaces, iface, node) {
+		void *i = blobmsg_open_table(&b, NULL);
+		netifd_dump_status(iface);
+		blobmsg_close_table(&b, i);
+	}
+
+	blobmsg_close_array(&b, a);
 	ubus_send_reply(ctx, req, b.head);
 
 	return 0;
@@ -795,6 +821,7 @@ static struct ubus_method iface_object_methods[] = {
 	{ .name = "down", .handler = netifd_handle_down },
 	{ .name = "status", .handler = netifd_handle_status },
 	{ .name = "prepare", .handler = netifd_handle_iface_prepare },
+	{ .name = "dump", .handler = netifd_handle_dump },
 	UBUS_METHOD("add_device", netifd_iface_handle_device, dev_policy ),
 	UBUS_METHOD("remove_device", netifd_iface_handle_device, dev_policy ),
 	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },
@@ -865,6 +892,9 @@ static void netifd_add_iface_object(void)
 	iface_object.methods = methods;
 
 	for (i = 0; i < ARRAY_SIZE(iface_object_methods); i++) {
+		if (methods[i].handler == netifd_handle_dump)
+			continue;
+
 		methods[i].handler = netifd_handle_iface;
 		methods[i].policy = &iface_policy;
 		methods[i].n_policy = 1;
