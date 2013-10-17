@@ -75,7 +75,7 @@ config_parse_interface(struct uci_section *s, bool alias)
 	if (!iface)
 		return;
 
-	interface_init(iface, s->e.name, b.head);
+	interface_init(iface, s->e.name, b.head, false);
 
 	if (iface->proto_handler && iface->proto_handler->config_params)
 		uci_to_blob(&b, s, iface->proto_handler->config_params);

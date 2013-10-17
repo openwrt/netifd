@@ -220,6 +220,9 @@ __interface_set_down(struct interface *iface, bool force)
 	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
 	if (force)
 		interface_flush_state(iface);
+
+	if (iface->dynamic)
+		vlist_delete(&interfaces, &iface->node);
 }
 
 static void
@@ -530,7 +533,7 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 
 void
 interface_init(struct interface *iface, const char *name,
-	       struct blob_attr *config)
+	       struct blob_attr *config, bool dynamic)
 {
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
@@ -600,6 +603,10 @@ interface_init(struct interface *iface, const char *name,
 	}
 
 	iface->config_autostart = iface->autostart;
+	iface->dynamic = dynamic;
+
+	if (iface->dynamic)
+		iface->node.version = -1; // Don't delete on reload
 }
 
 static bool __interface_add(struct interface *iface, struct blob_attr *config, bool alias)

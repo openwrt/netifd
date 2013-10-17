@@ -108,11 +108,69 @@ netifd_get_proto_handlers(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+
+enum {
+	DI_NAME,
+	__DI_MAX
+};
+
+static const struct blobmsg_policy dynamic_policy[__DI_MAX] = {
+	[DI_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
+};
+
+static int
+netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
+		      struct ubus_request_data *req, const char *method,
+		      struct blob_attr *msg)
+{
+	struct blob_attr *tb[__DI_MAX];
+	struct interface *iface;
+	struct blob_attr *config;
+	struct device *dev;
+
+	blobmsg_parse(dynamic_policy, __DI_MAX, tb, blob_data(msg), blob_len(msg));
+
+	if (!tb[DI_NAME])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	const char *name = blobmsg_get_string(tb[DI_NAME]);
+
+	iface = calloc(1, sizeof(*iface));
+	if (!iface)
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
+	interface_init(iface, name, msg, true);
+	iface->device_config = true;
+
+	config = blob_memdup(msg);
+	if (!config)
+		goto error;
+
+	interface_add(iface, config);
+
+	// need to look up the interface name again, in case of config update,
+	iface = vlist_find(&interfaces, name, iface, node);
+	if (!iface)
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
+	dev = iface->main_dev.dev;
+	if (!dev || !dev->default_config)
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
+	device_set_config(dev, dev->type, msg);
+	return UBUS_STATUS_OK;
+
+error:
+	free(iface);
+	return UBUS_STATUS_UNKNOWN_ERROR;
+}
+
 static struct ubus_method main_object_methods[] = {
 	{ .name = "restart", .handler = netifd_handle_restart },
 	{ .name = "reload", .handler = netifd_handle_reload },
 	UBUS_METHOD("add_host_route", netifd_add_host_route, route_policy),
 	{ .name = "get_proto_handlers", .handler = netifd_get_proto_handlers },
+	UBUS_METHOD("add_dynamic", netifd_add_dynamic, dynamic_policy),
 };
 
 static struct ubus_object_type main_object_type =
