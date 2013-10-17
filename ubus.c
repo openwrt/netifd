@@ -630,7 +630,6 @@ netifd_dump_status(struct interface *iface)
 	struct device *dev;
 	void *a, *inactive;
 
-	blobmsg_add_string(&b, "name", iface->name);
 	blobmsg_add_u8(&b, "up", iface->state == IFS_UP);
 	blobmsg_add_u8(&b, "pending", iface->state == IFS_SETUP);
 	blobmsg_add_u8(&b, "available", iface->available);
@@ -739,6 +738,7 @@ netifd_handle_dump(struct ubus_context *ctx, struct ubus_object *obj,
 	struct interface *iface;
 	vlist_for_each_element(&interfaces, iface, node) {
 		void *i = blobmsg_open_table(&b, NULL);
+		blobmsg_add_string(&b, "interface", iface->name);
 		netifd_dump_status(iface);
 		blobmsg_close_table(&b, i);
 	}
@@ -994,6 +994,17 @@ netifd_ubus_interface_event(struct interface *iface, bool up)
 	blobmsg_add_string(&b, "action", up ? "ifup" : "ifdown");
 	blobmsg_add_string(&b, "interface", iface->name);
 	ubus_send_event(ctx, "network.interface", b.head);
+}
+
+void
+netifd_ubus_interface_notify(struct interface *iface, bool up)
+{
+	const char *event = (up) ? "update" : "down";
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "interface", iface->name);
+	netifd_dump_status(iface);
+	ubus_notify(ctx, &iface_object, event, b.head, -1);
+	ubus_notify(ctx, &iface->ubus, event, b.head, -1);
 }
 
 void

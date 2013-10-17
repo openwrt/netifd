@@ -33,7 +33,7 @@ static struct uloop_process task = {
 };
 
 static void
-run_cmd(const char *ifname, const char *device, bool up)
+run_cmd(const char *ifname, const char *device, enum interface_event event)
 {
 	char *argv[3];
 	int pid;
@@ -48,7 +48,8 @@ run_cmd(const char *ifname, const char *device, bool up)
 		return;
 	}
 
-	setenv("ACTION", up ? "ifup" : "ifdown", 1);
+	char *eventnames[] = {"ifdown", "ifup", "ifupdate"};
+	setenv("ACTION", eventnames[event], 1);
 	setenv("INTERFACE", ifname, 1);
 	if (device)
 		setenv("DEVICE", device, 1);
@@ -74,7 +75,7 @@ call_hotplug(void)
 		device = current->l3_dev.dev->ifname;
 
 	D(SYSTEM, "Call hotplug handler for interface '%s' (%s)\n", current->name, device ? device : "none");
-	run_cmd(current->name, device, current_ev == IFEV_UP);
+	run_cmd(current->name, device, current_ev);
 }
 
 static void
@@ -99,7 +100,11 @@ interface_queue_event(struct interface *iface, enum interface_event ev)
 	enum interface_event last_ev;
 
 	D(SYSTEM, "Queue hotplug handler for interface '%s'\n", iface->name);
-	netifd_ubus_interface_event(iface, ev == IFEV_UP);
+	if (ev == IFEV_UP || ev == IFEV_DOWN)
+		netifd_ubus_interface_event(iface, ev == IFEV_UP);
+
+	netifd_ubus_interface_notify(iface, ev != IFEV_DOWN);
+
 	if (current == iface)
 		last_ev = current_ev;
 	else
@@ -130,6 +135,7 @@ static void interface_event_cb(struct interface_user *dep, struct interface *ifa
 {
 	switch (ev) {
 		case IFEV_UP:
+		case IFEV_UPDATE:
 		case IFEV_DOWN:
 			interface_queue_event(iface, ev);
 			break;

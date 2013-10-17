@@ -378,6 +378,7 @@ interface_alias_cb(struct interface_user *dep, struct interface *iface, enum int
 		interface_remove_user(dep);
 		break;
 	case IFEV_RELOAD:
+	case IFEV_UPDATE:
 		break;
 	}
 }
@@ -483,8 +484,10 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 
 	switch (ev) {
 	case IFPEV_UP:
-		if (iface->state != IFS_SETUP)
+		if (iface->state != IFS_SETUP) {
+			interface_event(iface, IFEV_UPDATE);
 			return;
+		}
 
 		interface_ip_set_enabled(&iface->config_ip, true);
 		system_flush_routes();
