@@ -920,7 +920,9 @@ interface_update_prefix(struct vlist_tree *tree,
 	} else if (node_new) {
 		// Set null-route to avoid routing loops
 		system_add_route(NULL, &route);
-		interface_update_prefix_assignments(prefix_new, true);
+
+		if (!prefix_new->iface || !prefix_new->iface->proto_ip.no_delegation)
+			interface_update_prefix_assignments(prefix_new, true);
 	} else if (node_old) {
 		// Remove null-route
 		interface_update_prefix_assignments(prefix_old, false);
@@ -928,11 +930,12 @@ interface_update_prefix(struct vlist_tree *tree,
 	}
 
 	if (node_old) {
-		list_del(&prefix_old->head);
+		if (prefix_old->head.next)
+			list_del(&prefix_old->head);
 		free(prefix_old);
 	}
 
-	if (node_new)
+	if (node_new && (!prefix_new->iface || !prefix_new->iface->proto_ip.no_delegation))
 		list_add(&prefix_new->head, &prefixes);
 
 }

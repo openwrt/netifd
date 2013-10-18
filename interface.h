@@ -60,6 +60,7 @@ struct interface_ip_settings {
 	bool enabled;
 	bool no_defaultroute;
 	bool no_dns;
+	bool no_delegation;
 
 	struct vlist_tree addr;
 	struct vlist_tree route;
