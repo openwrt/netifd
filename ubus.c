@@ -488,6 +488,11 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 		if (route->valid_until)
 			blobmsg_add_u32(&b, "valid", route->valid_until - now);
 
+		buf = blobmsg_alloc_string_buffer(&b, "source", buflen);
+		inet_ntop(af, &route->source, buf, buflen);
+		snprintf(buf + strlen(buf), 4, "/%u", route->sourcemask);
+		blobmsg_add_string_buffer(&b);
+
 		blobmsg_close_table(&b, r);
 	}
 }
@@ -726,6 +731,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 
 	return 0;
 }
+
 
 static int
 netifd_handle_dump(struct ubus_context *ctx, struct ubus_object *obj,

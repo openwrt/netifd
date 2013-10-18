@@ -108,6 +108,17 @@ struct device_route {
 	int metric; // there can be multiple routes to the same target
 	unsigned int table;
 	unsigned int mask;
+	unsigned int sourcemask;
+	union if_addr addr;
+	union if_addr source;
+};
+
+struct device_source_table {
+	struct list_head head;
+	uint32_t table;
+	uint16_t refcount;
+	uint8_t v6;
+	uint8_t mask;
 	union if_addr addr;
 };
 

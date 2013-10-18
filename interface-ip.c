@@ -37,6 +37,7 @@ enum {
 	ROUTE_MTU,
 	ROUTE_VALID,
 	ROUTE_TABLE,
+	ROUTE_SOURCE,
 	__ROUTE_MAX
 };
 
@@ -49,6 +50,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
 	[ROUTE_TABLE] = { .name = "table", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
+	[ROUTE_SOURCE] = { .name = "source", .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct uci_blob_param_list route_attr_list = {
@@ -58,6 +60,7 @@ const struct uci_blob_param_list route_attr_list = {
 
 
 struct list_head prefixes = LIST_HEAD_INIT(prefixes);
+static struct list_head source_tables = LIST_HEAD_INIT(source_tables);
 static struct device_prefix *ula_prefix = NULL;
 static struct uloop_timeout valid_until_timeout;
 
@@ -92,7 +95,7 @@ match_if_addr(union if_addr *a1, union if_addr *a2, int mask)
 }
 
 static int set_ip_source_policy(bool add, bool v6, unsigned int priority,
-		const union if_addr *addr, uint8_t mask, struct interface *iface,
+		const union if_addr *addr, uint8_t mask, unsigned int table,
 		struct interface *in_iface, const char *action)
 {
 	struct iprule rule = {
@@ -106,9 +109,9 @@ static int set_ip_source_policy(bool add, bool v6, unsigned int priority,
 		rule.src_mask = mask;
 	}
 
-	if (iface) {
+	if (table) {
 		rule.flags |= IPRULE_LOOKUP;
-		rule.lookup = (v6) ? iface->ip6table : iface->ip4table;
+		rule.lookup = table;
 
 		if (!rule.lookup)
 			return 0;
@@ -192,6 +195,72 @@ __find_ip_route_target(struct interface_ip_settings *ip, union if_addr *a,
 
 		if (!*res || route->mask < (*res)->mask)
 			*res = route;
+	}
+}
+
+static struct device_source_table*
+find_source_table(const struct device_route *route)
+{
+	struct device_source_table key = {
+		.v6 = (route->flags & DEVADDR_FAMILY) == DEVADDR_INET6,
+		.addr = route->source,
+		.mask = route->sourcemask
+	};
+	struct device_source_table *c;
+	list_for_each_entry(c, &source_tables, head)
+		if (!memcmp(&c->v6, &key.v6, sizeof(key) -
+				offsetof(struct device_source_table, v6)))
+			return c;
+	return NULL;
+}
+
+static uint32_t
+get_source_table(const struct device_route *route)
+{
+	if (route->table || route->sourcemask == 0)
+		return route->table;
+
+	struct device_source_table *tbl = find_source_table(route);
+
+	if (!tbl) {
+		tbl = calloc(1, sizeof(*tbl));
+		tbl->addr = route->source;
+		tbl->mask = route->sourcemask;
+		tbl->v6 = (route->flags & DEVADDR_FAMILY) == DEVADDR_INET6;
+		tbl->table = IPRULE_PRIORITY_SOURCE | (((~tbl->mask) & 0x7f) << 20);
+
+		struct list_head *before = NULL;
+		struct device_source_table *c;
+		list_for_each_entry(c, &source_tables, head) {
+			if (c->table > tbl->table) {
+				before = &c->head;
+				break;
+			} else if (c->table == tbl->table) {
+				++tbl->table;
+			}
+		}
+
+		if (!before)
+			before = &source_tables;
+
+		list_add_tail(&tbl->head, before);
+		set_ip_source_policy(true, tbl->v6, tbl->table, &tbl->addr,
+				tbl->mask, tbl->table, NULL, NULL);
+	}
+
+	++tbl->refcount;
+	return tbl->table;
+}
+
+static void
+put_source_table(const struct device_route *route)
+{
+	struct device_source_table *tbl = find_source_table(route);
+	if (tbl && tbl->table == route->table && --tbl->refcount == 0) {
+		set_ip_source_policy(false, tbl->v6, tbl->table, &tbl->addr,
+				tbl->mask, tbl->table, NULL, NULL);
+		list_del(&tbl->head);
+		free(tbl);
 	}
 }
 
@@ -329,7 +398,20 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	}
 
 	// Use source-based routing
-	if (is_proto_route) {
+	if ((cur = tb[ROUTE_SOURCE]) != NULL) {
+		char *saveptr, *source = alloca(blobmsg_data_len(cur));
+		memcpy(source, blobmsg_data(cur), blobmsg_data_len(cur));
+
+		const char *addr = strtok_r(source, "/", &saveptr);
+		const char *mask = strtok_r(NULL, "/", &saveptr);
+
+		if (inet_pton(af, addr, &route->source) < 1) {
+			DPRINTF("Failed to parse route source: %s\n", addr);
+			goto error;
+		}
+
+		route->sourcemask = atoi(mask);
+	} else if (is_proto_route) {
 		route->table = (v6) ? iface->ip6table : iface->ip4table;
 		route->flags |= DEVROUTE_SRCTABLE;
 	}
@@ -349,6 +431,11 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		int64_t valid_until = valid + (int64_t)system_get_rtime();
 		if (valid_until <= LONG_MAX && valid != 0xffffffffLL) // Catch overflow
 			route->valid_until = valid_until;
+	}
+
+	if (route->sourcemask) {
+		route->table = get_source_table(route);
+		route->flags |= DEVROUTE_SRCTABLE;
 	}
 
 	vlist_add(&ip->route, &route->node, route);
@@ -378,6 +465,13 @@ route_cmp(const void *k1, const void *k2, void *ptr)
 
 	if (r1->flags != r2->flags)
 		return r2->flags - r1->flags;
+
+	if (r1->sourcemask != r2->sourcemask)
+		return r1->sourcemask - r2->sourcemask;
+
+	int maskcmp = memcmp(&r1->source, &r2->source, sizeof(r1->source));
+	if (maskcmp)
+		return maskcmp;
 
 	return memcmp(&r1->addr, &r2->addr, sizeof(r1->addr));
 }
@@ -478,9 +572,10 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			//only the network-rule will cause packets to be routed through the
 			//first matching network (source IP matches both masks).
 			set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &a_old->addr,
-				(v6) ? 128 : 32, iface, NULL, NULL);
+				(v6) ? 128 : 32, (v6) ? iface->ip6table : iface->ip4table,
+						NULL, NULL);
 			set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
-				a_old->mask, iface, NULL, NULL);
+				a_old->mask, (v6) ? iface->ip6table : iface->ip4table, NULL, NULL);
 
 			system_del_address(dev, a_old);
 		}
@@ -497,9 +592,11 @@ interface_update_proto_addr(struct vlist_tree *tree,
 					v6 = true;
 
 				set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
-						(v6) ? 128 : 32, iface, NULL, NULL);
+					(v6) ? 128 : 32, (v6) ? iface->ip6table : iface->ip4table,
+							NULL, NULL);
 				set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
-						a_new->mask, iface, NULL, NULL);
+					a_new->mask, (v6) ? iface->ip6table : iface->ip4table,
+							NULL, NULL);
 			}
 
 			if ((a_new->flags & DEVADDR_OFFLINK) || iface->metric)
@@ -541,6 +638,8 @@ interface_update_proto_route(struct vlist_tree *tree,
 	if (node_old) {
 		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)
 			system_del_route(dev, route_old);
+
+		put_source_table(route_old);
 		free(route_old);
 	}
 
@@ -611,10 +710,10 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		system_add_address(l3_downlink, &addr);
 		if (prefix->iface) {
 			set_ip_source_policy(false, true, IPRULE_PRIORITY_NW, &addr.addr,
-							addr.mask, prefix->iface, iface, NULL);
+					addr.mask, prefix->iface->ip6table, iface, NULL);
 
 			set_ip_source_policy(false, true, IPRULE_PRIORITY_REJECT, &addr.addr,
-							addr.mask, NULL, iface, "unreachable");
+							addr.mask, 0, iface, "unreachable");
 		}
 
 		assignment->enabled = false;
@@ -622,10 +721,10 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		system_add_address(l3_downlink, &addr);
 		if (prefix->iface && !assignment->enabled) {
 			set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
-					addr.mask, NULL, iface, "unreachable");
+					addr.mask, 0, iface, "unreachable");
 
 			set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &addr.addr,
-					addr.mask, prefix->iface, iface, NULL);
+					addr.mask, prefix->iface->ip6table, iface, NULL);
 		}
 		if (uplink && uplink->l3_dev.dev) {
 			int mtu = system_update_ipv6_mtu(
@@ -1101,7 +1200,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		set_ip_lo_policy(enabled, false, ip->iface);
 
 		set_ip_source_policy(enabled, true, IPRULE_PRIORITY_REJECT + ip->iface->l3_dev.dev->ifindex,
-			NULL, 0, NULL, ip->iface, "failed_policy");
+			NULL, 0, 0, ip->iface, "failed_policy");
 	}
 }
 
