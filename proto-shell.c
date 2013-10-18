@@ -211,7 +211,7 @@ proto_shell_if_up_cb(struct interface_user *dep, struct interface *iface,
 {
 	struct proto_shell_dependency *pdep;
 
-	if (ev != IFEV_UP)
+	if (ev != IFEV_UP && ev != IFEV_UPDATE)
 		return;
 
 	pdep = container_of(dep, struct proto_shell_dependency, dep);
