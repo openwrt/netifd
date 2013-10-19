@@ -538,7 +538,7 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 
 void
 interface_init(struct interface *iface, const char *name,
-	       struct blob_attr *config, bool dynamic)
+	       struct blob_attr *config)
 {
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
@@ -610,10 +610,12 @@ interface_init(struct interface *iface, const char *name,
 	iface->proto_ip.no_delegation = !blobmsg_get_bool_default(tb[IFACE_ATTR_DELEGATE], true);
 
 	iface->config_autostart = iface->autostart;
-	iface->dynamic = dynamic;
+}
 
-	if (iface->dynamic)
-		iface->node.version = -1; // Don't delete on reload
+void interface_set_dynamic(struct interface *iface)
+{
+	iface->dynamic = true;
+	iface->node.version = -1; // Don't delete on reload
 }
 
 static bool __interface_add(struct interface *iface, struct blob_attr *config, bool alias)
