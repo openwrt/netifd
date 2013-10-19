@@ -746,6 +746,37 @@ interface_add_link(struct interface *iface, struct device *dev)
 }
 
 int
+interface_handle_link(struct interface *iface, const char *name, bool add)
+{
+	struct device *dev;
+	int ret;
+
+	device_lock();
+
+	dev = device_get(name, add ? 2 : 0);
+	if (!dev) {
+		ret = UBUS_STATUS_NOT_FOUND;
+		goto out;
+	}
+
+	if (add) {
+		device_set_present(dev, true);
+		if (iface->device_config)
+			device_set_config(dev, &simple_device_type, iface->config);
+
+		system_if_apply_settings(dev, &dev->settings);
+		ret = interface_add_link(iface, dev);
+	} else {
+		ret = interface_remove_link(iface, dev);
+	}
+
+out:
+	device_unlock();
+
+	return ret;
+}
+
+int
 interface_set_up(struct interface *iface)
 {
 	int ret;

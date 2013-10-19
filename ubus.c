@@ -762,9 +762,7 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 {
 	struct blob_attr *tb[__DEV_MAX];
 	struct interface *iface;
-	struct device *dev;
 	bool add = !strncmp(method, "add", 3);
-	int ret;
 
 	iface = container_of(obj, struct interface, ubus);
 
@@ -773,29 +771,7 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!tb[DEV_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	device_lock();
-
-	dev = device_get(blobmsg_data(tb[DEV_NAME]), add ? 2 : 0);
-	if (!dev) {
-		ret = UBUS_STATUS_NOT_FOUND;
-		goto out;
-	}
-
-	if (add) {
-		device_set_present(dev, true);
-		if (iface->device_config)
-			device_set_config(dev, &simple_device_type, iface->config);
-
-		system_if_apply_settings(dev, &dev->settings);
-		ret = interface_add_link(iface, dev);
-	} else {
-		ret = interface_remove_link(iface, dev);
-	}
-
-out:
-	device_unlock();
-
-	return ret;
+	return interface_handle_link(iface, blobmsg_data(tb[DEV_NAME]), add);
 }
 
 
