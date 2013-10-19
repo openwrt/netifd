@@ -111,9 +111,9 @@ interface_queue_event(struct interface *iface, enum interface_event ev)
 		last_ev = iface->hotplug_ev;
 
 	iface->hotplug_ev = ev;
-	if (last_ev == ev && !list_empty(&iface->hotplug_list))
+	if ((last_ev == ev && ev != IFEV_UPDATE) && !list_empty(&iface->hotplug_list))
 		list_del_init(&iface->hotplug_list);
-	else if (last_ev != ev && list_empty(&iface->hotplug_list))
+	else if ((last_ev != ev || ev == IFEV_UPDATE) && list_empty(&iface->hotplug_list))
 		list_add(&iface->hotplug_list, &pending);
 
 	if (!task.pending && !current)
