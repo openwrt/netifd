@@ -22,12 +22,14 @@
 #include "interface-ip.h"
 #include "iprule.h"
 #include "proto.h"
+#include "wireless.h"
 #include "config.h"
 
 bool config_init = false;
 
 static struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
+static struct uci_package *uci_wireless;
 static struct blob_buf b;
 
 static int
@@ -278,6 +280,85 @@ config_init_globals(void)
 	interface_ip_set_ula_prefix(ula_prefix);
 }
 
+static void
+config_parse_wireless_device(struct uci_section *s)
+{
+	struct wireless_driver *drv;
+	const char *driver_name;
+
+	driver_name = uci_lookup_option_string(uci_ctx, s, "type");
+	if (!driver_name)
+		return;
+
+	drv = avl_find_element(&wireless_drivers, driver_name, drv, node);
+	if (!drv)
+		return;
+
+	blob_buf_init(&b, 0);
+	uci_to_blob(&b, s, drv->device.config);
+	wireless_device_create(drv, s->e.name, b.head);
+}
+
+static void
+config_parse_wireless_interface(struct wireless_device *wdev, struct uci_section *s)
+{
+	blob_buf_init(&b, 0);
+	uci_to_blob(&b, s, wdev->drv->interface.config);
+	wireless_interface_create(wdev, b.head);
+}
+
+static void
+config_init_wireless(void)
+{
+	struct wireless_device *wdev;
+	struct uci_element *e;
+	const char *dev_name;
+
+	if (!uci_wireless) {
+		DPRINTF("No wireless configuration found\n");
+		return;
+	}
+
+	vlist_update(&wireless_devices);
+
+	uci_foreach_element(&uci_wireless->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+		if (strcmp(s->type, "wifi-device") != 0)
+			continue;
+
+		config_parse_wireless_device(s);
+	}
+
+	vlist_flush(&wireless_devices);
+
+	vlist_for_each_element(&wireless_devices, wdev, node) {
+		wdev->vif_idx = 0;
+		vlist_update(&wdev->interfaces);
+	}
+
+	uci_foreach_element(&uci_wireless->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+
+		if (strcmp(s->type, "wifi-iface") != 0)
+			continue;
+
+		dev_name = uci_lookup_option_string(uci_ctx, s, "device");
+		if (!dev_name)
+			continue;
+
+		wdev = vlist_find(&wireless_devices, dev_name, wdev, node);
+		if (!wdev) {
+			DPRINTF("device %s not found!\n", dev_name);
+			continue;
+		}
+
+		config_parse_wireless_interface(wdev, s);
+	}
+
+	vlist_for_each_element(&wireless_devices, wdev, node)
+		vlist_flush(&wdev->interfaces);
+}
+
 void
 config_init_all(void)
 {
@@ -286,6 +367,8 @@ config_init_all(void)
 		fprintf(stderr, "Failed to load network config\n");
 		return;
 	}
+
+	uci_wireless = config_init_package("wireless");
 
 	vlist_update(&interfaces);
 	config_init = true;
@@ -297,6 +380,7 @@ config_init_all(void)
 	config_init_routes();
 	config_init_rules();
 	config_init_globals();
+	config_init_wireless();
 
 	config_init = false;
 	device_unlock();
@@ -307,4 +391,5 @@ config_init_all(void)
 	device_free_unused(NULL);
 	interface_refresh_assignments(false);
 	interface_start_pending();
+	wireless_start_pending();
 }

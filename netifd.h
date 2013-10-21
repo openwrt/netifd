@@ -54,6 +54,7 @@ enum {
 	DEBUG_SYSTEM	= 0,
 	DEBUG_DEVICE	= 1,
 	DEBUG_INTERFACE	= 2,
+	DEBUG_WIRELESS	= 3,
 };
 
 #ifdef DEBUG

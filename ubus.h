@@ -14,6 +14,8 @@
 #ifndef __NETIFD_UBUS_H
 #define __NETIFD_UBUS_H
 
+extern struct ubus_context *ubus_ctx;
+
 int netifd_ubus_init(const char *path);
 void netifd_ubus_done(void);
 void netifd_ubus_add_interface(struct interface *iface);

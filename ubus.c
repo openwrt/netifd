@@ -22,8 +22,9 @@
 #include "proto.h"
 #include "ubus.h"
 #include "system.h"
+#include "wireless.h"
 
-static struct ubus_context *ctx = NULL;
+struct ubus_context *ubus_ctx = NULL;
 static struct blob_buf b;
 static const char *ubus_path;
 
@@ -319,8 +320,8 @@ static struct ubus_object dev_object = {
 static void
 netifd_ubus_add_fd(void)
 {
-	ubus_add_uloop(ctx);
-	system_fd_set_cloexec(ctx->sock.fd);
+	ubus_add_uloop(ubus_ctx);
+	system_fd_set_cloexec(ubus_ctx->sock.fd);
 }
 
 static void
@@ -331,13 +332,13 @@ netifd_ubus_reconnect_timer(struct uloop_timeout *timeout)
 	};
 	int t = 2;
 
-	if (ubus_reconnect(ctx, ubus_path) != 0) {
+	if (ubus_reconnect(ubus_ctx, ubus_path) != 0) {
 		DPRINTF("failed to reconnect, trying again in %d seconds\n", t);
 		uloop_timeout_set(&retry, t * 1000);
 		return;
 	}
 
-	DPRINTF("reconnected to ubus, new id: %08x\n", ctx->local_id);
+	DPRINTF("reconnected to ubus, new id: %08x\n", ubus_ctx->local_id);
 	netifd_ubus_add_fd();
 }
 
@@ -885,7 +886,7 @@ static struct ubus_object iface_object = {
 
 static void netifd_add_object(struct ubus_object *obj)
 {
-	int ret = ubus_add_object(ctx, obj);
+	int ret = ubus_add_object(ubus_ctx, obj);
 
 	if (ret != 0)
 		fprintf(stderr, "Failed to publish object '%s': %s\n", obj->name, ubus_strerror(ret));
@@ -946,22 +947,138 @@ static void netifd_add_iface_object(void)
 	netifd_add_object(&iface_object);
 }
 
+static struct wireless_device *
+get_wdev(struct blob_attr *msg, int *ret)
+{
+	struct blobmsg_policy wdev_policy = {
+		.name = "device",
+		.type = BLOBMSG_TYPE_STRING,
+	};
+	struct blob_attr *dev_attr;
+	struct wireless_device *wdev = NULL;
+
+
+	blobmsg_parse(&wdev_policy, 1, &dev_attr, blob_data(msg), blob_len(msg));
+	if (!dev_attr) {
+		*ret = UBUS_STATUS_INVALID_ARGUMENT;
+		return NULL;
+	}
+
+	wdev = vlist_find(&wireless_devices, blobmsg_data(dev_attr), wdev, node);
+	if (!wdev) {
+		*ret = UBUS_STATUS_NOT_FOUND;
+		return NULL;
+	}
+
+	*ret = 0;
+	return wdev;
+}
+
+static int
+netifd_handle_wdev_up(struct ubus_context *ctx, struct ubus_object *obj,
+		      struct ubus_request_data *req, const char *method,
+		      struct blob_attr *msg)
+{
+	struct wireless_device *wdev;
+	int ret;
+
+	wdev = get_wdev(msg, &ret);
+	if (!wdev)
+		return ret;
+
+	wireless_device_set_up(wdev);
+	return 0;
+}
+
+static int
+netifd_handle_wdev_down(struct ubus_context *ctx, struct ubus_object *obj,
+			struct ubus_request_data *req, const char *method,
+			struct blob_attr *msg)
+{
+	struct wireless_device *wdev;
+	int ret;
+
+	wdev = get_wdev(msg, &ret);
+	if (!wdev)
+		return ret;
+
+	wireless_device_set_down(wdev);
+	return 0;
+}
+
+static int
+netifd_handle_wdev_status(struct ubus_context *ctx, struct ubus_object *obj,
+			  struct ubus_request_data *req, const char *method,
+			  struct blob_attr *msg)
+{
+	struct wireless_device *wdev;
+	int ret;
+
+	wdev = get_wdev(msg, &ret);
+	if (ret == UBUS_STATUS_NOT_FOUND)
+		return ret;
+
+	blob_buf_init(&b, 0);
+	if (wdev) {
+		wireless_device_status(wdev, &b);
+	} else {
+		vlist_for_each_element(&wireless_devices, wdev, node)
+			wireless_device_status(wdev, &b);
+	}
+	ubus_send_reply(ctx, req, b.head);
+	return 0;
+}
+
+static int
+netifd_handle_wdev_notify(struct ubus_context *ctx, struct ubus_object *obj,
+			  struct ubus_request_data *req, const char *method,
+			  struct blob_attr *msg)
+{
+	struct wireless_device *wdev;
+	int ret;
+
+	wdev = get_wdev(msg, &ret);
+	if (!wdev)
+		return ret;
+
+	return wireless_device_notify(wdev, msg, req);
+}
+
+static struct ubus_method wireless_object_methods[] = {
+	{ .name = "up", .handler = netifd_handle_wdev_up },
+	{ .name = "down", .handler = netifd_handle_wdev_down },
+	{ .name = "status", .handler = netifd_handle_wdev_status },
+	{ .name = "notify", .handler = netifd_handle_wdev_notify },
+};
+
+static struct ubus_object_type wireless_object_type =
+	UBUS_OBJECT_TYPE("netifd_iface", wireless_object_methods);
+
+
+static struct ubus_object wireless_object = {
+	.name = "network.wireless",
+	.type = &wireless_object_type,
+	.methods = wireless_object_methods,
+	.n_methods = ARRAY_SIZE(wireless_object_methods),
+};
+
 int
 netifd_ubus_init(const char *path)
 {
 	uloop_init();
 	ubus_path = path;
 
-	ctx = ubus_connect(path);
-	if (!ctx)
+	ubus_ctx = ubus_connect(path);
+	if (!ubus_ctx)
 		return -EIO;
 
-	DPRINTF("connected as %08x\n", ctx->local_id);
-	ctx->connection_lost = netifd_ubus_connection_lost;
+	DPRINTF("connected as %08x\n", ubus_ctx->local_id);
+	ubus_ctx->connection_lost = netifd_ubus_connection_lost;
 	netifd_ubus_add_fd();
 
 	netifd_add_object(&main_object);
 	netifd_add_object(&dev_object);
+	netifd_add_object(&wireless_object);
 	netifd_add_iface_object();
 
 	return 0;
@@ -970,7 +1087,7 @@ netifd_ubus_init(const char *path)
 void
 netifd_ubus_done(void)
 {
-	ubus_free(ctx);
+	ubus_free(ubus_ctx);
 }
 
 void
@@ -979,7 +1096,7 @@ netifd_ubus_interface_event(struct interface *iface, bool up)
 	blob_buf_init(&b, 0);
 	blobmsg_add_string(&b, "action", up ? "ifup" : "ifdown");
 	blobmsg_add_string(&b, "interface", iface->name);
-	ubus_send_event(ctx, "network.interface", b.head);
+	ubus_send_event(ubus_ctx, "network.interface", b.head);
 }
 
 void
@@ -989,8 +1106,8 @@ netifd_ubus_interface_notify(struct interface *iface, bool up)
 	blob_buf_init(&b, 0);
 	blobmsg_add_string(&b, "interface", iface->name);
 	netifd_dump_status(iface);
-	ubus_notify(ctx, &iface_object, event, b.head, -1);
-	ubus_notify(ctx, &iface->ubus, event, b.head, -1);
+	ubus_notify(ubus_ctx, &iface_object, event, b.head, -1);
+	ubus_notify(ubus_ctx, &iface->ubus, event, b.head, -1);
 }
 
 void
@@ -1006,7 +1123,7 @@ netifd_ubus_add_interface(struct interface *iface)
 	obj->type = &iface_object_type;
 	obj->methods = iface_object_methods;
 	obj->n_methods = ARRAY_SIZE(iface_object_methods);
-	if (ubus_add_object(ctx, &iface->ubus)) {
+	if (ubus_add_object(ubus_ctx, &iface->ubus)) {
 		DPRINTF("failed to publish ubus object for interface '%s'\n", iface->name);
 		free(name);
 		obj->name = NULL;
@@ -1019,6 +1136,6 @@ netifd_ubus_remove_interface(struct interface *iface)
 	if (!iface->ubus.name)
 		return;
 
-	ubus_remove_object(ctx, &iface->ubus);
+	ubus_remove_object(ubus_ctx, &iface->ubus);
 	free((void *) iface->ubus.name);
 }
