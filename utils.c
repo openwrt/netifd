@@ -18,6 +18,10 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#ifdef __APPLE__
+#include <libproc.h>
+#endif
+
 void
 __vlist_simple_init(struct vlist_simple_tree *tree, int offset)
 {
@@ -167,4 +171,27 @@ crc32_file(FILE *fp)
 	} while (len == sizeof(buf));
 
 	return c ^ 0xFFFFFFFF;
+}
+
+bool check_pid_path(int pid, const char *exe)
+{
+	int proc_exe_len;
+	int exe_len = strlen(exe);
+
+#ifdef __APPLE__
+	char proc_exe_buf[PROC_PIDPATHINFO_SIZE];
+
+	proc_exe_len = proc_pidpath(pid, proc_exe_buf, sizeof(proc_exe_buf));
+#else
+	char proc_exe[32];
+	char *proc_exe_buf = alloca(exe_len);
+
+	sprintf(proc_exe, "/proc/%d/exe", pid);
+	proc_exe_len = readlink(proc_exe, proc_exe_buf, exe_len);
+#endif
+
+	if (proc_exe_len != exe_len)
+		return false;
+
+	return !memcmp(exe, proc_exe_buf, exe_len);
 }

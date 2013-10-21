@@ -14,6 +14,7 @@
 #ifndef __NETIFD_UTILS_H
 #define __NETIFD_UTILS_H
 
+#include <unistd.h>
 #include <stdio.h>
 #include <libubox/list.h>
 #include <libubox/avl.h>
@@ -107,6 +108,7 @@ static inline int fls(int x)
 unsigned int parse_netmask_string(const char *str, bool v6);
 bool split_netmask(char *str, unsigned int *netmask, bool v6);
 int parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask);
+bool check_pid_path(int pid, const char *exe);
 
 char * format_macaddr(uint8_t *mac);
 

@@ -16,7 +16,6 @@
 #include <glob.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "netifd.h"
 #include "system.h"

@@ -41,7 +41,6 @@
 #define RTN_FAILED_POLICY 12
 #endif
 
-#include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <glob.h>
