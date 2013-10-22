@@ -14,24 +14,28 @@ add_default_handler() {
 }
 
 _config_add_generic() {
-	json_add_array ""
-	json_add_string "" "$1"
-	json_add_int "" "$2"
-	json_close_array
+	local type="$1"; shift
+
+	for name in "$@"; do
+		json_add_array ""
+		json_add_string "" "$name"
+		json_add_int "" "$type"
+		json_close_array
+	done
 }
 
 config_add_int() {
-	_config_add_generic "$1" 5
+	_config_add_generic 5 "$@"
 }
 
 config_add_array() {
-	_config_add_generic "$1" 1
+	_config_add_generic 1 "$@"
 }
 
 config_add_string() {
-	_config_add_generic "$1" 3
+	_config_add_generic 3 "$@"
 }
 
 config_add_boolean() {
-	_config_add_generic "$1" 7
+	_config_add_generic 7 "$@"
 }
