@@ -41,22 +41,22 @@ enum proto_shell_sm {
 struct proto_shell_handler {
 	struct list_head list;
 	struct proto_handler proto;
-	struct uci_blob_param_list config;
 	char *config_buf;
+	char *script_name;
 	bool init_available;
-	char script_name[];
+
+	struct uci_blob_param_list config;
 };
 
 struct proto_shell_dependency {
 	struct list_head list;
 
+	char *interface;
 	struct proto_shell_state *proto;
 	struct interface_user dep;
 
 	union if_addr host;
 	bool v6;
-
-	char interface[];
 };
 
 struct proto_shell_state {
@@ -618,13 +618,14 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 {
 	struct proto_shell_dependency *dep;
 	struct blob_attr *host = tb[NOTIFY_HOST];
-	struct blob_attr *ifname = tb[NOTIFY_IFNAME];
-	size_t ifnamelen = (ifname) ? blobmsg_data_len(ifname) : 1;
+	struct blob_attr *ifname_a = tb[NOTIFY_IFNAME];
+	const char *ifname_str = ifname_a ? blobmsg_data(ifname_a) : "";
+	char *ifname;
 
 	if (!host)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	dep = calloc(1, sizeof(*dep) + ifnamelen);
+	dep = calloc_a(sizeof(*dep), &ifname, strlen(ifname_str) + 1);
 	if (inet_pton(AF_INET, blobmsg_data(host), &dep->host) < 1) {
 		if (inet_pton(AF_INET6, blobmsg_data(host), &dep->host) < 1) {
 			free(dep);
@@ -635,10 +636,7 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 	}
 
 	dep->proto = state;
-	if (ifname)
-		memcpy(dep->interface, blobmsg_data(ifname), ifnamelen);
-	else
-		dep->interface[0] = 0;
+	dep->interface = strcpy(ifname, ifname_str);
 
 	dep->dep.cb = proto_shell_if_up_cb;
 	interface_add_user(&dep->dep, NULL);
@@ -739,18 +737,18 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	struct proto_shell_handler *handler;
 	struct proto_handler *proto;
 	json_object *config, *tmp;
-	char *str;
+	char *proto_name, *script_name;
 
-	handler = calloc_a(sizeof(*handler) + strlen(script) + 1,
-			   &str, strlen(name) + 1);
+	handler = calloc_a(sizeof(*handler),
+			   &proto_name, strlen(name) + 1,
+			   &script_name, strlen(script) + 1);
 	if (!handler)
 		return;
 
-	strcpy(handler->script_name, script);
-	strcpy(str, name);
+	handler->script_name = strcpy(script_name, script);
 
 	proto = &handler->proto;
-	proto->name = str;
+	proto->name = strcpy(proto_name, name);
 	proto->config_params = &handler->config;
 	proto->attach = proto_shell_attach;
 
