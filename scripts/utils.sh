@@ -13,6 +13,12 @@ add_default_handler() {
 	esac
 }
 
+set_default() {
+	local __s_var="$1"
+	local __s_val="$2"
+	eval "export -- \"$__s_var=\${$__s_var:-\$__s_val}\""
+}
+
 _config_add_generic() {
 	local type="$1"; shift
 
