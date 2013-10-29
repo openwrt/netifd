@@ -178,7 +178,7 @@ bridge_remove_member(struct bridge_member *bm)
 	if (!bm->present)
 		return;
 
-	if (bm == bst->primary_port);
+	if (bm == bst->primary_port)
 		bridge_reset_primary(bst);
 
 	if (bst->dev.active)
