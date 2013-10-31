@@ -4,15 +4,15 @@ NETIFD_MAIN_DIR="${NETIFD_MAIN_DIR:-/lib/netifd}"
 . $NETIFD_MAIN_DIR/utils.sh
 
 proto_config_add_int() {
-	_config_add_generic "$1" 5
+	config_add_int "$@"
 }
 
 proto_config_add_string() {
-	_config_add_generic "$1" 3
+	config_add_string "$@"
 }
 
 proto_config_add_boolean() {
-	_config_add_generic "$1" 7
+	config_add_boolean "$@"
 }
 
 _proto_do_teardown() {
