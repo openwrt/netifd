@@ -59,7 +59,7 @@ struct device_type {
 enum {
 	DEV_OPT_MTU		= (1 << 0),
 	DEV_OPT_MACADDR		= (1 << 1),
-	DEV_OPT_TXQUEUELEN	= (1 << 2)
+	DEV_OPT_TXQUEUELEN	= (1 << 2),
 };
 
 /* events broadcasted to all users of a device */

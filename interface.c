@@ -918,7 +918,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 #undef UPDATE
 
 	if (reload) {
-		D(INTERFACE, "Reload interface '%s because of config changes\n",
+		D(INTERFACE, "Reload interface '%s' because of config changes\n",
 		  if_old->name);
 		interface_clear_errors(if_old);
 		set_config_state(if_old, IFC_RELOAD);

@@ -31,12 +31,12 @@
 static struct avl_tree devices;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
-	[DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
-	[DEV_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_ARRAY },
-	[DEV_ATTR_MTU] = { "mtu", BLOBMSG_TYPE_INT32 },
-	[DEV_ATTR_MACADDR] = { "macaddr", BLOBMSG_TYPE_STRING },
-	[DEV_ATTR_TXQUEUELEN] = { "txqueuelen", BLOBMSG_TYPE_INT32 },
-	[DEV_ATTR_ENABLED] = { "enabled", BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_MACADDR] = { .name = "macaddr", .type = BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_TXQUEUELEN] = { .name = "txqueuelen", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_ENABLED] = { .name = "enabled", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
