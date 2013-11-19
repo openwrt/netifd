@@ -1435,8 +1435,11 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	str = blobmsg_data(cur);
 
 	unsigned int ttl = 0;
-	if ((cur = tb[TUNNEL_ATTR_TTL]) && (ttl = blobmsg_get_u32(cur)) > 255)
-		return -EINVAL;
+	if ((cur = tb[TUNNEL_ATTR_TTL])) {
+		ttl = blobmsg_get_u32(cur);
+		if (ttl > 255)
+			return -EINVAL;
+	}
 
 	unsigned int link = 0;
 	if ((cur = tb[TUNNEL_ATTR_LINK])) {

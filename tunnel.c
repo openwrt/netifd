@@ -40,6 +40,27 @@ tunnel_set_state(struct device *dev, bool up)
 	return ret;
 }
 
+static enum dev_change_type
+tunnel_reload(struct device *dev, struct blob_attr *attr)
+{
+	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
+	const struct uci_blob_param_list *cfg = dev->type->config_params;
+
+	if (uci_blob_check_equal(dev->config, attr, cfg))
+		return DEV_CONFIG_NO_CHANGE;
+
+	if (attr) {
+		memset(tb_dev, 0, sizeof(tb_dev));
+
+		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
+			blob_data(attr), blob_len(attr));
+	}
+
+	device_init_settings(dev, tb_dev);
+
+	return DEV_CONFIG_RESTART;
+}
+
 static struct device *
 tunnel_create(const char *name, struct blob_attr *attr)
 {
@@ -51,6 +72,7 @@ tunnel_create(const char *name, struct blob_attr *attr)
 	device_init(dev, &tunnel_device_type, name);
 	tun->set_state = dev->set_state;
 	dev->set_state = tunnel_set_state;
+	device_set_config(dev, &tunnel_device_type, attr);
 	device_set_present(dev, true);
 
 	return dev;
@@ -67,7 +89,7 @@ tunnel_free(struct device *dev)
 const struct device_type tunnel_device_type = {
 	.name = "IP tunnel",
 	.config_params = &tunnel_attr_list,
-
+	.reload = tunnel_reload,
 	.create = tunnel_create,
 	.free = tunnel_free,
 };
