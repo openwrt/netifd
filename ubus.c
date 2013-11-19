@@ -463,6 +463,9 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 		if (route->enabled != enabled)
 			continue;
 
+		if ((ip->no_defaultroute == enabled) && !route->mask)
+			continue;
+
 		if ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET4)
 			af = AF_INET;
 		else
