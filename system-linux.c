@@ -58,7 +58,6 @@
 struct event_socket {
 	struct uloop_fd uloop;
 	struct nl_sock *sock;
-	struct nl_cb *cb;
 };
 
 static int sock_ioctl = -1;
@@ -73,7 +72,7 @@ static void
 handler_nl_event(struct uloop_fd *u, unsigned int events)
 {
 	struct event_socket *ev = container_of(u, struct event_socket, uloop);
-	nl_recvmsgs(ev->sock, ev->cb);
+	nl_recvmsgs_default(ev->sock);
 }
 
 static struct nl_sock *
@@ -104,7 +103,9 @@ create_raw_event_socket(struct event_socket *ev, int protocol, int groups,
 
 	ev->uloop.fd = nl_socket_get_fd(ev->sock);
 	ev->uloop.cb = cb;
-	uloop_fd_add(&ev->uloop, ULOOP_READ | ULOOP_EDGE_TRIGGER);
+	if (uloop_fd_add(&ev->uloop, ULOOP_READ))
+		return false;
+
 	return true;
 }
 
@@ -112,14 +113,20 @@ static bool
 create_event_socket(struct event_socket *ev, int protocol,
 		    int (*cb)(struct nl_msg *msg, void *arg))
 {
-	// Prepare socket for link events
-	ev->cb = nl_cb_alloc(NL_CB_DEFAULT);
-	if (!ev->cb)
+	if (!create_raw_event_socket(ev, protocol, 0, handler_nl_event))
 		return false;
 
-	nl_cb_set(ev->cb, NL_CB_VALID, NL_CB_CUSTOM, cb, NULL);
+	// Install the valid custom callback handler
+	nl_socket_modify_cb(ev->sock, NL_CB_VALID, NL_CB_CUSTOM, cb, NULL);
 
-	return create_raw_event_socket(ev, protocol, 0, handler_nl_event);
+	// Disable sequence number checking on event sockets
+	nl_socket_disable_seq_check(ev->sock);
+
+	// Increase rx buffer size to 65K on event sockets
+	if (nl_socket_set_buffer_size(ev->sock, 65535, 0))
+		return false;
+
+	return true;
 }
 
 int system_init(void)
@@ -128,7 +135,7 @@ int system_init(void)
 	static struct event_socket hotplug_event;
 
 	sock_ioctl = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	fcntl(sock_ioctl, F_SETFD, fcntl(sock_ioctl, F_GETFD) | FD_CLOEXEC);
+	system_fd_set_cloexec(sock_ioctl);
 
 	// Prepare socket for routing / address control
 	sock_rtnl = create_socket(NETLINK_ROUTE, 0);
@@ -171,6 +178,10 @@ static void system_set_disable_ipv6(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname, val);
 }
 
+#ifndef IFF_LOWER_UP
+#define IFF_LOWER_UP	0x10000
+#endif
+
 // Evaluate netlink messages
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
@@ -178,19 +189,19 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct nlattr *nla[__IFLA_MAX];
 
-	if (nh->nlmsg_type != RTM_DELLINK && nh->nlmsg_type != RTM_NEWLINK)
+	if (nh->nlmsg_type != RTM_NEWLINK)
 		goto out;
 
 	nlmsg_parse(nh, sizeof(*ifi), nla, __IFLA_MAX - 1, NULL);
 	if (!nla[IFLA_IFNAME])
 		goto out;
 
-	struct device *dev = device_get(RTA_DATA(nla[IFLA_IFNAME]), false);
+	struct device *dev = device_get(nla_data(nla[IFLA_IFNAME]), false);
 	if (!dev)
 		goto out;
 
-	dev->ifindex = ifi->ifi_index;
-	/* TODO: parse link status */
+	device_set_ifindex(dev, ifi->ifi_index);
+	device_set_link(dev, ifi->ifi_flags & IFF_LOWER_UP ? true : false);
 
 out:
 	return 0;
@@ -537,7 +548,7 @@ void system_if_clear_state(struct device *dev)
 	if (dev->external)
 		return;
 
-	dev->ifindex = system_if_resolve(dev);
+	device_set_ifindex(dev, system_if_resolve(dev));
 	if (!dev->ifindex)
 		return;
 
@@ -781,7 +792,7 @@ int system_if_up(struct device *dev)
 {
 	system_if_get_settings(dev, &dev->orig_settings);
 	system_if_apply_settings(dev, &dev->settings);
-	dev->ifindex = system_if_resolve(dev);
+	device_set_ifindex(dev, system_if_resolve(dev));
 	return system_if_flags(dev->ifname, IFF_UP, 0);
 }
 
@@ -793,10 +804,78 @@ int system_if_down(struct device *dev)
 	return ret;
 }
 
+struct if_check_data {
+	struct device *dev;
+	int pending;
+	int ret;
+};
+
+static int cb_if_check_valid(struct nl_msg *msg, void *arg)
+{
+	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
+	struct if_check_data *chk = (struct if_check_data *)arg;
+
+	if (nh->nlmsg_type != RTM_NEWLINK)
+		return NL_SKIP;
+
+	device_set_present(chk->dev, ifi->ifi_index > 0 ? true : false);
+	device_set_link(chk->dev, ifi->ifi_flags & IFF_LOWER_UP ? true : false);
+
+	return NL_OK;
+}
+
+static int cb_if_check_ack(struct nl_msg *msg, void *arg)
+{
+	struct if_check_data *chk = (struct if_check_data *)arg;
+	chk->pending = 0;
+	return NL_STOP;
+}
+
+static int cb_if_check_error(struct sockaddr_nl *nla, struct nlmsgerr *err, void *arg)
+{
+	struct if_check_data *chk = (struct if_check_data *)arg;
+
+	device_set_present(chk->dev, false);
+	device_set_link(chk->dev, false);
+	chk->pending = err->error;
+
+	return NL_STOP;
+}
+
 int system_if_check(struct device *dev)
 {
-	device_set_present(dev, (system_if_resolve(dev) > 0));
-	return 0;
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct nl_msg *msg;
+	struct ifinfomsg ifi = {
+		.ifi_family = AF_UNSPEC,
+		.ifi_index = 0,
+	};
+	struct if_check_data chk = {
+		.dev = dev,
+		.pending = 1,
+	};
+	int ret = 1;
+
+	msg = nlmsg_alloc_simple(RTM_GETLINK, 0);
+	if (!msg || nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
+	    nla_put_string(msg, IFLA_IFNAME, dev->ifname))
+		goto out;
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_if_check_valid, &chk);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_if_check_ack, &chk);
+	nl_cb_err(cb, NL_CB_CUSTOM, cb_if_check_error, &chk);
+
+	nl_send_auto_complete(sock_rtnl, msg);
+	while (chk.pending > 0)
+		nl_recvmsgs(sock_rtnl, cb);
+
+	nlmsg_free(msg);
+	ret = chk.pending;
+
+out:
+	nl_cb_put(cb);
+	return ret;
 }
 
 struct device *
@@ -914,13 +993,9 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	char buf[64], *s;
 	void *c;
 	int dir_fd;
-	uint64_t val = 0;
 
 	snprintf(buf, sizeof(buf), "/sys/class/net/%s", dev->ifname);
 	dir_fd = open(buf, O_DIRECTORY);
-
-	if (read_uint64_file(dir_fd, "carrier", &val))
-		blobmsg_add_u8(b, "link", !!val);
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	memset(&ifr, 0, sizeof(ifr));

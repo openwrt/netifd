@@ -207,7 +207,7 @@ int device_claim(struct device_user *dep)
 		return 0;
 
 	dep->claimed = true;
-	D(DEVICE, "Claim %s %s, new refcount: %d\n", dev->type->name, dev->ifname, dev->active + 1);
+	D(DEVICE, "Claim %s %s, new active count: %d\n", dev->type->name, dev->ifname, dev->active + 1);
 	if (++dev->active != 1)
 		return 0;
 
@@ -233,7 +233,7 @@ void device_release(struct device_user *dep)
 
 	dep->claimed = false;
 	dev->active--;
-	D(DEVICE, "Release %s %s, new refcount: %d\n", dev->type->name, dev->ifname, dev->active);
+	D(DEVICE, "Release %s %s, new active count: %d\n", dev->type->name, dev->ifname, dev->active);
 	assert(dev->active >= 0);
 
 	if (dev->active)
@@ -390,6 +390,26 @@ void device_set_present(struct device *dev, bool state)
 	device_refresh_present(dev);
 }
 
+void device_set_link(struct device *dev, bool state)
+{
+	if (dev->link_active == state)
+		return;
+
+	netifd_log_message(L_NOTICE, "%s '%s' link is %s\n", dev->type->name, dev->ifname, state ? "up" : "down" );
+
+	dev->link_active = state;
+	device_broadcast_event(dev, state ? DEV_EVENT_LINK_UP : DEV_EVENT_LINK_DOWN);
+}
+
+void device_set_ifindex(struct device *dev, int ifindex)
+{
+	if (dev->ifindex == ifindex)
+		return;
+
+	dev->ifindex = ifindex;
+	device_broadcast_event(dev, DEV_EVENT_UPDATE_IFINDEX);
+}
+
 static int device_refcount(struct device *dev)
 {
 	struct list_head *list;
@@ -431,6 +451,9 @@ void device_add_user(struct device_user *dep, struct device *dev)
 		dep->cb(dep, DEV_EVENT_ADD);
 		if (dev->active)
 			dep->cb(dep, DEV_EVENT_UP);
+
+		if (dev->link_active)
+			dep->cb(dep, DEV_EVENT_LINK_UP);
 	}
 }
 
@@ -663,6 +686,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 		return;
 
 	blobmsg_add_u8(b, "up", !!dev->active);
+	blobmsg_add_u8(b, "carrier", !!dev->link_active);
+
 	if (dev->type->dump_info)
 		dev->type->dump_info(dev, b);
 	else
