@@ -659,6 +659,10 @@ netifd_dump_status(struct interface *iface)
 		blobmsg_add_string(&b, "device", dev->ifname);
 
 	if (iface->state == IFS_UP) {
+		if (iface->ip4table)
+			blobmsg_add_u32(&b, "ip4table", iface->ip4table);
+		if (iface->ip6table)
+			blobmsg_add_u32(&b, "ip6table", iface->ip6table);		  
 		blobmsg_add_u32(&b, "metric", iface->metric);
 		blobmsg_add_u8(&b, "delegation", !iface->proto_ip.no_delegation);
 		a = blobmsg_open_array(&b, "ipv4-address");
