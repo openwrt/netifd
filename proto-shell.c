@@ -158,6 +158,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		action = "setup";
 		state->last_error = -1;
 		proto_shell_clear_host_dep(state);
+		state->sm = S_SETUP;
 	} else {
 		if (state->sm == S_TEARDOWN)
 			return 0;
