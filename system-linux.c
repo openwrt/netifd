@@ -1418,11 +1418,11 @@ out:
 	return ret;
 }
 
-
 int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__TUNNEL_ATTR_MAX];
 	struct blob_attr *cur;
+	bool set_df = true;
 	const char *str;
 
 	system_del_ip_tunnel(name);
@@ -1434,10 +1434,13 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 		return -EINVAL;
 	str = blobmsg_data(cur);
 
+	if ((cur = tb[TUNNEL_ATTR_DF]))
+		set_df = blobmsg_get_bool(cur);
+
 	unsigned int ttl = 0;
 	if ((cur = tb[TUNNEL_ATTR_TTL])) {
 		ttl = blobmsg_get_u32(cur);
-		if (ttl > 255)
+		if (ttl > 255 || (!set_df && ttl))
 			return -EINVAL;
 	}
 
@@ -1451,14 +1454,13 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 			link = iface->l3_dev.dev->ifindex;
 	}
 
-
 	if (!strcmp(str, "sit")) {
 		struct ip_tunnel_parm p = {
 			.link = link,
 			.iph = {
 				.version = 4,
 				.ihl = 5,
-				.frag_off = htons(IP_DF),
+				.frag_off = set_df ? htons(IP_DF) : 0,
 				.protocol = IPPROTO_IPV6,
 				.ttl = ttl
 			}
