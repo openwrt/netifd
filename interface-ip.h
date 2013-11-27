@@ -85,6 +85,7 @@ struct device_addr {
 	/* ipv6 only */
 	time_t valid_until;
 	time_t preferred_until;
+	char *pclass;
 
 	/* must be last */
 	enum device_addr_flags flags;

@@ -69,6 +69,7 @@ enum {
 	ADDR_PREFERRED,
 	ADDR_VALID,
 	ADDR_OFFLINK,
+	ADDR_CLASS,
 	__ADDR_MAX
 };
 
@@ -80,6 +81,7 @@ static const struct blobmsg_policy proto_ip_addr[__ADDR_MAX] = {
 	[ADDR_PREFERRED] = { .name = "preferred", .type = BLOBMSG_TYPE_INT32 },
 	[ADDR_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
 	[ADDR_OFFLINK] = { .name = "offlink", .type = BLOBMSG_TYPE_BOOL },
+	[ADDR_CLASS] = { .name = "class", .type = BLOBMSG_TYPE_STRING },
 };
 
 static struct device_addr *
@@ -208,6 +210,9 @@ parse_address_item(struct blob_attr *attr, bool v6, bool ext)
 			else if (addr->preferred_until > addr->valid_until)
 				goto error;
 		}
+
+		if ((cur = tb[ADDR_CLASS]))
+			addr->pclass = strdup(blobmsg_get_string(cur));
 	}
 
 	return addr;

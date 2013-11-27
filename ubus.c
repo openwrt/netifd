@@ -441,6 +441,9 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6,
 		if (addr->valid_until)
 			blobmsg_add_u32(&b, "valid", addr->valid_until - now);
 
+		if (addr->pclass)
+			blobmsg_add_string(&b, "class", addr->pclass);
+
 		blobmsg_close_table(&b, a);
 	}
 }

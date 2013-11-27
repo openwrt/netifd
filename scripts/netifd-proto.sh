@@ -106,8 +106,9 @@ proto_add_ipv6_address() {
 	local preferred="$3"
 	local valid="$4"
 	local offlink="$5"
+	local class="$6"
 
-	append PROTO_IP6ADDR "$address/$mask/$preferred/$valid/$offlink"
+	append PROTO_IP6ADDR "$address/$mask/$preferred/$valid/$offlink/$class"
 }
 
 proto_add_ipv4_route() {
@@ -175,6 +176,8 @@ _proto_push_ipv6_addr() {
 	valid="${str%%/*}"
 	str="${str#*/}"
 	offlink="${str%%/*}"
+	str="${str#*/}"
+	class="${str%%/*}"
 
 	json_add_object ""
 	json_add_string ipaddr "$address"
@@ -182,6 +185,7 @@ _proto_push_ipv6_addr() {
 	[ -n "$preferred" ] && json_add_int preferred "$preferred"
 	[ -n "$valid" ] && json_add_int valid "$valid"
 	[ -n "$offlink" ] && json_add_boolean offlink "$offlink"
+	[ -n "$class" ] && json_add_string class "$class"
 	json_close_object
 }
 

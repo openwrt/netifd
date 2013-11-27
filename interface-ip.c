@@ -578,6 +578,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 			system_del_address(dev, a_old);
 		}
+		free(a_old->pclass);
 		free(a_old);
 	}
 
