@@ -1,3 +1,6 @@
+N="
+"
+
 append() {
 	local var="$1"
 	local value="$2"
