@@ -318,6 +318,9 @@ bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
 	struct bridge_member *bm;
 
 	bm = calloc(1, sizeof(*bm) + strlen(dev->ifname) + 1);
+	if (!bm)
+		return NULL;
+
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
 	bm->dev.hotplug = hotplug;
