@@ -983,10 +983,16 @@ netifd_handle_wdev_up(struct ubus_context *ctx, struct ubus_object *obj,
 	int ret;
 
 	wdev = get_wdev(msg, &ret);
-	if (!wdev)
+	if (ret == UBUS_STATUS_NOT_FOUND)
 		return ret;
 
-	wireless_device_set_up(wdev);
+	if (wdev) {
+		wireless_device_set_up(wdev);
+	} else {
+		vlist_for_each_element(&wireless_devices, wdev, node)
+			wireless_device_set_up(wdev);
+	}
+
 	return 0;
 }
 
@@ -999,10 +1005,16 @@ netifd_handle_wdev_down(struct ubus_context *ctx, struct ubus_object *obj,
 	int ret;
 
 	wdev = get_wdev(msg, &ret);
-	if (!wdev)
+	if (ret == UBUS_STATUS_NOT_FOUND)
 		return ret;
 
-	wireless_device_set_down(wdev);
+	if (wdev) {
+		wireless_device_set_down(wdev);
+	} else {
+		vlist_for_each_element(&wireless_devices, wdev, node)
+			wireless_device_set_down(wdev);
+	}
+
 	return 0;
 }
 
