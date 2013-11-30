@@ -46,11 +46,11 @@ _wdev_prepare_channel() {
 	hwmode_n="${hwmode##n}"
 
 	case "$channel" in
-		0|auto)
+		""|0|auto)
 			channel=0
 			auto_channel=1
 		;;
-		[0-9]+) ;;
+		[0-9]*) ;;
 		*)
 			wireless_setup_failed "INVALID_CHANNEL"
 		;;
