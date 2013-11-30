@@ -304,7 +304,7 @@ config_parse_wireless_interface(struct wireless_device *wdev, struct uci_section
 {
 	blob_buf_init(&b, 0);
 	uci_to_blob(&b, s, wdev->drv->interface.config);
-	wireless_interface_create(wdev, b.head);
+	wireless_interface_create(wdev, b.head, s->e.name);
 }
 
 static void

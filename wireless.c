@@ -505,6 +505,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		vif_old->config = blob_memdup(vif_new->config);
 		wireless_interface_init_config(vif_old);
 		free(vif_new);
+		vif_old->section = vif_new->section;
 	} else if (vif_new) {
 		D(WIRELESS, "Create new wireless interface %s on device %s\n", vif_new->name, wdev->name);
 		vif_new->config = blob_memdup(vif_new->config);
@@ -604,7 +605,7 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	wdev->script_check.cb = wireless_device_check_script_tasks;
 }
 
-void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *data)
+void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *data, const char *section)
 {
 	struct wireless_interface *vif;
 	struct blob_attr *tb[__VIF_ATTR_MAX];
@@ -624,6 +625,7 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 	vif->name = strcpy(name_buf, name);
 	vif->wdev = wdev;
 	vif->config = data;
+	vif->section = section;
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 }
 
@@ -633,6 +635,8 @@ wireless_interface_status(struct wireless_interface *iface, struct blob_buf *b)
 	void *i;
 
 	i = blobmsg_open_table(b, iface->name);
+	if (iface->section)
+		blobmsg_add_string(b, "section", iface->section);
 	if (iface->ifname)
 		blobmsg_add_string(b, "ifname", iface->ifname);
 	if (iface->data)
