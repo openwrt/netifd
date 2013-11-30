@@ -495,6 +495,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		wdev = vif_new->wdev;
 
 	if (vif_old && vif_new) {
+		vif_old->section = vif_new->section;
 		if (blob_attr_equal(vif_old->config, vif_new->config)) {
 			free(vif_new);
 			return;
@@ -505,7 +506,6 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		vif_old->config = blob_memdup(vif_new->config);
 		wireless_interface_init_config(vif_old);
 		free(vif_new);
-		vif_old->section = vif_new->section;
 	} else if (vif_new) {
 		D(WIRELESS, "Create new wireless interface %s on device %s\n", vif_new->name, wdev->name);
 		vif_new->config = blob_memdup(vif_new->config);
