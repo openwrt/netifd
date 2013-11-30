@@ -633,6 +633,8 @@ wireless_interface_status(struct wireless_interface *iface, struct blob_buf *b)
 	void *i;
 
 	i = blobmsg_open_table(b, iface->name);
+	if (iface->ifname)
+		blobmsg_add_string(b, "ifname", iface->ifname);
 	if (iface->data)
 		blob_put_raw(b, blob_data(iface->data), blob_len(iface->data));
 	blobmsg_close_table(b, i);
