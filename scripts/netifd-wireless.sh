@@ -15,11 +15,13 @@ add_driver() {
 
 wireless_setup_vif_failed() {
 	local error="$1"
+	echo "Interface $_w_iface setup failed: $error"
 }
 
 wireless_setup_failed() {
 	local error="$1"
 
+	echo "Device setup failed: $error"
 	wireless_set_retry 0
 }
 
