@@ -248,6 +248,32 @@ __wireless_device_set_up(struct wireless_device *wdev)
 }
 
 static void
+wireless_device_free(struct wireless_device *wdev)
+{
+    vlist_flush_all(&wdev->interfaces);
+    free(wdev->config);
+    free(wdev);
+}
+
+static void
+wdev_handle_config_change(struct wireless_device *wdev)
+{
+	enum interface_config_state state = wdev->config_state;
+
+	wdev->config_state = IFC_NORMAL;
+	switch(state) {
+	case IFC_NORMAL:
+	case IFC_RELOAD:
+		if (wdev->autostart)
+			__wireless_device_set_up(wdev);
+		break;
+	case IFC_REMOVE:
+		wireless_device_free(wdev);
+		break;
+	}
+}
+
+static void
 wireless_device_mark_down(struct wireless_device *wdev)
 {
 	struct wireless_interface *vif;
@@ -262,9 +288,7 @@ wireless_device_mark_down(struct wireless_device *wdev)
 	wdev->cancel = false;
 	wdev->state = IFS_DOWN;
 	wireless_device_free_state(wdev);
-
-	if (wdev->autostart)
-		__wireless_device_set_up(wdev);
+	wdev_handle_config_change(wdev);
 }
 
 static void
@@ -342,33 +366,6 @@ wireless_device_set_down(struct wireless_device *wdev)
 {
 	wdev->autostart = false;
 	__wireless_device_set_down(wdev);
-}
-
-static void
-wireless_device_free(struct wireless_device *wdev)
-{
-    vlist_flush_all(&wdev->interfaces);
-    free(wdev->config);
-    free(wdev);
-}
-
-static void
-wdev_handle_config_change(struct wireless_device *wdev)
-{
-	enum interface_config_state state = wdev->config_state;
-
-	wdev->config_state = IFC_NORMAL;
-	switch(state) {
-	case IFC_NORMAL:
-		break;
-	case IFC_RELOAD:
-		if (wdev->autostart)
-			__wireless_device_set_up(wdev);
-		break;
-	case IFC_REMOVE:
-		wireless_device_free(wdev);
-		break;
-	}
 }
 
 static void
