@@ -167,6 +167,7 @@ wireless_device_free_state(struct wireless_device *wdev)
 {
 	struct wireless_interface *vif;
 
+	uloop_timeout_cancel(&wdev->timeout);
 	wireless_complete_kill_request(wdev);
 	free(wdev->data);
 	wdev->data = NULL;
@@ -258,6 +259,7 @@ wireless_device_mark_down(struct wireless_device *wdev)
 
 	wireless_process_kill_all(wdev, SIGTERM, true);
 
+	wdev->cancel = false;
 	wdev->state = IFS_DOWN;
 	wireless_device_free_state(wdev);
 
