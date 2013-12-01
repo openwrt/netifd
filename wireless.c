@@ -197,6 +197,7 @@ wireless_device_setup_cancel(struct wireless_device *wdev)
 	if (wdev->cancel)
 		return;
 
+	D(WIRELESS, "Cancel wireless device '%s' setup\n", wdev->name);
 	wdev->cancel = true;
 	uloop_timeout_set(&wdev->timeout, 10 * 1000);
 }
