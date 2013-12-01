@@ -709,6 +709,7 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 	struct blob_attr *tb[__PROC_ATTR_MAX];
 	struct wireless_process *proc;
 	char *name;
+	int pid;
 
 	if (!data)
 		return UBUS_STATUS_INVALID_ARGUMENT;
@@ -717,10 +718,14 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 	if (!tb[PROC_ATTR_PID] || !tb[PROC_ATTR_EXE])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
+	pid = blobmsg_get_u32(tb[PROC_ATTR_PID]);
+	if (pid < 2)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
 	proc = calloc_a(sizeof(*proc),
 		&name, strlen(blobmsg_data(tb[PROC_ATTR_EXE])) + 1);
 
-	proc->pid = blobmsg_get_u32(tb[PROC_ATTR_PID]);
+	proc->pid = pid;
 	proc->exe = strcpy(name, blobmsg_data(tb[PROC_ATTR_EXE]));
 
 	if (tb[PROC_ATTR_REQUIRED])
