@@ -352,7 +352,10 @@ wireless_device_free(struct wireless_device *wdev)
 static void
 wdev_handle_config_change(struct wireless_device *wdev)
 {
-	switch(wdev->config_state) {
+	enum interface_config_state state = wdev->config_state;
+
+	wdev->config_state = IFC_NORMAL;
+	switch(state) {
 	case IFC_NORMAL:
 		break;
 	case IFC_RELOAD:
