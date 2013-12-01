@@ -122,6 +122,7 @@ wireless_complete_kill_request(struct wireless_device *wdev)
 static void
 wireless_process_free(struct wireless_device *wdev, struct wireless_process *proc)
 {
+	D(WIRELESS, "Wireless device '%s' free pid %d\n", wdev->name, proc->pid);
 	list_del(&proc->list);
 	free(proc);
 
@@ -148,8 +149,10 @@ wireless_process_kill_all(struct wireless_device *wdev, int signal, bool free)
 	list_for_each_entry_safe(proc, tmp, &wdev->script_proc, list) {
 		bool check = wireless_process_check(proc);
 
-		if (check)
+		if (check) {
+			D(WIRELESS, "Wireless device '%s' kill pid %d\n", wdev->name, proc->pid);
 			kill(proc->pid, signal);
+		}
 
 		if (free || !check)
 			wireless_process_free(wdev, proc);
@@ -207,6 +210,7 @@ wireless_device_run_handler(struct wireless_device *wdev, bool up)
 	int i = 0;
 	int fds[2] = { -1, -1 };
 
+	D(WIRELESS, "Wireless device '%s' run %s handler\n", wdev->name, action);
 	prepare_config(wdev, &b, up);
 	config = blobmsg_format_json(b.head, true);
 
@@ -246,6 +250,8 @@ wireless_device_mark_down(struct wireless_device *wdev)
 {
 	struct wireless_interface *vif;
 
+	D(WIRELESS, "Wireless device '%s' is now down\n", wdev->name);
+
 	vlist_for_each_element(&wdev->interfaces, vif, node)
 		wireless_interface_handle_link(vif, false);
 
@@ -263,6 +269,7 @@ wireless_device_mark_up(struct wireless_device *wdev)
 {
 	struct wireless_interface *vif;
 
+	D(WIRELESS, "Wireless device '%s' is now up\n", wdev->name);
 	wdev->state = IFS_UP;
 	vlist_for_each_element(&wdev->interfaces, vif, node)
 		wireless_interface_handle_link(vif, true);
@@ -557,6 +564,7 @@ wireless_device_check_script_tasks(struct uloop_timeout *timeout)
 		if (wireless_process_check(proc))
 			continue;
 
+		D(WIRELESS, "Wireless device '%s' pid %d has terminated\n", wdev->name, proc->pid);
 		if (proc->required)
 			restart = true;
 
@@ -715,6 +723,7 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 	if (tb[PROC_ATTR_REQUIRED])
 		proc->required = blobmsg_get_bool(tb[PROC_ATTR_REQUIRED]);
 
+	D(WIRELESS, "Wireless device '%s' add pid %d\n", wdev->name, proc->pid);
 	list_add(&proc->list, &wdev->script_proc);
 	uloop_timeout_set(&wdev->script_check, 0);
 
