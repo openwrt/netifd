@@ -143,6 +143,8 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 		goto error;
 
 	if (!pid) {
+		int i;
+
 		if (env) {
 			while (*env) {
 				putenv(*env);
@@ -152,12 +154,17 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 		if (proc->dir_fd >= 0)
 			fchdir(proc->dir_fd);
 
-		dup2(pfds[1], 0);
-		dup2(pfds[1], 1);
-		dup2(pfds[1], 2);
-
 		close(pfds[0]);
-		close(pfds[1]);
+
+		for (i = 0; i <= 2; i++) {
+			if (pfds[1] == i)
+				continue;
+
+			dup2(pfds[1], i);
+		}
+
+		if (pfds[1] > 2)
+			close(pfds[1]);
 
 		execvp(argv[0], (char **) argv);
 		exit(127);
