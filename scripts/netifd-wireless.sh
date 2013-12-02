@@ -297,6 +297,8 @@ init_wireless_driver() {
 	case "$cmd" in
 		dump)
 			add_driver() {
+				eval "drv_$1_cleanup"
+
 				json_init
 				json_add_string name "$1"
 
