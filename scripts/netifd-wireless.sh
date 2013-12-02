@@ -58,7 +58,7 @@ _wdev_prepare_channel() {
 		;;
 	esac
 
-	[[ "$hwmode_n" = "$hwmode" ]] && {
+	[[ "$hwmode_n" = "$hwmode" ]] || {
 		enable_ht=1
 		hwmode="$hwmode_n"
 
@@ -283,7 +283,7 @@ for_each_interface() {
 }
 
 _wdev_common_device_config() {
-	config_add_string channel hwmode
+	config_add_string channel hwmode htmode
 }
 
 _wdev_common_iface_config() {
