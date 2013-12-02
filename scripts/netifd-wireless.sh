@@ -248,14 +248,6 @@ wireless_vif_parse_encryption() {
 	esac
 }
 
-_get_vif_vars() {
-	# internal use
-	json_get_var _w_type mode
-
-	# for drivers
-	json_get_var network_bridge bridge
-}
-
 for_each_interface() {
 	local _w_types="$1"; shift
 	local _w_ifaces _w_iface
@@ -267,8 +259,9 @@ for_each_interface() {
 	for _w_iface in $_w_ifaces; do
 		json_select "$_w_iface"
 		if [ -n "$_w_types" ]; then
+			json_get_var network_bridge bridge
 			json_select config
-			_get_vif_vars
+			json_get_var _w_type mode
 			json_select ..
 			_w_types=" $_w_types "
 			[[ "${_w_types%$_w_type*}" = "$_w_types" ]] && {
