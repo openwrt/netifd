@@ -338,6 +338,9 @@ __wireless_device_set_down(struct wireless_device *wdev)
 static void
 wireless_device_retry_setup(struct wireless_device *wdev)
 {
+	if (wdev->state == IFS_TEARDOWN || wdev->state == IFS_DOWN || wdev->cancel)
+		return;
+
 	if (--wdev->retry < 0)
 		wdev->autostart = false;
 
