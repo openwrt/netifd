@@ -76,6 +76,9 @@ vif_config_add_bridge(struct blob_buf *buf, const char *network, bool prepare)
 	if (dev->type != &bridge_device_type)
 		return;
 
+	if (dev->hotplug_ops && dev->hotplug_ops->prepare)
+		dev->hotplug_ops->prepare(dev);
+
 	blobmsg_add_string(buf, "bridge", dev->ifname);
 }
 
