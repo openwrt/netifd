@@ -651,7 +651,7 @@ wireless_interface_status(struct wireless_interface *iface, struct blob_buf *b)
 {
 	void *i;
 
-	i = blobmsg_open_table(b, iface->name);
+	i = blobmsg_open_table(b, NULL);
 	if (iface->section)
 		blobmsg_add_string(b, "section", iface->section);
 	if (iface->ifname)
@@ -671,10 +671,10 @@ wireless_device_status(struct wireless_device *wdev, struct blob_buf *b)
 	blobmsg_add_u8(b, "up", wdev->state == IFS_UP);
 	blobmsg_add_u8(b, "pending", wdev->state == IFS_SETUP || wdev->state == IFS_TEARDOWN);
 	blobmsg_add_u8(b, "autostart", wdev->autostart);
-	i = blobmsg_open_table(b, "interfaces");
+	i = blobmsg_open_array(b, "interfaces");
 	vlist_for_each_element(&wdev->interfaces, iface, node)
 		wireless_interface_status(iface, b);
-	blobmsg_close_table(b, i);
+	blobmsg_close_array(b, i);
 	blobmsg_close_table(b, c);
 }
 
