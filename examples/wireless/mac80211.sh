@@ -43,6 +43,9 @@ setup_vif() {
 	wireless_add_process "$!" /bin/sleep 1
 }
 
+drv_mac80211_cleanup() {
+	echo "mac80211 cleanup"
+}
 
 drv_mac80211_setup() {
 	echo "mac80211 setup: $1"
