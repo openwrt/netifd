@@ -40,7 +40,7 @@ enum {
 
 static const struct blobmsg_policy vif_policy[__VIF_ATTR_MAX] = {
 	[VIF_ATTR_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
-	[VIF_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_STRING },
+	[VIF_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static const struct uci_blob_param_list vif_param = {
@@ -57,23 +57,33 @@ put_container(struct blob_buf *buf, struct blob_attr *attr, const char *name)
 }
 
 static void
-vif_config_add_bridge(struct blob_buf *buf, const char *network, bool prepare)
+vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool prepare)
 {
 	struct interface *iface;
-	struct device *dev;
+	struct device *dev = NULL;
+	struct blob_attr *cur;
+	const char *network;
+	int rem;
 
-	if (!network)
+	if (!networks)
 		return;
 
-	iface = vlist_find(&interfaces, network, iface, node);
-	if (!iface)
-		return;
+	blobmsg_for_each_attr(cur, networks, rem) {
+		network = blobmsg_data(cur);
 
-	dev = iface->main_dev.dev;
+		iface = vlist_find(&interfaces, network, iface, node);
+		if (!iface)
+			continue;
+
+		dev = iface->main_dev.dev;
+		if (!dev)
+			return;
+
+		if (dev->type != &bridge_device_type)
+			return;
+	}
+
 	if (!dev)
-		return;
-
-	if (dev->type != &bridge_device_type)
 		return;
 
 	if (dev->hotplug_ops && dev->hotplug_ops->prepare)
@@ -184,15 +194,22 @@ wireless_device_free_state(struct wireless_device *wdev)
 static void wireless_interface_handle_link(struct wireless_interface *vif, bool up)
 {
 	struct interface *iface;
+	struct blob_attr *cur;
+	const char *network;
+	int rem;
 
 	if (!vif->network || !vif->ifname)
 		return;
 
-	iface = vlist_find(&interfaces, vif->network, iface, node);
-	if (!iface)
-		return;
+	blobmsg_for_each_attr(cur, vif->network, rem) {
+		network = blobmsg_data(cur);
 
-	interface_handle_link(iface, vif->ifname, up);
+		iface = vlist_find(&interfaces, network, iface, node);
+		if (!iface)
+			continue;
+
+		interface_handle_link(iface, vif->ifname, up);
+	}
 }
 
 static void
@@ -494,7 +511,7 @@ wireless_interface_init_config(struct wireless_interface *vif)
 	blobmsg_parse(vif_policy, __VIF_ATTR_MAX, tb, blob_data(vif->config), blob_len(vif->config));
 
 	if ((cur = tb[VIF_ATTR_NETWORK]))
-		vif->network = blobmsg_data(cur);
+		vif->network = cur;
 }
 
 static void
