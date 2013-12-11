@@ -624,7 +624,6 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	INIT_LIST_HEAD(&wdev->script_proc);
 	vlist_init(&wdev->interfaces, avl_strcmp, vif_update);
 	wdev->interfaces.keep_old = true;
-	wdev->interfaces.no_delete = true;
 	vlist_add(&wireless_devices, &wdev->node, wdev->name);
 
 	wdev->timeout.cb = wireless_device_setup_timeout;
