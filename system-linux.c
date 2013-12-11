@@ -1142,6 +1142,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	struct rtmsg rtm = {
 		.rtm_family = (alen == 4) ? AF_INET : AF_INET6,
 		.rtm_dst_len = route->mask,
+		.rtm_src_len = route->sourcemask,
 		.rtm_table = (table < 256) ? table : RT_TABLE_UNSPEC,
 		.rtm_protocol = (route->flags & DEVADDR_KERNEL) ? RTPROT_KERNEL : RTPROT_STATIC,
 		.rtm_scope = scope,
@@ -1166,6 +1167,9 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 
 	if (route->mask)
 		nla_put(msg, RTA_DST, alen, &route->addr);
+
+	if (route->sourcemask)
+		nla_put(msg, RTA_SRC, alen, &route->source);
 
 	if (route->metric > 0)
 		nla_put_u32(msg, RTA_PRIORITY, route->metric);

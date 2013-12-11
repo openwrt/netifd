@@ -59,7 +59,6 @@ const struct uci_blob_param_list route_attr_list = {
 
 
 struct list_head prefixes = LIST_HEAD_INIT(prefixes);
-static struct list_head source_tables = LIST_HEAD_INIT(source_tables);
 static struct device_prefix *ula_prefix = NULL;
 static struct uloop_timeout valid_until_timeout;
 
@@ -194,72 +193,6 @@ __find_ip_route_target(struct interface_ip_settings *ip, union if_addr *a,
 
 		if (!*res || route->mask < (*res)->mask)
 			*res = route;
-	}
-}
-
-static struct device_source_table*
-find_source_table(const struct device_route *route)
-{
-	struct device_source_table key = {
-		.v6 = (route->flags & DEVADDR_FAMILY) == DEVADDR_INET6,
-		.addr = route->source,
-		.mask = route->sourcemask
-	};
-	struct device_source_table *c;
-	list_for_each_entry(c, &source_tables, head)
-		if (!memcmp(&c->v6, &key.v6, sizeof(key) -
-				offsetof(struct device_source_table, v6)))
-			return c;
-	return NULL;
-}
-
-static uint32_t
-get_source_table(const struct device_route *route)
-{
-	if (route->table || route->sourcemask == 0)
-		return route->table;
-
-	struct device_source_table *tbl = find_source_table(route);
-
-	if (!tbl) {
-		tbl = calloc(1, sizeof(*tbl));
-		tbl->addr = route->source;
-		tbl->mask = route->sourcemask;
-		tbl->v6 = (route->flags & DEVADDR_FAMILY) == DEVADDR_INET6;
-		tbl->table = IPRULE_PRIORITY_SOURCE | (((~tbl->mask) & 0x7f) << 20);
-
-		struct list_head *before = NULL;
-		struct device_source_table *c;
-		list_for_each_entry(c, &source_tables, head) {
-			if (c->table > tbl->table) {
-				before = &c->head;
-				break;
-			} else if (c->table == tbl->table) {
-				++tbl->table;
-			}
-		}
-
-		if (!before)
-			before = &source_tables;
-
-		list_add_tail(&tbl->head, before);
-		set_ip_source_policy(true, tbl->v6, tbl->table, &tbl->addr,
-				tbl->mask, tbl->table, NULL, NULL);
-	}
-
-	++tbl->refcount;
-	return tbl->table;
-}
-
-static void
-put_source_table(const struct device_route *route)
-{
-	struct device_source_table *tbl = find_source_table(route);
-	if (tbl && tbl->table == route->table && --tbl->refcount == 0) {
-		set_ip_source_policy(false, tbl->v6, tbl->table, &tbl->addr,
-				tbl->mask, tbl->table, NULL, NULL);
-		list_del(&tbl->head);
-		free(tbl);
 	}
 }
 
@@ -410,7 +343,9 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		}
 
 		route->sourcemask = atoi(mask);
-	} else if (is_proto_route) {
+	}
+
+	if (is_proto_route) {
 		route->table = (v6) ? iface->ip6table : iface->ip4table;
 		route->flags |= DEVROUTE_SRCTABLE;
 	}
@@ -430,11 +365,6 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		int64_t valid_until = valid + (int64_t)system_get_rtime();
 		if (valid_until <= LONG_MAX && valid != 0xffffffffLL) // Catch overflow
 			route->valid_until = valid_until;
-	}
-
-	if (route->sourcemask) {
-		route->table = get_source_table(route);
-		route->flags |= DEVROUTE_SRCTABLE;
 	}
 
 	vlist_add(&ip->route, &route->node, route);
@@ -640,7 +570,6 @@ interface_update_proto_route(struct vlist_tree *tree,
 		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)
 			system_del_route(dev, route_old);
 
-		put_source_table(route_old);
 		free(route_old);
 	}
 
