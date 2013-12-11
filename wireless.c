@@ -270,9 +270,10 @@ __wireless_device_set_up(struct wireless_device *wdev)
 static void
 wireless_device_free(struct wireless_device *wdev)
 {
-    vlist_flush_all(&wdev->interfaces);
-    free(wdev->config);
-    free(wdev);
+	vlist_flush_all(&wdev->interfaces);
+	avl_delete(&wireless_devices.avl, &wdev->node.avl);
+	free(wdev->config);
+	free(wdev);
 }
 
 static void
