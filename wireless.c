@@ -281,10 +281,10 @@ wdev_handle_config_change(struct wireless_device *wdev)
 {
 	enum interface_config_state state = wdev->config_state;
 
-	wdev->config_state = IFC_NORMAL;
 	switch(state) {
 	case IFC_NORMAL:
 	case IFC_RELOAD:
+		wdev->config_state = IFC_NORMAL;
 		if (wdev->autostart)
 			__wireless_device_set_up(wdev);
 		break;
@@ -395,12 +395,10 @@ wireless_device_set_down(struct wireless_device *wdev)
 static void
 wdev_set_config_state(struct wireless_device *wdev, enum interface_config_state s)
 {
-	enum interface_config_state old_state = wdev->config_state;
-
-	wdev->config_state = s;
-	if (old_state != IFC_NORMAL)
+	if (wdev->config_state != IFC_NORMAL)
 		return;
 
+	wdev->config_state = s;
 	if (wdev->state == IFS_DOWN)
 		wdev_handle_config_change(wdev);
 	else
