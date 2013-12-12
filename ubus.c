@@ -140,7 +140,6 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!iface)
 		return UBUS_STATUS_UNKNOWN_ERROR;
 
-	interface_set_dynamic(iface);
 	iface->device_config = true;
 
 	config = blob_memdup(msg);
@@ -148,6 +147,7 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 		goto error;
 
 	interface_add(iface, config);
+	interface_set_dynamic(iface);
 
 	// need to look up the interface name again, in case of config update,
 	iface = vlist_find(&interfaces, name, iface, node);
