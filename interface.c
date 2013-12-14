@@ -200,9 +200,6 @@ mark_interface_down(struct interface *iface)
 {
 	enum interface_state state = iface->state;
 
-	if (state == IFS_DOWN)
-		return;
-
 	iface->state = IFS_DOWN;
 	if (state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
@@ -215,112 +212,42 @@ mark_interface_down(struct interface *iface)
 void
 __interface_set_down(struct interface *iface, bool force)
 {
-	switch (iface->state) {
-	case IFS_UP:
+	if (iface->state == IFS_DOWN ||
+		iface->state == IFS_TEARDOWN)
+		return;
+
+	if (iface->state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
-	case IFS_SETUP:
-		iface->state = IFS_TEARDOWN;
-		interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
-		if (force)
-			interface_flush_state(iface);
+	iface->state = IFS_TEARDOWN;
+	interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
+	if (force)
+		interface_flush_state(iface);
 
-		if (iface->dynamic)
-			vlist_delete(&interfaces, &iface->node);
-		break;
-
-	case IFS_DOWN:
-		if (iface->main_dev.dev)
-			device_release(&iface->main_dev);
-	case IFS_TEARDOWN:
-	default:
-		break;
-	}
-}
-
-static int
-__interface_set_up(struct interface *iface)
-{
-	int ret;
-
-	netifd_log_message(L_NOTICE, "Interface '%s' is setting up now\n", iface->name);
-
-	iface->state = IFS_SETUP;
-	ret = interface_proto_event(iface->proto, PROTO_CMD_SETUP, false);
-	if (ret)
-		mark_interface_down(iface);
-
-	return ret;
-}
-
-static void
-interface_check_state(struct interface *iface)
-{
-	switch (iface->state) {
-	case IFS_UP:
-		if (!iface->enabled || !iface->link_state) {
-			mark_interface_down(iface);
-			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
-		}
-		break;
-	case IFS_DOWN:
-		if (iface->enabled && iface->link_state && !config_init)
-			__interface_set_up(iface);
-		break;
-	default:
-		break;
-	}
-}
-
-static void
-interface_set_enabled(struct interface *iface, bool new_state)
-{
-	if (iface->enabled == new_state)
-		return;
-
-	netifd_log_message(L_NOTICE, "Interface '%s' is %s\n", iface->name, new_state ? "enabled" : "disabled");
-	iface->enabled = new_state;
-	interface_check_state(iface);
-}
-
-static void
-interface_set_link_state(struct interface *iface, bool new_state)
-{
-	if (iface->link_state == new_state)
-		return;
-
-	netifd_log_message(L_NOTICE, "Interface '%s' has link connectivity %s\n", iface->name, new_state ? "" : "loss");
-	iface->link_state = new_state;
-	interface_check_state(iface);
+	if (iface->dynamic)
+		vlist_delete(&interfaces, &iface->node);
 }
 
 static void
 interface_cb(struct device_user *dep, enum device_event ev)
 {
 	struct interface *iface;
-	bool new_state = false;
+	bool new_state;
 
 	iface = container_of(dep, struct interface, main_dev);
 	switch (ev) {
 	case DEV_EVENT_ADD:
 		new_state = true;
+		break;
 	case DEV_EVENT_REMOVE:
-		interface_set_available(iface, new_state);
-		if (!new_state && dep->dev->external)
-			interface_set_main_dev(iface, NULL);
-		break;
-	case DEV_EVENT_UP:
-		new_state = true;
-	case DEV_EVENT_DOWN:
-		interface_set_enabled(iface, new_state);
-		break;
-	case DEV_EVENT_LINK_UP:
-		new_state = true;
-        case DEV_EVENT_LINK_DOWN:
-		interface_set_link_state(iface, new_state);
+		new_state = false;
 		break;
 	default:
-		break;
+		return;
 	}
+
+	interface_set_available(iface, new_state);
+	if (!new_state && dep->dev->external)
+		interface_set_main_dev(iface, NULL);
 }
 
 void
@@ -757,7 +684,7 @@ interface_set_l3_dev(struct interface *iface, struct device *dev)
 void
 interface_set_main_dev(struct interface *iface, struct device *dev)
 {
-	bool set_l3 = (!dev || iface->main_dev.dev == iface->l3_dev.dev);
+	bool set_l3 = (iface->main_dev.dev == iface->l3_dev.dev);
 	bool claimed = iface->l3_dev.claimed;
 
 	if (iface->main_dev.dev == dev)
@@ -767,10 +694,8 @@ interface_set_main_dev(struct interface *iface, struct device *dev)
 		interface_set_l3_dev(iface, dev);
 
 	device_add_user(&iface->main_dev, dev);
-	if (!dev) {
-		interface_set_link_state(iface, false);
+	if (!dev)
 		return;
-	}
 
 	if (claimed)
 		device_claim(&iface->l3_dev);
@@ -869,13 +794,18 @@ interface_set_up(struct interface *iface)
 
 	if (iface->main_dev.dev) {
 		ret = device_claim(&iface->main_dev);
-		if (!ret)
-			interface_check_state(iface);
+		if (ret)
+			return ret;
 	}
-	else
-		ret = __interface_set_up(iface);
 
-	return ret;
+	iface->state = IFS_SETUP;
+	ret = interface_proto_event(iface->proto, PROTO_CMD_SETUP, false);
+	if (ret) {
+		mark_interface_down(iface);
+		return ret;
+	}
+
+	return 0;
 }
 
 int

@@ -95,8 +95,6 @@ struct interface {
 	bool autostart;
 	bool config_autostart;
 	bool device_config;
-	bool enabled;
-	bool link_state;
 	bool dynamic;
 
 	time_t start_time;
