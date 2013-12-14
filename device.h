@@ -68,7 +68,6 @@ enum device_event {
 	DEV_EVENT_REMOVE,
 
 	DEV_EVENT_UPDATE_IFNAME,
-	DEV_EVENT_UPDATE_IFINDEX,
 
 	DEV_EVENT_SETUP,
 	DEV_EVENT_TEARDOWN,
@@ -123,7 +122,6 @@ struct device {
 	bool sys_present;
 	bool present;
 	int active;
-	bool link_active;
 
 	bool external;
 	bool disabled;
@@ -180,8 +178,6 @@ void device_remove_user(struct device_user *dep);
 void device_broadcast_event(struct device *dev, enum device_event ev);
 
 void device_set_present(struct device *dev, bool state);
-void device_set_link(struct device *dev, bool state);
-void device_set_ifindex(struct device *dev, int ifindex);
 void device_refresh_present(struct device *dev);
 int device_claim(struct device_user *dep);
 void device_release(struct device_user *dep);

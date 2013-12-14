@@ -51,7 +51,7 @@ static void alias_set_device(struct alias_device *alias, struct device *dev)
 	device_remove_user(&alias->dep);
 	alias->dev.hidden = !dev;
 	if (dev) {
-		device_set_ifindex(&alias->dev, dev->ifindex);
+		alias->dev.ifindex = dev->ifindex;
 		strcpy(alias->dev.ifname, dev->ifname);
 		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
 		device_add_user(&alias->dep, dev);
@@ -83,22 +83,14 @@ alias_device_set_state(struct device *dev, bool state)
 static void alias_device_cb(struct device_user *dep, enum device_event ev)
 {
 	struct alias_device *alias;
-	bool new_state = false;
+	bool present = false;
 
 	alias = container_of(dep, struct alias_device, dep);
 	switch (ev) {
 	case DEV_EVENT_ADD:
-		new_state = true;
+		present = true;
 	case DEV_EVENT_REMOVE:
-		device_set_present(&alias->dev, new_state);
-		break;
-	case DEV_EVENT_LINK_UP:
-		new_state = true;
-	case DEV_EVENT_LINK_DOWN:
-		device_set_link(&alias->dev, new_state);
-		break;
-	case DEV_EVENT_UPDATE_IFINDEX:
-		device_set_ifindex(&alias->dev, dep->dev->ifindex);
+		device_set_present(&alias->dev, present);
 		break;
 	default:
 		device_broadcast_event(&alias->dev, ev);

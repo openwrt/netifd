@@ -70,19 +70,14 @@ static void vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
 static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 {
 	struct vlan_device *vldev;
-	bool new_state = false;
 
 	vldev = container_of(dep, struct vlan_device, dep);
 	switch(ev) {
 	case DEV_EVENT_ADD:
-		new_state = true;
-	case DEV_EVENT_REMOVE:
-		device_set_present(&vldev->dev, new_state);
+		device_set_present(&vldev->dev, true);
 		break;
-	case DEV_EVENT_LINK_UP:
-		new_state = true;
-	case DEV_EVENT_LINK_DOWN:
-		device_set_link(&vldev->dev, new_state);
+	case DEV_EVENT_REMOVE:
+		device_set_present(&vldev->dev, false);
 		break;
 	case DEV_EVENT_UPDATE_IFNAME:
 		vlan_dev_set_name(vldev, dep->dev);
@@ -117,8 +112,6 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 
 	if (!create)
 		return NULL;
-
-	D(DEVICE, "Create vlan device '%s.%d'\n", dev->ifname, id);
 
 	vldev = calloc(1, sizeof(*vldev));
 
