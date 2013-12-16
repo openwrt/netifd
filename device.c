@@ -185,6 +185,10 @@ static int device_broadcast_cb(void *ctx, struct safe_list *list)
 	struct device_user *dep = container_of(list, struct device_user, list);
 	int *ev = ctx;
 
+	/* device might have been removed by an earlier callback */
+	if (!dep->dev)
+		return 0;
+
 	if (dep->cb)
 		dep->cb(dep, *ev);
 	return 0;
