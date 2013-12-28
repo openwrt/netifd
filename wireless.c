@@ -180,6 +180,7 @@ wireless_device_free_state(struct wireless_device *wdev)
 {
 	struct wireless_interface *vif;
 
+	uloop_timeout_cancel(&wdev->script_check);
 	uloop_timeout_cancel(&wdev->timeout);
 	wireless_complete_kill_request(wdev);
 	free(wdev->data);
