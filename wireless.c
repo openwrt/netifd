@@ -462,10 +462,10 @@ wireless_add_handler(const char *script, const char *name, json_object *obj)
 		return;
 
 	drv = calloc_a(sizeof(*drv),
-		&name_str, strlen(name) + 1,
-		&script_str, strlen(script) + 1,
 		&dev_config, sizeof(*dev_config) + sizeof(void *),
-		&iface_config, sizeof(*iface_config) + sizeof(void *));
+		&iface_config, sizeof(*iface_config) + sizeof(void *),
+		&name_str, strlen(name) + 1,
+		&script_str, strlen(script) + 1);
 
 	drv->name = strcpy(name_str, name);
 	drv->script = strcpy(script_str, script);
