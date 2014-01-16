@@ -151,15 +151,23 @@ interface_add_data(struct interface *iface, const struct blob_attr *data)
 	if (!blobmsg_check_attr(data, true))
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	n = calloc(1, sizeof(*n) + blob_pad_len(data));
-	memcpy(n->data, data, blob_pad_len(data));
-	n->node.key = blobmsg_name(n->data);
+	const char *name = blobmsg_name(data);
+	unsigned len = blob_pad_len(data);
 
-	o = avl_find_element(&iface->data, n->node.key, o, node);
-	if (o)
+	o = avl_find_element(&iface->data, name, o, node);
+	if (o) {
+		if (blob_pad_len(o->data) == len && !memcmp(o->data, data, len))
+			return 0;
+
 		interface_data_del(iface, o);
+	}
 
+	n = calloc(1, sizeof(*n) + len);
+	memcpy(n->data, data, len);
+	n->node.key = blobmsg_name(n->data);
 	avl_insert(&iface->data, &n->node);
+
+	iface->updated |= IUF_DATA;
 	return 0;
 }
 
@@ -846,6 +854,7 @@ set_config_state(struct interface *iface, enum interface_config_state s)
 void
 interface_update_start(struct interface *iface)
 {
+	iface->updated = 0;
 	interface_ip_update_start(&iface->proto_ip);
 }
 

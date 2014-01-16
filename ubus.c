@@ -662,6 +662,21 @@ netifd_dump_status(struct interface *iface)
 		blobmsg_add_string(&b, "device", dev->ifname);
 
 	if (iface->state == IFS_UP) {
+		if (iface->updated) {
+			a = blobmsg_open_array(&b, "updated");
+
+			if (iface->updated & IUF_ADDRESS)
+				blobmsg_add_string(&b, NULL, "addresses");
+			if (iface->updated & IUF_ROUTE)
+				blobmsg_add_string(&b, NULL, "routes");
+			if (iface->updated & IUF_PREFIX)
+				blobmsg_add_string(&b, NULL, "prefixes");
+			if (iface->updated & IUF_DATA)
+				blobmsg_add_string(&b, NULL, "data");
+
+			blobmsg_close_array(&b, a);
+		}
+
 		if (iface->ip4table)
 			blobmsg_add_u32(&b, "ip4table", iface->ip4table);
 		if (iface->ip6table)

@@ -457,6 +457,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	iface = ip->iface;
 	dev = iface->l3_dev.dev;
 
+	if (!node_new || !node_old)
+		iface->updated |= IUF_ADDRESS;
+
 	if (node_new) {
 		a_new = container_of(node_new, struct device_addr, node);
 
@@ -558,6 +561,9 @@ interface_update_proto_route(struct vlist_tree *tree,
 	ip = container_of(tree, struct interface_ip_settings, route);
 	iface = ip->iface;
 	dev = iface->l3_dev.dev;
+
+	if (!node_new || !node_old)
+		iface->updated |= IUF_ROUTE;
 
 	route_old = container_of(node_old, struct device_route, node);
 	route_new = container_of(node_new, struct device_route, node);
@@ -828,6 +834,10 @@ interface_update_prefix(struct vlist_tree *tree,
 	struct device_prefix *prefix_old, *prefix_new;
 	prefix_old = container_of(node_old, struct device_prefix, node);
 	prefix_new = container_of(node_new, struct device_prefix, node);
+
+	struct interface_ip_settings *ip = container_of(tree, struct interface_ip_settings, prefix);
+	if (tree && (!node_new || !node_old))
+		ip->iface->updated |= IUF_PREFIX;
 
 	struct device_route route;
 	memset(&route, 0, sizeof(route));

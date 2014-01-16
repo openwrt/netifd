@@ -32,7 +32,8 @@ static struct uloop_process task = {
 };
 
 static void
-run_cmd(const char *ifname, const char *device, enum interface_event event)
+run_cmd(const char *ifname, const char *device, enum interface_event event,
+		enum interface_update_flags updated)
 {
 	char *argv[3];
 	int pid;
@@ -52,6 +53,18 @@ run_cmd(const char *ifname, const char *device, enum interface_event event)
 	setenv("INTERFACE", ifname, 1);
 	if (device)
 		setenv("DEVICE", device, 1);
+
+	if (event == IFEV_UPDATE) {
+		if (updated & IUF_ADDRESS)
+			setenv("IFUPDATE_ADDRESSES", "1", 1);
+		if (updated & IUF_ROUTE)
+			setenv("IFUPDATE_ROUTES", "1", 1);
+		if (updated & IUF_PREFIX)
+			setenv("IFUPDATE_PREFIXES", "1", 1);
+		if (updated & IUF_DATA)
+			setenv("IFUPDATE_DATA", "1", 1);
+	}
+
 	argv[0] = hotplug_cmd_path;
 	argv[1] = "iface";
 	argv[2] = NULL;
@@ -74,7 +87,7 @@ call_hotplug(void)
 		device = current->l3_dev.dev->ifname;
 
 	D(SYSTEM, "Call hotplug handler for interface '%s' (%s)\n", current->name, device ? device : "none");
-	run_cmd(current->name, device, current_ev);
+	run_cmd(current->name, device, current_ev, current->updated);
 }
 
 static void

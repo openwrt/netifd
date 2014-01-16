@@ -41,6 +41,13 @@ enum interface_config_state {
 	IFC_REMOVE
 };
 
+enum interface_update_flags {
+	IUF_ADDRESS	= (1 << 0),
+	IUF_ROUTE	= (1 << 1),
+	IUF_PREFIX	= (1 << 2),
+	IUF_DATA	= (1 << 3),
+};
+
 struct interface_error {
 	struct list_head list;
 
@@ -100,6 +107,7 @@ struct interface {
 	time_t start_time;
 	enum interface_state state;
 	enum interface_config_state config_state;
+	enum interface_update_flags updated;
 
 	struct list_head users;
 
