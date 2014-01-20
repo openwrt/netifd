@@ -499,15 +499,18 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			if ((a_old->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
 				v6 = true;
 
+			unsigned int table = (v6) ? iface->ip6table : iface->ip4table;
+
 			//This is needed for source routing to work correctly. If a device
 			//has two connections to a network using the same subnet, adding
 			//only the network-rule will cause packets to be routed through the
 			//first matching network (source IP matches both masks).
-			set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &a_old->addr,
-				(v6) ? 128 : 32, (v6) ? iface->ip6table : iface->ip4table,
-						NULL, NULL);
-			set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
-				a_old->mask, (v6) ? iface->ip6table : iface->ip4table, NULL, NULL);
+			if (table) {
+				set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &a_old->addr,
+						(v6) ? 128 : 32, table, NULL, NULL);
+				set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
+						a_old->mask, table, NULL, NULL);
+			}
 
 			system_del_address(dev, a_old);
 		}
@@ -524,12 +527,14 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
 					v6 = true;
 
-				set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
-					(v6) ? 128 : 32, (v6) ? iface->ip6table : iface->ip4table,
-							NULL, NULL);
-				set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
-					a_new->mask, (v6) ? iface->ip6table : iface->ip4table,
-							NULL, NULL);
+				unsigned int table = (v6) ? iface->ip6table : iface->ip4table;
+
+				if (table) {
+					set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
+							(v6) ? 128 : 32, table, NULL, NULL);
+					set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
+							a_new->mask, table, NULL, NULL);
+				}
 			}
 
 			if ((a_new->flags & DEVADDR_OFFLINK) || iface->metric)
@@ -645,8 +650,9 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			addr.valid_until = now + 7200;
 		system_add_address(l3_downlink, &addr);
 		if (prefix->iface) {
-			set_ip_source_policy(false, true, IPRULE_PRIORITY_NW, &addr.addr,
-					addr.mask, prefix->iface->ip6table, iface, NULL);
+			if (prefix->iface->ip6table)
+				set_ip_source_policy(false, true, IPRULE_PRIORITY_NW, &addr.addr,
+						addr.mask, prefix->iface->ip6table, iface, NULL);
 
 			set_ip_source_policy(false, true, IPRULE_PRIORITY_REJECT, &addr.addr,
 							addr.mask, 0, iface, "unreachable");
@@ -659,8 +665,9 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
 					addr.mask, 0, iface, "unreachable");
 
-			set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &addr.addr,
-					addr.mask, prefix->iface->ip6table, iface, NULL);
+			if (prefix->iface->ip6table)
+				set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &addr.addr,
+						addr.mask, prefix->iface->ip6table, iface, NULL);
 		}
 		if (uplink && uplink->l3_dev.dev) {
 			int mtu = system_update_ipv6_mtu(
