@@ -456,8 +456,9 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 	hdr->nlmsg_type = type;
 	hdr->nlmsg_flags = NLM_F_REQUEST;
 
-	if (!nl_send_auto_complete(sock_rtnl, clr->msg))
-		nl_wait_for_ack(sock_rtnl);
+	nl_socket_disable_auto_ack(sock_rtnl);
+	nl_send_auto_complete(sock_rtnl, clr->msg);
+	nl_socket_enable_auto_ack(sock_rtnl);
 
 	return NL_SKIP;
 }
