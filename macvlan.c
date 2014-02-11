@@ -69,6 +69,12 @@ macvlan_base_cb(struct device_user *dev, enum device_event ev)
 	case DEV_EVENT_REMOVE:
 		device_set_present(&mvdev->dev, false);
 		break;
+	case DEV_EVENT_LINK_UP:
+		device_set_link(&mvdev->dev, true);
+		break;
+	case DEV_EVENT_LINK_DOWN:
+		device_set_link(&mvdev->dev, false);
+		break;
 	default:
 		return;
 	}
