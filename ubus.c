@@ -497,7 +497,7 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 
 		buf = blobmsg_alloc_string_buffer(&b, "source", buflen);
 		inet_ntop(af, &route->source, buf, buflen);
-		snprintf(buf + strlen(buf), 4, "/%u", route->sourcemask);
+		snprintf(buf + strlen(buf), buflen - strlen(buf), "/%u", route->sourcemask);
 		blobmsg_add_string_buffer(&b);
 
 		blobmsg_close_table(&b, r);
