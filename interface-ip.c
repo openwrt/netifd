@@ -337,12 +337,12 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		const char *addr = strtok_r(source, "/", &saveptr);
 		const char *mask = strtok_r(NULL, "/", &saveptr);
 
-		if (inet_pton(af, addr, &route->source) < 1) {
+		if (!addr || inet_pton(af, addr, &route->source) < 1) {
 			DPRINTF("Failed to parse route source: %s\n", addr);
 			goto error;
 		}
 
-		route->sourcemask = atoi(mask);
+		route->sourcemask = (mask) ? atoi(mask) : ((af == AF_INET6) ? 128 : 32);
 	}
 
 	if (is_proto_route) {
