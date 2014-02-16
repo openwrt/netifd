@@ -156,7 +156,7 @@ static void system_set_sysctl(const char *path, const char *val)
 	if (fd < 0)
 		return;
 
-	write(fd, val, strlen(val));
+	if (write(fd, val, strlen(val))) {}
 	close(fd);
 }
 
@@ -1135,7 +1135,7 @@ int system_flush_routes(void)
 		if (fd < 0)
 			continue;
 
-		write(fd, "-1", 2);
+		if (write(fd, "-1", 2)) {}
 		close(fd);
 	}
 	return 0;

@@ -152,7 +152,7 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 			}
 		}
 		if (proc->dir_fd >= 0)
-			fchdir(proc->dir_fd);
+			if (fchdir(proc->dir_fd)) {}
 
 		close(pfds[0]);
 

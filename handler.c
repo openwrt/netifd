@@ -27,14 +27,14 @@ netifd_dir_push(int fd)
 	int prev_fd = open(".", O_RDONLY | O_DIRECTORY);
 	system_fd_set_cloexec(prev_fd);
 	if (fd >= 0)
-		fchdir(fd);
+		if (fchdir(fd)) {}
 	return prev_fd;
 }
 
 static void
 netifd_dir_pop(int prev_fd)
 {
-	fchdir(prev_fd);
+	if (fchdir(prev_fd)) {}
 	close(prev_fd);
 }
 
