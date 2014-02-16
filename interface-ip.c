@@ -648,6 +648,7 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		addr.preferred_until = now;
 		if (!addr.valid_until || addr.valid_until - now > 7200)
 			addr.valid_until = now + 7200;
+		system_del_address(l3_downlink, &addr); // Work around dangling prefix routes
 		system_add_address(l3_downlink, &addr);
 		if (prefix->iface) {
 			if (prefix->iface->ip6table)
