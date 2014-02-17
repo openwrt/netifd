@@ -139,6 +139,7 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 {
 	struct blobmsg_policy *attrs;
 	char *str_buf, *str_cur;
+	char const **validate;
 	int str_len = 0;
 	int i;
 
@@ -147,7 +148,12 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 	if (!attrs)
 		return NULL;
 
+	validate = calloc(1, sizeof(char*) * config->n_params);
+	if (!validate)
+		goto error;
+
 	config->params = attrs;
+	config->validate = validate;
 	for (i = 0; i < config->n_params; i++) {
 		json_object *cur, *name, *type;
 
@@ -178,15 +184,25 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 	str_cur = str_buf;
 	for (i = 0; i < config->n_params; i++) {
 		const char *name = attrs[i].name;
+		char *delim;
 
 		attrs[i].name = str_cur;
 		str_cur += sprintf(str_cur, "%s", name) + 1;
+		delim = strchr(attrs[i].name, ':');
+		if (delim) {
+			*delim = '\0';
+			validate[i] = ++delim;
+		} else {
+			validate[i] = NULL;
+		}
 	}
 
 	return str_buf;
 
 error:
 	free(attrs);
+	if (validate)
+		free(validate);
 	config->n_params = 0;
 	return NULL;
 }
