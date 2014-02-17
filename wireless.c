@@ -261,6 +261,9 @@ wireless_device_run_handler(struct wireless_device *wdev, bool up)
 static void
 __wireless_device_set_up(struct wireless_device *wdev)
 {
+	if (wdev->disabled)
+		return;
+
 	if (wdev->state != IFS_DOWN || config_init)
 		return;
 
@@ -410,15 +413,17 @@ static void
 wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 {
 	struct blob_attr *new_config = wd_new->config;
+	bool disabled = wd_new->disabled;
 
 	free(wd_new);
 
-	if (blob_attr_equal(wdev->config, new_config))
+	if (blob_attr_equal(wdev->config, new_config) || wdev->disabled == disabled)
 		return;
 
 	D(WIRELESS, "Update configuration of wireless device '%s'\n", wdev->name);
 	free(wdev->config);
 	wdev->config = blob_memdup(new_config);
+	wdev->disabled = disabled;
 	wdev_set_config_state(wdev, IFC_RELOAD);
 }
 
@@ -611,10 +616,10 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	struct blob_attr *disabled;
 
 	blobmsg_parse(&wdev_policy, 1, &disabled, blob_data(data), blob_len(data));
-	if (disabled && blobmsg_get_bool(disabled))
-		return;
 
 	wdev = calloc_a(sizeof(*wdev), &name_buf, strlen(name) + 1);
+	if (disabled && blobmsg_get_bool(disabled))
+		wdev->disabled = true;
 	wdev->drv = drv;
 	wdev->state = IFS_DOWN;
 	wdev->config_state = IFC_NORMAL;
@@ -687,6 +692,8 @@ wireless_device_status(struct wireless_device *wdev, struct blob_buf *b)
 	blobmsg_add_u8(b, "up", wdev->state == IFS_UP);
 	blobmsg_add_u8(b, "pending", wdev->state == IFS_SETUP || wdev->state == IFS_TEARDOWN);
 	blobmsg_add_u8(b, "autostart", wdev->autostart);
+	blobmsg_add_u8(b, "disabled", wdev->disabled);
+
 	i = blobmsg_open_array(b, "interfaces");
 	vlist_for_each_element(&wdev->interfaces, iface, node)
 		wireless_interface_status(iface, b);
