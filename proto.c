@@ -55,9 +55,20 @@ static const struct uci_blob_param_info proto_ip_attr_info[__OPT_MAX] = {
 	[OPT_IP6PREFIX] = { .type = BLOBMSG_TYPE_STRING },
 };
 
+static const char * const proto_ip_validate[__OPT_MAX] = {
+	[OPT_IPADDR] = "ip4addr",
+	[OPT_IP6ADDR] = "ip6addr",
+	[OPT_NETMASK] = "netmask",
+	[OPT_BROADCAST] = "ipaddr",
+	[OPT_GATEWAY] = "ip4addr",
+	[OPT_IP6GW] = "ip6addr",
+	[OPT_IP6PREFIX] = "ip6addr",
+};
+
 const struct uci_blob_param_list proto_ip_attr = {
 	.n_params = __OPT_MAX,
 	.params = proto_ip_attributes,
+	.validate = proto_ip_validate,
 	.info = proto_ip_attr_info,
 };
 
