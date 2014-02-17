@@ -701,6 +701,30 @@ wireless_device_status(struct wireless_device *wdev, struct blob_buf *b)
 	blobmsg_close_table(b, c);
 }
 
+void
+wireless_device_get_validate(struct wireless_device *wdev, struct blob_buf *b)
+{
+	struct uci_blob_param_list *p;
+	void *c, *d;
+	int i;
+
+	c = blobmsg_open_table(b, wdev->name);
+
+	d = blobmsg_open_table(b, "device");
+	p = wdev->drv->device.config;
+	for (i = 0; i < p->n_params; i++)
+		blobmsg_add_string(b, p->params[i].name, uci_get_validate_string(p, i));
+	blobmsg_close_table(b, d);
+
+	d = blobmsg_open_table(b, "interface");
+	p = wdev->drv->interface.config;
+	for (i = 0; i < p->n_params; i++)
+		blobmsg_add_string(b, p->params[i].name, uci_get_validate_string(p, i));
+	blobmsg_close_table(b, d);
+
+	blobmsg_close_table(b, c);
+}
+
 static void
 wireless_interface_set_data(struct wireless_interface *vif)
 {

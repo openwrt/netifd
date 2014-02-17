@@ -91,6 +91,7 @@ void wireless_device_create(struct wireless_driver *drv, const char *name, struc
 void wireless_device_set_up(struct wireless_device *wdev);
 void wireless_device_set_down(struct wireless_device *wdev);
 void wireless_device_status(struct wireless_device *wdev, struct blob_buf *b);
+void wireless_device_get_validate(struct wireless_device *wdev, struct blob_buf *b);
 void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *data, const char *section);
 int wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 			   struct ubus_request_data *req);
