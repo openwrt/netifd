@@ -195,3 +195,22 @@ bool check_pid_path(int pid, const char *exe)
 
 	return !memcmp(exe, proc_exe_buf, exe_len);
 }
+
+static const char * const uci_validate_name[__BLOBMSG_TYPE_LAST] = {
+	[BLOBMSG_TYPE_STRING] = "string",
+	[BLOBMSG_TYPE_ARRAY] = "list(string)",
+	[BLOBMSG_TYPE_INT32] = "uinteger",
+	[BLOBMSG_TYPE_BOOL] = "bool",
+};
+
+const char*
+uci_get_validate_string(const struct uci_blob_param_list *p, int i)
+{
+	if (p->validate[i])
+		return p->validate[i];
+
+	else if (uci_validate_name[p->params[i].type])
+		return uci_validate_name[p->params[i].type];
+
+	return p->validate[BLOBMSG_TYPE_STRING];
+}

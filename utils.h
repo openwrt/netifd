@@ -16,6 +16,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <uci_blob.h>
 #include <libubox/list.h>
 #include <libubox/avl.h>
 #include <libubox/avl-cmp.h>
@@ -113,6 +114,8 @@ bool check_pid_path(int pid, const char *exe);
 char * format_macaddr(uint8_t *mac);
 
 uint32_t crc32_file(FILE *fp);
+
+const char * uci_get_validate_string(const struct uci_blob_param_list *c, int i);
 
 #ifdef __APPLE__
 #define s6_addr32	__u6_addr.__u6_addr32
