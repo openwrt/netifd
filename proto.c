@@ -535,7 +535,17 @@ proto_dump_handlers(struct blob_buf *b)
 	void *c;
 
 	avl_for_each_element(&handlers, p, avl) {
+		void *v;
+
 		c = blobmsg_open_table(b, p->name);
+		if (p->config_params->validate) {
+			int i;
+
+			v = blobmsg_open_table(b, "validate");
+			for (i = 0; i < p->config_params->n_params; i++)
+				blobmsg_add_string(b, p->config_params->params[i].name, uci_get_validate_string(p->config_params, i));
+			blobmsg_close_table(b, v);
+		}
 		blobmsg_add_u8(b, "no_device", !!(p->flags & PROTO_FLAG_NODEV));
 		blobmsg_close_table(b, c);
 	}
