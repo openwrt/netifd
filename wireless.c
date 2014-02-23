@@ -417,7 +417,7 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 
 	free(wd_new);
 
-	if (blob_attr_equal(wdev->config, new_config) || wdev->disabled == disabled)
+	if (blob_attr_equal(wdev->config, new_config) && wdev->disabled == disabled)
 		return;
 
 	D(WIRELESS, "Update configuration of wireless device '%s'\n", wdev->name);
