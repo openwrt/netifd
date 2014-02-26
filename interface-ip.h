@@ -77,6 +77,7 @@ struct device_prefix {
 struct device_addr {
 	struct vlist_node node;
 	bool enabled;
+	bool failed;
 
 	/* ipv4 only */
 	uint32_t broadcast;
@@ -99,6 +100,7 @@ struct device_route {
 
 	bool enabled;
 	bool keep;
+	bool failed;
 
 	union if_addr nexthop;
 	int mtu;

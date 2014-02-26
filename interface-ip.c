@@ -480,7 +480,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	if (a_new && a_old) {
 		keep = true;
 
-		if (a_old->flags != a_new->flags)
+		if (a_old->flags != a_new->flags || a_old->failed)
 			keep = false;
 
 		if (a_old->valid_until != a_new->valid_until ||
@@ -521,7 +521,8 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	if (node_new) {
 		a_new->enabled = true;
 		if (!(a_new->flags & DEVADDR_EXTERNAL) && (!keep || replace)) {
-			system_add_address(dev, a_new);
+			if (system_add_address(dev, a_new))
+				a_new->failed = true;
 
 			if (!keep) {
 				if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
@@ -575,7 +576,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 
 	if (node_old && node_new)
 		keep = !memcmp(&route_old->nexthop, &route_new->nexthop, sizeof(route_old->nexthop)) &&
-			(route_old->table == route_new->table);
+			(route_old->table == route_new->table) && !route_old->failed;
 
 	if (node_old) {
 		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)
@@ -591,7 +592,8 @@ interface_update_proto_route(struct vlist_tree *tree,
 			route_new->metric = iface->metric;
 
 		if (!(route_new->flags & DEVADDR_EXTERNAL) && !keep && _enabled)
-			system_add_route(dev, route_new);
+			if (system_add_route(dev, route_new))
+				route_new->failed = true;
 
 		route_new->iface = iface;
 		route_new->enabled = _enabled;
