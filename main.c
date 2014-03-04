@@ -29,6 +29,7 @@
 
 unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
+const char *config_path = DEFAULT_CONFIG_PATH;
 const char *resolv_conf = DEFAULT_RESOLV_CONF;
 static char **global_argv;
 
@@ -237,6 +238,7 @@ static int usage(const char *progname)
 		" -d <mask>:		Mask for debug messages\n"
 		" -s <path>:		Path to the ubus socket\n"
 		" -p <path>:		Path to netifd addons (default: %s)\n"
+		" -c <path>:		Path to UCI configuration\n"
 		" -h <path>:		Path to the hotplug script\n"
 		" -r <path>:		Path to resolv.conf\n"
 		" -l <level>:		Log output level (default: %d)\n"
@@ -286,7 +288,7 @@ int main(int argc, char **argv)
 
 	global_argv = argv;
 
-	while ((ch = getopt(argc, argv, "d:s:p:h:r:l:S")) != -1) {
+	while ((ch = getopt(argc, argv, "d:s:p:c:h:r:l:S")) != -1) {
 		switch(ch) {
 		case 'd':
 			debug_mask = strtoul(optarg, NULL, 0);
@@ -296,6 +298,9 @@ int main(int argc, char **argv)
 			break;
 		case 'p':
 			main_path = optarg;
+			break;
+		case 'c':
+			config_path = optarg;
 			break;
 		case 'h':
 			hotplug_cmd_path = optarg;

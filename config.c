@@ -190,8 +190,10 @@ config_init_package(const char *config)
 		ctx = uci_alloc_context();
 		uci_ctx = ctx;
 
+		if (config_path)
+			uci_set_confdir(ctx, config_path);
+
 #ifdef DUMMY_MODE
-		uci_set_confdir(ctx, "./config");
 		uci_set_savedir(ctx, "./tmp");
 #endif
 	} else {

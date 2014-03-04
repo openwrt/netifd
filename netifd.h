@@ -30,10 +30,12 @@
 
 #ifdef DUMMY_MODE
 #define DEFAULT_MAIN_PATH	"./examples"
+#define DEFAULT_CONFIG_PATH	"./config"
 #define DEFAULT_HOTPLUG_PATH	"./examples/hotplug-cmd"
 #define DEFAULT_RESOLV_CONF	"./tmp/resolv.conf"
 #else
 #define DEFAULT_MAIN_PATH	"/lib/netifd"
+#define DEFAULT_CONFIG_PATH	NULL /* use the default set in libuci */
 #define DEFAULT_HOTPLUG_PATH	"/sbin/hotplug-call"
 #define DEFAULT_RESOLV_CONF	"/tmp/resolv.conf.auto"
 #endif
@@ -94,6 +96,7 @@ struct device;
 struct interface;
 
 extern const char *main_path;
+extern const char *config_path;
 void netifd_restart(void);
 void netifd_reload(void);
 
