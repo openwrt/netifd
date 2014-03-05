@@ -636,13 +636,13 @@ interface_ip_dump_dns_search_list(struct interface_ip_settings *ip,
 }
 
 static void
-netifd_dump_status(struct interface *iface)
+netifd_dump_status(struct interface *iface, bool up)
 {
 	struct interface_data *data;
 	struct device *dev;
 	void *a, *inactive;
 
-	blobmsg_add_u8(&b, "up", iface->state == IFS_UP);
+	blobmsg_add_u8(&b, "up", up && iface->state == IFS_UP);
 	blobmsg_add_u8(&b, "pending", iface->state == IFS_SETUP);
 	blobmsg_add_u8(&b, "available", iface->available);
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
@@ -753,7 +753,7 @@ netifd_handle_status(struct ubus_context *ctx, struct ubus_object *obj,
 	struct interface *iface = container_of(obj, struct interface, ubus);
 
 	blob_buf_init(&b, 0);
-	netifd_dump_status(iface);
+	netifd_dump_status(iface, true);
 	ubus_send_reply(ctx, req, b.head);
 
 	return 0;
@@ -772,7 +772,7 @@ netifd_handle_dump(struct ubus_context *ctx, struct ubus_object *obj,
 	vlist_for_each_element(&interfaces, iface, node) {
 		void *i = blobmsg_open_table(&b, NULL);
 		blobmsg_add_string(&b, "interface", iface->name);
-		netifd_dump_status(iface);
+		netifd_dump_status(iface, true);
 		blobmsg_close_table(&b, i);
 	}
 
@@ -1163,7 +1163,7 @@ netifd_ubus_interface_notify(struct interface *iface, bool up)
 	const char *event = (up) ? "update" : "down";
 	blob_buf_init(&b, 0);
 	blobmsg_add_string(&b, "interface", iface->name);
-	netifd_dump_status(iface);
+	netifd_dump_status(iface, up);
 	ubus_notify(ubus_ctx, &iface_object, event, b.head, -1);
 	ubus_notify(ubus_ctx, &iface->ubus, event, b.head, -1);
 }
