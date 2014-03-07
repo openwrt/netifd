@@ -231,10 +231,10 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 		bm->present = true;
 		bst->n_present++;
 
+		if (bst->n_present == 1)
+			device_set_present(&bst->dev, true);
 		if (bst->dev.active)
 			bridge_enable_member(bm);
-		else if (bst->n_present == 1)
-			device_set_present(&bst->dev, true);
 
 		break;
 	case DEV_EVENT_REMOVE:
