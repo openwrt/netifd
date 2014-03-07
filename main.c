@@ -25,6 +25,7 @@
 #include "system.h"
 #include "interface.h"
 #include "wireless.h"
+#include "proto.h"
 
 unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
@@ -326,6 +327,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	proto_shell_init();
 	wireless_init();
 
 	if (system_init()) {

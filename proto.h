@@ -73,5 +73,6 @@ unsigned int parse_netmask_string(const char *str, bool v6);
 int proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr);
 int proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ext);
 void proto_dump_handlers(struct blob_buf *b);
+void proto_shell_init(void);
 
 #endif

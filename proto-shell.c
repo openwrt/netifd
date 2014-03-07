@@ -769,7 +769,7 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	add_proto_handler(proto);
 }
 
-static void __init proto_shell_init(void)
+void proto_shell_init(void)
 {
 	proto_fd = netifd_open_subdir("proto");
 	if (proto_fd < 0)
