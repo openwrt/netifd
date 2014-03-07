@@ -491,8 +491,7 @@ wireless_add_handler(const char *script, const char *name, json_object *obj)
 	D(WIRELESS, "Add handler for script %s: %s\n", script, name);
 }
 
-static void __init
-wireless_init_list(void)
+void wireless_init(void)
 {
 	vlist_init(&wireless_devices, avl_strcmp, wdev_update);
 	wireless_devices.keep_old = true;

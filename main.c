@@ -24,6 +24,7 @@
 #include "config.h"
 #include "system.h"
 #include "interface.h"
+#include "wireless.h"
 
 unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
@@ -324,6 +325,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Failed to connect to ubus\n");
 		return 1;
 	}
+
+	wireless_init();
 
 	if (system_init()) {
 		fprintf(stderr, "Failed to initialize system control\n");

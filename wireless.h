@@ -97,5 +97,6 @@ int wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 			   struct ubus_request_data *req);
 
 void wireless_start_pending(void);
+void wireless_init(void);
 
 #endif
