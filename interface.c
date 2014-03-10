@@ -222,11 +222,14 @@ mark_interface_down(struct interface *iface)
 void
 __interface_set_down(struct interface *iface, bool force)
 {
-	switch (iface->state) {
+	enum interface_state state = iface->state;
+	switch (state) {
 	case IFS_UP:
-		interface_event(iface, IFEV_DOWN);
 	case IFS_SETUP:
 		iface->state = IFS_TEARDOWN;
+		if (state == IFS_UP)
+			interface_event(iface, IFEV_DOWN);
+
 		interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
 		if (force)
 			interface_flush_state(iface);
