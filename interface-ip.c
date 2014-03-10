@@ -322,7 +322,8 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_METRIC]) != NULL) {
 		route->metric = blobmsg_get_u32(cur);
 		route->flags |= DEVROUTE_METRIC;
-	}
+	} else
+		route->metric = iface->metric;
 
 	if ((cur = tb[ROUTE_MTU]) != NULL) {
 		route->mtu = blobmsg_get_u32(cur);
@@ -587,9 +588,6 @@ interface_update_proto_route(struct vlist_tree *tree,
 
 	if (node_new) {
 		bool _enabled = enable_route(ip, route_new);
-
-		if (!(route_new->flags & DEVROUTE_METRIC))
-			route_new->metric = iface->metric;
 
 		if (!(route_new->flags & DEVADDR_EXTERNAL) && !keep && _enabled)
 			if (system_add_route(dev, route_new))
