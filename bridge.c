@@ -233,8 +233,15 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 
 		if (bst->n_present == 1)
 			device_set_present(&bst->dev, true);
-		if (bst->dev.active)
-			bridge_enable_member(bm);
+		if (bst->dev.active && !bridge_enable_member(bm)) {
+			/*
+			 * Adding a bridge member can overwrite the bridge mtu
+			 * in the kernel, apply the bridge settings in case the
+			 * bridge mtu is set
+			 */
+			system_if_apply_settings(&bst->dev, &bst->dev.settings,
+						 DEV_OPT_MTU);
+		}
 
 		break;
 	case DEV_EVENT_REMOVE:

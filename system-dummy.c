@@ -120,7 +120,7 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 }
 
 void
-system_if_apply_settings(struct device *dev, struct device_settings *s)
+system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
 {
 }
 

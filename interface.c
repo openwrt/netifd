@@ -839,7 +839,7 @@ interface_handle_link(struct interface *iface, const char *name, bool add)
 		if (iface->device_config)
 			device_set_config(dev, &simple_device_type, iface->config);
 
-		system_if_apply_settings(dev, &dev->settings);
+		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 		ret = interface_add_link(iface, dev);
 	} else {
 		ret = interface_remove_link(iface, dev);

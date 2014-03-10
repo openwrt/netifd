@@ -623,7 +623,7 @@ device_create(const char *name, const struct device_type *type,
 		odev->current_config = true;
 		change = device_set_config(odev, type, config);
 		if (odev->external) {
-			system_if_apply_settings(odev, &odev->settings);
+			system_if_apply_settings(odev, &odev->settings, odev->settings.flags);
 			change = DEV_CONFIG_APPLIED;
 		}
 		switch (change) {

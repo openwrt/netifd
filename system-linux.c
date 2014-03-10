@@ -798,23 +798,26 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 }
 
 void
-system_if_apply_settings(struct device *dev, struct device_settings *s)
+system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
 {
 	struct ifreq ifr;
 
+	if (!apply_mask)
+		return;
+
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
-	if (s->flags & DEV_OPT_MTU) {
+	if (s->flags & DEV_OPT_MTU & apply_mask) {
 		ifr.ifr_mtu = s->mtu;
 		if (ioctl(sock_ioctl, SIOCSIFMTU, &ifr) < 0)
 			s->flags &= ~DEV_OPT_MTU;
 	}
-	if (s->flags & DEV_OPT_TXQUEUELEN) {
+	if (s->flags & DEV_OPT_TXQUEUELEN & apply_mask) {
 		ifr.ifr_qlen = s->txqueuelen;
 		if (ioctl(sock_ioctl, SIOCSIFTXQLEN, &ifr) < 0)
 			s->flags &= ~DEV_OPT_TXQUEUELEN;
 	}
-	if ((s->flags & DEV_OPT_MACADDR) && !dev->external) {
+	if ((s->flags & DEV_OPT_MACADDR & apply_mask) && !dev->external) {
 		ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 		memcpy(&ifr.ifr_hwaddr.sa_data, s->macaddr, sizeof(s->macaddr));
 		if (ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr) < 0)
@@ -825,7 +828,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s)
 int system_if_up(struct device *dev)
 {
 	system_if_get_settings(dev, &dev->orig_settings);
-	system_if_apply_settings(dev, &dev->settings);
+	system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 	device_set_ifindex(dev, system_if_resolve(dev));
 	return system_if_flags(dev->ifname, IFF_UP, 0);
 }
@@ -834,7 +837,7 @@ int system_if_down(struct device *dev)
 {
 	int ret = system_if_flags(dev->ifname, 0, IFF_UP);
 	dev->orig_settings.flags &= dev->settings.flags;
-	system_if_apply_settings(dev, &dev->orig_settings);
+	system_if_apply_settings(dev, &dev->orig_settings, dev->orig_settings.flags);
 	return ret;
 }
 
