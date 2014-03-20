@@ -273,7 +273,7 @@ interface_check_state(struct interface *iface)
 		}
 		break;
 	case IFS_DOWN:
-		if (iface->enabled && iface->link_state && !config_init)
+		if (iface->autostart && iface->enabled && iface->link_state && !config_init)
 			__interface_set_up(iface);
 		break;
 	default:
