@@ -737,7 +737,7 @@ netifd_dump_status(struct interface *iface)
 
 	a = blobmsg_open_table(&b, "data");
 	avl_for_each_element(&iface->data, data, node)
-		blob_put(&b, blob_id(data->data), blob_data(data->data), blob_len(data->data));
+		blobmsg_add_blob(&b, data->data);
 
 	blobmsg_close_table(&b, a);
 
