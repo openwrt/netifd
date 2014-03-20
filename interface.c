@@ -328,6 +328,9 @@ interface_cb(struct device_user *dep, enum device_event ev)
         case DEV_EVENT_LINK_DOWN:
 		interface_set_link_state(iface, new_state);
 		break;
+	case DEV_EVENT_TOPO_CHANGE:
+		interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);
+		return;
 	default:
 		break;
 	}
@@ -599,6 +602,8 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		mark_interface_down(iface);
 		iface->state = IFS_SETUP;
 		break;
+	default:
+		return;
 	}
 
 	interface_write_resolv_conf();

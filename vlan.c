@@ -88,6 +88,10 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		vlan_dev_set_name(vldev, dep->dev);
 		device_broadcast_event(&vldev->dev, ev);
 		break;
+	case DEV_EVENT_TOPO_CHANGE:
+		/* Propagate topo changes */
+		device_broadcast_event(&vldev->dev, DEV_EVENT_TOPO_CHANGE);
+		break;
 	default:
 		break;
 	}

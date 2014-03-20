@@ -140,6 +140,8 @@ bridge_disable_member(struct bridge_member *bm)
 	system_bridge_delif(&bst->dev, bm->dev.dev);
 	device_release(&bm->dev);
 
+	device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
+
 	return 0;
 }
 
@@ -161,6 +163,8 @@ bridge_enable_member(struct bridge_member *bm)
 		D(DEVICE, "Bridge device %s could not be added\n", bm->dev.dev->ifname);
 		goto error;
 	}
+
+	device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
 
 	return 0;
 

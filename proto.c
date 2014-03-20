@@ -615,6 +615,9 @@ interface_proto_event(struct interface_proto_state *proto,
 	case PROTO_CMD_TEARDOWN:
 		ev = IFPEV_DOWN;
 		break;
+	case PROTO_CMD_RENEW:
+		ev = IFPEV_RENEW;
+		break;
 	default:
 		return -EINVAL;
 	}

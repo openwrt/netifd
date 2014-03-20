@@ -20,6 +20,11 @@ _proto_do_teardown() {
 	eval "proto_$1_teardown \"$interface\" \"$ifname\""
 }
 
+_proto_do_renew() {
+	json_load "$data"
+	eval "proto_$1_renew \"$interface\" \"$ifname\""
+}
+
 _proto_do_setup() {
 	json_load "$data"
 	_EXPORT_VAR=0
@@ -352,6 +357,7 @@ init_proto() {
 			add_protocol() {
 				no_device=0
 				available=0
+				renew_handler=0
 
 				add_default_handler "proto_$1_init_config"
 
@@ -362,10 +368,11 @@ init_proto() {
 				json_close_array
 				json_add_boolean no-device "$no_device"
 				json_add_boolean available "$available"
+				json_add_boolean renew-handler "$renew_handler"
 				json_dump
 			}
 		;;
-		setup|teardown)
+		setup|teardown|renew)
 			interface="$1"; shift
 			data="$1"; shift
 			ifname="$1"; shift
@@ -376,6 +383,7 @@ init_proto() {
 				case "$cmd" in
 					setup) _proto_do_setup "$1";;
 					teardown) _proto_do_teardown "$1" ;;
+					renew) _proto_do_renew "$1" ;;
 					*) return 1 ;;
 				esac
 			}

@@ -78,6 +78,9 @@ enum device_event {
 	DEV_EVENT_LINK_UP,
 	DEV_EVENT_LINK_DOWN,
 
+	/* Topology changed (i.e. bridge member added) */
+	DEV_EVENT_TOPO_CHANGE,
+
 	__DEV_EVENT_MAX
 };
 

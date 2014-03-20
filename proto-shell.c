@@ -159,6 +159,10 @@ proto_shell_handler(struct interface_proto_state *proto,
 		state->last_error = -1;
 		proto_shell_clear_host_dep(state);
 		state->sm = S_SETUP;
+	} else if (cmd == PROTO_CMD_RENEW) {
+		if (!(handler->proto.flags & PROTO_FLAG_RENEW_AVAILABLE))
+			return 0;
+		action = "renew";
 	} else {
 		if (state->sm == S_TEARDOWN)
 			return 0;
@@ -760,6 +764,10 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	tmp = json_get_field(obj, "available", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_INIT_AVAILABLE;
+
+	tmp = json_get_field(obj, "renew-handler", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_RENEW_AVAILABLE;
 
 	config = json_get_field(obj, "config", json_type_array);
 	if (config)

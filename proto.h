@@ -22,17 +22,20 @@ enum interface_proto_event {
 	IFPEV_UP,
 	IFPEV_DOWN,
 	IFPEV_LINK_LOST,
+	IFPEV_RENEW,
 };
 
 enum interface_proto_cmd {
 	PROTO_CMD_SETUP,
 	PROTO_CMD_TEARDOWN,
+	PROTO_CMD_RENEW,
 };
 
 enum {
 	PROTO_FLAG_IMMEDIATE = (1 << 0),
 	PROTO_FLAG_NODEV = (1 << 1),
 	PROTO_FLAG_INIT_AVAILABLE = (1 << 2),
+	PROTO_FLAG_RENEW_AVAILABLE = (1 << 3),
 };
 
 struct interface_proto_state {
