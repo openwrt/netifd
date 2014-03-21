@@ -741,7 +741,7 @@ netifd_dump_status(struct interface *iface)
 
 	blobmsg_close_table(&b, a);
 
-	if (!list_is_empty(&iface->errors))
+	if (!list_empty(&iface->errors))
 		netifd_add_interface_errors(&b, iface);
 }
 
