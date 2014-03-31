@@ -190,6 +190,7 @@ config_init_package(const char *config)
 		ctx = uci_alloc_context();
 		uci_ctx = ctx;
 
+		ctx->flags &= ~UCI_FLAG_STRICT;
 		if (config_path)
 			uci_set_confdir(ctx, config_path);
 
