@@ -592,6 +592,8 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 		mark_interface_down(iface);
 		if (iface->main_dev.dev)
 			device_release(&iface->main_dev);
+		if (iface->l3_dev.dev)
+			device_remove_user(&iface->l3_dev);
 		interface_handle_config_change(iface);
 		break;
 	case IFPEV_LINK_LOST:
