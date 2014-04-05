@@ -91,8 +91,10 @@ int system_if_check(struct device *dev)
 {
 	dev->ifindex = 0;
 
-	if (!strcmp(dev->ifname, "eth0"))
+	if (!strcmp(dev->ifname, "eth0")) {
 		device_set_present(dev, true);
+		device_set_link(dev, true);
+	}
 
 	return 0;
 }
