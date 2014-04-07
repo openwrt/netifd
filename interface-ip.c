@@ -400,6 +400,9 @@ route_cmp(const void *k1, const void *k2, void *ptr)
 	if (r1->sourcemask != r2->sourcemask)
 		return r1->sourcemask - r2->sourcemask;
 
+	if (r1->table != r2->table)
+		return r1->table - r2->table;
+
 	int maskcmp = memcmp(&r1->source, &r2->source, sizeof(r1->source));
 	if (maskcmp)
 		return maskcmp;
