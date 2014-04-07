@@ -30,6 +30,7 @@ static void task_complete(struct uloop_process *proc, int ret);
 static struct uloop_process task = {
 	.cb = task_complete,
 };
+char *eventnames[] = {"ifdown", "ifup", "ifupdate"};
 
 static void
 run_cmd(const char *ifname, const char *device, enum interface_event event,
@@ -48,7 +49,6 @@ run_cmd(const char *ifname, const char *device, enum interface_event event,
 		return;
 	}
 
-	char *eventnames[] = {"ifdown", "ifup", "ifupdate"};
 	setenv("ACTION", eventnames[event], 1);
 	setenv("INTERFACE", ifname, 1);
 	if (device)
@@ -86,7 +86,8 @@ call_hotplug(void)
 	if (current_ev == IFEV_UP && current->l3_dev.dev)
 		device = current->l3_dev.dev->ifname;
 
-	D(SYSTEM, "Call hotplug handler for interface '%s' (%s)\n", current->name, device ? device : "none");
+	D(SYSTEM, "Call hotplug handler for interface '%s', event '%s' (%s)\n",
+	current->name, eventnames[current_ev], device ? device : "none");
 	run_cmd(current->name, device, current_ev, current->updated);
 }
 
@@ -109,24 +110,66 @@ task_complete(struct uloop_process *proc, int ret)
 static void
 interface_queue_event(struct interface *iface, enum interface_event ev)
 {
-	enum interface_event last_ev;
-
-	D(SYSTEM, "Queue hotplug handler for interface '%s'\n", iface->name);
+	D(SYSTEM, "Queue hotplug handler for interface '%s', event '%s'\n",
+			iface->name, eventnames[ev]);
 	if (ev == IFEV_UP || ev == IFEV_DOWN)
 		netifd_ubus_interface_event(iface, ev == IFEV_UP);
 
 	netifd_ubus_interface_notify(iface, ev != IFEV_DOWN);
 
-	if (current == iface)
-		last_ev = current_ev;
-	else
-		last_ev = iface->hotplug_ev;
-
-	iface->hotplug_ev = ev;
-	if ((last_ev == ev && ev != IFEV_UPDATE) && !list_empty(&iface->hotplug_list))
-		list_del_init(&iface->hotplug_list);
-	else if ((last_ev != ev || ev == IFEV_UPDATE) && list_empty(&iface->hotplug_list))
-		list_add(&iface->hotplug_list, &pending);
+	if (current == iface) {
+		/* an event for iface is being processed */
+		if (!list_empty(&iface->hotplug_list)) {
+			/* an additional event for iface is pending */
+			if ((ev != current_ev || ev == IFEV_UPDATE) &&
+			!(iface->hotplug_ev == IFEV_UP && ev == IFEV_UPDATE)) {
+				/* if incoming event is different from the one
+				 * being handled or if it is an update,
+				 * overwrite pending event, but never
+				 * overwrite an ifup with an ifupdate */
+				iface->hotplug_ev = ev;
+			}
+			else if (ev == current_ev && ev != IFEV_UPDATE) {
+				/* if incoming event is not an ifupdate
+				 * and is the same as the one that is
+				 * being handled, remove it from the
+				 * pending list */
+				list_del_init(&iface->hotplug_list);
+			}
+		}
+		else {
+			/* no additional event for iface is pending */
+			if (ev != current_ev || ev == IFEV_UPDATE) {
+				/* only add the interface to the pending list if
+				 * the event is different from the one being
+				 * handled or if it is an update */
+				iface->hotplug_ev = ev;
+				/* Handle hotplug calls FIFO */
+				list_add_tail(&iface->hotplug_list, &pending);
+			}
+		}
+	}
+	else {
+		/* currently not handling an event or handling an event
+		 * for another interface */
+		if (!list_empty(&iface->hotplug_list)) {
+			/* an event for iface is pending */
+			if (!(iface->hotplug_ev == IFEV_UP &&
+				ev == IFEV_UPDATE)) {
+				/* overwrite pending event, unless the incoming
+				 * event is an ifupdate while the pending one
+				 * is an ifup */
+				iface->hotplug_ev = ev;
+			}
+		}
+		else {
+			/* an event for the interface is not yet pending,
+			 * queue it */
+			iface->hotplug_ev = ev;
+			/* Handle hotplug calls FIFO */
+			list_add_tail(&iface->hotplug_list, &pending);
+		}
+	}
 
 	if (!task.pending && !current)
 		call_hotplug();
