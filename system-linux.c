@@ -211,6 +211,40 @@ static void system_set_disable_ipv6(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname, val);
 }
 
+static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
+{
+	int fd = -1, ret = -1;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		goto out;
+
+	ssize_t len = read(fd, buf, buf_sz - 1);
+	if (len < 0)
+		goto out;
+
+	ret = buf[len] = 0;
+
+out:
+	if (fd >= 0)
+		close(fd);
+
+	return ret;
+}
+
+static int
+system_get_dev_sysctl(const char *path, const char *device, char *buf, const size_t buf_sz)
+{
+	snprintf(dev_buf, sizeof(dev_buf), path, device);
+	return system_get_sysctl(dev_buf, buf, buf_sz);
+}
+
+static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6",
+			dev->ifname, buf, buf_sz);
+}
+
 #ifndef IFF_LOWER_UP
 #define IFF_LOWER_UP	0x10000
 #endif
@@ -380,7 +414,6 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 {
 	char *oldbr;
 
-	system_set_disable_ipv6(dev, "1");
 	oldbr = system_get_bridge(dev->ifname, dev_buf, sizeof(dev_buf));
 	if (oldbr && !strcmp(oldbr, bridge->ifname))
 		return 0;
@@ -390,7 +423,6 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
-	system_set_disable_ipv6(dev, "0");
 	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
@@ -777,6 +809,7 @@ static void
 system_if_get_settings(struct device *dev, struct device_settings *s)
 {
 	struct ifreq ifr;
+	char buf[10];
 
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
@@ -794,6 +827,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	if (ioctl(sock_ioctl, SIOCGIFHWADDR, &ifr) == 0) {
 		memcpy(s->macaddr, &ifr.ifr_hwaddr.sa_data, sizeof(s->macaddr));
 		s->flags |= DEV_OPT_MACADDR;
+	}
+
+	if (!system_get_disable_ipv6(dev, buf, sizeof(buf))) {
+		s->ipv6 = !strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_IPV6;
 	}
 }
 
@@ -823,6 +861,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		if (ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr) < 0)
 			s->flags &= ~DEV_OPT_MACADDR;
 	}
+	if (s->flags & DEV_OPT_IPV6 & apply_mask)
+		system_set_disable_ipv6(dev, s->ipv6 ? "0" : "1");
 }
 
 int system_if_up(struct device *dev)

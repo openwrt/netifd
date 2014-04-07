@@ -154,6 +154,12 @@ bridge_enable_member(struct bridge_member *bm)
 	if (!bm->present)
 		return 0;
 
+	/* Disable IPv6 for bridge members */
+	if (!(bm->dev.dev->settings.flags & DEV_OPT_IPV6)) {
+		bm->dev.dev->settings.ipv6 = 0;
+		bm->dev.dev->settings.flags |= DEV_OPT_IPV6;
+	}
+
 	ret = device_claim(&bm->dev);
 	if (ret < 0)
 		goto error;
