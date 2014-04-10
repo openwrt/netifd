@@ -445,28 +445,29 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 			dev_create = 2;
 	}
 
-	if (iface->state != IFS_UP)
+	if (iface->state != IFS_UP || !iface->l3_dev.dev)
 		keep = false;
 
-	dev = iface->main_dev.dev;
-	if (tb[NOTIFY_IFNAME] && !keep) {
-		keep = false;
-		devname = blobmsg_data(tb[NOTIFY_IFNAME]);
-		if (tb[NOTIFY_TUNNEL])
-			dev = proto_shell_create_tunnel(devname, tb[NOTIFY_TUNNEL]);
-		else
-			dev = device_get(devname, dev_create);
-	}
+	if (!keep) {
+		dev = iface->main_dev.dev;
+		if (tb[NOTIFY_IFNAME]) {
+			keep = false;
+			devname = blobmsg_data(tb[NOTIFY_IFNAME]);
+			if (tb[NOTIFY_TUNNEL])
+				dev = proto_shell_create_tunnel(devname, tb[NOTIFY_TUNNEL]);
+			else
+				dev = device_get(devname, dev_create);
+		}
 
-	if (!dev)
-		return UBUS_STATUS_INVALID_ARGUMENT;
+		if (!dev)
+			return UBUS_STATUS_INVALID_ARGUMENT;
 
-	interface_set_l3_dev(iface, dev);
-	device_claim(&iface->l3_dev);
-	device_set_present(dev, true);
+		interface_set_l3_dev(iface, dev);
+		device_claim(&iface->l3_dev);
+		device_set_present(dev, true);
 
-	if (!keep)
 		interface_update_start(iface);
+	}
 
 	proto_apply_ip_settings(iface, data, addr_ext);
 
