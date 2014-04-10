@@ -33,6 +33,10 @@ struct static_proto_state {
 static bool
 static_proto_setup(struct static_proto_state *state)
 {
+	struct interface *iface = state->proto.iface;
+	struct device *dev = iface->main_dev.dev;
+
+	interface_set_l3_dev(iface, dev);
 	return proto_apply_static_ip_settings(state->proto.iface, state->config) == 0;
 }
 
