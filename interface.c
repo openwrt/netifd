@@ -43,6 +43,7 @@ enum {
 	IFACE_ATTR_IP6TABLE,
 	IFACE_ATTR_IP6CLASS,
 	IFACE_ATTR_DELEGATE,
+	IFACE_ATTR_FORCE_LINK,
 	IFACE_ATTR_MAX
 };
 
@@ -62,6 +63,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6TABLE] = { .name = "ip6table", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6CLASS] = { .name = "ip6class", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DELEGATE] = { .name = "delegate", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_info iface_attr_info[IFACE_ATTR_MAX] = {
@@ -265,15 +267,17 @@ __interface_set_up(struct interface *iface)
 static void
 interface_check_state(struct interface *iface)
 {
+	bool link_state = iface->link_state || iface->force_link;
+
 	switch (iface->state) {
 	case IFS_UP:
-		if (!iface->enabled || !iface->link_state) {
+		if (!iface->enabled || !link_state) {
 			mark_interface_down(iface);
 			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
 		}
 		break;
 	case IFS_DOWN:
-		if (iface->autostart && iface->enabled && iface->link_state && !config_init)
+		if (iface->autostart && iface->enabled && link_state && !config_init)
 			__interface_set_up(iface);
 		break;
 	default:
@@ -656,6 +660,7 @@ interface_alloc(const char *name, struct blob_attr *config)
 	proto_attach_interface(iface, proto_name);
 
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
+	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], false);
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
 	iface->proto_ip.no_dns =
@@ -986,6 +991,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->ifname = if_new->ifname;
 	if_old->parent_ifname = if_new->parent_ifname;
 	if_old->proto_handler = if_new->proto_handler;
+	if_old->force_link = if_new->force_link;
 
 	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
@@ -1014,6 +1020,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	}
 
 	interface_write_resolv_conf();
+	interface_check_state(if_old);
 
 out:
 	if_new->config = NULL;
