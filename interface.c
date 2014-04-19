@@ -581,6 +581,9 @@ interface_proto_cb(struct interface_proto_state *state, enum interface_proto_eve
 			return;
 		}
 
+		if (!iface->l3_dev.dev)
+			interface_set_l3_dev(iface, iface->main_dev.dev);
+
 		interface_ip_set_enabled(&iface->config_ip, true);
 		system_flush_routes();
 		iface->state = IFS_UP;
