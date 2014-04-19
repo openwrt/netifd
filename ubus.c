@@ -650,7 +650,8 @@ netifd_dump_status(struct interface *iface)
 	if (iface->state == IFS_UP) {
 		time_t cur = system_get_rtime();
 		blobmsg_add_u32(&b, "uptime", cur - iface->start_time);
-		blobmsg_add_string(&b, "l3_device", iface->l3_dev.dev->ifname);
+		if (iface->l3_dev.dev)
+			blobmsg_add_string(&b, "l3_device", iface->l3_dev.dev->ifname);
 	}
 
 	if (iface->proto_handler)
