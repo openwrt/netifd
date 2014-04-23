@@ -18,6 +18,7 @@
 
 #include <limits.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include "netifd.h"
 #include "device.h"
@@ -1027,7 +1028,7 @@ interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr
 }
 
 static void
-write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip)
+write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip, const char *dev)
 {
 	struct dns_server *s;
 	struct dns_search_domain *d;
@@ -1039,7 +1040,10 @@ write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip)
 		if (!str)
 			continue;
 
-		fprintf(f, "nameserver %s\n", str);
+		if (s->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&s->addr))
+			fprintf(f, "nameserver %s%%%s\n", str, dev);
+		else
+			fprintf(f, "nameserver %s\n", str);
 	}
 
 	vlist_simple_for_each_element(&ip->dns_search, d, node) {
@@ -1074,9 +1078,9 @@ interface_write_resolv_conf(void)
 			continue;
 
 		fprintf(f, "# Interface %s\n", iface->name);
-		write_resolv_conf_entries(f, &iface->config_ip);
+		write_resolv_conf_entries(f, &iface->config_ip, iface->ifname);
 		if (!iface->proto_ip.no_dns)
-			write_resolv_conf_entries(f, &iface->proto_ip);
+			write_resolv_conf_entries(f, &iface->proto_ip, iface->ifname);
 	}
 	fflush(f);
 	rewind(f);
