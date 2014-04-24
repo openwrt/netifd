@@ -661,8 +661,8 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		}
 
 		assignment->enabled = false;
-	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP)) {
-		system_add_address(l3_downlink, &addr);
+	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP) &&
+			!system_add_address(l3_downlink, &addr)) {
 		if (prefix->iface && !assignment->enabled) {
 			set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
 					addr.mask, 0, iface, "unreachable");
