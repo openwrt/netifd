@@ -1043,7 +1043,7 @@ write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip, const char 
 		if (!str)
 			continue;
 
-		if (s->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&s->addr))
+		if (s->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&s->addr.in6))
 			fprintf(f, "nameserver %s%%%s\n", str, dev);
 		else
 			fprintf(f, "nameserver %s\n", str);
