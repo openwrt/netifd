@@ -629,7 +629,6 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	INIT_LIST_HEAD(&wdev->script_proc);
 	vlist_init(&wdev->interfaces, avl_strcmp, vif_update);
 	wdev->interfaces.keep_old = true;
-	vlist_add(&wireless_devices, &wdev->node, wdev->name);
 
 	wdev->timeout.cb = wireless_device_setup_timeout;
 	wdev->script_task.cb = wireless_device_script_task_cb;
@@ -640,6 +639,8 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	wdev->script_proc_fd.cb = wireless_proc_poll_fd;
 
 	wdev->script_check.cb = wireless_device_check_script_tasks;
+
+	vlist_add(&wireless_devices, &wdev->node, wdev->name);
 }
 
 void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *data, const char *section)
