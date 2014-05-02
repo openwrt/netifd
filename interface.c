@@ -780,6 +780,7 @@ interface_set_main_dev(struct interface *iface, struct device *dev)
 	if (iface->main_dev.dev == dev)
 		return;
 
+	interface_set_available(iface, false);
 	device_add_user(&iface->main_dev, dev);
 	if (!dev) {
 		interface_set_link_state(iface, false);
