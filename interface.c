@@ -807,7 +807,7 @@ interface_remove_link(struct interface *iface, struct device *dev)
 	if (dev != iface->main_dev.dev)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	device_remove_user(&iface->main_dev);
+	interface_set_main_dev(iface, NULL);
 	return 0;
 }
 
