@@ -775,14 +775,10 @@ interface_set_l3_dev(struct interface *iface, struct device *dev)
 void
 interface_set_main_dev(struct interface *iface, struct device *dev)
 {
-	bool set_l3 = (!dev || iface->main_dev.dev == iface->l3_dev.dev);
 	bool claimed = iface->l3_dev.claimed;
 
 	if (iface->main_dev.dev == dev)
 		return;
-
-	if (set_l3)
-		interface_set_l3_dev(iface, dev);
 
 	device_add_user(&iface->main_dev, dev);
 	if (!dev) {
