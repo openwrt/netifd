@@ -61,6 +61,9 @@ void device_unlock(void)
 
 static int set_device_state(struct device *dev, bool state)
 {
+	if (dev->external)
+		return 0;
+
 	if (state)
 		system_if_up(dev);
 	else
