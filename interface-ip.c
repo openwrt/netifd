@@ -581,7 +581,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 
 	if (node_old && node_new)
 		keep = !memcmp(&route_old->nexthop, &route_new->nexthop, sizeof(route_old->nexthop)) &&
-			!route_old->failed;
+			(route_old->mtu == route_new->mtu) && !route_old->failed;
 
 	if (node_old) {
 		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)

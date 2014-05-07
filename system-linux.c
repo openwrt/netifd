@@ -1260,7 +1260,22 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	if (table >= 256)
 		nla_put_u32(msg, RTA_TABLE, table);
 
+	if (route->flags & DEVROUTE_MTU) {
+		struct nlattr *metrics;
+
+		if (!(metrics = nla_nest_start(msg, RTA_METRICS)))
+			goto nla_put_failure;
+
+		nla_put_u32(msg, RTAX_MTU, route->mtu);
+
+		nla_nest_end(msg, metrics);
+	}
+
 	return system_rtnl_call(msg);
+
+nla_put_failure:
+	nlmsg_free(msg);
+	return -ENOMEM;
 }
 
 int system_add_route(struct device *dev, struct device_route *route)
