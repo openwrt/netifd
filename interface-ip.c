@@ -622,8 +622,10 @@ interface_update_host_route(struct vlist_tree *tree,
 		free(route_old);
 	}
 
-	if (node_new)
-		system_add_route(dev, route_new);
+	if (node_new) {
+		if (system_add_route(dev, route_new))
+			route_new->failed = true;
+	}
 }
 
 
@@ -1140,7 +1142,8 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			if (!(route->flags & DEVROUTE_METRIC))
 				route->metric = ip->iface->metric;
 
-			system_add_route(dev, route);
+			if (system_add_route(dev, route))
+				route->failed = true;
 		} else
 			system_del_route(dev, route);
 		route->enabled = _enabled;
