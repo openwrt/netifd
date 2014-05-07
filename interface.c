@@ -1020,7 +1020,8 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	}
 
 	interface_write_resolv_conf();
-	interface_check_state(if_old);
+	if (if_old->main_dev.dev)
+		interface_check_state(if_old);
 
 out:
 	if_new->config = NULL;
