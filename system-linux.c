@@ -611,11 +611,8 @@ void system_if_clear_state(struct device *dev)
 	static char buf[256];
 	char *bridge;
 
-	if (dev->external)
-		return;
-
 	device_set_ifindex(dev, system_if_resolve(dev));
-	if (!dev->ifindex)
+	if (dev->external || !dev->ifindex)
 		return;
 
 	system_if_flags(dev->ifname, 0, IFF_UP);
