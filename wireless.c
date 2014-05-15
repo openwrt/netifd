@@ -317,17 +317,6 @@ wireless_device_mark_down(struct wireless_device *wdev)
 }
 
 static void
-wireless_device_mark_up(struct wireless_device *wdev)
-{
-	struct wireless_interface *vif;
-
-	D(WIRELESS, "Wireless device '%s' is now up\n", wdev->name);
-	wdev->state = IFS_UP;
-	vlist_for_each_element(&wdev->interfaces, vif, node)
-		wireless_interface_handle_link(vif, true);
-}
-
-static void
 wireless_device_setup_timeout(struct uloop_timeout *timeout)
 {
 	struct wireless_device *wdev = container_of(timeout, struct wireless_device, timeout);
@@ -358,6 +347,23 @@ __wireless_device_set_down(struct wireless_device *wdev)
 
 	wdev->state = IFS_TEARDOWN;
 	wireless_device_run_handler(wdev, false);
+}
+
+static void
+wireless_device_mark_up(struct wireless_device *wdev)
+{
+	struct wireless_interface *vif;
+
+	if (wdev->cancel) {
+		wdev->cancel = false;
+		__wireless_device_set_down(wdev);
+		return;
+	}
+
+	D(WIRELESS, "Wireless device '%s' is now up\n", wdev->name);
+	wdev->state = IFS_UP;
+	vlist_for_each_element(&wdev->interfaces, vif, node)
+		wireless_interface_handle_link(vif, true);
 }
 
 static void
@@ -896,9 +902,6 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 
 		if (wdev->state != IFS_SETUP)
 			return UBUS_STATUS_PERMISSION_DENIED;
-
-		if (wdev->cancel)
-			return 0;
 
 		wireless_device_mark_up(wdev);
 		break;
