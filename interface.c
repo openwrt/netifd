@@ -319,7 +319,7 @@ interface_cb(struct device_user *dep, enum device_event ev)
 		new_state = true;
 	case DEV_EVENT_REMOVE:
 		interface_set_available(iface, new_state);
-		if (!new_state && dep->dev->external)
+		if (!new_state && dep->dev && dep->dev->external)
 			interface_set_main_dev(iface, NULL);
 		break;
 	case DEV_EVENT_UP:
