@@ -1672,24 +1672,84 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 		}
 #endif
 	} else if (!strcmp(str, "ipip6")) {
-		struct ip6_tnl_parm p = {
-			.link = link,
-			.proto = IPPROTO_IPIP,
-			.hop_limit = (ttl) ? ttl : 64,
-			.encap_limit = 4,
-		};
+		struct nl_msg *nlm = nlmsg_alloc_simple(RTM_NEWLINK,
+				NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
 
-		if ((cur = tb[TUNNEL_ATTR_LOCAL]) &&
-				inet_pton(AF_INET6, blobmsg_data(cur), &p.laddr) < 1)
-			return -EINVAL;
+		struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC };
+		nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
+		nla_put_string(nlm, IFLA_IFNAME, name);
 
-		if ((cur = tb[TUNNEL_ATTR_REMOTE]) &&
-				inet_pton(AF_INET6, blobmsg_data(cur), &p.raddr) < 1)
-			return -EINVAL;
+		if (link)
+			nla_put_u32(nlm, IFLA_LINK, link);
 
-		strncpy(p.name, name, sizeof(p.name));
-		if (tunnel_ioctl("ip6tnl0", SIOCADDTUNNEL, &p) < 0)
-			return -1;
+		struct nlattr *linkinfo = nla_nest_start(nlm, IFLA_LINKINFO);
+		nla_put_string(nlm, IFLA_INFO_KIND, "ip6tnl");
+		struct nlattr *infodata = nla_nest_start(nlm, IFLA_INFO_DATA);
+
+		if (link)
+			nla_put_u32(nlm, IFLA_IPTUN_LINK, link);
+
+		nla_put_u8(nlm, IFLA_IPTUN_PROTO, IPPROTO_IPIP);
+		nla_put_u8(nlm, IFLA_IPTUN_TTL, (ttl) ? ttl : 64);
+		nla_put_u8(nlm, IFLA_IPTUN_ENCAP_LIMIT, 4);
+
+		struct in6_addr in6buf;
+		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1)
+				return -EINVAL;
+			nla_put(nlm, IFLA_IPTUN_LOCAL, sizeof(in6buf), &in6buf);
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1)
+				return -EINVAL;
+			nla_put(nlm, IFLA_IPTUN_REMOTE, sizeof(in6buf), &in6buf);
+		}
+
+#ifdef IFLA_IPTUN_FMR_MAX
+		if ((cur = tb[TUNNEL_ATTR_FMRS])) {
+			struct nlattr *fmrs = nla_nest_start(nlm, IFLA_IPTUN_FMRS);
+
+			struct blob_attr *fmr;
+			unsigned rem, fmrcnt = 0;
+			blobmsg_for_each_attr(fmr, cur, rem) {
+				if (blobmsg_type(fmr) != BLOBMSG_TYPE_STRING)
+					continue;
+
+				unsigned ip4len, ip6len, ealen, offset = 6;
+				char ip6buf[48];
+				char ip4buf[16];
+
+				if (sscanf(blobmsg_get_string(fmr), "%47[^/]/%u,%15[^/]/%u,%u,%u",
+						ip6buf, &ip6len, ip4buf, &ip4len, &ealen, &offset) < 5)
+					return -EINVAL;
+
+				struct in6_addr ip6prefix;
+				struct in_addr ip4prefix;
+				if (inet_pton(AF_INET6, ip6buf, &ip6prefix) != 1 ||
+						inet_pton(AF_INET, ip4buf, &ip4prefix) != 1)
+					return -EINVAL;
+
+				struct nlattr *rule = nla_nest_start(nlm, ++fmrcnt);
+
+				nla_put(nlm, IFLA_IPTUN_FMR_IP6_PREFIX, sizeof(ip6prefix), &ip6prefix);
+				nla_put(nlm, IFLA_IPTUN_FMR_IP4_PREFIX, sizeof(ip4prefix), &ip4prefix);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_IP6_PREFIX_LEN, ip6len);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_IP4_PREFIX_LEN, ip4len);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_EA_LEN, ealen);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_OFFSET, offset);
+
+				nla_nest_end(nlm, rule);
+			}
+
+			nla_nest_end(nlm, fmrs);
+		}
+#endif
+
+		nla_nest_end(nlm, infodata);
+		nla_nest_end(nlm, linkinfo);
+
+		return system_rtnl_call(nlm);
 	} else
 		return -EINVAL;
 

@@ -25,6 +25,7 @@ static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_6RD_PREFIX] = {.name =  "6rd-prefix", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_6RD_RELAY_PREFIX] = { .name = "6rd-relay-prefix", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_LINK] = { .name = "link", .type = BLOBMSG_TYPE_STRING },
+	[TUNNEL_ATTR_FMRS] = { .name = "fmrs", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 const struct uci_blob_param_list tunnel_attr_list = {
