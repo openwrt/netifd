@@ -44,6 +44,9 @@ static const struct blobmsg_policy macvlan_attrs[__MACVLAN_ATTR_MAX] = {
 static const struct uci_blob_param_list macvlan_attr_list = {
 	.n_params = __MACVLAN_ATTR_MAX,
 	.params = macvlan_attrs,
+
+	.n_next = 1,
+	.next = { &device_attr_list },
 };
 
 struct macvlan_device {
