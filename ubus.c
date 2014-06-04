@@ -1164,7 +1164,7 @@ netifd_ubus_interface_event(struct interface *iface, bool up)
 void
 netifd_ubus_interface_notify(struct interface *iface, bool up)
 {
-	const char *event = (up) ? "update" : "down";
+	const char *event = (up) ? "interface.update" : "interface.down";
 	blob_buf_init(&b, 0);
 	blobmsg_add_string(&b, "interface", iface->name);
 	netifd_dump_status(iface);
