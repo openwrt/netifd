@@ -167,16 +167,16 @@ config_init_devices(void)
 
 		type = uci_lookup_option_string(uci_ctx, s, "type");
 		if (type) {
-			if (!strcmp(type, "bridge"))
-				devtype = &bridge_device_type;
-			else if (!strcmp(type, "tunnel"))
-				devtype = &tunnel_device_type;
-			else if (!strcmp(type, "macvlan"))
-				devtype = &macvlan_device_type;
-			else if (!strcmp(type, "8021ad"))
+			if (!strcmp(type, "8021ad"))
 				devtype = &vlandev_device_type;
 			else if (!strcmp(type, "8021q"))
-				devtype = &vlandev_device_type; 
+				devtype = &vlandev_device_type;
+			else if (!strcmp(type, "bridge"))
+				devtype = &bridge_device_type;
+			else if (!strcmp(type, "macvlan"))
+				devtype = &macvlan_device_type;
+			else if (!strcmp(type, "tunnel"))
+				devtype = &tunnel_device_type;
 		}
 
 		if (!devtype)
