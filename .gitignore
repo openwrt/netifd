@@ -6,4 +6,5 @@ CMakeCache.txt
 CMakeFiles
 *.cmake
 install_manifest.txt
-
+CMakeLists.txt.user
+netifd.kdev4
