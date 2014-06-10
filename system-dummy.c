@@ -254,3 +254,13 @@ int system_macvlan_del(struct device *macvlan)
 {
 	return 0;
 }
+
+int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlandev_config *cfg)
+{
+	return 0;
+}
+
+int system_vlandev_del(struct device *vlandev)
+{
+	return 0;
+}

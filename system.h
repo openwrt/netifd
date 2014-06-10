@@ -68,6 +68,16 @@ struct macvlan_config {
 	unsigned char macaddr[6];
 };
 
+enum vlan_proto {
+	VLAN_PROTO_8021Q = 0x8100,
+	VLAN_PROTO_8021AD = 0x88A8
+};
+
+struct vlandev_config {
+	enum vlan_proto proto;
+	uint16_t vid;
+};
+
 static inline int system_get_addr_family(unsigned int flags)
 {
 	if ((flags & DEVADDR_FAMILY) == DEVADDR_INET6)
@@ -96,6 +106,9 @@ int system_macvlan_del(struct device *macvlan);
 
 int system_vlan_add(struct device *dev, int id);
 int system_vlan_del(struct device *dev);
+
+int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlandev_config *cfg);
+int system_vlandev_del(struct device *vlandev);
 
 void system_if_clear_state(struct device *dev);
 int system_if_up(struct device *dev);

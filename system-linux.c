@@ -3,6 +3,7 @@
  * Copyright (C) 2012 Felix Fietkau <nbd@openwrt.org>
  * Copyright (C) 2013 Jo-Philipp Wich <jow@openwrt.org>
  * Copyright (C) 2013 Steven Barth <steven@midlink.org>
+ * Copyright (C) 2014 Gioacchino Mazzurco <gio@eigenlab.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -36,6 +37,7 @@
 #include <linux/ip6_tunnel.h>
 #include <linux/ethtool.h>
 #include <linux/fib_rules.h>
+#include <linux/version.h>
 
 #ifndef RTN_FAILED_POLICY
 #define RTN_FAILED_POLICY 12
@@ -800,6 +802,81 @@ int system_vlan_add(struct device *dev, int id)
 int system_vlan_del(struct device *dev)
 {
 	return system_vlan(dev, -1);
+}
+
+int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlandev_config *cfg)
+{
+	struct nl_msg *msg;
+	struct nlattr *linkinfo, *data;
+	struct ifinfomsg iim = { .ifi_family = AF_INET };
+	int ifindex = system_if_resolve(dev);
+	int rv;
+
+	if (ifindex == 0)
+		return -ENOENT;
+
+	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+	nla_put(msg, IFLA_IFNAME, IFNAMSIZ, vlandev->ifname);
+	nla_put_u32(msg, IFLA_LINK, ifindex);
+	
+	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
+		goto nla_put_failure;
+	
+	nla_put(msg, IFLA_INFO_KIND, strlen("vlan"), "vlan");
+
+
+	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
+		goto nla_put_failure;
+
+	nla_put_u16(msg, IFLA_VLAN_ID, cfg->vid);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+	nla_put_u16(msg, IFLA_VLAN_PROTOCOL, htons(cfg->proto));
+#else
+	if(cfg->proto == VLAN_PROTO_8021AD)
+		netifd_log_message(L_WARNING, "%s Your kernel is older than linux 3.10.0, 802.1ad is not supported defaulting to 802.1q", vlandev->type->name);
+#endif
+
+	nla_nest_end(msg, data);
+	nla_nest_end(msg, linkinfo);
+
+	rv = system_rtnl_call(msg);
+	if (rv)
+		D(SYSTEM, "Error adding vlandev '%s' over '%s': %d\n", vlandev->ifname, dev->ifname, rv);
+
+	return rv;
+
+nla_put_failure:
+	nlmsg_free(msg);
+	return -ENOMEM;
+}
+
+int system_vlandev_del(struct device *vlandev)
+{
+	struct nl_msg *msg;
+	struct ifinfomsg iim;
+
+	iim.ifi_family = AF_INET;
+	iim.ifi_index  = 0;
+
+	msg = nlmsg_alloc_simple(RTM_DELLINK, 0);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+
+	nla_put(msg, IFLA_INFO_KIND, strlen("vlan"), "vlan");
+	nla_put(msg, IFLA_IFNAME, sizeof(vlandev->ifname), vlandev->ifname);
+
+	system_rtnl_call(msg);
+
+	return 0;
 }
 
 static void

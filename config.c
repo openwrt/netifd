@@ -173,6 +173,10 @@ config_init_devices(void)
 				devtype = &tunnel_device_type;
 			else if (!strcmp(type, "macvlan"))
 				devtype = &macvlan_device_type;
+			else if (!strcmp(type, "8021ad"))
+				devtype = &vlandev_device_type;
+			else if (!strcmp(type, "8021q"))
+				devtype = &vlandev_device_type; 
 		}
 
 		if (!devtype)
