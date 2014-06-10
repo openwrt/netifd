@@ -1221,6 +1221,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		.rtm_protocol = (route->flags & DEVADDR_KERNEL) ? RTPROT_KERNEL : RTPROT_STATIC,
 		.rtm_scope = scope,
 		.rtm_type = (cmd == RTM_DELROUTE) ? 0: RTN_UNICAST,
+		.rtm_flags = (route->flags & DEVROUTE_ONLINK) ? RTNH_F_ONLINK : 0,
 	};
 	struct nl_msg *msg;
 

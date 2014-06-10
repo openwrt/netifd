@@ -42,6 +42,9 @@ enum device_addr_flags {
 
 	/* route resides in default source-route table */
 	DEVROUTE_SRCTABLE	= (1 << 8),
+
+	/* route is on-link */
+	DEVROUTE_ONLINK		= (1 << 9),
 };
 
 union if_addr {

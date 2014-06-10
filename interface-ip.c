@@ -38,6 +38,7 @@ enum {
 	ROUTE_VALID,
 	ROUTE_TABLE,
 	ROUTE_SOURCE,
+	ROUTE_ONLINK,
 	__ROUTE_MAX
 };
 
@@ -51,6 +52,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_TABLE] = { .name = "table", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
 	[ROUTE_SOURCE] = { .name = "source", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_ONLINK] = { .name = "onlink", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list route_attr_list = {
@@ -346,6 +348,9 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 		route->sourcemask = (mask) ? atoi(mask) : ((af == AF_INET6) ? 128 : 32);
 	}
+
+	if ((cur = tb[ROUTE_ONLINK]) != NULL && blobmsg_get_bool(cur))
+		route->flags |= DEVROUTE_ONLINK;
 
 	if (is_proto_route) {
 		route->table = (v6) ? iface->ip6table : iface->ip4table;
