@@ -211,22 +211,17 @@ static void netifd_do_restart(struct uloop_timeout *timeout)
 	execvp(global_argv[0], global_argv);
 }
 
-static void netifd_do_reload(struct uloop_timeout *timeout)
+void netifd_reload(void)
 {
 	config_init_all();
 }
 
-static struct uloop_timeout main_timer;
-
-void netifd_reload(void)
-{
-	main_timer.cb = netifd_do_reload;
-	uloop_timeout_set(&main_timer, 100);
-}
-
 void netifd_restart(void)
 {
-	main_timer.cb = netifd_do_restart;
+	static struct uloop_timeout main_timer = {
+		.cb = netifd_do_restart
+	};
+
 	interface_set_down(NULL);
 	uloop_timeout_set(&main_timer, 1000);
 }
