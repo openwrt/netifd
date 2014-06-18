@@ -1749,8 +1749,12 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	} else if (!strcmp(str, "ipip6")) {
 		struct nl_msg *nlm = nlmsg_alloc_simple(RTM_NEWLINK,
 				NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
-
 		struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC };
+		int ret = 0;
+
+		if (!nlm)
+			return -1;
+
 		nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
 		nla_put_string(nlm, IFLA_IFNAME, name);
 
@@ -1758,8 +1762,16 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 			nla_put_u32(nlm, IFLA_LINK, link);
 
 		struct nlattr *linkinfo = nla_nest_start(nlm, IFLA_LINKINFO);
+		if (!linkinfo) {
+			ret = -ENOMEM;
+			goto failure;
+		}
 		nla_put_string(nlm, IFLA_INFO_KIND, "ip6tnl");
 		struct nlattr *infodata = nla_nest_start(nlm, IFLA_INFO_DATA);
+		if (!infodata) {
+			ret = -ENOMEM;
+			goto failure;
+		}
 
 		if (link)
 			nla_put_u32(nlm, IFLA_IPTUN_LINK, link);
@@ -1770,14 +1782,18 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 
 		struct in6_addr in6buf;
 		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
-			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1)
-				return -EINVAL;
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
 			nla_put(nlm, IFLA_IPTUN_LOCAL, sizeof(in6buf), &in6buf);
 		}
 
 		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
-			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1)
-				return -EINVAL;
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
 			nla_put(nlm, IFLA_IPTUN_REMOTE, sizeof(in6buf), &in6buf);
 		}
 
@@ -1796,14 +1812,18 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 				char ip4buf[16];
 
 				if (sscanf(blobmsg_get_string(fmr), "%47[^/]/%u,%15[^/]/%u,%u,%u",
-						ip6buf, &ip6len, ip4buf, &ip4len, &ealen, &offset) < 5)
-					return -EINVAL;
+						ip6buf, &ip6len, ip4buf, &ip4len, &ealen, &offset) < 5) {
+					ret = -EINVAL;
+					goto failure;
+				}
 
 				struct in6_addr ip6prefix;
 				struct in_addr ip4prefix;
 				if (inet_pton(AF_INET6, ip6buf, &ip6prefix) != 1 ||
-						inet_pton(AF_INET, ip4buf, &ip4prefix) != 1)
-					return -EINVAL;
+						inet_pton(AF_INET, ip4buf, &ip4prefix) != 1) {
+					ret = -EINVAL;
+					goto failure;
+				}
 
 				struct nlattr *rule = nla_nest_start(nlm, ++fmrcnt);
 
@@ -1825,7 +1845,11 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 		nla_nest_end(nlm, linkinfo);
 
 		return system_rtnl_call(nlm);
-	} else
+failure:
+		nlmsg_free(nlm);
+		return ret;
+	}
+	else
 		return -EINVAL;
 
 	return 0;
