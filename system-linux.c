@@ -808,7 +808,7 @@ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlande
 {
 	struct nl_msg *msg;
 	struct nlattr *linkinfo, *data;
-	struct ifinfomsg iim = { .ifi_family = AF_INET };
+	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC };
 	int ifindex = system_if_resolve(dev);
 	int rv;
 
@@ -821,14 +821,13 @@ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlande
 		return -1;
 
 	nlmsg_append(msg, &iim, sizeof(iim), 0);
-	nla_put(msg, IFLA_IFNAME, IFNAMSIZ, vlandev->ifname);
+	nla_put_string(msg, IFLA_IFNAME, vlandev->ifname);
 	nla_put_u32(msg, IFLA_LINK, ifindex);
 	
 	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
 		goto nla_put_failure;
 	
-	nla_put(msg, IFLA_INFO_KIND, strlen("vlan"), "vlan");
-
+	nla_put_string(msg, IFLA_INFO_KIND, "vlan");
 
 	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
 		goto nla_put_failure;
@@ -859,20 +858,19 @@ nla_put_failure:
 int system_vlandev_del(struct device *vlandev)
 {
 	struct nl_msg *msg;
-	struct ifinfomsg iim;
+	struct ifinfomsg iim = {
+		.ifi_family = AF_UNSPEC,
+		.ifi_index = 0,
+	};
 
-	iim.ifi_family = AF_INET;
-	iim.ifi_index  = 0;
-
-	msg = nlmsg_alloc_simple(RTM_DELLINK, 0);
+	msg = nlmsg_alloc_simple(RTM_DELLINK, NLM_F_REQUEST);
 
 	if (!msg)
 		return -1;
 
 	nlmsg_append(msg, &iim, sizeof(iim), 0);
 
-	nla_put(msg, IFLA_INFO_KIND, strlen("vlan"), "vlan");
-	nla_put(msg, IFLA_IFNAME, sizeof(vlandev->ifname), vlandev->ifname);
+	nla_put_string(msg, IFLA_IFNAME, vlandev->ifname);
 
 	system_rtnl_call(msg);
 
