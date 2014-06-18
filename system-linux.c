@@ -691,7 +691,7 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 {
 	struct nl_msg *msg;
 	struct nlattr *linkinfo, *data;
-	struct ifinfomsg iim = { .ifi_family = AF_INET };
+	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC, };
 	int ifindex = system_if_resolve(dev);
 	int i, rv;
 	static const struct {
@@ -716,13 +716,13 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 
 	if (cfg->flags & MACVLAN_OPT_MACADDR)
 		nla_put(msg, IFLA_ADDRESS, sizeof(cfg->macaddr), cfg->macaddr);
-	nla_put(msg, IFLA_IFNAME, IFNAMSIZ, macvlan->ifname);
+	nla_put_string(msg, IFLA_IFNAME, macvlan->ifname);
 	nla_put_u32(msg, IFLA_LINK, ifindex);
 
 	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
 		goto nla_put_failure;
 
-	nla_put(msg, IFLA_INFO_KIND, strlen("macvlan"), "macvlan");
+	nla_put_string(msg, IFLA_INFO_KIND, "macvlan");
 
 	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
 		goto nla_put_failure;
@@ -754,20 +754,19 @@ nla_put_failure:
 int system_macvlan_del(struct device *macvlan)
 {
 	struct nl_msg *msg;
-	struct ifinfomsg iim;
+	struct ifinfomsg iim = {
+		.ifi_family = AF_UNSPEC,
+		.ifi_index = 0,
+	};
 
-	iim.ifi_family = AF_INET;
-	iim.ifi_index  = 0;
-
-	msg = nlmsg_alloc_simple(RTM_DELLINK, 0);
+	msg = nlmsg_alloc_simple(RTM_DELLINK, NLM_F_REQUEST);
 
 	if (!msg)
 		return -1;
 
 	nlmsg_append(msg, &iim, sizeof(iim), 0);
 
-	nla_put(msg, IFLA_INFO_KIND, strlen("macvlan"), "macvlan");
-	nla_put(msg, IFLA_IFNAME, sizeof(macvlan->ifname), macvlan->ifname);
+	nla_put_string(msg, IFLA_IFNAME, macvlan->ifname);
 
 	system_rtnl_call(msg);
 
