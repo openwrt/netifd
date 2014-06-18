@@ -50,7 +50,7 @@ static int vlan_set_device_state(struct device *dev, bool up)
 	}
 
 	ret = device_claim(&vldev->dep);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	system_vlan_add(vldev->dep.dev, vldev->id);

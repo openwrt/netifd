@@ -766,8 +766,10 @@ interface_set_l3_dev(struct interface *iface, struct device *dev)
 	device_add_user(&iface->l3_dev, dev);
 
 	if (dev) {
-		if (claimed)
-			device_claim(&iface->l3_dev);
+		if (claimed) {
+			if (device_claim(&iface->l3_dev) < 0)
+				return;
+		}
 		interface_ip_set_enabled(&iface->config_ip, enabled);
 	}
 }
@@ -787,8 +789,10 @@ interface_set_main_dev(struct interface *iface, struct device *dev)
 		return;
 	}
 
-	if (claimed)
-		device_claim(&iface->l3_dev);
+	if (claimed) {
+		if (device_claim(&iface->l3_dev) < 0)
+			return;
+	}
 
 	if (!iface->l3_dev.dev)
 		interface_set_l3_dev(iface, dev);

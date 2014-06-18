@@ -463,7 +463,9 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 			return UBUS_STATUS_INVALID_ARGUMENT;
 
 		interface_set_l3_dev(iface, dev);
-		device_claim(&iface->l3_dev);
+		if (device_claim(&iface->l3_dev) < 0)
+			return UBUS_STATUS_UNKNOWN_ERROR;
+
 		device_set_present(dev, true);
 
 		interface_update_start(iface);
