@@ -164,6 +164,46 @@ create_event_socket(struct event_socket *ev, int protocol,
 	return true;
 }
 
+static bool
+system_rtn_aton(const char *src, unsigned int *dst)
+{
+	char *e;
+	unsigned int n;
+
+	if (!strcmp(src, "local"))
+		n = RTN_LOCAL;
+	else if (!strcmp(src, "nat"))
+		n = RTN_NAT;
+	else if (!strcmp(src, "broadcast"))
+		n = RTN_BROADCAST;
+	else if (!strcmp(src, "anycast"))
+		n = RTN_ANYCAST;
+	else if (!strcmp(src, "multicast"))
+		n = RTN_MULTICAST;
+	else if (!strcmp(src, "prohibit"))
+		n = RTN_PROHIBIT;
+	else if (!strcmp(src, "unreachable"))
+		n = RTN_UNREACHABLE;
+	else if (!strcmp(src, "blackhole"))
+		n = RTN_BLACKHOLE;
+	else if (!strcmp(src, "xresolve"))
+		n = RTN_XRESOLVE;
+	else if (!strcmp(src, "unicast"))
+		n = RTN_UNICAST;
+	else if (!strcmp(src, "throw"))
+		n = RTN_THROW;
+	else if (!strcmp(src, "failed_policy"))
+		n = RTN_FAILED_POLICY;
+	else {
+		n = strtoul(src, &e, 0);
+		if (!e || *e || e == src || n > 255)
+			return false;
+	}
+
+	*dst = n;
+	return true;
+}
+
 int system_init(void)
 {
 	static struct event_socket rtnl_event;
@@ -1281,9 +1321,6 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 			route->nexthop.in6.s6_addr32[2] ||
 			route->nexthop.in6.s6_addr32[3];
 
-	unsigned char scope = (cmd == RTM_DELROUTE) ? RT_SCOPE_NOWHERE :
-			(have_gw) ? RT_SCOPE_UNIVERSE : RT_SCOPE_LINK;
-
 	unsigned int table = (route->flags & (DEVROUTE_TABLE | DEVROUTE_SRCTABLE))
 			? route->table : RT_TABLE_MAIN;
 
@@ -1293,7 +1330,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		.rtm_src_len = route->sourcemask,
 		.rtm_table = (table < 256) ? table : RT_TABLE_UNSPEC,
 		.rtm_protocol = (route->flags & DEVADDR_KERNEL) ? RTPROT_KERNEL : RTPROT_STATIC,
-		.rtm_scope = scope,
+		.rtm_scope = RT_SCOPE_NOWHERE,
 		.rtm_type = (cmd == RTM_DELROUTE) ? 0: RTN_UNICAST,
 		.rtm_flags = (route->flags & DEVROUTE_ONLINK) ? RTNH_F_ONLINK : 0,
 	};
@@ -1306,6 +1343,23 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 			rtm.rtm_scope = RT_SCOPE_UNIVERSE;
 			rtm.rtm_type = RTN_UNREACHABLE;
 		}
+		else
+			rtm.rtm_scope = (have_gw) ? RT_SCOPE_UNIVERSE : RT_SCOPE_LINK;
+	}
+
+	if (route->flags & DEVROUTE_TYPE) {
+		rtm.rtm_type = route->type;
+		if (!(route->flags & (DEVROUTE_TABLE | DEVROUTE_SRCTABLE))) {
+			if (rtm.rtm_type == RTN_LOCAL || rtm.rtm_type == RTN_BROADCAST ||
+			    rtm.rtm_type == RTN_NAT || rtm.rtm_type == RTN_ANYCAST)
+				rtm.rtm_table = RT_TABLE_LOCAL;
+		}
+
+		if (rtm.rtm_type == RTN_LOCAL || rtm.rtm_type == RTN_NAT)
+			rtm.rtm_scope = RT_SCOPE_HOST;
+		else if (rtm.rtm_type == RTN_BROADCAST || rtm.rtm_type == RTN_MULTICAST ||
+			rtm.rtm_type == RTN_ANYCAST)
+			rtm.rtm_scope = RT_SCOPE_LINK;
 	}
 
 	msg = nlmsg_alloc_simple(cmd, flags);
@@ -1377,6 +1431,11 @@ int system_flush_routes(void)
 		close(fd);
 	}
 	return 0;
+}
+
+bool system_resolve_rt_type(const char *type, unsigned int *id)
+{
+	return system_rtn_aton(type, id);
 }
 
 bool system_resolve_rt_table(const char *name, unsigned int *id)
@@ -1564,41 +1623,7 @@ int system_flush_iprules(void)
 
 bool system_resolve_iprule_action(const char *action, unsigned int *id)
 {
-	char *e;
-	unsigned int n;
-
-	if (!strcmp(action, "local"))
-		n = RTN_LOCAL;
-	else if (!strcmp(action, "nat"))
-		n = RTN_NAT;
-	else if (!strcmp(action, "broadcast"))
-		n = RTN_BROADCAST;
-	else if (!strcmp(action, "anycast"))
-		n = RTN_ANYCAST;
-	else if (!strcmp(action, "multicast"))
-		n = RTN_MULTICAST;
-	else if (!strcmp(action, "prohibit"))
-		n = RTN_PROHIBIT;
-	else if (!strcmp(action, "unreachable"))
-		n = RTN_UNREACHABLE;
-	else if (!strcmp(action, "blackhole"))
-		n = RTN_BLACKHOLE;
-	else if (!strcmp(action, "xresolve"))
-		n = RTN_XRESOLVE;
-	else if (!strcmp(action, "unicast"))
-		n = RTN_UNICAST;
-	else if (!strcmp(action, "throw"))
-		n = RTN_THROW;
-	else if (!strcmp(action, "failed_policy"))
-		n = RTN_FAILED_POLICY;
-	else {
-		n = strtoul(action, &e, 0);
-		if (!e || *e || e == action || n > 255)
-			return false;
-	}
-
-	*id = n;
-	return true;
+	return system_rtn_aton(action, id);
 }
 
 time_t system_get_rtime(void)

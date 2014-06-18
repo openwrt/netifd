@@ -39,6 +39,7 @@ enum {
 	ROUTE_TABLE,
 	ROUTE_SOURCE,
 	ROUTE_ONLINK,
+	ROUTE_TYPE,
 	__ROUTE_MAX
 };
 
@@ -53,6 +54,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
 	[ROUTE_SOURCE] = { .name = "source", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_ONLINK] = { .name = "onlink", .type = BLOBMSG_TYPE_BOOL },
+	[ROUTE_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING }
 };
 
 const struct uci_blob_param_list route_attr_list = {
@@ -374,6 +376,14 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 			route->valid_until = valid_until;
 	}
 
+	if ((cur = tb[ROUTE_TYPE]) != NULL) {
+		if (!system_resolve_rt_type(blobmsg_data(cur), &route->type)) {
+			DPRINTF("Failed to resolve routing type: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+		route->flags |= DEVROUTE_TYPE;
+	}
+
 	vlist_add(&ip->route, &route->node, route);
 	return;
 
@@ -586,7 +596,8 @@ interface_update_proto_route(struct vlist_tree *tree,
 
 	if (node_old && node_new)
 		keep = !memcmp(&route_old->nexthop, &route_new->nexthop, sizeof(route_old->nexthop)) &&
-			(route_old->mtu == route_new->mtu) && !route_old->failed;
+			(route_old->mtu == route_new->mtu) && (route_old->type == route_new->type) &&
+			!route_old->failed;
 
 	if (node_old) {
 		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)
@@ -1223,7 +1234,6 @@ interface_ip_init(struct interface *iface)
 	__interface_ip_init(&iface->proto_ip, iface);
 	__interface_ip_init(&iface->config_ip, iface);
 	vlist_init(&iface->host_routes, route_cmp, interface_update_host_route);
-
 }
 
 static void

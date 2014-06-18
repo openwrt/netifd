@@ -45,6 +45,9 @@ enum device_addr_flags {
 
 	/* route is on-link */
 	DEVROUTE_ONLINK		= (1 << 9),
+
+	/* route overrides the default route type */
+	DEVROUTE_TYPE		= (1 << 10),
 };
 
 union if_addr {
@@ -107,6 +110,7 @@ struct device_route {
 
 	union if_addr nexthop;
 	int mtu;
+	unsigned int type;
 	time_t valid_until;
 
 	/* must be last */

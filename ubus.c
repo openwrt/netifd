@@ -486,6 +486,9 @@ interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 		inet_ntop(af, &route->nexthop, buf, buflen);
 		blobmsg_add_string_buffer(&b);
 
+		if (route->flags & DEVROUTE_TYPE)
+			blobmsg_add_u32(&b, "type", route->type);
+
 		if (route->flags & DEVROUTE_MTU)
 			blobmsg_add_u32(&b, "mtu", route->mtu);
 

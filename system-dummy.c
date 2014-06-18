@@ -193,6 +193,12 @@ int system_flush_routes(void)
 	return 0;
 }
 
+bool system_resolve_rt_type(const char *type, unsigned int *id)
+{
+	*id = 0;
+	return true;
+}
+
 bool system_resolve_rt_table(const char *name, unsigned int *id)
 {
 	*id = 0;

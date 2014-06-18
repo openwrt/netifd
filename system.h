@@ -128,6 +128,7 @@ int system_add_route(struct device *dev, struct device_route *route);
 int system_del_route(struct device *dev, struct device_route *route);
 int system_flush_routes(void);
 
+bool system_resolve_rt_type(const char *type, unsigned int *id);
 bool system_resolve_rt_table(const char *name, unsigned int *id);
 
 int system_del_ip_tunnel(const char *name);
