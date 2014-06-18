@@ -791,7 +791,7 @@ nla_put_failure:
 	return -ENOMEM;
 }
 
-int system_macvlan_del(struct device *macvlan)
+static int system_link_del(struct device *dev)
 {
 	struct nl_msg *msg;
 	struct ifinfomsg iim = {
@@ -805,12 +805,13 @@ int system_macvlan_del(struct device *macvlan)
 		return -1;
 
 	nlmsg_append(msg, &iim, sizeof(iim), 0);
+	nla_put_string(msg, IFLA_IFNAME, dev->ifname);
+	return system_rtnl_call(msg);
+}
 
-	nla_put_string(msg, IFLA_IFNAME, macvlan->ifname);
-
-	system_rtnl_call(msg);
-
-	return 0;
+int system_macvlan_del(struct device *macvlan)
+{
+	return system_link_del(macvlan);
 }
 
 static int system_vlan(struct device *dev, int id)
@@ -896,24 +897,7 @@ nla_put_failure:
 
 int system_vlandev_del(struct device *vlandev)
 {
-	struct nl_msg *msg;
-	struct ifinfomsg iim = {
-		.ifi_family = AF_UNSPEC,
-		.ifi_index = 0,
-	};
-
-	msg = nlmsg_alloc_simple(RTM_DELLINK, NLM_F_REQUEST);
-
-	if (!msg)
-		return -1;
-
-	nlmsg_append(msg, &iim, sizeof(iim), 0);
-
-	nla_put_string(msg, IFLA_IFNAME, vlandev->ifname);
-
-	system_rtnl_call(msg);
-
-	return 0;
+	return system_link_del(vlandev);
 }
 
 static void
