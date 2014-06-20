@@ -365,6 +365,10 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 			goto error;
 		}
 
+		/* only set the table flag if not using the main (default) table */
+		if (system_is_default_rt_table(route->table))
+			route->table = 0;
+
 		if (route->table)
 			route->flags |= DEVROUTE_TABLE;
 	}
