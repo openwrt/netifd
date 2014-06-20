@@ -1464,12 +1464,13 @@ bool system_resolve_rt_table(const char *name, unsigned int *id)
 	if (table == RT_TABLE_UNSPEC)
 		return false;
 
-	/* do not consider main table special */
-	if (table == RT_TABLE_MAIN)
-		table = RT_TABLE_UNSPEC;
-
 	*id = table;
 	return true;
+}
+
+bool system_is_default_rt_table(unsigned int id)
+{
+	return (id == RT_TABLE_MAIN);
 }
 
 static int system_iprule(struct iprule *rule, int cmd)

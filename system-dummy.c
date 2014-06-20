@@ -205,6 +205,11 @@ bool system_resolve_rt_table(const char *name, unsigned int *id)
 	return true;
 }
 
+bool system_is_default_rt_table(unsigned int id)
+{
+	return true;
+}
+
 int system_add_iprule(struct iprule *rule)
 {
 	return 0;
