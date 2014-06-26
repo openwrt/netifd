@@ -329,7 +329,7 @@ interface_cb(struct device_user *dep, enum device_event ev)
 		break;
 	case DEV_EVENT_LINK_UP:
 		new_state = true;
-        case DEV_EVENT_LINK_DOWN:
+	case DEV_EVENT_LINK_DOWN:
 		interface_set_link_state(iface, new_state);
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
