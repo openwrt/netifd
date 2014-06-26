@@ -90,11 +90,8 @@ void system_if_clear_state(struct device *dev)
 int system_if_check(struct device *dev)
 {
 	dev->ifindex = 0;
-
-	if (!strcmp(dev->ifname, "eth0")) {
-		device_set_present(dev, true);
-		device_set_link(dev, true);
-	}
+	device_set_present(dev, true);
+	device_set_link(dev, true);
 
 	return 0;
 }
@@ -102,9 +99,6 @@ int system_if_check(struct device *dev)
 struct device *
 system_if_get_parent(struct device *dev)
 {
-	if (!strcmp(dev->ifname, "eth0"))
-		return device_get("eth1", true);
-
 	return NULL;
 }
 
