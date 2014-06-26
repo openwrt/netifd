@@ -262,7 +262,7 @@ void device_release(struct device_user *dep)
 int device_check_state(struct device *dev)
 {
 	if (!dev->type->check_state)
-		return 0;
+		return simple_device_type.check_state(dev);
 
 	return dev->type->check_state(dev);
 }
