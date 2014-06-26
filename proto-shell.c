@@ -187,6 +187,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		uloop_timeout_set(&state->teardown_timeout, 5000);
 	}
 
+	D(INTERFACE, "run %s for interface '%s'\n", action, proto->iface->name);
 	config = blobmsg_format_json(state->config, true);
 	if (!config)
 		return -1;
