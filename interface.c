@@ -509,8 +509,8 @@ interface_cleanup_state(struct interface *iface)
 	interface_clear_errors(iface);
 	interface_set_proto_state(iface, NULL);
 
-	if (iface->main_dev.dev)
-		interface_set_main_dev(iface, NULL);
+	interface_set_main_dev(iface, NULL);
+	interface_set_l3_dev(iface, NULL);
 }
 
 static void
