@@ -138,6 +138,7 @@ struct device {
 
 	bool current_config;
 	bool default_config;
+	bool wireless;
 
 	/* set interface up or down */
 	device_state_cb set_state;

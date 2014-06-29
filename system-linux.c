@@ -452,15 +452,27 @@ static char *system_get_bridge(const char *name, char *buf, int buflen)
 	return path + 1;
 }
 
+static void system_bridge_set_wireless(const char *bridge, const char *dev)
+{
+	snprintf(dev_buf, sizeof(dev_buf),
+		 "/sys/devices/virtual/net/%s/brif/%s/multicast_to_unicast",
+		 bridge, dev);
+	system_set_sysctl(dev_buf, "1");
+}
+
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
 	char *oldbr;
+	int ret = 0;
 
 	oldbr = system_get_bridge(dev->ifname, dev_buf, sizeof(dev_buf));
-	if (oldbr && !strcmp(oldbr, bridge->ifname))
-		return 0;
+	if (!oldbr || strcmp(oldbr, bridge->ifname) != 0)
+		ret = system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
 
-	return system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
+	if (dev->wireless)
+		system_bridge_set_wireless(bridge->ifname, dev->ifname);
+
+	return ret;
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)

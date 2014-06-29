@@ -202,6 +202,12 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, bool 
 	if (!vif->network || !vif->ifname)
 		return;
 
+	if (up) {
+		struct device *dev = device_get(vif->ifname, 2);
+		if (dev)
+			dev->wireless = true;
+	}
+
 	blobmsg_for_each_attr(cur, vif->network, rem) {
 		network = blobmsg_data(cur);
 
