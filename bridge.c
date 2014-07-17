@@ -496,7 +496,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	/* defaults */
 	cfg->stp = false;
 	cfg->forward_delay = 2;
-	cfg->igmp_snoop = false;
+	cfg->igmp_snoop = true;
 	cfg->bridge_empty = false;
 	cfg->priority = 0x7FFF;
 
