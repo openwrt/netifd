@@ -83,7 +83,7 @@ call_hotplug(void)
 	current_ev = current->hotplug_ev;
 	list_del_init(&current->hotplug_list);
 
-	if (current_ev == IFEV_UP && current->l3_dev.dev)
+	if ((current_ev == IFEV_UP || current_ev == IFEV_UPDATE) && current->l3_dev.dev)
 		device = current->l3_dev.dev->ifname;
 
 	D(SYSTEM, "Call hotplug handler for interface '%s', event '%s' (%s)\n",
