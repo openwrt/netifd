@@ -709,6 +709,7 @@ interface_alloc(const char *name, struct blob_attr *config)
 void interface_set_dynamic(struct interface *iface)
 {
 	iface->dynamic = true;
+	iface->autostart = true;
 	iface->node.version = -1; // Don't delete on reload
 }
 
