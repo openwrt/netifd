@@ -119,6 +119,7 @@ struct interface {
 
 	/* main interface that the interface is bound to */
 	struct device_user main_dev;
+	struct device_user ext_dev;
 
 	/* interface that layer 3 communication will go through */
 	struct device_user l3_dev;

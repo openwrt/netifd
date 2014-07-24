@@ -308,6 +308,13 @@ interface_set_link_state(struct interface *iface, bool new_state)
 }
 
 static void
+interface_ext_cb(struct device_user *dep, enum device_event ev)
+{
+	if (ev == DEV_EVENT_REMOVE)
+		device_remove_user(dep);
+}
+
+static void
 interface_cb(struct device_user *dep, enum device_event ev)
 {
 	struct interface *iface;
@@ -491,6 +498,8 @@ interface_claim_device(struct interface *iface)
 	} else if (iface->ifname &&
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
+	} else {
+		dev = iface->ext_dev.dev;
 	}
 
 	if (dev)
@@ -517,6 +526,8 @@ static void
 interface_cleanup(struct interface *iface)
 {
 	struct interface_user *dep, *tmp;
+
+	device_remove_user(&iface->ext_dev);
 
 	if (iface->parent_iface.iface)
 		interface_remove_user(&iface->parent_iface);
@@ -653,6 +664,7 @@ interface_alloc(const char *name, struct blob_attr *config)
 	iface->config_ip.enabled = false;
 
 	iface->main_dev.cb = interface_cb;
+	iface->ext_dev.cb = interface_ext_cb;
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
@@ -807,6 +819,9 @@ interface_remove_link(struct interface *iface, struct device *dev)
 	if (mdev && mdev->hotplug_ops)
 		return mdev->hotplug_ops->del(mdev, dev);
 
+	if (dev == iface->ext_dev.dev)
+		device_remove_user(&iface->ext_dev);
+
 	if (!iface->main_dev.hotplug)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
@@ -835,6 +850,7 @@ interface_add_link(struct interface *iface, struct device *dev)
 			return UBUS_STATUS_NOT_SUPPORTED;
 	}
 
+	device_add_user(&iface->ext_dev, dev);
 	interface_set_main_dev(iface, dev);
 	iface->main_dev.hotplug = true;
 	return 0;
