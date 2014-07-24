@@ -162,6 +162,10 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 		return UBUS_STATUS_UNKNOWN_ERROR;
 
 	device_set_config(dev, dev->type, msg);
+
+	if (iface->state != IFS_SETUP && iface->state != IFS_UP)
+		vlist_delete(&interfaces, &iface->node);
+
 	return UBUS_STATUS_OK;
 
 error:
