@@ -432,7 +432,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
 	up = blobmsg_get_bool(tb[NOTIFY_LINK_UP]);
-	if (!up) {
+	if (!up || state->sm == S_TEARDOWN) {
 		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 		return 0;
 	}
