@@ -714,6 +714,9 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_snooping",
 		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
 
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier",
+		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
+
 	args[0] = BRCTL_SET_BRIDGE_PRIORITY;
 	args[1] = cfg->priority;
 	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
