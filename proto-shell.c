@@ -71,6 +71,7 @@ struct proto_shell_state {
 
 	enum proto_shell_sm sm;
 	bool proto_task_killed;
+	bool renew_pending;
 
 	int last_error;
 
@@ -162,11 +163,18 @@ proto_shell_handler(struct interface_proto_state *proto,
 	} else if (cmd == PROTO_CMD_RENEW) {
 		if (!(handler->proto.flags & PROTO_FLAG_RENEW_AVAILABLE))
 			return 0;
+
+		if (state->script_task.uloop.pending) {
+			state->renew_pending = true;
+			return 0;
+		}
+
 		action = "renew";
 	} else {
 		if (state->sm == S_TEARDOWN)
 			return 0;
 
+		state->renew_pending = false;
 		if (state->script_task.uloop.pending) {
 			if (state->sm != S_SETUP_ABORT) {
 				uloop_timeout_set(&state->teardown_timeout, 1000);
@@ -255,6 +263,9 @@ proto_shell_task_finish(struct proto_shell_state *state,
 	case S_SETUP:
 		if (task == &state->proto_task)
 			proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN,
+					    false);
+		if (task == &state->script_task && state->renew_pending)
+			proto_shell_handler(&state->proto, PROTO_CMD_RENEW,
 					    false);
 		break;
 
