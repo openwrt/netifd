@@ -169,6 +169,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 			return 0;
 		}
 
+		state->renew_pending = false;
 		action = "renew";
 	} else {
 		if (state->sm == S_TEARDOWN)
