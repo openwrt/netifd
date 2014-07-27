@@ -100,7 +100,8 @@ error:
 
 static struct proto_handler static_proto = {
 	.name = "static",
-	.flags = PROTO_FLAG_IMMEDIATE,
+	.flags = PROTO_FLAG_IMMEDIATE |
+		 PROTO_FLAG_FORCE_LINK_DEFAULT,
 	.config_params = &proto_ip_attr,
 	.attach = static_attach,
 };

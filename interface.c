@@ -652,6 +652,7 @@ interface_alloc(const char *name, struct blob_attr *config)
 	struct blob_attr *cur;
 	const char *proto_name = NULL;
 	char *iface_name;
+	bool force_link = false;
 
 	iface = calloc_a(sizeof(*iface), &iface_name, strlen(name) + 1);
 	iface->name = strcpy(iface_name, name);
@@ -673,9 +674,11 @@ interface_alloc(const char *name, struct blob_attr *config)
 		proto_name = blobmsg_data(cur);
 
 	proto_attach_interface(iface, proto_name);
+	if (iface->proto_handler->flags & PROTO_FLAG_FORCE_LINK_DEFAULT)
+		force_link = true;
 
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
-	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], false);
+	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], force_link);
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
 	iface->proto_ip.no_dns =

@@ -36,6 +36,7 @@ enum {
 	PROTO_FLAG_NODEV = (1 << 1),
 	PROTO_FLAG_INIT_AVAILABLE = (1 << 2),
 	PROTO_FLAG_RENEW_AVAILABLE = (1 << 3),
+	PROTO_FLAG_FORCE_LINK_DEFAULT = (1 << 4),
 };
 
 struct interface_proto_state {
