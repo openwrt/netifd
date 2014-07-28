@@ -173,12 +173,38 @@ error:
 	return UBUS_STATUS_UNKNOWN_ERROR;
 }
 
+static int
+netifd_del_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
+		      struct ubus_request_data *req, const char *method,
+		      struct blob_attr *msg)
+{
+	struct blob_attr *tb[__DI_MAX];
+	struct interface *iface;
+
+	blobmsg_parse(dynamic_policy, __DI_MAX, tb, blob_data(msg), blob_len(msg));
+
+	if (!tb[DI_NAME])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	const char *name = blobmsg_get_string(tb[DI_NAME]);
+	iface = vlist_find(&interfaces, name, iface, node);
+
+	if (!iface)
+		return UBUS_STATUS_NOT_FOUND;
+	else if (!iface->dynamic)
+		return UBUS_STATUS_INVALID_COMMAND;
+
+	vlist_delete(&interfaces, &iface->node);
+	return UBUS_STATUS_OK;
+}
+
 static struct ubus_method main_object_methods[] = {
 	{ .name = "restart", .handler = netifd_handle_restart },
 	{ .name = "reload", .handler = netifd_handle_reload },
 	UBUS_METHOD("add_host_route", netifd_add_host_route, route_policy),
 	{ .name = "get_proto_handlers", .handler = netifd_get_proto_handlers },
 	UBUS_METHOD("add_dynamic", netifd_add_dynamic, dynamic_policy),
+	UBUS_METHOD("del_dynamic", netifd_del_dynamic, dynamic_policy),
 };
 
 static struct ubus_object_type main_object_type =
