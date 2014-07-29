@@ -444,7 +444,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
 	up = blobmsg_get_bool(tb[NOTIFY_LINK_UP]);
-	if (!up || state->sm == S_TEARDOWN) {
+	if (!up) {
 		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
 		return 0;
 	}
@@ -694,6 +694,9 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 	blobmsg_parse(notify_attr, __NOTIFY_LAST, tb, blob_data(attr), blob_len(attr));
 	if (!tb[NOTIFY_ACTION])
 		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
+		return UBUS_STATUS_PERMISSION_DENIED;
 
 	switch(blobmsg_get_u32(tb[NOTIFY_ACTION])) {
 	case 0:
