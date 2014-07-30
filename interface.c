@@ -835,8 +835,8 @@ interface_remove_link(struct interface *iface, struct device *dev)
 	return 0;
 }
 
-int
-interface_add_link(struct interface *iface, struct device *dev)
+static int
+interface_add_link(struct interface *iface, struct device *dev, bool link_ext)
 {
 	struct device *mdev = iface->main_dev.dev;
 
@@ -853,21 +853,23 @@ interface_add_link(struct interface *iface, struct device *dev)
 			return UBUS_STATUS_NOT_SUPPORTED;
 	}
 
-	device_add_user(&iface->ext_dev, dev);
+	if (link_ext)
+		device_add_user(&iface->ext_dev, dev);
+
 	interface_set_main_dev(iface, dev);
 	iface->main_dev.hotplug = true;
 	return 0;
 }
 
 int
-interface_handle_link(struct interface *iface, const char *name, bool add)
+interface_handle_link(struct interface *iface, const char *name, bool add, bool link_ext)
 {
 	struct device *dev;
 	int ret;
 
 	device_lock();
 
-	dev = device_get(name, add ? 2 : 0);
+	dev = device_get(name, add ? (link_ext ? 2 : 1) : 0);
 	if (!dev) {
 		ret = UBUS_STATUS_NOT_FOUND;
 		goto out;
@@ -879,7 +881,7 @@ interface_handle_link(struct interface *iface, const char *name, bool add)
 			device_set_config(dev, &simple_device_type, iface->config);
 
 		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
-		ret = interface_add_link(iface, dev);
+		ret = interface_add_link(iface, dev, link_ext);
 	} else {
 		ret = interface_remove_link(iface, dev);
 	}

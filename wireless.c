@@ -215,7 +215,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, bool 
 		if (!iface)
 			continue;
 
-		interface_handle_link(iface, vif->ifname, up);
+		interface_handle_link(iface, vif->ifname, up, true);
 	}
 }
 

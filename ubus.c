@@ -812,23 +812,40 @@ netifd_handle_dump(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+enum {
+	DEV_LINK_NAME,
+	DEV_LINK_EXT,
+	__DEV_LINK_MAX,
+};
+
+static const struct blobmsg_policy dev_link_policy[__DEV_LINK_MAX] = {
+	[DEV_LINK_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
+	[DEV_LINK_EXT] = { .name = "link-ext", .type = BLOBMSG_TYPE_BOOL },
+};
+
 static int
 netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 			   struct ubus_request_data *req, const char *method,
 			   struct blob_attr *msg)
 {
-	struct blob_attr *tb[__DEV_MAX];
+	struct blob_attr *tb[__DEV_LINK_MAX];
+	struct blob_attr *cur;
 	struct interface *iface;
 	bool add = !strncmp(method, "add", 3);
+	bool link_ext = true;
 
 	iface = container_of(obj, struct interface, ubus);
 
-	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse(dev_link_policy, __DEV_LINK_MAX, tb, blob_data(msg), blob_len(msg));
 
-	if (!tb[DEV_NAME])
+	if (!tb[DEV_LINK_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	return interface_handle_link(iface, blobmsg_data(tb[DEV_NAME]), add);
+	cur = tb[DEV_LINK_EXT];
+	if (cur)
+		link_ext = !!blobmsg_get_u8(cur);
+
+	return interface_handle_link(iface, blobmsg_data(tb[DEV_LINK_NAME]), add, link_ext);
 }
 
 
@@ -919,8 +936,8 @@ static struct ubus_method iface_object_methods[] = {
 	{ .name = "status", .handler = netifd_handle_status },
 	{ .name = "prepare", .handler = netifd_handle_iface_prepare },
 	{ .name = "dump", .handler = netifd_handle_dump },
-	UBUS_METHOD("add_device", netifd_iface_handle_device, dev_policy ),
-	UBUS_METHOD("remove_device", netifd_iface_handle_device, dev_policy ),
+	UBUS_METHOD("add_device", netifd_iface_handle_device, dev_link_policy ),
+	UBUS_METHOD("remove_device", netifd_iface_handle_device, dev_link_policy ),
 	{ .name = "notify_proto", .handler = netifd_iface_notify_proto },
 	{ .name = "remove", .handler = netifd_iface_remove },
 	{ .name = "set_data", .handler = netifd_handle_set_data },
