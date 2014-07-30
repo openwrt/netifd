@@ -254,7 +254,7 @@ void device_release(struct device_user *dep)
 		return;
 
 	device_broadcast_event(dev, DEV_EVENT_TEARDOWN);
-	if (!dep->hotplug)
+	if (!dev->external)
 		dev->set_state(dev, false);
 	device_broadcast_event(dev, DEV_EVENT_DOWN);
 }
