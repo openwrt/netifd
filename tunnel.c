@@ -35,7 +35,7 @@ tunnel_set_state(struct device *dev, bool up)
 
 	ret = tun->set_state(dev, up);
 	if (ret || !up)
-		system_del_ip_tunnel(dev->ifname);
+		system_del_ip_tunnel(dev->ifname, dev->config);
 
 	return ret;
 }

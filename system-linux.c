@@ -806,7 +806,7 @@ nla_put_failure:
 	return -ENOMEM;
 }
 
-static int system_link_del(struct device *dev)
+static int system_link_del(const char *ifname)
 {
 	struct nl_msg *msg;
 	struct ifinfomsg iim = {
@@ -820,13 +820,13 @@ static int system_link_del(struct device *dev)
 		return -1;
 
 	nlmsg_append(msg, &iim, sizeof(iim), 0);
-	nla_put_string(msg, IFLA_IFNAME, dev->ifname);
+	nla_put_string(msg, IFLA_IFNAME, ifname);
 	return system_rtnl_call(msg);
 }
 
 int system_macvlan_del(struct device *macvlan)
 {
-	return system_link_del(macvlan);
+	return system_link_del(macvlan->ifname);
 }
 
 static int system_vlan(struct device *dev, int id)
@@ -912,7 +912,7 @@ nla_put_failure:
 
 int system_vlandev_del(struct device *vlandev)
 {
-	return system_link_del(vlandev);
+	return system_link_del(vlandev->ifname);
 }
 
 static void
@@ -1654,9 +1654,173 @@ static int tunnel_ioctl(const char *name, int cmd, void *p)
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
 
-int system_del_ip_tunnel(const char *name)
+static int system_add_gre_tunnel(const char *name, const char *kind,
+				 const unsigned int link, struct blob_attr **tb, bool v6)
 {
-	return tunnel_ioctl(name, SIOCDELTUNNEL, NULL);
+	struct nl_msg *nlm;
+	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
+	struct blob_attr *cur;
+	uint32_t ikey = 0, okey = 0;
+	uint16_t iflags = 0, oflags = 0;
+	int ret = 0, ttl = 64;
+
+	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
+	if (!nlm)
+		return -1;
+
+	nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
+	nla_put_string(nlm, IFLA_IFNAME, name);
+
+	struct nlattr *linkinfo = nla_nest_start(nlm, IFLA_LINKINFO);
+	if (!linkinfo) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	nla_put_string(nlm, IFLA_INFO_KIND, kind);
+	struct nlattr *infodata = nla_nest_start(nlm, IFLA_INFO_DATA);
+	if (!infodata) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	if (link)
+		nla_put_u32(nlm, IFLA_GRE_LINK, link);
+
+	if ((cur = tb[TUNNEL_ATTR_TTL]))
+		ttl = blobmsg_get_u32(cur);
+
+	nla_put_u8(nlm, IFLA_GRE_TTL, ttl);
+
+	if ((cur = tb[TUNNEL_ATTR_INFO]) && (blobmsg_type(cur) == BLOBMSG_TYPE_STRING)) {
+		uint8_t icsum, ocsum, iseqno, oseqno;
+		if (sscanf(blobmsg_get_string(cur), "%u,%u,%hhu,%hhu,%hhu,%hhu",
+			&ikey, &okey, &icsum, &ocsum, &iseqno, &oseqno) < 6) {
+			ret = -EINVAL;
+			goto failure;
+		}
+
+		if (ikey)
+			iflags |= GRE_KEY;
+
+		if (okey)
+			oflags |= GRE_KEY;
+
+		if (icsum)
+			iflags |= GRE_CSUM;
+
+		if (ocsum)
+			oflags |= GRE_CSUM;
+
+		if (iseqno)
+			iflags |= GRE_SEQ;
+
+		if (oseqno)
+			oflags |= GRE_SEQ;
+	}
+
+	if (v6) {
+		struct in6_addr in6buf;
+		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_GRE_LOCAL, sizeof(in6buf), &in6buf);
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_GRE_REMOTE, sizeof(in6buf), &in6buf);
+		}
+		nla_put_u8(nlm, IFLA_GRE_ENCAP_LIMIT, 4);
+	} else {
+		struct in_addr inbuf;
+		bool set_df = true;
+
+		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
+			if (inet_pton(AF_INET, blobmsg_data(cur), &inbuf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_GRE_LOCAL, sizeof(inbuf), &inbuf);
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
+			if (inet_pton(AF_INET, blobmsg_data(cur), &inbuf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_GRE_REMOTE, sizeof(inbuf), &inbuf);
+
+			if (IN_MULTICAST(ntohl(inbuf.s_addr))) {
+				if (!okey) {
+					okey = inbuf.s_addr;
+					oflags |= GRE_KEY;
+				}
+
+				if (!ikey) {
+					ikey = inbuf.s_addr;
+					iflags |= GRE_KEY;
+				}
+			}
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_DF]))
+			set_df = blobmsg_get_bool(cur);
+
+		nla_put_u8(nlm, IFLA_GRE_PMTUDISC, set_df ? 1 : 0);
+	}
+
+	if (oflags)
+		nla_put_u16(nlm, IFLA_GRE_OFLAGS, oflags);
+
+	if (iflags)
+		nla_put_u16(nlm, IFLA_GRE_IFLAGS, iflags);
+
+	if (okey)
+		nla_put_u32(nlm, IFLA_GRE_OKEY, okey);
+
+	if (ikey)
+		nla_put_u32(nlm, IFLA_GRE_IKEY, ikey);
+
+	nla_nest_end(nlm, infodata);
+	nla_nest_end(nlm, linkinfo);
+
+	return system_rtnl_call(nlm);
+
+failure:
+	nlmsg_free(nlm);
+	return ret;
+}
+
+static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb)
+{
+	struct blob_attr *cur;
+	const char *str;
+
+	if (!(cur = tb[TUNNEL_ATTR_TYPE]))
+		return -EINVAL;
+	str = blobmsg_data(cur);
+
+	if (!strcmp(str, "greip") || !strcmp(str, "gretapip") ||
+	    !strcmp(str, "greip6") || !strcmp(str, "gretapip6"))
+		return system_link_del(name);
+	else
+		return tunnel_ioctl(name, SIOCDELTUNNEL, NULL);
+}
+
+int system_del_ip_tunnel(const char *name, struct blob_attr *attr)
+{
+	struct blob_attr *tb[__TUNNEL_ATTR_MAX];
+
+	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
+		blob_data(attr), blob_len(attr));
+
+	return __system_del_ip_tunnel(name, tb);
 }
 
 int system_update_ipv6_mtu(struct device *dev, int mtu)
@@ -1693,10 +1857,10 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	bool set_df = true;
 	const char *str;
 
-	system_del_ip_tunnel(name);
-
 	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
 		blob_data(attr), blob_len(attr));
+
+	__system_del_ip_tunnel(name, tb);
 
 	if (!(cur = tb[TUNNEL_ATTR_TYPE]))
 		return -EINVAL;
@@ -1766,7 +1930,7 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 			}
 
 			if (tunnel_ioctl(name, SIOCADD6RD, &p6) < 0) {
-				system_del_ip_tunnel(name);
+				__system_del_ip_tunnel(name, tb);
 				return -1;
 			}
 		}
@@ -1873,6 +2037,14 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 failure:
 		nlmsg_free(nlm);
 		return ret;
+	} else if (!strcmp(str, "greip")) {
+		return system_add_gre_tunnel(name, "gre", link, tb, false);
+	} else if (!strcmp(str, "gretapip"))  {
+		return system_add_gre_tunnel(name, "gretap", link, tb, false);
+	} else if (!strcmp(str, "greip6")) {
+		return system_add_gre_tunnel(name, "ip6gre", link, tb, true);
+	} else if (!strcmp(str, "gretapip6")) {
+		return system_add_gre_tunnel(name, "ip6gretap", link, tb, true);
 	}
 	else
 		return -EINVAL;

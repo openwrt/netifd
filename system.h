@@ -32,6 +32,7 @@ enum tunnel_param {
 	TUNNEL_ATTR_6RD_RELAY_PREFIX,
 	TUNNEL_ATTR_LINK,
 	TUNNEL_ATTR_FMRS,
+	TUNNEL_ATTR_INFO,
 	__TUNNEL_ATTR_MAX
 };
 
@@ -132,7 +133,7 @@ bool system_resolve_rt_type(const char *type, unsigned int *id);
 bool system_resolve_rt_table(const char *name, unsigned int *id);
 bool system_is_default_rt_table(unsigned int id);
 
-int system_del_ip_tunnel(const char *name);
+int system_del_ip_tunnel(const char *name, struct blob_attr *attr);
 int system_add_ip_tunnel(const char *name, struct blob_attr *attr);
 
 int system_add_iprule(struct iprule *rule);
