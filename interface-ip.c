@@ -75,8 +75,8 @@ clear_if_addr(union if_addr *a, int mask)
 	uint8_t m_clear = (1 << (m_bytes * 8 - mask)) - 1;
 	uint8_t *p = (uint8_t *) a;
 
-	if (m_bytes < sizeof(a))
-		memset(p + m_bytes, 0, sizeof(a) - m_bytes);
+	if (m_bytes < sizeof(*a))
+		memset(p + m_bytes, 0, sizeof(*a) - m_bytes);
 
 	p[m_bytes - 1] &= ~m_clear;
 }
