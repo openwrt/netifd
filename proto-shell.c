@@ -688,6 +688,7 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
 	struct blob_attr *tb[__NOTIFY_LAST];
+	uint32_t action;
 
 	state = container_of(proto, struct proto_shell_state, proto);
 
@@ -695,10 +696,13 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 	if (!tb[NOTIFY_ACTION])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
+	action = blobmsg_get_u32(tb[NOTIFY_ACTION]);
+
+	/* allow proto_shell_notify_error even in S_TEARDOWN or S_SETUP_ABORT states */
+	if (action != 3 && (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT))
 		return UBUS_STATUS_PERMISSION_DENIED;
 
-	switch(blobmsg_get_u32(tb[NOTIFY_ACTION])) {
+	switch(action) {
 	case 0:
 		return proto_shell_update_link(state, attr, tb);
 	case 1:
