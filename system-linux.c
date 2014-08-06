@@ -1654,6 +1654,7 @@ static int tunnel_ioctl(const char *name, int cmd, void *p)
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
 
+#ifdef IFLA_IPTUN_MAX
 static int system_add_gre_tunnel(const char *name, const char *kind,
 				 const unsigned int link, struct blob_attr **tb, bool v6)
 {
@@ -1796,6 +1797,7 @@ failure:
 	nlmsg_free(nlm);
 	return ret;
 }
+#endif
 
 static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb)
 {
@@ -1935,6 +1937,7 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 			}
 		}
 #endif
+#ifdef IFLA_IPTUN_MAX
 	} else if (!strcmp(str, "ipip6")) {
 		struct nl_msg *nlm = nlmsg_alloc_simple(RTM_NEWLINK,
 				NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
@@ -2045,6 +2048,7 @@ failure:
 		return system_add_gre_tunnel(name, "ip6gre", link, tb, true);
 	} else if (!strcmp(str, "gretapip6")) {
 		return system_add_gre_tunnel(name, "ip6gretap", link, tb, true);
+#endif
 	}
 	else
 		return -EINVAL;
