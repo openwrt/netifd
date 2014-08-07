@@ -440,6 +440,9 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 	bool keep = false;
 	bool up;
 
+	if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
+		return UBUS_STATUS_PERMISSION_DENIED;
+
 	if (!tb[NOTIFY_LINK_UP])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
@@ -543,6 +546,9 @@ proto_shell_run_command(struct proto_shell_state *state, struct blob_attr **tb)
 	static char *argv[64];
 	static char *env[32];
 
+	if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
+		return UBUS_STATUS_PERMISSION_DENIED;
+
 	if (!tb[NOTIFY_COMMAND])
 		goto error;
 
@@ -641,6 +647,9 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 	const char *ifname_str = ifname_a ? blobmsg_data(ifname_a) : "";
 	char *ifname;
 
+	if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
+		return UBUS_STATUS_PERMISSION_DENIED;
+
 	if (!host)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
@@ -670,6 +679,8 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 static int
 proto_shell_setup_failed(struct proto_shell_state *state)
 {
+	int ret = 0;
+
 	switch (state->sm) {
 	case S_IDLE:
 		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
@@ -677,10 +688,13 @@ proto_shell_setup_failed(struct proto_shell_state *state)
 	case S_SETUP:
 		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
 		break;
+	case S_SETUP_ABORT:
+	case S_TEARDOWN:
 	default:
+		ret = UBUS_STATUS_PERMISSION_DENIED;
 		break;
 	}
-	return 0;
+	return ret;
 }
 
 static int
@@ -688,7 +702,6 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 {
 	struct proto_shell_state *state;
 	struct blob_attr *tb[__NOTIFY_LAST];
-	uint32_t action;
 
 	state = container_of(proto, struct proto_shell_state, proto);
 
@@ -696,13 +709,7 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 	if (!tb[NOTIFY_ACTION])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	action = blobmsg_get_u32(tb[NOTIFY_ACTION]);
-
-	/* allow proto_shell_notify_error even in S_TEARDOWN or S_SETUP_ABORT states */
-	if (action != 3 && (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT))
-		return UBUS_STATUS_PERMISSION_DENIED;
-
-	switch(action) {
+	switch(blobmsg_get_u32(tb[NOTIFY_ACTION])) {
 	case 0:
 		return proto_shell_update_link(state, attr, tb);
 	case 1:
