@@ -15,6 +15,7 @@
 #define __NETIFD_HANDLER_H
 
 #include <libubox/blobmsg_json.h>
+#include <json/json.h>
 #include "config.h"
 
 typedef void (*script_dump_cb)(const char *script, const char *name, json_object *obj);
