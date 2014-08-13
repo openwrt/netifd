@@ -669,13 +669,20 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	addr.preferred_until = prefix->preferred_until;
 	addr.valid_until = prefix->valid_until;
 
+	if (addr.mask < 64) {
+		addr.mask = 64;
+		system_del_address(l3_downlink, &addr);
+		addr.mask = assignment->length;
+	}
+
 	if (!add && assignment->enabled) {
 		time_t now = system_get_rtime();
 		addr.preferred_until = now;
 		if (!addr.valid_until || addr.valid_until - now > 7200)
 			addr.valid_until = now + 7200;
+
 		system_del_address(l3_downlink, &addr); // Work around dangling prefix routes
-		system_add_address(l3_downlink, &addr);
+
 		if (prefix->iface) {
 			if (prefix->iface->ip6table)
 				set_ip_source_policy(false, true, IPRULE_PRIORITY_NW, &addr.addr,
@@ -685,9 +692,17 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 							addr.mask, 0, iface, "unreachable");
 		}
 
+		if (addr.mask < 64)
+			addr.mask = 64;
+
+		interface_handle_subnet_route(iface, &addr, false);
+		system_add_address(l3_downlink, &addr);
+
 		assignment->enabled = false;
 	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP) &&
 			!system_add_address(l3_downlink, &addr)) {
+		interface_handle_subnet_route(iface, &addr, false);
+
 		if (prefix->iface && !assignment->enabled) {
 			set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
 					addr.mask, 0, iface, "unreachable");
@@ -696,12 +711,19 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 				set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &addr.addr,
 						addr.mask, prefix->iface->ip6table, iface, NULL);
 		}
+
+		if (addr.mask < 64)
+			addr.mask = 64;
+
+		interface_handle_subnet_route(iface, &addr, true);
+
 		if (uplink && uplink->l3_dev.dev) {
 			int mtu = system_update_ipv6_mtu(
 					uplink->l3_dev.dev, 0);
 			if (mtu > 0)
 				system_update_ipv6_mtu(l3_downlink, mtu);
 		}
+
 		assignment->enabled = true;
 	}
 }
