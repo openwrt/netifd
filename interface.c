@@ -527,6 +527,7 @@ interface_cleanup(struct interface *iface)
 {
 	struct interface_user *dep, *tmp;
 
+	uloop_timeout_cancel(&iface->remove_timer);
 	device_remove_user(&iface->ext_dev);
 
 	if (iface->parent_iface.iface)
