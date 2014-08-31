@@ -578,7 +578,7 @@ proto_shell_kill_command(struct proto_shell_state *state, struct blob_attr **tb)
 		signal = SIGTERM;
 
 	if (state->proto_task.uloop.pending) {
-		if (signal == SIGTERM)
+		if (signal == SIGTERM || signal == SIGKILL)
 			state->proto_task_killed = true;
 		kill(state->proto_task.uloop.pid, signal);
 	}
