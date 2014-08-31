@@ -272,8 +272,8 @@ interface_check_state(struct interface *iface)
 	switch (iface->state) {
 	case IFS_UP:
 		if (!iface->enabled || !link_state) {
-			mark_interface_down(iface);
 			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
+			mark_interface_down(iface);
 		}
 		break;
 	case IFS_DOWN:
