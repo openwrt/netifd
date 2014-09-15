@@ -38,6 +38,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TXQUEUELEN] = { .name = "txqueuelen", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_ENABLED] = { .name = "enabled", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_IPV6] = { .name = "ipv6", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_PROMISC] = { .name = "promisc", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -144,6 +145,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		(s->flags & DEV_OPT_MACADDR ? s->macaddr : os->macaddr),
 		sizeof(n->macaddr));
 	n->ipv6 = s->flags & DEV_OPT_IPV6 ? s->ipv6 : os->ipv6;
+	n->promisc = s->flags & DEV_OPT_PROMISC ? s->promisc : os->promisc;
 	n->flags = s->flags | os->flags;
 }
 
@@ -180,6 +182,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_IPV6])) {
 		s->ipv6 = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_IPV6;
+	}
+
+	if ((cur = tb[DEV_ATTR_PROMISC])) {
+		s->promisc = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_PROMISC;
 	}
 
 	device_set_disabled(dev, disabled);
@@ -717,6 +724,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "txqueuelen", st.txqueuelen);
 		if (st.flags & DEV_OPT_IPV6)
 			blobmsg_add_u8(b, "ipv6", st.ipv6);
+		if (st.flags & DEV_OPT_PROMISC)
+			blobmsg_add_u8(b, "promisc", st.promisc);
 	}
 
 	s = blobmsg_open_table(b, "statistics");

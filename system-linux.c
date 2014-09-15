@@ -943,6 +943,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->ipv6 = !strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_IPV6;
 	}
+
+	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) == 0) {
+		s->promisc = ifr.ifr_flags & IFF_PROMISC;
+		s->flags |= DEV_OPT_PROMISC;
+	}
 }
 
 void
@@ -973,6 +978,11 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	}
 	if (s->flags & DEV_OPT_IPV6 & apply_mask)
 		system_set_disable_ipv6(dev, s->ipv6 ? "0" : "1");
+	if (s->flags & DEV_OPT_PROMISC & apply_mask) {
+		if (system_if_flags(dev->ifname, s->promisc ? IFF_PROMISC : 0,
+				    !s->promisc ? IFF_PROMISC : 0) < 0)
+			s->flags &= ~DEV_OPT_PROMISC;
+	}
 }
 
 int system_if_up(struct device *dev)

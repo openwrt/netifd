@@ -32,6 +32,7 @@ enum {
 	DEV_ATTR_TXQUEUELEN,
 	DEV_ATTR_ENABLED,
 	DEV_ATTR_IPV6,
+	DEV_ATTR_PROMISC,
 	__DEV_ATTR_MAX,
 };
 
@@ -62,6 +63,7 @@ enum {
 	DEV_OPT_MACADDR		= (1 << 1),
 	DEV_OPT_TXQUEUELEN	= (1 << 2),
 	DEV_OPT_IPV6		= (1 << 3),
+	DEV_OPT_PROMISC		= (1 << 4),
 };
 
 /* events broadcasted to all users of a device */
@@ -108,6 +110,7 @@ struct device_settings {
 	unsigned int txqueuelen;
 	uint8_t macaddr[6];
 	bool ipv6;
+	bool promisc;
 };
 
 /*
