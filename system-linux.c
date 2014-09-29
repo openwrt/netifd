@@ -1665,14 +1665,16 @@ static int tunnel_ioctl(const char *name, int cmd, void *p)
 }
 
 #ifdef IFLA_IPTUN_MAX
+#define IP6_FLOWINFO_TCLASS	htonl(0x0FF00000)
 static int system_add_gre_tunnel(const char *name, const char *kind,
 				 const unsigned int link, struct blob_attr **tb, bool v6)
 {
 	struct nl_msg *nlm;
 	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
 	struct blob_attr *cur;
-	uint32_t ikey = 0, okey = 0;
+	uint32_t ikey = 0, okey = 0, flags = 0, flowinfo = 0;
 	uint16_t iflags = 0, oflags = 0;
+	uint8_t tos = 0;
 	int ret = 0, ttl = 64;
 
 	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
@@ -1702,6 +1704,29 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 		ttl = blobmsg_get_u32(cur);
 
 	nla_put_u8(nlm, IFLA_GRE_TTL, ttl);
+
+	if ((cur = tb[TUNNEL_ATTR_TOS])) {
+		char *str = blobmsg_get_string(cur);
+		if (strcmp(str, "inherit")) {
+			unsigned uval;
+			char *e;
+
+			uval = strtoul(str, &e, 16);
+			if (e == str || *e || uval > 255) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			if (v6)
+				flowinfo |= htonl(uval << 20) & IP6_FLOWINFO_TCLASS;
+			else
+				tos = uval;
+		} else {
+			if (v6)
+				flags |= IP6_TNL_F_USE_ORIG_TCLASS;
+			else
+				tos = 1;
+		}
+        }
 
 	if ((cur = tb[TUNNEL_ATTR_INFO]) && (blobmsg_type(cur) == BLOBMSG_TYPE_STRING)) {
 		uint8_t icsum, ocsum, iseqno, oseqno;
@@ -1748,6 +1773,12 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 			nla_put(nlm, IFLA_GRE_REMOTE, sizeof(in6buf), &in6buf);
 		}
 		nla_put_u8(nlm, IFLA_GRE_ENCAP_LIMIT, 4);
+
+		if (flowinfo)
+			nla_put_u32(nlm, IFLA_GRE_FLOWINFO, flowinfo);
+
+		if (flags)
+			nla_put_u32(nlm, IFLA_GRE_FLAGS, flags);
 	} else {
 		struct in_addr inbuf;
 		bool set_df = true;
@@ -1784,6 +1815,8 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 			set_df = blobmsg_get_bool(cur);
 
 		nla_put_u8(nlm, IFLA_GRE_PMTUDISC, set_df ? 1 : 0);
+
+		nla_put_u8(nlm, IFLA_GRE_TOS, tos);
 	}
 
 	if (oflags)
