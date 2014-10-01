@@ -660,7 +660,7 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 	struct wireless_interface *vif;
 	struct blob_attr *tb[__VIF_ATTR_MAX];
 	struct blob_attr *cur;
-	char *name_buf;
+	char *name_buf, *section_buf;
 	char name[8];
 
 	blobmsg_parse(vif_policy, __VIF_ATTR_MAX, tb, blob_data(data), blob_len(data));
@@ -671,11 +671,13 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 
 	sprintf(name, "%d", wdev->vif_idx++);
 
-	vif = calloc_a(sizeof(*vif), &name_buf, strlen(name) + 1);
+	vif = calloc_a(sizeof(*vif),
+		       &name_buf, strlen(name) + 1,
+		       &section_buf, strlen(section) + 1);
 	vif->name = strcpy(name_buf, name);
 	vif->wdev = wdev;
 	vif->config = data;
-	vif->section = section;
+	vif->section = strcpy(section_buf, section);
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 }
 
