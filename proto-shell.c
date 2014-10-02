@@ -506,9 +506,11 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 
 	interface_update_complete(state->proto.iface);
 
-	if (!keep)
-		state->proto.proto_event(&state->proto, IFPEV_UP);
-	state->sm = S_IDLE;
+	if ((state->sm != S_SETUP_ABORT) && (state->sm != S_TEARDOWN)) {
+		if (!keep)
+			state->proto.proto_event(&state->proto, IFPEV_UP);
+		state->sm = S_IDLE;
+	}
 
 	return 0;
 }
