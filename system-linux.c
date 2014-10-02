@@ -204,6 +204,18 @@ system_rtn_aton(const char *src, unsigned int *dst)
 	return true;
 }
 
+static bool
+system_tos_aton(const char *src, unsigned *dst)
+{
+	char *e;
+
+	*dst = strtoul(src, &e, 16);
+	if (e == src || *e || *dst > 255)
+		return false;
+
+	return true;
+}
+
 int system_init(void)
 {
 	static struct event_socket rtnl_event;
@@ -1709,13 +1721,12 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 		char *str = blobmsg_get_string(cur);
 		if (strcmp(str, "inherit")) {
 			unsigned uval;
-			char *e;
 
-			uval = strtoul(str, &e, 16);
-			if (e == str || *e || uval > 255) {
+			if (!system_tos_aton(str, &uval)) {
 				ret = -EINVAL;
 				goto failure;
 			}
+
 			if (v6)
 				flowinfo |= htonl(uval << 20) & IP6_FLOWINFO_TCLASS;
 			else
@@ -1814,6 +1825,12 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 		if ((cur = tb[TUNNEL_ATTR_DF]))
 			set_df = blobmsg_get_bool(cur);
 
+		/* ttl !=0 and nopmtudisc are incompatible */
+		if (ttl && !set_df) {
+			ret = -EINVAL;
+			goto failure;
+		}
+
 		nla_put_u8(nlm, IFLA_GRE_PMTUDISC, set_df ? 1 : 0);
 
 		nla_put_u8(nlm, IFLA_GRE_TOS, tos);
@@ -1841,6 +1858,64 @@ failure:
 	return ret;
 }
 #endif
+
+static int system_add_proto_tunnel(const char *name, const uint8_t proto, const unsigned int link, struct blob_attr **tb)
+{
+	struct blob_attr *cur;
+	bool set_df = true;
+	struct ip_tunnel_parm p  = {
+	        .link = link,
+		.iph = {
+			.version = 4,
+			.ihl = 5,
+			.protocol = proto,
+		}
+	};
+
+	if ((cur = tb[TUNNEL_ATTR_LOCAL]) &&
+			inet_pton(AF_INET, blobmsg_data(cur), &p.iph.saddr) < 1)
+		return -EINVAL;
+
+	if ((cur = tb[TUNNEL_ATTR_REMOTE]) &&
+			inet_pton(AF_INET, blobmsg_data(cur), &p.iph.daddr) < 1)
+		return -EINVAL;
+
+	if ((cur = tb[TUNNEL_ATTR_DF]))
+		set_df = blobmsg_get_bool(cur);
+
+	if ((cur = tb[TUNNEL_ATTR_TTL]))
+		p.iph.ttl = blobmsg_get_u32(cur);
+
+	if ((cur = tb[TUNNEL_ATTR_TOS])) {
+		char *str = blobmsg_get_string(cur);
+		if (strcmp(str, "inherit")) {
+			unsigned uval;
+
+			if (!system_tos_aton(str, &uval))
+				return -EINVAL;
+
+			p.iph.tos = uval;
+		} else
+			p.iph.tos = 1;
+	}
+
+	p.iph.frag_off = set_df ? htons(IP_DF) : 0;
+	/* ttl !=0 and nopmtudisc are incompatible */
+	if (p.iph.ttl && p.iph.frag_off == 0)
+		return -EINVAL;
+
+	strncpy(p.name, name, sizeof(p.name));
+
+	switch (p.iph.protocol) {
+	case IPPROTO_IPIP:
+		return tunnel_ioctl("tunl0", SIOCADDTUNNEL, &p);
+	case IPPROTO_IPV6:
+		return tunnel_ioctl("sit0", SIOCADDTUNNEL, &p);
+	default:
+		break;
+	}
+	return -1;
+}
 
 static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb)
 {
@@ -1899,7 +1974,6 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__TUNNEL_ATTR_MAX];
 	struct blob_attr *cur;
-	bool set_df = true;
 	const char *str;
 
 	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
@@ -1911,13 +1985,10 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 		return -EINVAL;
 	str = blobmsg_data(cur);
 
-	if ((cur = tb[TUNNEL_ATTR_DF]))
-		set_df = blobmsg_get_bool(cur);
-
 	unsigned int ttl = 0;
 	if ((cur = tb[TUNNEL_ATTR_TTL])) {
 		ttl = blobmsg_get_u32(cur);
-		if (ttl > 255 || (!set_df && ttl))
+		if (ttl > 255)
 			return -EINVAL;
 	}
 
@@ -1932,27 +2003,7 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	}
 
 	if (!strcmp(str, "sit")) {
-		struct ip_tunnel_parm p = {
-			.link = link,
-			.iph = {
-				.version = 4,
-				.ihl = 5,
-				.frag_off = set_df ? htons(IP_DF) : 0,
-				.protocol = IPPROTO_IPV6,
-				.ttl = ttl
-			}
-		};
-
-		if ((cur = tb[TUNNEL_ATTR_LOCAL]) &&
-				inet_pton(AF_INET, blobmsg_data(cur), &p.iph.saddr) < 1)
-			return -EINVAL;
-
-		if ((cur = tb[TUNNEL_ATTR_REMOTE]) &&
-				inet_pton(AF_INET, blobmsg_data(cur), &p.iph.daddr) < 1)
-			return -EINVAL;
-
-		strncpy(p.name, name, sizeof(p.name));
-		if (tunnel_ioctl("sit0", SIOCADDTUNNEL, &p) < 0)
+		if (system_add_proto_tunnel(name, IPPROTO_IPV6, link, tb) < 0)
 			return -1;
 
 #ifdef SIOCADD6RD
@@ -2092,6 +2143,8 @@ failure:
 	} else if (!strcmp(str, "gretapip6")) {
 		return system_add_gre_tunnel(name, "ip6gretap", link, tb, true);
 #endif
+	} else if (!strcmp(str, "ipip")) {
+		return system_add_proto_tunnel(name, IPPROTO_IPIP, link, tb);
 	}
 	else
 		return -EINVAL;
