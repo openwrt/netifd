@@ -51,9 +51,9 @@ static const struct uci_blob_param_list vif_param = {
 static void
 put_container(struct blob_buf *buf, struct blob_attr *attr, const char *name)
 {
-	void *c = blobmsg_open_table(&b, name);
-	blob_put_raw(&b, blob_data(attr), blob_len(attr));
-	blobmsg_close_table(&b, c);
+	void *c = blobmsg_open_table(buf, name);
+	blob_put_raw(buf, blob_data(attr), blob_len(attr));
+	blobmsg_close_table(buf, c);
 }
 
 static void
