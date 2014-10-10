@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __LL_H
-#define __LL_H
+#ifndef __NETIFD_DEVICE_H
+#define __NETIFD_DEVICE_H
 
 #include <libubox/avl.h>
 #include <libubox/safe_list.h>
