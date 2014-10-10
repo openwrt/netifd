@@ -501,6 +501,8 @@ interface_claim_device(struct interface *iface)
 	} else if (iface->ifname &&
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
+		if (dev && dev->default_config && iface->device_config)
+			device_set_config(dev, dev->type, iface->config);
 	} else {
 		dev = iface->ext_dev.dev;
 	}
@@ -881,8 +883,8 @@ interface_handle_link(struct interface *iface, const char *name, bool add, bool 
 
 	if (add) {
 		device_set_present(dev, true);
-		if (iface->device_config)
-			device_set_config(dev, &simple_device_type, iface->config);
+		if (iface->device_config && dev->default_config)
+			device_set_config(dev, dev->type, iface->config);
 
 		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 		ret = interface_add_link(iface, dev, link_ext);
