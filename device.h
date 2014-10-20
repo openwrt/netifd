@@ -47,6 +47,8 @@ struct device_type {
 	struct list_head list;
 	const char *name;
 
+	bool keep_link_status;
+
 	const struct uci_blob_param_list *config_params;
 
 	struct device *(*create)(const char *name, struct blob_attr *attr);

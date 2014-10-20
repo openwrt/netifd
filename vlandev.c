@@ -246,6 +246,7 @@ vlandev_create(const char *name, struct blob_attr *attr)
 const struct device_type vlandev_device_type = {
 	.name = "VLANDEV",
 	.config_params = &vlandev_attr_list,
+	.keep_link_status = true,
 
 	.create = vlandev_create,
 	.config_init = vlandev_config_init,

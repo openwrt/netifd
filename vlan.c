@@ -102,6 +102,7 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	static const struct device_type vlan_type = {
 		.name = "VLAN",
 		.config_params = &device_attr_list,
+		.keep_link_status = true,
 		.free = free_vlan_if,
 	};
 	struct vlan_device *vldev;

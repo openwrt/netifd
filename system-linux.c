@@ -322,7 +322,8 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 		goto out;
 
 	device_set_ifindex(dev, ifi->ifi_index);
-	device_set_link(dev, ifi->ifi_flags & IFF_LOWER_UP ? true : false);
+	if (!dev->type->keep_link_status)
+		device_set_link(dev, ifi->ifi_flags & IFF_LOWER_UP ? true : false);
 
 out:
 	return 0;

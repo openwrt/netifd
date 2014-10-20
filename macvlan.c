@@ -258,6 +258,7 @@ macvlan_create(const char *name, struct blob_attr *attr)
 const struct device_type macvlan_device_type = {
 	.name = "MAC VLAN",
 	.config_params = &macvlan_attr_list,
+	.keep_link_status = true,
 
 	.create = macvlan_create,
 	.config_init = macvlan_config_init,
