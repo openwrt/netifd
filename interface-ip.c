@@ -1154,9 +1154,11 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 	struct device_addr *addr;
 	struct device_route *route;
 	struct device *dev;
+	struct interface *iface;
 
 	ip->enabled = enabled;
-	dev = ip->iface->l3_dev.dev;
+	iface = ip->iface;
+	dev = iface->l3_dev.dev;
 	if (!dev)
 		return;
 
@@ -1164,10 +1166,14 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		if (addr->enabled == enabled)
 			continue;
 
-		if (enabled)
+		if (enabled) {
 			system_add_address(dev, addr);
-		else
+			if ((addr->flags & DEVADDR_OFFLINK) || iface->metric)
+				interface_handle_subnet_route(iface, addr, true);
+		} else {
+			interface_handle_subnet_route(iface, addr, false);
 			system_del_address(dev, addr);
+		}
 		addr->enabled = enabled;
 	}
 
