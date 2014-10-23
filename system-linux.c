@@ -299,16 +299,14 @@ static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t b
 			dev->ifname, buf, buf_sz);
 }
 
-#ifndef IFF_LOWER_UP
-#define IFF_LOWER_UP	0x10000
-#endif
-
 // Evaluate netlink messages
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
 	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct nlattr *nla[__IFLA_MAX];
+	int link_state = 0;
+	char buf[10];
 
 	if (nh->nlmsg_type != RTM_NEWLINK)
 		goto out;
@@ -322,8 +320,13 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 		goto out;
 
 	device_set_ifindex(dev, ifi->ifi_index);
-	if (!dev->type->keep_link_status)
-		device_set_link(dev, ifi->ifi_flags & IFF_LOWER_UP ? true : false);
+	if (dev->type->keep_link_status)
+		goto out;
+
+	if (!system_get_dev_sysctl("/sys/class/net/%s/carrier", dev->ifname, buf, sizeof(buf)))
+		link_state = strtoul(buf, NULL, 0);
+
+	device_set_link(dev, link_state ? true : false);
 
 out:
 	return 0;
@@ -1020,6 +1023,10 @@ struct if_check_data {
 	int pending;
 	int ret;
 };
+
+#ifndef IFF_LOWER_UP
+#define IFF_LOWER_UP	0x10000
+#endif
 
 static int cb_if_check_valid(struct nl_msg *msg, void *arg)
 {
