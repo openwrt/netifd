@@ -333,16 +333,14 @@ config_parse_wireless_device(struct uci_section *s)
 static void
 config_parse_wireless_interface(struct wireless_device *wdev, struct uci_section *s)
 {
-	char *name = NULL;
+	char *name;
 
-	if (s->anonymous) {
-		name = alloca(strlen(s->type) + 16);
-		asprintf(&name, "@%s[%d]", s->type, config_section_idx(s));
-	}
+	name = alloca(strlen(s->type) + 16);
+	sprintf(name, "@%s[%d]", s->type, config_section_idx(s));
 
 	blob_buf_init(&b, 0);
 	uci_to_blob(&b, s, wdev->drv->interface.config);
-	wireless_interface_create(wdev, b.head, name ? name : s->e.name);
+	wireless_interface_create(wdev, b.head, s->anonymous ? name : s->e.name);
 }
 
 static void
