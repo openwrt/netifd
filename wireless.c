@@ -544,7 +544,8 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		wdev = vif_new->wdev;
 
 	if (vif_old && vif_new) {
-		vif_old->section = vif_new->section;
+		free((void *) vif_old->section);
+		vif_old->section = strdup(vif_new->section);
 		if (blob_attr_equal(vif_old->config, vif_new->config)) {
 			free(vif_new);
 			return;
@@ -557,10 +558,12 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		free(vif_new);
 	} else if (vif_new) {
 		D(WIRELESS, "Create new wireless interface %s on device %s\n", vif_new->name, wdev->name);
+		vif_new->section = strdup(vif_new->section);
 		vif_new->config = blob_memdup(vif_new->config);
 		wireless_interface_init_config(vif_new);
 	} else if (vif_old) {
 		D(WIRELESS, "Delete wireless interface %s on device %s\n", vif_old->name, wdev->name);
+		free((void *) vif_old->section);
 		free(vif_old->config);
 		free(vif_old);
 	}
@@ -660,7 +663,7 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 	struct wireless_interface *vif;
 	struct blob_attr *tb[__VIF_ATTR_MAX];
 	struct blob_attr *cur;
-	char *name_buf, *section_buf;
+	char *name_buf;
 	char name[8];
 
 	blobmsg_parse(vif_policy, __VIF_ATTR_MAX, tb, blob_data(data), blob_len(data));
@@ -672,12 +675,11 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 	sprintf(name, "%d", wdev->vif_idx++);
 
 	vif = calloc_a(sizeof(*vif),
-		       &name_buf, strlen(name) + 1,
-		       &section_buf, strlen(section) + 1);
+		       &name_buf, strlen(name) + 1);
 	vif->name = strcpy(name_buf, name);
 	vif->wdev = wdev;
 	vif->config = data;
-	vif->section = strcpy(section_buf, section);
+	vif->section = section;
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 }
 
