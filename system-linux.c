@@ -443,17 +443,18 @@ static bool system_is_bridge(const char *name, char *buf, int buflen)
 static char *system_get_bridge(const char *name, char *buf, int buflen)
 {
 	char *path;
-	ssize_t len;
+	ssize_t len = -1;
 	glob_t gl;
 
 	snprintf(buf, buflen, "/sys/devices/virtual/net/*/brif/%s/bridge", name);
 	if (glob(buf, GLOB_NOSORT, NULL, &gl) < 0)
 		return NULL;
 
-	if (gl.gl_pathc == 0)
-		return NULL;
+	if (gl.gl_pathc > 0)
+		len = readlink(gl.gl_pathv[0], buf, buflen);
 
-	len = readlink(gl.gl_pathv[0], buf, buflen);
+	globfree(&gl);
+
 	if (len < 0)
 		return NULL;
 
