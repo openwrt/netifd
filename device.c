@@ -62,6 +62,14 @@ void device_unlock(void)
 
 static int set_device_state(struct device *dev, bool state)
 {
+	if (state) {
+		/* Set ifindex for all devices being enabled so a valid  */
+		/* ifindex is in place avoiding possible race conditions */
+		device_set_ifindex(dev, system_if_resolve(dev));
+		if (!dev->ifindex)
+			return -1;
+	}
+
 	if (dev->external)
 		return 0;
 

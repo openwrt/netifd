@@ -316,11 +316,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 		goto out;
 
 	struct device *dev = device_get(nla_data(nla[IFLA_IFNAME]), false);
-	if (!dev)
-		goto out;
-
-	device_set_ifindex(dev, ifi->ifi_index);
-	if (dev->type->keep_link_status)
+	if (!dev || dev->type->keep_link_status)
 		goto out;
 
 	if (!system_get_dev_sysctl("/sys/class/net/%s/carrier", dev->ifname, buf, sizeof(buf)))
@@ -497,7 +493,7 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
-static int system_if_resolve(struct device *dev)
+int system_if_resolve(struct device *dev)
 {
 	struct ifreq ifr;
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
@@ -1006,7 +1002,6 @@ int system_if_up(struct device *dev)
 {
 	system_if_get_settings(dev, &dev->orig_settings);
 	system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
-	device_set_ifindex(dev, system_if_resolve(dev));
 	return system_if_flags(dev->ifname, IFF_UP, 0);
 }
 

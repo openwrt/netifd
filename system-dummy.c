@@ -96,6 +96,11 @@ int system_if_check(struct device *dev)
 	return 0;
 }
 
+int system_if_resolve(struct device *dev)
+{
+	return 0;
+}
+
 struct device *
 system_if_get_parent(struct device *dev)
 {
