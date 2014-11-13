@@ -209,6 +209,12 @@ bool system_is_default_rt_table(unsigned int id)
 	return true;
 }
 
+bool system_resolve_rpfilter(const char *filter, unsigned int *id)
+{
+	*id = 0;
+	return true;
+}
+
 int system_add_iprule(struct iprule *rule)
 {
 	return 0;

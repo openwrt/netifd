@@ -265,6 +265,11 @@ static void system_set_disable_ipv6(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname, val);
 }
 
+static void system_set_rpfilter(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/rp_filter", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -296,6 +301,12 @@ system_get_dev_sysctl(const char *path, const char *device, char *buf, const siz
 static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_rpfilter(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/rp_filter",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -953,6 +964,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->promisc = ifr.ifr_flags & IFF_PROMISC;
 		s->flags |= DEV_OPT_PROMISC;
 	}
+
+	if (!system_get_rpfilter(dev, buf, sizeof(buf))) {
+		s->rpfilter = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_RPFILTER;
+	}
 }
 
 void
@@ -987,6 +1003,12 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		if (system_if_flags(dev->ifname, s->promisc ? IFF_PROMISC : 0,
 				    !s->promisc ? IFF_PROMISC : 0) < 0)
 			s->flags &= ~DEV_OPT_PROMISC;
+	}
+	if (s->flags & DEV_OPT_RPFILTER & apply_mask) {
+		char buf[2];
+
+		snprintf(buf, sizeof(buf), "%d", s->rpfilter);
+		system_set_rpfilter(dev, buf);
 	}
 }
 
@@ -1504,6 +1526,25 @@ bool system_resolve_rt_table(const char *name, unsigned int *id)
 bool system_is_default_rt_table(unsigned int id)
 {
 	return (id == RT_TABLE_MAIN);
+}
+
+bool system_resolve_rpfilter(const char *filter, unsigned int *id)
+{
+	char *e;
+	unsigned int n;
+
+	if (!strcmp(filter, "strict"))
+		n = 1;
+	else if (!strcmp(filter, "loose"))
+		n = 2;
+	else {
+		n = strtoul(filter, &e, 0);
+		if (*e || e == filter || n > 2)
+			return false;
+	}
+
+	*id = n;
+	return true;
 }
 
 static int system_iprule(struct iprule *rule, int cmd)

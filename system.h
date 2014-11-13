@@ -135,6 +135,7 @@ int system_flush_routes(void);
 bool system_resolve_rt_type(const char *type, unsigned int *id);
 bool system_resolve_rt_table(const char *name, unsigned int *id);
 bool system_is_default_rt_table(unsigned int id);
+bool system_resolve_rpfilter(const char *filter, unsigned int *id);
 
 int system_del_ip_tunnel(const char *name, struct blob_attr *attr);
 int system_add_ip_tunnel(const char *name, struct blob_attr *attr);

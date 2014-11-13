@@ -33,6 +33,7 @@ enum {
 	DEV_ATTR_ENABLED,
 	DEV_ATTR_IPV6,
 	DEV_ATTR_PROMISC,
+	DEV_ATTR_RPFILTER,
 	__DEV_ATTR_MAX,
 };
 
@@ -66,6 +67,7 @@ enum {
 	DEV_OPT_TXQUEUELEN	= (1 << 2),
 	DEV_OPT_IPV6		= (1 << 3),
 	DEV_OPT_PROMISC		= (1 << 4),
+	DEV_OPT_RPFILTER	= (1 << 5),
 };
 
 /* events broadcasted to all users of a device */
@@ -113,6 +115,7 @@ struct device_settings {
 	uint8_t macaddr[6];
 	bool ipv6;
 	bool promisc;
+	unsigned int rpfilter;
 };
 
 /*
