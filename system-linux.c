@@ -760,7 +760,6 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 	struct nl_msg *msg;
 	struct nlattr *linkinfo, *data;
 	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC, };
-	int ifindex = system_if_resolve(dev);
 	int i, rv;
 	static const struct {
 		const char *name;
@@ -772,9 +771,6 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 		{ "passthru", MACVLAN_MODE_PASSTHRU },
 	};
 
-	if (ifindex == 0)
-		return -ENOENT;
-
 	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
 
 	if (!msg)
@@ -785,7 +781,7 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 	if (cfg->flags & MACVLAN_OPT_MACADDR)
 		nla_put(msg, IFLA_ADDRESS, sizeof(cfg->macaddr), cfg->macaddr);
 	nla_put_string(msg, IFLA_IFNAME, macvlan->ifname);
-	nla_put_u32(msg, IFLA_LINK, ifindex);
+	nla_put_u32(msg, IFLA_LINK, dev->ifindex);
 
 	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
 		goto nla_put_failure;
@@ -877,11 +873,7 @@ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlande
 	struct nl_msg *msg;
 	struct nlattr *linkinfo, *data;
 	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC };
-	int ifindex = system_if_resolve(dev);
 	int rv;
-
-	if (ifindex == 0)
-		return -ENOENT;
 
 	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
 
@@ -890,7 +882,7 @@ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlande
 
 	nlmsg_append(msg, &iim, sizeof(iim), 0);
 	nla_put_string(msg, IFLA_IFNAME, vlandev->ifname);
-	nla_put_u32(msg, IFLA_LINK, ifindex);
+	nla_put_u32(msg, IFLA_LINK, dev->ifindex);
 	
 	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
 		goto nla_put_failure;
