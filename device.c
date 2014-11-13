@@ -40,6 +40,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_IPV6] = { .name = "ipv6", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_PROMISC] = { .name = "promisc", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_RPFILTER] = { .name = "rpfilter", .type = BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_ACCEPTLOCAL] = { .name = "acceptlocal", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -156,6 +157,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->ipv6 = s->flags & DEV_OPT_IPV6 ? s->ipv6 : os->ipv6;
 	n->promisc = s->flags & DEV_OPT_PROMISC ? s->promisc : os->promisc;
 	n->rpfilter = s->flags & DEV_OPT_RPFILTER ? s->rpfilter : os->rpfilter;
+	n->acceptlocal = s->flags & DEV_OPT_ACCEPTLOCAL ? s->acceptlocal : os->acceptlocal;
 	n->flags = s->flags | os->flags;
 }
 
@@ -204,6 +206,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 			s->flags |= DEV_OPT_RPFILTER;
 		else
 			DPRINTF("Failed to resolve rpfilter: %s\n", (char *) blobmsg_data(cur));
+	}
+
+	if ((cur = tb[DEV_ATTR_ACCEPTLOCAL])) {
+		s->acceptlocal = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_ACCEPTLOCAL;
 	}
 
 	device_set_disabled(dev, disabled);
@@ -745,6 +752,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "promisc", st.promisc);
 		if (st.flags & DEV_OPT_RPFILTER)
 			blobmsg_add_u32(b, "rpfilter", st.rpfilter);
+		if (st.flags & DEV_OPT_ACCEPTLOCAL)
+			blobmsg_add_u8(b, "acceptlocal", st.acceptlocal);
 	}
 
 	s = blobmsg_open_table(b, "statistics");

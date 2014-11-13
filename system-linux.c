@@ -270,6 +270,11 @@ static void system_set_rpfilter(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/rp_filter", dev->ifname, val);
 }
 
+static void system_set_acceptlocal(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/accept_local", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -307,6 +312,12 @@ static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t b
 static int system_get_rpfilter(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/rp_filter",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_acceptlocal(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/accept_local",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -969,6 +980,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->rpfilter = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_RPFILTER;
 	}
+
+	if (!system_get_acceptlocal(dev, buf, sizeof(buf))) {
+		s->acceptlocal = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_ACCEPTLOCAL;
+	}
 }
 
 void
@@ -1010,6 +1026,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		snprintf(buf, sizeof(buf), "%d", s->rpfilter);
 		system_set_rpfilter(dev, buf);
 	}
+	if (s->flags & DEV_OPT_ACCEPTLOCAL & apply_mask)
+		system_set_acceptlocal(dev, s->acceptlocal ? "1" : "0");
 }
 
 int system_if_up(struct device *dev)

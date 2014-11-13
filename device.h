@@ -34,6 +34,7 @@ enum {
 	DEV_ATTR_IPV6,
 	DEV_ATTR_PROMISC,
 	DEV_ATTR_RPFILTER,
+	DEV_ATTR_ACCEPTLOCAL,
 	__DEV_ATTR_MAX,
 };
 
@@ -68,6 +69,7 @@ enum {
 	DEV_OPT_IPV6		= (1 << 3),
 	DEV_OPT_PROMISC		= (1 << 4),
 	DEV_OPT_RPFILTER	= (1 << 5),
+	DEV_OPT_ACCEPTLOCAL	= (1 << 6),
 };
 
 /* events broadcasted to all users of a device */
@@ -116,6 +118,7 @@ struct device_settings {
 	bool ipv6;
 	bool promisc;
 	unsigned int rpfilter;
+	bool acceptlocal;
 };
 
 /*
