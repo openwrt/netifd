@@ -88,9 +88,11 @@ struct bridge_state {
 	bool active;
 	bool force_active;
 
+	struct uloop_timeout retry;
 	struct bridge_member *primary_port;
 	struct vlist_tree members;
 	int n_present;
+	int n_failed;
 };
 
 struct bridge_member {
@@ -175,6 +177,7 @@ bridge_enable_member(struct bridge_member *bm)
 	return 0;
 
 error:
+	bst->n_failed++;
 	bm->present = false;
 	bst->n_present--;
 	return ret;
@@ -226,6 +229,15 @@ bridge_free_member(struct bridge_member *bm)
 	}
 
 	free(bm);
+}
+
+static void
+bridge_check_retry(struct bridge_state *bst)
+{
+	if (!bst->n_failed)
+		return;
+
+	uloop_timeout_set(&bst->retry, 100);
 }
 
 static void
@@ -297,8 +309,10 @@ bridge_set_up(struct bridge_state *bst)
 	if (ret < 0)
 		goto out;
 
+	bst->n_failed = 0;
 	vlist_for_each_element(&bst->members, bm, node)
 		bridge_enable_member(bm);
+	bridge_check_retry(bst);
 
 	if (!bst->force_active && !bst->n_present) {
 		/* initialization of all member interfaces failed */
@@ -478,6 +492,7 @@ bridge_config_init(struct device *dev)
 		device_set_present(&bst->dev, true);
 	}
 
+	bst->n_failed = 0;
 	vlist_update(&bst->members);
 	if (bst->ifnames) {
 		blobmsg_for_each_attr(cur, bst->ifnames, rem) {
@@ -485,6 +500,7 @@ bridge_config_init(struct device *dev)
 		}
 	}
 	vlist_flush(&bst->members);
+	bridge_check_retry(bst);
 }
 
 static void
@@ -581,6 +597,25 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 	return ret;
 }
 
+static void
+bridge_retry_members(struct uloop_timeout *timeout)
+{
+	struct bridge_state *bst = container_of(timeout, struct bridge_state, retry);
+	struct bridge_member *bm;
+
+	bst->n_failed = 0;
+	vlist_for_each_element(&bst->members, bm, node) {
+		if (bm->present)
+			continue;
+
+		if (!bm->dev.dev->present)
+			continue;
+
+		bm->present = true;
+		bridge_enable_member(bm);
+	}
+}
+
 static struct device *
 bridge_create(const char *name, struct blob_attr *attr)
 {
@@ -594,6 +629,7 @@ bridge_create(const char *name, struct blob_attr *attr)
 	dev = &bst->dev;
 	device_init(dev, &bridge_device_type, name);
 	dev->config_pending = true;
+	bst->retry.cb = bridge_retry_members;
 
 	bst->set_state = dev->set_state;
 	dev->set_state = bridge_set_state;
