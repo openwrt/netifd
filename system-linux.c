@@ -1412,11 +1412,16 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 				rtm.rtm_table = RT_TABLE_LOCAL;
 		}
 
-		if (rtm.rtm_type == RTN_LOCAL || rtm.rtm_type == RTN_NAT)
+		if (rtm.rtm_type == RTN_LOCAL || rtm.rtm_type == RTN_NAT) {
 			rtm.rtm_scope = RT_SCOPE_HOST;
-		else if (rtm.rtm_type == RTN_BROADCAST || rtm.rtm_type == RTN_MULTICAST ||
-			rtm.rtm_type == RTN_ANYCAST)
+		} else if (rtm.rtm_type == RTN_BROADCAST || rtm.rtm_type == RTN_MULTICAST ||
+				rtm.rtm_type == RTN_ANYCAST) {
 			rtm.rtm_scope = RT_SCOPE_LINK;
+		} else if (rtm.rtm_type == RTN_BLACKHOLE || rtm.rtm_type == RTN_UNREACHABLE ||
+				rtm.rtm_type == RTN_PROHIBIT || rtm.rtm_type == RTN_FAILED_POLICY) {
+			rtm.rtm_scope = RT_SCOPE_UNIVERSE;
+			dev = NULL;
+		}
 	}
 
 	msg = nlmsg_alloc_simple(cmd, flags);
