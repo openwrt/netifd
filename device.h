@@ -35,6 +35,7 @@ enum {
 	DEV_ATTR_PROMISC,
 	DEV_ATTR_RPFILTER,
 	DEV_ATTR_ACCEPTLOCAL,
+	DEV_ATTR_IGMPVERSION,
 	__DEV_ATTR_MAX,
 };
 
@@ -70,6 +71,7 @@ enum {
 	DEV_OPT_PROMISC		= (1 << 4),
 	DEV_OPT_RPFILTER	= (1 << 5),
 	DEV_OPT_ACCEPTLOCAL	= (1 << 6),
+	DEV_OPT_IGMPVERSION	= (1 << 7),
 };
 
 /* events broadcasted to all users of a device */
@@ -119,6 +121,7 @@ struct device_settings {
 	bool promisc;
 	unsigned int rpfilter;
 	bool acceptlocal;
+	unsigned int igmpversion;
 };
 
 /*

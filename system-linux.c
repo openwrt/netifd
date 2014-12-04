@@ -275,6 +275,11 @@ static void system_set_acceptlocal(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/accept_local", dev->ifname, val);
 }
 
+static void system_set_igmpversion(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/force_igmp_version", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -318,6 +323,12 @@ static int system_get_rpfilter(struct device *dev, char *buf, const size_t buf_s
 static int system_get_acceptlocal(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/accept_local",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_igmpversion(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/force_igmp_version",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -985,6 +996,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->acceptlocal = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_ACCEPTLOCAL;
 	}
+
+	if (!system_get_igmpversion(dev, buf, sizeof(buf))) {
+		s->igmpversion = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_IGMPVERSION;
+	}
 }
 
 void
@@ -1028,6 +1044,12 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	}
 	if (s->flags & DEV_OPT_ACCEPTLOCAL & apply_mask)
 		system_set_acceptlocal(dev, s->acceptlocal ? "1" : "0");
+	if (s->flags & DEV_OPT_IGMPVERSION & apply_mask) {
+		char buf[2];
+
+		snprintf(buf, sizeof(buf), "%d", s->igmpversion);
+		system_set_igmpversion(dev, buf);
+	}
 }
 
 int system_if_up(struct device *dev)
@@ -1572,6 +1594,18 @@ bool system_resolve_rpfilter(const char *filter, unsigned int *id)
 	}
 
 	*id = n;
+	return true;
+}
+
+bool system_resolve_igmpversion(const unsigned int version, unsigned int *id)
+{
+	if (!version || version > 3)
+		return false;
+
+	*id = version;
+	if (*id == 3)
+		*id = 0;
+
 	return true;
 }
 
