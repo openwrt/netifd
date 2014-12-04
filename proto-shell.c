@@ -156,10 +156,22 @@ proto_shell_handler(struct interface_proto_state *proto,
 	proc = &state->script_task;
 
 	if (cmd == PROTO_CMD_SETUP) {
-		action = "setup";
-		state->last_error = -1;
-		proto_shell_clear_host_dep(state);
-		state->sm = S_SETUP;
+		switch (state->sm) {
+		case S_IDLE:
+			action = "setup";
+			state->last_error = -1;
+			proto_shell_clear_host_dep(state);
+			state->sm = S_SETUP;
+			break;
+
+		case S_SETUP_ABORT:
+		case S_TEARDOWN:
+		case S_SETUP:
+			return 0;
+
+		default:
+			return -1;
+		}
 	} else if (cmd == PROTO_CMD_RENEW) {
 		if (!(handler->proto.flags & PROTO_FLAG_RENEW_AVAILABLE))
 			return 0;
