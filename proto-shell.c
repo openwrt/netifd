@@ -184,28 +184,35 @@ proto_shell_handler(struct interface_proto_state *proto,
 		state->renew_pending = false;
 		action = "renew";
 	} else {
-		if (state->sm == S_TEARDOWN)
-			return 0;
-
-		state->renew_pending = false;
-		if (state->script_task.uloop.pending) {
-			if (state->sm != S_SETUP_ABORT) {
+		switch (state->sm) {
+		case S_SETUP:
+			if (state->script_task.uloop.pending) {
 				uloop_timeout_set(&state->teardown_timeout, 1000);
 				kill(state->script_task.uloop.pid, SIGTERM);
 				if (state->proto_task.uloop.pending)
 					kill(state->proto_task.uloop.pid, SIGTERM);
+				state->renew_pending = false;
 				state->sm = S_SETUP_ABORT;
+				return 0;
 			}
-			return 0;
-		}
+		/* fall through if no script task is running */
+		case S_IDLE:
+			action = "teardown";
+			state->renew_pending = false;
+			state->sm = S_TEARDOWN;
+			if (state->last_error >= 0) {
+				snprintf(error_buf, sizeof(error_buf), "ERROR=%d", state->last_error);
+				envp[j++] = error_buf;
+			}
+			uloop_timeout_set(&state->teardown_timeout, 5000);
+			break;
 
-		action = "teardown";
-		state->sm = S_TEARDOWN;
-		if (state->last_error >= 0) {
-			snprintf(error_buf, sizeof(error_buf), "ERROR=%d", state->last_error);
-			envp[j++] = error_buf;
+		case S_TEARDOWN:
+			return 0;
+
+		default:
+			return -1;
 		}
-		uloop_timeout_set(&state->teardown_timeout, 5000);
 	}
 
 	D(INTERFACE, "run %s for interface '%s'\n", action, proto->iface->name);
