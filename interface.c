@@ -1015,8 +1015,12 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	})
 
 	if_old->config = if_new->config;
-	if (!if_old->config_autostart && if_new->config_autostart)
-		if_old->autostart = true;
+	if (if_old->config_autostart != if_new->config_autostart) {
+		if (if_old->config_autostart)
+			reload = true;
+
+		if_old->autostart = if_new->config_autostart;
+	}
 
 	if_old->device_config = if_new->device_config;
 	if_old->config_autostart = if_new->config_autostart;
