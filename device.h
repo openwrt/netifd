@@ -36,6 +36,7 @@ enum {
 	DEV_ATTR_RPFILTER,
 	DEV_ATTR_ACCEPTLOCAL,
 	DEV_ATTR_IGMPVERSION,
+	DEV_ATTR_MLDVERSION,
 	__DEV_ATTR_MAX,
 };
 
@@ -72,6 +73,7 @@ enum {
 	DEV_OPT_RPFILTER	= (1 << 5),
 	DEV_OPT_ACCEPTLOCAL	= (1 << 6),
 	DEV_OPT_IGMPVERSION	= (1 << 7),
+	DEV_OPT_MLDVERSION	= (1 << 8),
 };
 
 /* events broadcasted to all users of a device */
@@ -122,6 +124,7 @@ struct device_settings {
 	unsigned int rpfilter;
 	bool acceptlocal;
 	unsigned int igmpversion;
+	unsigned int mldversion;
 };
 
 /*

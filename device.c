@@ -42,6 +42,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_RPFILTER] = { .name = "rpfilter", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_ACCEPTLOCAL] = { .name = "acceptlocal", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_IGMPVERSION] = { .name = "igmpversion", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_MLDVERSION] = { .name = "mldversion", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -160,6 +161,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->rpfilter = s->flags & DEV_OPT_RPFILTER ? s->rpfilter : os->rpfilter;
 	n->acceptlocal = s->flags & DEV_OPT_ACCEPTLOCAL ? s->acceptlocal : os->acceptlocal;
 	n->igmpversion = s->flags & DEV_OPT_IGMPVERSION ? s->igmpversion : os->igmpversion;
+	n->mldversion = s->flags & DEV_OPT_MLDVERSION ? s->mldversion : os->mldversion;
 	n->flags = s->flags | os->flags;
 }
 
@@ -216,10 +218,19 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	}
 
 	if ((cur = tb[DEV_ATTR_IGMPVERSION])) {
-		if (system_resolve_igmpversion(blobmsg_get_u32(cur), &s->igmpversion))
+		s->igmpversion = blobmsg_get_u32(cur);
+		if (s->igmpversion >= 1 && s->igmpversion <= 3)
 			s->flags |= DEV_OPT_IGMPVERSION;
 		else
 			DPRINTF("Failed to resolve igmpversion: %d\n", blobmsg_get_u32(cur));
+	}
+
+	if ((cur = tb[DEV_ATTR_MLDVERSION])) {
+		s->mldversion = blobmsg_get_u32(cur);
+		if (s->mldversion >= 1 && s->mldversion <= 2)
+			s->flags |= DEV_OPT_MLDVERSION;
+		else
+			DPRINTF("Failed to resolve mldversion: %d\n", blobmsg_get_u32(cur));
 	}
 
 	device_set_disabled(dev, disabled);
@@ -765,6 +776,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "acceptlocal", st.acceptlocal);
 		if (st.flags & DEV_OPT_IGMPVERSION)
 			blobmsg_add_u32(b, "igmpversion", st.igmpversion);
+		if (st.flags & DEV_OPT_MLDVERSION)
+			blobmsg_add_u32(b, "mldversion", st.mldversion);
 	}
 
 	s = blobmsg_open_table(b, "statistics");
