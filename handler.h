@@ -35,7 +35,8 @@ json_check_type(json_object *obj, json_type type)
 static inline json_object *
 json_get_field(json_object *obj, const char *name, json_type type)
 {
-	return json_check_type(json_object_object_get(obj, name), type);
+	return json_object_object_get_ex(obj, name, &obj) ?
+			json_check_type(obj, type) : NULL;
 }
 
 int netifd_open_subdir(const char *name);
