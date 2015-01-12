@@ -43,6 +43,7 @@ enum {
 	IFACE_ATTR_IP6TABLE,
 	IFACE_ATTR_IP6CLASS,
 	IFACE_ATTR_DELEGATE,
+	IFACE_ATTR_IP6IFACEID,
 	IFACE_ATTR_FORCE_LINK,
 	IFACE_ATTR_MAX
 };
@@ -63,6 +64,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6TABLE] = { .name = "ip6table", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6CLASS] = { .name = "ip6class", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DELEGATE] = { .name = "delegate", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_IP6IFACEID] = { .name = "ip6ifaceid", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 };
 
@@ -423,6 +425,10 @@ interface_merge_assignment_data(struct interface *old, struct interface *new)
 {
 	bool changed = (old->assignment_hint != new->assignment_hint ||
 			old->assignment_length != new->assignment_length ||
+			old->assignment_iface_id_selection != new->assignment_iface_id_selection ||
+			(old->assignment_iface_id_selection == IFID_FIXED &&
+			 memcmp(&old->assignment_fixed_iface_id, &new->assignment_fixed_iface_id,
+				sizeof(old->assignment_fixed_iface_id))) ||
 			list_empty(&old->assignment_classes) != list_empty(&new->assignment_classes));
 
 	struct interface_assignment_class *c;
@@ -455,6 +461,8 @@ interface_merge_assignment_data(struct interface *old, struct interface *new)
 	if (changed) {
 		old->assignment_hint = new->assignment_hint;
 		old->assignment_length = new->assignment_length;
+		old->assignment_iface_id_selection = new->assignment_iface_id_selection;
+		old->assignment_fixed_iface_id = new->assignment_fixed_iface_id;
 		interface_refresh_assignments(true);
 	}
 }
@@ -702,6 +710,33 @@ interface_alloc(const char *name, struct blob_attr *config)
 
 	if ((cur = tb[IFACE_ATTR_IP6ASSIGN]))
 		iface->assignment_length = blobmsg_get_u32(cur);
+
+	/* defaults */
+	iface->assignment_iface_id_selection = IFID_FIXED;
+	iface->assignment_fixed_iface_id = in6addr_any;
+	iface->assignment_fixed_iface_id.s6_addr[15] = 1;
+
+	if ((cur = tb[IFACE_ATTR_IP6IFACEID])) {
+		const char *ifaceid = blobmsg_data(cur);
+		if (!strcmp(ifaceid, "random")) {
+			iface->assignment_iface_id_selection = IFID_RANDOM;
+		}
+		else if (!strcmp(ifaceid, "eui64")) {
+			iface->assignment_iface_id_selection = IFID_EUI64;
+		}
+		else {
+			/* we expect an IPv6 address with network id zero here -> fixed iface id
+			   if we cannot parse -> revert to iface id 1 */
+			if (inet_pton(AF_INET6,ifaceid,&iface->assignment_fixed_iface_id) != 1 ||
+					iface->assignment_fixed_iface_id.s6_addr32[0] != 0 ||
+					iface->assignment_fixed_iface_id.s6_addr32[1] != 0) {
+				iface->assignment_fixed_iface_id = in6addr_any;
+				iface->assignment_fixed_iface_id.s6_addr[15] = 1;
+				netifd_log_message(L_WARNING, "Failed to parse ip6ifaceid for interface '%s', \
+							falling back to iface id 1.\n", iface->name);
+			}
+		}
+	}
 
 	iface->assignment_hint = -1;
 	if ((cur = tb[IFACE_ATTR_IP6HINT]))

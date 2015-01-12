@@ -41,6 +41,12 @@ enum interface_config_state {
 	IFC_REMOVE
 };
 
+enum interface_id_selection_type {
+	IFID_FIXED,
+	IFID_RANDOM,
+	IFID_EUI64
+};
+
 enum interface_update_flags {
 	IUF_ADDRESS	= (1 << 0),
 	IUF_ROUTE	= (1 << 1),
@@ -139,6 +145,8 @@ struct interface {
 	unsigned int ip6table;
 
 	/* IPv6 assignment parameters */
+	enum interface_id_selection_type assignment_iface_id_selection;
+	struct in6_addr assignment_fixed_iface_id;
 	uint8_t assignment_length;
 	int32_t assignment_hint;
 	struct list_head assignment_classes;

@@ -648,6 +648,56 @@ interface_update_host_route(struct vlist_tree *tree,
 	}
 }
 
+static void
+random_ifaceid(struct in6_addr *addr)
+{
+	static bool initialized = false;
+	struct timeval t;
+
+	if (!initialized) {
+		long int seed = 0;
+		gettimeofday(&t, NULL);
+		seed = t.tv_sec ^ t.tv_usec ^ getpid();
+		srand48(seed);
+		initialized = true;
+	}
+	addr->s6_addr32[2] = (uint32_t)mrand48();
+	addr->s6_addr32[3] = (uint32_t)mrand48();
+}
+
+static void
+eui64_ifaceid(struct interface *iface, struct in6_addr *addr)
+{
+	/* get mac address */
+	uint8_t *macaddr = iface->l3_dev.dev->settings.macaddr;
+	uint8_t *ifaceid = addr->s6_addr + 8;
+	memcpy(ifaceid,macaddr,3);
+	memcpy(ifaceid + 5,macaddr + 3, 3);
+	ifaceid[3] = 0xff;
+	ifaceid[4] = 0xfe;
+	ifaceid[0] ^= 0x02;
+}
+
+static void
+generate_ifaceid(struct interface *iface, struct in6_addr *addr)
+{
+	/* generate new iface id */
+	switch (iface->assignment_iface_id_selection) {
+	case IFID_FIXED:
+		/* fixed */
+		/* copy host part from assignment_fixed_iface_id */
+		memcpy(addr->s6_addr + 8, iface->assignment_fixed_iface_id.s6_addr + 8, 8);
+		break;
+	case IFID_RANDOM:
+		/* randomize last 64 bits */
+		random_ifaceid(addr);
+		break;
+	case IFID_EUI64:
+		/* eui64 */
+		eui64_ifaceid(iface, addr);
+		break;
+	}
+}
 
 static void
 interface_set_prefix_address(struct device_prefix_assignment *assignment,
@@ -661,9 +711,16 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 
 	struct device_addr addr;
 	memset(&addr, 0, sizeof(addr));
-	addr.addr.in6 = prefix->addr;
-	addr.addr.in6.s6_addr32[1] |= htonl(assignment->assigned);
-	addr.addr.in6.s6_addr[15] += 1;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&assignment->addr)) {
+		addr.addr.in6 = prefix->addr;
+		addr.addr.in6.s6_addr32[1] |= htonl(assignment->assigned);
+		generate_ifaceid(iface, &addr.addr.in6);
+		assignment->addr = addr.addr.in6;
+	}
+	else
+		addr.addr.in6 = assignment->addr;
+
 	addr.mask = assignment->length;
 	addr.flags = DEVADDR_INET6;
 	addr.preferred_until = prefix->preferred_until;
@@ -775,6 +832,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	c->assigned = 1 << (64 - prefix->length);
 	c->length = 64;
 	c->name[0] = 0;
+	c->addr = in6addr_any;
 	list_add(&c->head, &prefix->assignments);
 
 	// Excluded prefix
@@ -784,6 +842,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 		c->assigned = ntohl(prefix->excl_addr.s6_addr32[1]) &
 				((1 << (64 - prefix->length)) - 1);
 		c->length = prefix->excl_length;
+		c->addr = in6addr_any;
 		memcpy(c->name, name, sizeof(name));
 		list_add(&c->head, &prefix->assignments);
 	}
@@ -815,6 +874,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 		c = malloc(sizeof(*c) + namelen);
 		c->length = iface->assignment_length;
 		c->assigned = iface->assignment_hint;
+		c->addr = in6addr_any;
 		c->enabled = false;
 		memcpy(c->name, iface->name, namelen);
 
