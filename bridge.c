@@ -148,6 +148,32 @@ bridge_disable_member(struct bridge_member *bm)
 }
 
 static int
+bridge_enable_interface(struct bridge_state *bst)
+{
+	int ret;
+
+	if (bst->active)
+		return 0;
+
+	ret = system_bridge_addbr(&bst->dev, &bst->config);
+	if (ret < 0)
+		return ret;
+
+	bst->active = true;
+	return 0;
+}
+
+static void
+bridge_disable_interface(struct bridge_state *bst)
+{
+	if (!bst->active)
+		return;
+
+	system_bridge_delbr(&bst->dev);
+	bst->active = false;
+}
+
+static int
 bridge_enable_member(struct bridge_member *bm)
 {
 	struct bridge_state *bst = bm->bst;
@@ -155,6 +181,10 @@ bridge_enable_member(struct bridge_member *bm)
 
 	if (!bm->present)
 		return 0;
+
+	ret = bridge_enable_interface(bst);
+	if (ret)
+		goto error;
 
 	/* Disable IPv6 for bridge members */
 	if (!(bm->dev.dev->settings.flags & DEV_OPT_IPV6)) {
@@ -172,6 +202,7 @@ bridge_enable_member(struct bridge_member *bm)
 		goto error;
 	}
 
+	device_set_present(&bst->dev, true);
 	device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
 
 	return 0;
@@ -293,7 +324,7 @@ bridge_set_down(struct bridge_state *bst)
 	vlist_for_each_element(&bst->members, bm, node)
 		bridge_disable_member(bm);
 
-	system_bridge_delbr(&bst->dev);
+	bridge_disable_interface(bst);
 
 	return 0;
 }
@@ -304,12 +335,14 @@ bridge_set_up(struct bridge_state *bst)
 	struct bridge_member *bm;
 	int ret;
 
-	if (!bst->force_active && !bst->n_present)
-		return -ENOENT;
+	if (!bst->n_present) {
+		if (!bst->force_active)
+			return -ENOENT;
 
-	ret = system_bridge_addbr(&bst->dev, &bst->config);
-	if (ret < 0)
-		goto out;
+		ret = bridge_enable_interface(bst);
+		if (ret)
+			return ret;
+	}
 
 	bst->n_failed = 0;
 	vlist_for_each_element(&bst->members, bm, node)
@@ -318,7 +351,7 @@ bridge_set_up(struct bridge_state *bst)
 
 	if (!bst->force_active && !bst->n_present) {
 		/* initialization of all member interfaces failed */
-		system_bridge_delbr(&bst->dev);
+		bridge_disable_interface(bst);
 		device_set_present(&bst->dev, false);
 		return -ENOENT;
 	}
@@ -328,7 +361,6 @@ bridge_set_up(struct bridge_state *bst)
 	if (ret < 0)
 		bridge_set_down(bst);
 
-out:
 	return ret;
 }
 
