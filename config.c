@@ -209,7 +209,9 @@ config_init_devices(void)
 		blob_buf_init(&b, 0);
 		uci_to_blob(&b, s, params);
 		if (devtype) {
-			device_create(name, devtype, b.head);
+			dev = device_create(name, devtype, b.head);
+			if (!dev)
+				continue;
 		} else {
 			dev = device_get(name, 1);
 			if (!dev)
@@ -217,6 +219,7 @@ config_init_devices(void)
 
 			device_set_config(dev, dev->type, b.head);
 		}
+		dev->default_config = false;
 	}
 }
 
