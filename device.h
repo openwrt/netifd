@@ -192,6 +192,9 @@ void device_init_pending(void);
 enum dev_change_type
 device_set_config(struct device *dev, const struct device_type *type,
 		  struct blob_attr *attr);
+enum dev_change_type
+device_apply_config(struct device *dev, const struct device_type *type,
+		    struct blob_attr *config);
 
 void device_reset_config(void);
 void device_reset_old(void);

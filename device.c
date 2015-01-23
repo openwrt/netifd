@@ -586,11 +586,18 @@ device_init_pending(void)
 	}
 }
 
-static enum dev_change_type
-device_reload_config(struct device *dev, struct blob_attr *attr)
+enum dev_change_type
+device_set_config(struct device *dev, const struct device_type *type,
+		  struct blob_attr *attr)
 {
 	struct blob_attr *tb[__DEV_ATTR_MAX];
-	const struct uci_blob_param_list *cfg = dev->type->config_params;
+	const struct uci_blob_param_list *cfg = type->config_params;
+
+	if (type != dev->type)
+		return DEV_CONFIG_RECREATE;
+
+	if (dev->type->reload)
+		return dev->type->reload(dev, attr);
 
 	if (uci_blob_check_equal(dev->config, attr, cfg))
 		return DEV_CONFIG_NO_CHANGE;
@@ -609,16 +616,37 @@ device_reload_config(struct device *dev, struct blob_attr *attr)
 }
 
 enum dev_change_type
-device_set_config(struct device *dev, const struct device_type *type,
-		  struct blob_attr *attr)
+device_apply_config(struct device *dev, const struct device_type *type,
+		    struct blob_attr *config)
 {
-	if (type != dev->type)
-		return DEV_CONFIG_RECREATE;
+	enum dev_change_type change;
 
-	if (dev->type->reload)
-		return dev->type->reload(dev, attr);
+	change = device_set_config(dev, type, config);
+	if (dev->external) {
+		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
+		change = DEV_CONFIG_APPLIED;
+	}
 
-	return device_reload_config(dev, attr);
+	switch (change) {
+		case DEV_CONFIG_RESTART:
+		case DEV_CONFIG_APPLIED:
+			D(DEVICE, "Device '%s': config applied\n", dev->ifname);
+			free(dev->config);
+			dev->config = config;
+			if (change == DEV_CONFIG_RESTART && dev->present) {
+				device_set_present(dev, false);
+				device_set_present(dev, true);
+			}
+			break;
+		case DEV_CONFIG_NO_CHANGE:
+			D(DEVICE, "Device '%s': no configuration change\n", dev->ifname);
+			free(config);
+			break;
+		case DEV_CONFIG_RECREATE:
+			break;
+	}
+
+	return change;
 }
 
 static void
@@ -682,30 +710,14 @@ device_create(const char *name, const struct device_type *type,
 	odev = device_get(name, false);
 	if (odev) {
 		odev->current_config = true;
-		change = device_set_config(odev, type, config);
-		if (odev->external) {
-			system_if_apply_settings(odev, &odev->settings, odev->settings.flags);
-			change = DEV_CONFIG_APPLIED;
-		}
+		change = device_apply_config(odev, type, config);
 		switch (change) {
-		case DEV_CONFIG_RESTART:
-		case DEV_CONFIG_APPLIED:
-			D(DEVICE, "Device '%s': config applied\n", odev->ifname);
-			free(odev->config);
-			odev->config = config;
-			if (change == DEV_CONFIG_RESTART && odev->present) {
-				device_set_present(odev, false);
-				device_set_present(odev, true);
-			}
-			return odev;
-		case DEV_CONFIG_NO_CHANGE:
-			D(DEVICE, "Device '%s': no configuration change\n", odev->ifname);
-			free(config);
-			return odev;
 		case DEV_CONFIG_RECREATE:
 			D(DEVICE, "Device '%s': recreate device\n", odev->ifname);
 			device_delete(odev);
 			break;
+		default:
+			return odev;
 		}
 	} else
 		D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
