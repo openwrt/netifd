@@ -180,6 +180,8 @@ error:
 	bst->n_failed++;
 	bm->present = false;
 	bst->n_present--;
+	device_release(&bm->dev);
+
 	return ret;
 }
 
