@@ -614,6 +614,7 @@ bridge_retry_members(struct uloop_timeout *timeout)
 			continue;
 
 		bm->present = true;
+		bst->n_present++;
 		bridge_enable_member(bm);
 	}
 }
