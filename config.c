@@ -174,8 +174,10 @@ config_init_devices(void)
 	struct uci_element *e;
 
 	uci_foreach_element(&uci_network->sections, e) {
+		const struct uci_blob_param_list *params = NULL;
 		struct uci_section *s = uci_to_section(e);
 		const struct device_type *devtype = NULL;
+		struct device *dev;
 		const char *type, *name;
 
 		if (strcmp(s->type, "device") != 0)
@@ -199,12 +201,22 @@ config_init_devices(void)
 				devtype = &tunnel_device_type;
 		}
 
-		if (!devtype)
-			devtype = &simple_device_type;
+		if (devtype)
+			params = devtype->config_params;
+		if (!params)
+			params = simple_device_type.config_params;
 
 		blob_buf_init(&b, 0);
-		uci_to_blob(&b, s, devtype->config_params);
-		device_create(name, devtype, b.head);
+		uci_to_blob(&b, s, params);
+		if (devtype) {
+			device_create(name, devtype, b.head);
+		} else {
+			dev = device_get(name, 1);
+			if (!dev)
+				continue;
+
+			device_set_config(dev, dev->type, b.head);
+		}
 	}
 }
 
