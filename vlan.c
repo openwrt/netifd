@@ -139,9 +139,6 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	vldev->dep.cb = vlan_dev_cb;
 	device_add_user(&vldev->dep, dev);
 
-	vldev->set_state(dev, false);
-	system_vlan_del(dev);
-
 	return &vldev->dev;
 }
 
