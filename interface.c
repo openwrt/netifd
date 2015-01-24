@@ -511,7 +511,7 @@ interface_claim_device(struct interface *iface)
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
 		if (dev && dev->default_config && iface->device_config)
-			device_set_config(dev, dev->type, iface->config);
+			device_apply_config(dev, dev->type, iface->config);
 	} else {
 		dev = iface->ext_dev.dev;
 	}
