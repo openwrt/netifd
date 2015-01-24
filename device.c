@@ -636,6 +636,10 @@ device_apply_config(struct device *dev, const struct device_type *type,
 			dev->config = config;
 			if (change == DEV_CONFIG_RESTART && dev->present) {
 				device_set_present(dev, false);
+				if (dev->active && !dev->external) {
+					dev->set_state(dev, false);
+					dev->set_state(dev, true);
+				}
 				device_set_present(dev, true);
 			}
 			break;
