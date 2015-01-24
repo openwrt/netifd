@@ -217,7 +217,7 @@ config_init_devices(void)
 			if (!dev)
 				continue;
 
-			device_apply_config(dev, dev->type, blob_memdup(b.head));
+			device_apply_config(dev, dev->type, b.head);
 		}
 		dev->default_config = false;
 	}

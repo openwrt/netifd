@@ -631,6 +631,7 @@ device_apply_config(struct device *dev, const struct device_type *type,
 		case DEV_CONFIG_RESTART:
 		case DEV_CONFIG_APPLIED:
 			D(DEVICE, "Device '%s': config applied\n", dev->ifname);
+			config = blob_memdup(config);
 			free(dev->config);
 			dev->config = config;
 			if (change == DEV_CONFIG_RESTART && dev->present) {
@@ -640,7 +641,6 @@ device_apply_config(struct device *dev, const struct device_type *type,
 			break;
 		case DEV_CONFIG_NO_CHANGE:
 			D(DEVICE, "Device '%s': no configuration change\n", dev->ifname);
-			free(config);
 			break;
 		case DEV_CONFIG_RECREATE:
 			break;
@@ -703,10 +703,6 @@ device_create(const char *name, const struct device_type *type,
 	struct device *odev = NULL, *dev;
 	enum dev_change_type change;
 
-	config = blob_memdup(config);
-	if (!config)
-		return NULL;
-
 	odev = device_get(name, false);
 	if (odev) {
 		odev->current_config = true;
@@ -721,6 +717,10 @@ device_create(const char *name, const struct device_type *type,
 		}
 	} else
 		D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
+
+	config = blob_memdup(config);
+	if (!config)
+		return NULL;
 
 	dev = type->create(name, config);
 	if (!dev)
