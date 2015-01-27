@@ -799,7 +799,7 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
 
 	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier",
-		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
+		bridge->ifname, cfg->multicast_querier ? "1" : "0");
 
 	args[0] = BRCTL_SET_BRIDGE_PRIORITY;
 	args[1] = cfg->priority;

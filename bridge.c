@@ -32,6 +32,7 @@ enum {
 	BRIDGE_ATTR_HELLO_TIME,
 	BRIDGE_ATTR_MAX_AGE,
 	BRIDGE_ATTR_BRIDGE_EMPTY,
+	BRIDGE_ATTR_MULTICAST_QUERIER,
 	__BRIDGE_ATTR_MAX
 };
 
@@ -45,6 +46,7 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_MAX_AGE] = { "max_age", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_IGMP_SNOOP] = { "igmp_snooping", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_BRIDGE_EMPTY] = { "bridge_empty", BLOBMSG_TYPE_BOOL },
+	[BRIDGE_ATTR_MULTICAST_QUERIER] = { "multicast_querier", BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -548,6 +550,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->stp = false;
 	cfg->forward_delay = 2;
 	cfg->igmp_snoop = true;
+	cfg->multicast_querier = true;
 	cfg->bridge_empty = false;
 	cfg->priority = 0x7FFF;
 
@@ -561,7 +564,10 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 		cfg->priority = blobmsg_get_u32(cur);
 
 	if ((cur = tb[BRIDGE_ATTR_IGMP_SNOOP]))
-		cfg->igmp_snoop = blobmsg_get_bool(cur);
+		cfg->multicast_querier = cfg->igmp_snoop = blobmsg_get_bool(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_MULTICAST_QUERIER]))
+		cfg->multicast_querier = blobmsg_get_bool(cur);
 
 	if ((cur = tb[BRIDGE_ATTR_AGEING_TIME])) {
 		cfg->ageing_time = blobmsg_get_u32(cur);

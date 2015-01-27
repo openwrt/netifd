@@ -50,6 +50,7 @@ struct bridge_config {
 	enum bridge_opt flags;
 	bool stp;
 	bool igmp_snoop;
+	bool multicast_querier;
 	unsigned short priority;
 	int forward_delay;
 	bool bridge_empty;
