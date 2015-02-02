@@ -43,6 +43,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_ACCEPTLOCAL] = { .name = "acceptlocal", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_IGMPVERSION] = { .name = "igmpversion", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MLDVERSION] = { .name = "mldversion", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_NEIGHREACHABLETIME] = { .name = "neighreachabletime", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -162,6 +163,10 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->acceptlocal = s->flags & DEV_OPT_ACCEPTLOCAL ? s->acceptlocal : os->acceptlocal;
 	n->igmpversion = s->flags & DEV_OPT_IGMPVERSION ? s->igmpversion : os->igmpversion;
 	n->mldversion = s->flags & DEV_OPT_MLDVERSION ? s->mldversion : os->mldversion;
+	n->neigh4reachabletime = s->flags & DEV_OPT_NEIGHREACHABLETIME ?
+		s->neigh4reachabletime : os->neigh4reachabletime;
+	n->neigh6reachabletime = s->flags & DEV_OPT_NEIGHREACHABLETIME ?
+			s->neigh6reachabletime : os->neigh6reachabletime;
 	n->flags = s->flags | os->flags;
 }
 
@@ -231,6 +236,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 			s->flags |= DEV_OPT_MLDVERSION;
 		else
 			DPRINTF("Failed to resolve mldversion: %d\n", blobmsg_get_u32(cur));
+	}
+
+	if ((cur = tb[DEV_ATTR_NEIGHREACHABLETIME])) {
+		s->neigh6reachabletime = s->neigh4reachabletime = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
 	}
 
 	device_set_disabled(dev, disabled);
@@ -794,6 +804,10 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "igmpversion", st.igmpversion);
 		if (st.flags & DEV_OPT_MLDVERSION)
 			blobmsg_add_u32(b, "mldversion", st.mldversion);
+		if (st.flags & DEV_OPT_NEIGHREACHABLETIME) {
+			blobmsg_add_u32(b, "neigh4reachabletime", st.neigh4reachabletime);
+			blobmsg_add_u32(b, "neigh6reachabletime", st.neigh6reachabletime);
+		}
 	}
 
 	s = blobmsg_open_table(b, "statistics");

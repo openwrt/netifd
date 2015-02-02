@@ -37,6 +37,7 @@ enum {
 	DEV_ATTR_ACCEPTLOCAL,
 	DEV_ATTR_IGMPVERSION,
 	DEV_ATTR_MLDVERSION,
+	DEV_ATTR_NEIGHREACHABLETIME,
 	__DEV_ATTR_MAX,
 };
 
@@ -65,15 +66,16 @@ struct device_type {
 };
 
 enum {
-	DEV_OPT_MTU		= (1 << 0),
-	DEV_OPT_MACADDR		= (1 << 1),
-	DEV_OPT_TXQUEUELEN	= (1 << 2),
-	DEV_OPT_IPV6		= (1 << 3),
-	DEV_OPT_PROMISC		= (1 << 4),
-	DEV_OPT_RPFILTER	= (1 << 5),
-	DEV_OPT_ACCEPTLOCAL	= (1 << 6),
-	DEV_OPT_IGMPVERSION	= (1 << 7),
-	DEV_OPT_MLDVERSION	= (1 << 8),
+	DEV_OPT_MTU			= (1 << 0),
+	DEV_OPT_MACADDR			= (1 << 1),
+	DEV_OPT_TXQUEUELEN		= (1 << 2),
+	DEV_OPT_IPV6			= (1 << 3),
+	DEV_OPT_PROMISC			= (1 << 4),
+	DEV_OPT_RPFILTER		= (1 << 5),
+	DEV_OPT_ACCEPTLOCAL		= (1 << 6),
+	DEV_OPT_IGMPVERSION		= (1 << 7),
+	DEV_OPT_MLDVERSION		= (1 << 8),
+	DEV_OPT_NEIGHREACHABLETIME	= (1 << 9),
 };
 
 /* events broadcasted to all users of a device */
@@ -125,6 +127,8 @@ struct device_settings {
 	bool acceptlocal;
 	unsigned int igmpversion;
 	unsigned int mldversion;
+	unsigned int neigh4reachabletime;
+	unsigned int neigh6reachabletime;
 };
 
 /*

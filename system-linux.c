@@ -285,6 +285,16 @@ static void system_set_mldversion(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/force_mld_version", dev->ifname, val);
 }
 
+static void system_set_neigh4reachabletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/base_reachable_time_ms", dev->ifname, val);
+}
+
+static void system_set_neigh6reachabletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -340,6 +350,18 @@ static int system_get_igmpversion(struct device *dev, char *buf, const size_t bu
 static int system_get_mldversion(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/force_mld_version",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_neigh4reachabletime(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/base_reachable_time_ms",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_neigh6reachabletime(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -1017,6 +1039,16 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->mldversion = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_MLDVERSION;
 	}
+
+	if (!system_get_neigh4reachabletime(dev, buf, sizeof(buf))) {
+		s->neigh4reachabletime = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
+	}
+
+	if (!system_get_neigh6reachabletime(dev, buf, sizeof(buf))) {
+		s->neigh6reachabletime = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
+	}
 }
 
 void
@@ -1071,6 +1103,14 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 
 		snprintf(buf, sizeof(buf), "%d", s->mldversion);
 		system_set_mldversion(dev, buf);
+	}
+	if (s->flags & DEV_OPT_NEIGHREACHABLETIME & apply_mask) {
+		char buf[12];
+
+		snprintf(buf, sizeof(buf), "%d", s->neigh4reachabletime);
+		system_set_neigh4reachabletime(dev, buf);
+		snprintf(buf, sizeof(buf), "%d", s->neigh6reachabletime);
+		system_set_neigh6reachabletime(dev, buf);
 	}
 }
 
