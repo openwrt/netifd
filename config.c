@@ -218,6 +218,7 @@ config_init_devices(void)
 			if (!dev)
 				continue;
 
+			dev->current_config = true;
 			device_apply_config(dev, dev->type, b.head);
 		}
 		dev->default_config = false;
