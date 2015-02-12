@@ -491,6 +491,7 @@ bridge_free(struct device *dev)
 
 	bst = container_of(dev, struct bridge_state, dev);
 	vlist_flush_all(&bst->members);
+	free(bst->config_data);
 	free(bst);
 }
 
@@ -594,6 +595,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / 8);
 
 	bst = container_of(dev, struct bridge_state, dev);
+	attr = blob_memdup(attr);
 
 	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
 		blob_data(attr), blob_len(attr));
@@ -627,6 +629,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 		bridge_config_init(dev);
 	}
 
+	free(bst->config_data);
 	bst->config_data = attr;
 	return ret;
 }

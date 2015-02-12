@@ -140,6 +140,7 @@ macvlan_free(struct device *dev)
 
 	mvdev = container_of(dev, struct macvlan_device, dev);
 	device_remove_user(&mvdev->parent);
+	free(mvdev->config_data);
 	free(mvdev);
 }
 
@@ -197,6 +198,7 @@ macvlan_reload(struct device *dev, struct blob_attr *attr)
 	struct macvlan_device *mvdev;
 
 	mvdev = container_of(dev, struct macvlan_device, dev);
+	attr = blob_memdup(attr);
 
 	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
 		blob_data(attr), blob_len(attr));
@@ -226,6 +228,7 @@ macvlan_reload(struct device *dev, struct blob_attr *attr)
 		macvlan_config_init(dev);
 	}
 
+	free(mvdev->config_data);
 	mvdev->config_data = attr;
 	return ret;
 }
