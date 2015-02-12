@@ -136,7 +136,7 @@ config_parse_interface(struct uci_section *s, bool alias)
 	if (blob_len(b.head) == 0)
 		return;
 
-	if (iface->device_config)
+	if (iface->device_config || dev->settings.flags)
 		device_set_config(dev, dev->type, b.head);
 	return;
 error_free_config:
