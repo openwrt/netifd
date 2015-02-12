@@ -120,22 +120,11 @@ interface_queue_event(struct interface *iface, enum interface_event ev)
 	if (current == iface) {
 		/* an event for iface is being processed */
 		if (!list_empty(&iface->hotplug_list)) {
-			/* an additional event for iface is pending */
-			if ((ev != current_ev || ev == IFEV_UPDATE) &&
-			!(iface->hotplug_ev == IFEV_UP && ev == IFEV_UPDATE)) {
-				/* if incoming event is different from the one
-				 * being handled or if it is an update,
-				 * overwrite pending event, but never
-				 * overwrite an ifup with an ifupdate */
+			/* an additional event for iface is pending   */
+			/* overwrite pending event if it differs from */
+			/* an update                                  */
+			if (ev != IFEV_UPDATE)
 				iface->hotplug_ev = ev;
-			}
-			else if (ev == current_ev && ev != IFEV_UPDATE) {
-				/* if incoming event is not an ifupdate
-				 * and is the same as the one that is
-				 * being handled, remove it from the
-				 * pending list */
-				list_del_init(&iface->hotplug_list);
-			}
 		}
 		else {
 			/* no additional event for iface is pending */
