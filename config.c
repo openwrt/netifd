@@ -105,7 +105,7 @@ config_parse_interface(struct uci_section *s, bool alias)
 	if (iface->proto_handler && iface->proto_handler->config_params)
 		uci_to_blob(&b, s, iface->proto_handler->config_params);
 
-	if (!bridge && uci_to_blob(&b, s, simple_device_type.config_params) > 1)
+	if (!bridge && uci_to_blob(&b, s, simple_device_type.config_params))
 		iface->device_config = true;
 
 	config = blob_memdup(b.head);
