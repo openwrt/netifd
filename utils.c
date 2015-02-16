@@ -17,6 +17,7 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 
 #ifdef __APPLE__
 #include <libproc.h>
