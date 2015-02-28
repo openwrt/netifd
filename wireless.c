@@ -240,8 +240,14 @@ wireless_device_run_handler(struct wireless_device *wdev, bool up)
 	int fds[2] = { -1, -1 };
 
 	D(WIRELESS, "Wireless device '%s' run %s handler\n", wdev->name, action);
-	prepare_config(wdev, &b, up);
-	config = blobmsg_format_json(b.head, true);
+	if (!up && wdev->prev_config) {
+		config = blobmsg_format_json(wdev->prev_config, true);
+		free(wdev->prev_config);
+		wdev->prev_config = NULL;
+	} else {
+		prepare_config(wdev, &b, up);
+		config = blobmsg_format_json(b.head, true);
+	}
 
 	argv[i++] = wdev->drv->script;
 	argv[i++] = wdev->drv->name;
@@ -273,6 +279,8 @@ __wireless_device_set_up(struct wireless_device *wdev)
 	if (wdev->state != IFS_DOWN || config_init)
 		return;
 
+	free(wdev->prev_config);
+	wdev->prev_config = NULL;
 	wdev->state = IFS_SETUP;
 	wireless_device_run_handler(wdev, true);
 }
@@ -283,6 +291,7 @@ wireless_device_free(struct wireless_device *wdev)
 	vlist_flush_all(&wdev->interfaces);
 	avl_delete(&wireless_devices.avl, &wdev->node.avl);
 	free(wdev->config);
+	free(wdev->prev_config);
 	free(wdev);
 }
 
@@ -422,6 +431,16 @@ wdev_set_config_state(struct wireless_device *wdev, enum interface_config_state 
 }
 
 static void
+wdev_prepare_prev_config(struct wireless_device *wdev)
+{
+	if (wdev->prev_config)
+		return;
+
+	prepare_config(wdev, &b, false);
+	wdev->prev_config = blob_memdup(b.head);
+}
+
+static void
 wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 {
 	struct blob_attr *new_config = wd_new->config;
@@ -429,6 +448,7 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 
 	free(wd_new);
 
+	wdev_prepare_prev_config(wdev);
 	if (blob_attr_equal(wdev->config, new_config) && wdev->disabled == disabled)
 		return;
 

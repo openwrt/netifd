@@ -49,6 +49,7 @@ struct wireless_device {
 
 	struct ubus_request_data *kill_request;
 
+	struct blob_attr *prev_config;
 	struct blob_attr *config;
 	struct blob_attr *data;
 
