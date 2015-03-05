@@ -18,9 +18,8 @@ SET(SOURCES
 	macvlan.c ubus.c vlandev.c wireless.c)
 
 
-find_library(json NAMES json-c json)
 SET(LIBS
-	ubox ubus uci ${json} blobmsg_json)
+	ubox ubus uci json-c blobmsg_json)
 
 IF (NOT DEFINED LIBNL_LIBS)
   FIND_LIBRARY(libnl NAMES libnl-3 libnl nl-3 nl)
