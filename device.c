@@ -596,7 +596,7 @@ device_init_pending(void)
 	}
 }
 
-enum dev_change_type
+static enum dev_change_type
 device_set_config(struct device *dev, const struct device_type *type,
 		  struct blob_attr *attr)
 {

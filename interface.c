@@ -918,11 +918,11 @@ interface_handle_link(struct interface *iface, const char *name, bool add, bool 
 	}
 
 	if (add) {
-		device_set_present(dev, true);
 		if (iface->device_config && dev->default_config)
-			device_set_config(dev, dev->type, iface->config);
+			device_apply_config(dev, dev->type, iface->config);
 
-		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
+		device_set_present(dev, true);
+
 		ret = interface_add_link(iface, dev, link_ext);
 	} else {
 		ret = interface_remove_link(iface, dev);

@@ -72,7 +72,7 @@ tunnel_create(const char *name, struct blob_attr *attr)
 	device_init(dev, &tunnel_device_type, name);
 	tun->set_state = dev->set_state;
 	dev->set_state = tunnel_set_state;
-	device_set_config(dev, &tunnel_device_type, attr);
+	device_apply_config(dev, &tunnel_device_type, attr);
 	device_set_present(dev, true);
 
 	return dev;
