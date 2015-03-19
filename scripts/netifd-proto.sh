@@ -132,8 +132,9 @@ proto_add_ipv6_route() {
 	local metric="$4"
 	local valid="$5"
 	local source="$6"
+	local table="$7"
 
-	append PROTO_ROUTE6 "$target/$mask/$gw/$metric/$valid/$source"
+	append PROTO_ROUTE6 "$target/$mask/$gw/$metric/$valid/$source/$table"
 }
 
 proto_add_ipv6_prefix() {
@@ -211,7 +212,9 @@ _proto_push_route() {
 	str="${str#*/}"
 	local valid="${str%%/*}"
 	str="${str#*/}"
-	local source="${str}"
+	local source="${str%%/*}"
+	str="${str#*/}"
+	local table="${str}"
 
 	json_add_object ""
 	json_add_string target "$target"
@@ -220,6 +223,7 @@ _proto_push_route() {
 	[ -n "$metric" ] && json_add_int metric "$metric"
 	[ -n "$valid" ] && json_add_int valid "$valid"
 	[ -n "$source" ] && json_add_string source "$source"
+	[ -n "$table" ] && json_add_string table "$table"
 	json_close_object
 }
 
