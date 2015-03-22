@@ -1093,9 +1093,6 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 {
 	struct ifreq ifr;
 
-	if (!apply_mask)
-		return;
-
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
 	if (s->flags & DEV_OPT_MTU & apply_mask) {

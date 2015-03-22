@@ -371,6 +371,8 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 
 	system_if_clear_state(dev);
 	device_check_state(dev);
+	dev->settings.rps = true;
+	dev->settings.xps = true;
 
 	return 0;
 }
