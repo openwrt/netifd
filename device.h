@@ -38,6 +38,8 @@ enum {
 	DEV_ATTR_IGMPVERSION,
 	DEV_ATTR_MLDVERSION,
 	DEV_ATTR_NEIGHREACHABLETIME,
+	DEV_ATTR_RPS,
+	DEV_ATTR_XPS,
 	__DEV_ATTR_MAX,
 };
 
@@ -129,6 +131,8 @@ struct device_settings {
 	unsigned int mldversion;
 	unsigned int neigh4reachabletime;
 	unsigned int neigh6reachabletime;
+	bool rps;
+	bool xps;
 };
 
 /*

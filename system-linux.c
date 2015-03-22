@@ -51,6 +51,7 @@
 #include <fcntl.h>
 #include <glob.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <netlink/msg.h>
 #include <netlink/attr.h>
@@ -1055,6 +1056,38 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	}
 }
 
+static void
+system_if_set_rps_xps_val(const char *path, int val)
+{
+	char val_buf[8];
+	glob_t gl;
+	int i;
+
+	if (glob(path, 0, NULL, &gl))
+		return;
+
+	snprintf(val_buf, sizeof(val_buf), "%x", val);
+	for (i = 0; i < gl.gl_pathc; i++)
+		system_set_sysctl(gl.gl_pathv[i], val_buf);
+}
+
+static void
+system_if_apply_rps_xps(struct device *dev, struct device_settings *s)
+{
+	long n_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+	int val;
+
+	if (n_cpus < 2)
+		return;
+
+	val = (1 << n_cpus) - 1;
+	snprintf(dev_buf, sizeof(dev_buf), "/sys/class/net/%s/queues/*/rps_cpus", dev->ifname);
+	system_if_set_rps_xps_val(dev_buf, s->rps ? val : 0);
+
+	snprintf(dev_buf, sizeof(dev_buf), "/sys/class/net/%s/queues/*/xps_cpus", dev->ifname);
+	system_if_set_rps_xps_val(dev_buf, s->xps ? val : 0);
+}
+
 void
 system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
 {
@@ -1116,6 +1149,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		snprintf(buf, sizeof(buf), "%d", s->neigh6reachabletime);
 		system_set_neigh6reachabletime(dev, buf);
 	}
+
+	system_if_apply_rps_xps(dev, s);
 }
 
 int system_if_up(struct device *dev)

@@ -44,6 +44,8 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_IGMPVERSION] = { .name = "igmpversion", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MLDVERSION] = { .name = "mldversion", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_NEIGHREACHABLETIME] = { .name = "neighreachabletime", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_RPS] = { .name = "rps", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_XPS] = { .name = "xps", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -242,6 +244,16 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->neigh6reachabletime = s->neigh4reachabletime = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
 	}
+
+	if ((cur = tb[DEV_ATTR_RPS]))
+		s->rps = blobmsg_get_bool(cur);
+	else
+		s->rps = true;
+
+	if ((cur = tb[DEV_ATTR_XPS]))
+		s->xps = blobmsg_get_bool(cur);
+	else
+		s->xps = true;
 
 	device_set_disabled(dev, disabled);
 }
