@@ -43,6 +43,10 @@
 #define RTN_FAILED_POLICY 12
 #endif
 
+#ifndef RT_TABLE_PRELOCAL
+#define RT_TABLE_PRELOCAL 128
+#endif
+
 #include <string.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -1638,6 +1642,8 @@ bool system_resolve_rt_table(const char *name, unsigned int *id)
 		table = RT_TABLE_MAIN;
 	else if (!strcmp(name, "local"))
 		table = RT_TABLE_LOCAL;
+	else if (!strcmp(name, "prelocal"))
+		table = RT_TABLE_PRELOCAL;
 
 	/* try to look up name in /etc/iproute2/rt_tables */
 	else if ((f = fopen("/etc/iproute2/rt_tables", "r")) != NULL)
@@ -1798,7 +1804,11 @@ int system_flush_iprules(void)
 
 	rule.flags = IPRULE_INET4 | IPRULE_PRIORITY | IPRULE_LOOKUP;
 
-	rule.priority = 128;
+	rule.priority = 0;
+	rule.lookup = RT_TABLE_PRELOCAL;
+	rv |= system_iprule(&rule, RTM_NEWRULE);
+
+	rule.priority = 1;
 	rule.lookup = RT_TABLE_LOCAL;
 	rv |= system_iprule(&rule, RTM_NEWRULE);
 
@@ -1813,7 +1823,11 @@ int system_flush_iprules(void)
 
 	rule.flags = IPRULE_INET6 | IPRULE_PRIORITY | IPRULE_LOOKUP;
 
-	rule.priority = 128;
+	rule.priority = 0;
+	rule.lookup = RT_TABLE_PRELOCAL;
+	rv |= system_iprule(&rule, RTM_NEWRULE);
+
+	rule.priority = 1;
 	rule.lookup = RT_TABLE_LOCAL;
 	rv |= system_iprule(&rule, RTM_NEWRULE);
 
