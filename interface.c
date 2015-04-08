@@ -80,7 +80,7 @@ const struct uci_blob_param_list interface_attr_list = {
 };
 
 static void
-interface_clear_errors(struct interface *iface)
+interface_error_flush(struct interface *iface)
 {
 	struct interface_error *error, *tmp;
 
@@ -90,6 +90,17 @@ interface_clear_errors(struct interface *iface)
 	}
 }
 
+static void
+interface_clear_errors(struct interface *iface)
+{
+        /* don't flush the errors in case the configured protocol handler matches the
+           running protocol handler and is having the last error capability */
+	if (!(iface->proto &&
+              (iface->proto->handler->flags & PROTO_FLAG_LASTERROR) &&
+              (iface->proto->handler->name == iface->proto_handler->name)))
+		interface_error_flush(iface);
+}
+
 void interface_add_error(struct interface *iface, const char *subsystem,
 			 const char *code, const char **data, int n_data)
 {
@@ -97,6 +108,14 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 	int i, len = 0;
 	int *datalen = NULL;
 	char *dest, *d_subsys, *d_code;
+
+        /* if the configured protocol handler has the last error support capability,
+           errors should only be added if the running protocol handler matches the
+           configured one */
+	if (iface->proto &&
+            (iface->proto->handler->flags & PROTO_FLAG_LASTERROR) &&
+            (iface->proto->handler->name != iface->proto_handler->name))
+		return;
 
 	if (n_data) {
 		len = n_data * sizeof(char *);
@@ -112,6 +131,11 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 		&d_code, code ? strlen(code) + 1 : 0);
 	if (!error)
 		return;
+
+	/* Only keep the last flagged error, prevent this list grows unlimitted in case the
+	   protocol can't be established (e.g auth failure) */
+	if (iface->proto_handler->flags & PROTO_FLAG_LASTERROR)
+		interface_error_flush(iface);
 
 	list_add_tail(&error->list, &iface->errors);
 
@@ -188,6 +212,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 
 	switch (ev) {
 	case IFEV_UP:
+		interface_error_flush(iface);
 		adev = iface->l3_dev.dev;
 		/* fall through */
 	case IFEV_DOWN:

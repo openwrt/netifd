@@ -586,16 +586,20 @@ void
 proto_attach_interface(struct interface *iface, const char *proto_name)
 {
 	const struct proto_handler *proto = &no_proto;
+	const char *error = NULL;
 
 	if (proto_name) {
 		proto = get_proto_handler(proto_name);
 		if (!proto) {
-			interface_add_error(iface, "proto", "INVALID_PROTO", NULL, 0);
+			error = "INVALID_PROTO";
 			proto = &no_proto;
 		}
 	}
 
 	iface->proto_handler = proto;
+
+	if (error)
+		interface_add_error(iface, "proto", error, NULL, 0);
 }
 
 int

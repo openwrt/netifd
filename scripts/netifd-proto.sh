@@ -375,6 +375,7 @@ init_proto() {
 				json_add_boolean no-device "$no_device"
 				json_add_boolean available "$available"
 				json_add_boolean renew-handler "$renew_handler"
+				json_add_boolean lasterror "$lasterror"
 				json_dump
 			}
 		;;

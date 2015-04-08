@@ -819,6 +819,10 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_RENEW_AVAILABLE;
 
+	tmp = json_get_field(obj, "lasterror", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_LASTERROR;
+
 	config = json_get_field(obj, "config", json_type_array);
 	if (config)
 		handler->config_buf = netifd_handler_parse_config(&handler->config, config);
