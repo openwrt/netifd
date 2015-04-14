@@ -374,7 +374,6 @@ static int system_get_neigh6reachabletime(struct device *dev, char *buf, const s
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
-	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct nlattr *nla[__IFLA_MAX];
 	int link_state = 0;
 	char buf[10];
@@ -382,7 +381,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (nh->nlmsg_type != RTM_NEWLINK)
 		goto out;
 
-	nlmsg_parse(nh, sizeof(*ifi), nla, __IFLA_MAX - 1, NULL);
+	nlmsg_parse(nh, sizeof(struct ifinfomsg), nla, __IFLA_MAX - 1, NULL);
 	if (!nla[IFLA_IFNAME])
 		goto out;
 

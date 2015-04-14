@@ -687,7 +687,7 @@ netifd_dump_status(struct interface *iface)
 		blobmsg_add_string(&b, "proto", iface->proto_handler->name);
 
 	dev = iface->main_dev.dev;
-	if (dev && !dev->hidden &&
+	if (dev && !dev->hidden && iface->proto_handler &&
 	    !(iface->proto_handler->flags & PROTO_FLAG_NODEV))
 		blobmsg_add_string(&b, "device", dev->ifname);
 
