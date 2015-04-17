@@ -621,7 +621,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 
 		diff = 0;
 		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, &diff);
-		if (diff & ~(1 << DEV_ATTR_IFNAME))
+		if (diff)
 		    ret = DEV_CONFIG_RESTART;
 
 		blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br,

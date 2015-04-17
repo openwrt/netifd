@@ -26,7 +26,6 @@ typedef int (*device_state_cb)(struct device *, bool up);
 
 enum {
 	DEV_ATTR_TYPE,
-	DEV_ATTR_IFNAME,
 	DEV_ATTR_MTU,
 	DEV_ATTR_MACADDR,
 	DEV_ATTR_TXQUEUELEN,
