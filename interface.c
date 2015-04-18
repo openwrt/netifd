@@ -520,6 +520,19 @@ interface_alias_cb(struct interface_user *dep, struct interface *iface, enum int
 }
 
 static void
+interface_set_device_config(struct interface *iface, struct device *dev)
+{
+	if (!dev || !dev->default_config)
+		return;
+
+	if (!iface->device_config && !dev->iface_config)
+		return;
+
+	dev->iface_config = iface->device_config;
+	device_apply_config(dev, dev->type, iface->config);
+}
+
+static void
 interface_claim_device(struct interface *iface)
 {
 	struct interface *parent;
@@ -535,8 +548,7 @@ interface_claim_device(struct interface *iface)
 	} else if (iface->ifname &&
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
 		dev = device_get(iface->ifname, true);
-		if (dev && dev->default_config && iface->device_config)
-			device_apply_config(dev, dev->type, iface->config);
+		interface_set_device_config(iface, dev);
 	} else {
 		dev = iface->ext_dev.dev;
 	}
@@ -943,9 +955,7 @@ interface_handle_link(struct interface *iface, const char *name, bool add, bool 
 	}
 
 	if (add) {
-		if (iface->device_config && dev->default_config)
-			device_apply_config(dev, dev->type, iface->config);
-
+		interface_set_device_config(iface, dev);
 		device_set_present(dev, true);
 
 		ret = interface_add_link(iface, dev, link_ext);
