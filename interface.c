@@ -1041,6 +1041,35 @@ interface_replace_dns(struct interface_ip_settings *new, struct interface_ip_set
 	vlist_simple_replace(&new->dns_search, &old->dns_search);
 }
 
+static bool
+interface_device_config_changed(struct interface *if_old, struct interface *if_new)
+{
+	struct blob_attr *ntb[__DEV_ATTR_MAX];
+	struct blob_attr *otb[__DEV_ATTR_MAX];
+	struct device *dev = if_old->main_dev.dev;
+	unsigned long diff;
+
+	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / 8);
+
+	if (!dev)
+		return false;
+
+	if (if_old->device_config != if_new->device_config)
+		return true;
+
+	if (!if_new->device_config)
+		return false;
+
+	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb,
+		blob_data(if_old->config), blob_len(if_old->config));
+
+	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, ntb,
+		blob_data(if_new->config), blob_len(if_new->config));
+
+	uci_blob_diff(ntb, otb, &device_attr_list, &diff);
+	return diff;
+}
+
 static void
 interface_change_config(struct interface *if_old, struct interface *if_new)
 {
@@ -1057,6 +1086,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 			interface_remove_user(&if_old->parent_iface);
 		reload = true;
 	}
+
+	if (!reload && interface_device_config_changed(if_old, if_new))
+		reload = true;
 
 	if (FIELD_CHANGED_STR(ifname) ||
 	    if_old->proto_handler != if_new->proto_handler)
