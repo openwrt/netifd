@@ -78,7 +78,6 @@ config_parse_interface(struct uci_section *s, bool alias)
 	struct interface *iface;
 	const char *type = NULL, *disabled;
 	struct blob_attr *config;
-	struct device *dev;
 	bool bridge = false;
 
 	disabled = uci_lookup_option_string(uci_ctx, s, "disabled");
@@ -118,27 +117,8 @@ config_parse_interface(struct uci_section *s, bool alias)
 	} else {
 		interface_add(iface, config);
 	}
-
-	/*
-	 * need to look up the interface name again, in case of config update,
-	 * the pointer will have changed
-	 */
-	iface = vlist_find(&interfaces, s->e.name, iface, node);
-	if (!iface)
-		return;
-
-	dev = iface->main_dev.dev;
-	if (!dev || !dev->default_config)
-		return;
-
-	blob_buf_init(&b, 0);
-	uci_to_blob(&b, s, dev->type->config_params);
-	if (blob_len(b.head) == 0)
-		return;
-
-	if (iface->device_config || dev->settings.flags)
-		device_apply_config(dev, dev->type, b.head);
 	return;
+
 error_free_config:
 	free(config);
 error:
