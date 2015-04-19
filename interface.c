@@ -1057,7 +1057,7 @@ interface_device_config_changed(struct interface *if_old, struct interface *if_n
 	struct blob_attr *ntb[__DEV_ATTR_MAX];
 	struct blob_attr *otb[__DEV_ATTR_MAX];
 	struct device *dev = if_old->main_dev.dev;
-	unsigned long diff;
+	unsigned long diff = 0;
 
 	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / 8);
 
