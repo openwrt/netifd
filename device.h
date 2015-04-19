@@ -21,6 +21,7 @@
 struct device;
 struct device_user;
 struct device_hotplug_ops;
+struct interface;
 
 typedef int (*device_state_cb)(struct device *, bool up);
 
@@ -164,6 +165,8 @@ struct device {
 	bool iface_config;
 	bool default_config;
 	bool wireless;
+
+	struct interface *config_iface;
 
 	/* set interface up or down */
 	device_state_cb set_state;

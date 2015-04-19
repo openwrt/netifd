@@ -525,9 +525,11 @@ interface_set_device_config(struct interface *iface, struct device *dev)
 	if (!dev || !dev->default_config)
 		return;
 
-	if (!iface->device_config && !dev->iface_config)
+	if (!iface->device_config &&
+	    (!dev->iface_config || dev->config_iface != iface))
 		return;
 
+	dev->config_iface = iface;
 	dev->iface_config = iface->device_config;
 	device_apply_config(dev, dev->type, iface->config);
 }
