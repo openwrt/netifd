@@ -284,9 +284,16 @@ proto_shell_task_finish(struct proto_shell_state *state,
 		if (task == &state->proto_task)
 			proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN,
 					    false);
-		if (task == &state->script_task && state->renew_pending)
-			proto_shell_handler(&state->proto, PROTO_CMD_RENEW,
-					    false);
+		if (task == &state->script_task) {
+			if (state->renew_pending)
+				proto_shell_handler(&state->proto,
+						    PROTO_CMD_RENEW, false);
+			else if (!state->proto_task.uloop.pending &&
+				 state->sm == S_SETUP)
+				proto_shell_handler(&state->proto,
+						    PROTO_CMD_TEARDOWN,
+						    false);
+		}
 		break;
 
 	case S_SETUP_ABORT:
