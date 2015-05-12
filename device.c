@@ -29,6 +29,7 @@
 #include "config.h"
 
 static struct avl_tree devices;
+static bool default_ps = true;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
@@ -244,15 +245,19 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
 	}
 
-	if ((cur = tb[DEV_ATTR_RPS]))
+	if ((cur = tb[DEV_ATTR_RPS])) {
 		s->rps = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_RPS;
+	}
 	else
-		s->rps = true;
+		s->rps = default_ps;
 
-	if ((cur = tb[DEV_ATTR_XPS]))
+	if ((cur = tb[DEV_ATTR_XPS])) {
 		s->xps = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_XPS;
+	}
 	else
-		s->xps = true;
+		s->xps = default_ps;
 
 	device_set_disabled(dev, disabled);
 }
@@ -370,8 +375,8 @@ int device_init(struct device *dev, const struct device_type *type, const char *
 
 	system_if_clear_state(dev);
 	device_check_state(dev);
-	dev->settings.rps = true;
-	dev->settings.xps = true;
+	dev->settings.rps = default_ps;
+	dev->settings.xps = default_ps;
 
 	return 0;
 }
@@ -723,6 +728,41 @@ device_reset_old(void)
 	}
 }
 
+void
+device_set_default_ps(bool state)
+{
+	struct device *dev;
+
+	if (state == default_ps)
+		return;
+
+	default_ps = state;
+
+	avl_for_each_element(&devices, dev, avl) {
+		struct device_settings *s = &dev->settings;
+		unsigned int apply_mask = 0;
+
+		if (!(s->flags & DEV_OPT_RPS)) {
+			s->rps = default_ps;
+			apply_mask |= DEV_OPT_RPS;
+		}
+
+		if (!(s->flags & DEV_OPT_XPS)) {
+			s->xps = default_ps;
+			apply_mask |= DEV_OPT_XPS;
+		}
+
+		if (!apply_mask)
+			continue;
+
+		if (!(dev->external || (dev->present && dev->active)) ||
+				dev->config_pending)
+			continue;
+
+		system_if_apply_settings(dev, s, apply_mask);
+	}
+}
+
 struct device *
 device_create(const char *name, const struct device_type *type,
 	      struct blob_attr *config)
@@ -758,8 +798,10 @@ device_create(const char *name, const struct device_type *type,
 	if (odev)
 		device_replace(dev, odev);
 
-	if (!config_init && dev->config_pending)
+	if (!config_init && dev->config_pending) {
 		type->config_init(dev);
+		dev->config_pending = false;
+	}
 
 	return dev;
 }

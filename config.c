@@ -306,6 +306,12 @@ config_init_globals(void)
 	const char *ula_prefix = uci_lookup_option_string(
 			uci_ctx, globals, "ula_prefix");
 	interface_ip_set_ula_prefix(ula_prefix);
+
+	const char *default_ps = uci_lookup_option_string(
+			uci_ctx, globals, "default_ps");
+
+	if (default_ps)
+		device_set_default_ps(strcmp(default_ps, "1") ? false : true);
 }
 
 static void

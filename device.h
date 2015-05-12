@@ -78,6 +78,8 @@ enum {
 	DEV_OPT_IGMPVERSION		= (1 << 7),
 	DEV_OPT_MLDVERSION		= (1 << 8),
 	DEV_OPT_NEIGHREACHABLETIME	= (1 << 9),
+	DEV_OPT_RPS			= (1 << 10),
+	DEV_OPT_XPS			= (1 << 11),
 };
 
 /* events broadcasted to all users of a device */
@@ -206,6 +208,7 @@ device_apply_config(struct device *dev, const struct device_type *type,
 
 void device_reset_config(void);
 void device_reset_old(void);
+void device_set_default_ps(bool state);
 
 void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);
 int device_init(struct device *iface, const struct device_type *type, const char *ifname);
