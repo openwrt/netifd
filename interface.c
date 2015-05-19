@@ -139,7 +139,7 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 		memcpy(dest, data[i], datalen[i]);
 		dest += datalen[i];
 	}
-	error->data[n_data++] = NULL;
+	error->data[n_data] = NULL;
 
 	if (subsystem)
 		error->subsystem = strcpy(d_subsys, subsystem);
