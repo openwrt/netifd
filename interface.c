@@ -68,15 +68,9 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 };
 
-static const struct uci_blob_param_info iface_attr_info[IFACE_ATTR_MAX] = {
-	[IFACE_ATTR_DNS] = { .type = BLOBMSG_TYPE_STRING },
-	[IFACE_ATTR_IP6CLASS] = { .type = BLOBMSG_TYPE_STRING },
-};
-
 const struct uci_blob_param_list interface_attr_list = {
 	.n_params = IFACE_ATTR_MAX,
 	.params = iface_attrs,
-	.info = iface_attr_info,
 };
 
 static void
