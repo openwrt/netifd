@@ -333,14 +333,14 @@ interface_set_link_state(struct interface *iface, bool new_state)
 }
 
 static void
-interface_ext_cb(struct device_user *dep, enum device_event ev)
+interface_ext_dev_cb(struct device_user *dep, enum device_event ev)
 {
 	if (ev == DEV_EVENT_REMOVE)
 		device_remove_user(dep);
 }
 
 static void
-interface_cb(struct device_user *dep, enum device_event ev)
+interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 {
 	struct interface *iface;
 	bool new_state = false;
@@ -367,6 +367,24 @@ interface_cb(struct device_user *dep, enum device_event ev)
 	case DEV_EVENT_TOPO_CHANGE:
 		interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);
 		return;
+	default:
+		break;
+	}
+}
+
+static void
+interface_l3_dev_cb(struct device_user *dep, enum device_event ev)
+{
+	struct interface *iface;
+
+	iface = container_of(dep, struct interface, l3_dev);
+	if (iface->l3_dev.dev == iface->main_dev.dev)
+		return;
+
+	switch (ev) {
+	case DEV_EVENT_LINK_DOWN:
+		interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
+		break;
 	default:
 		break;
 	}
@@ -712,8 +730,9 @@ interface_alloc(const char *name, struct blob_attr *config)
 	avl_init(&iface->data, avl_strcmp, false, NULL);
 	iface->config_ip.enabled = false;
 
-	iface->main_dev.cb = interface_cb;
-	iface->ext_dev.cb = interface_ext_cb;
+	iface->main_dev.cb = interface_main_dev_cb;
+	iface->l3_dev.cb = interface_l3_dev_cb;
+	iface->ext_dev.cb = interface_ext_dev_cb;
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
@@ -821,7 +840,6 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 		if ((cur = tb[IFACE_ATTR_IFNAME]))
 			iface->ifname = blobmsg_data(cur);
 	}
-
 
 	iface->config = config;
 	vlist_add(&interfaces, &iface->node, iface->name);
