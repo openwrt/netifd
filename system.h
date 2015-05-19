@@ -91,7 +91,7 @@ static inline int system_get_addr_family(unsigned int flags)
 
 static inline int system_get_addr_len(unsigned int flags)
 {
-	if ((flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+	if ((flags & DEVADDR_FAMILY) != DEVADDR_INET6)
 		return sizeof(struct in_addr);
 	else
 		return sizeof(struct in6_addr);
