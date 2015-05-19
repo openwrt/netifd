@@ -442,6 +442,9 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 	struct device *dev = iface->l3_dev.dev;
 	struct device_route route;
 
+	if (addr->flags & DEVADDR_OFFLINK)
+		return;
+
 	memset(&route, 0, sizeof(route));
 	route.iface = iface;
 	route.flags = addr->flags;
@@ -453,14 +456,11 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 		route.flags |= DEVADDR_KERNEL;
 		system_del_route(dev, &route);
 
-		if (!(addr->flags & DEVADDR_OFFLINK)) {
-			route.flags &= ~DEVADDR_KERNEL;
-			route.metric = iface->metric;
-			system_add_route(dev, &route);
-		}
+		route.flags &= ~DEVADDR_KERNEL;
+		route.metric = iface->metric;
+		system_add_route(dev, &route);
 	} else {
-		if (!(addr->flags & DEVADDR_OFFLINK))
-			system_del_route(dev, &route);
+		system_del_route(dev, &route);
 	}
 }
 
@@ -562,7 +562,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				}
 			}
 
-			if ((a_new->flags & DEVADDR_OFFLINK) || iface->metric)
+			if (iface->metric)
 				interface_handle_subnet_route(iface, a_new, true);
 		}
 	}
@@ -1228,7 +1228,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 
 		if (enabled) {
 			system_add_address(dev, addr);
-			if ((addr->flags & DEVADDR_OFFLINK) || iface->metric)
+			if (iface->metric)
 				interface_handle_subnet_route(iface, addr, true);
 		} else {
 			interface_handle_subnet_route(iface, addr, false);

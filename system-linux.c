@@ -1427,6 +1427,7 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 		.ifa_family = (alen == 4) ? AF_INET : AF_INET6,
 		.ifa_prefixlen = addr->mask,
 		.ifa_index = dev->ifindex,
+		.ifa_flags = (addr->flags & DEVADDR_OFFLINK) ? IFA_F_NOPREFIXROUTE : 0,
 	};
 
 	struct nl_msg *msg;
