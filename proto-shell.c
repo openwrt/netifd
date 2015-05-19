@@ -44,6 +44,7 @@ struct proto_shell_handler {
 	char *config_buf;
 	char *script_name;
 	bool init_available;
+	bool no_proto_task;
 
 	struct uci_blob_param_list config;
 };
@@ -284,11 +285,12 @@ proto_shell_task_finish(struct proto_shell_state *state,
 		if (task == &state->proto_task)
 			proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN,
 					    false);
-		if (task == &state->script_task) {
+		else if (task == &state->script_task) {
 			if (state->renew_pending)
 				proto_shell_handler(&state->proto,
 						    PROTO_CMD_RENEW, false);
-			else if (!state->proto_task.uloop.pending &&
+			else if (!state->handler->no_proto_task &&
+				 !state->proto_task.uloop.pending &&
 				 state->sm == S_SETUP)
 				proto_shell_handler(&state->proto,
 						    PROTO_CMD_TEARDOWN,
@@ -817,6 +819,12 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	tmp = json_get_field(obj, "no-device", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_NODEV;
+
+	tmp = json_get_field(obj, "no-proto-task", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->no_proto_task = true;
+	else
+		handler->no_proto_task = false;
 
 	tmp = json_get_field(obj, "available", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
