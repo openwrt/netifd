@@ -47,6 +47,10 @@
 #define RT_TABLE_PRELOCAL 128
 #endif
 
+#ifndef IFA_F_NOPREFIXROUTE
+#define IFA_F_NOPREFIXROUTE 0x200
+#endif
+
 #include <string.h>
 #include <fcntl.h>
 #include <glob.h>
