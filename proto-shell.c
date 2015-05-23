@@ -821,10 +821,7 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 		handler->proto.flags |= PROTO_FLAG_NODEV;
 
 	tmp = json_get_field(obj, "no-proto-task", json_type_boolean);
-	if (tmp && json_object_get_boolean(tmp))
-		handler->no_proto_task = true;
-	else
-		handler->no_proto_task = false;
+	handler->no_proto_task = tmp && json_object_get_boolean(tmp);
 
 	tmp = json_get_field(obj, "available", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
