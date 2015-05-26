@@ -710,7 +710,9 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	struct device *l3_downlink = iface->l3_dev.dev;
 
 	struct device_addr addr;
+	struct device_route route;
 	memset(&addr, 0, sizeof(addr));
+	memset(&route, 0, sizeof(route));
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&assignment->addr)) {
 		addr.addr.in6 = prefix->addr;
@@ -722,23 +724,20 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		addr.addr.in6 = assignment->addr;
 
 	addr.mask = assignment->length;
-	addr.flags = DEVADDR_INET6;
+	addr.flags = DEVADDR_INET6 | DEVADDR_OFFLINK;
 	addr.preferred_until = prefix->preferred_until;
 	addr.valid_until = prefix->valid_until;
 
-	if (addr.mask < 64) {
-		addr.mask = 64;
-		system_del_address(l3_downlink, &addr);
-		addr.mask = assignment->length;
-	}
+	route.flags = DEVADDR_INET6;
+	route.mask = addr.mask < 64 ? 64 : addr.mask;
+	route.addr = addr.addr;
+	clear_if_addr(&route.addr, route.mask);
 
 	if (!add && assignment->enabled) {
 		time_t now = system_get_rtime();
 		addr.preferred_until = now;
 		if (!addr.valid_until || addr.valid_until - now > 7200)
 			addr.valid_until = now + 7200;
-
-		system_del_address(l3_downlink, &addr); // Work around dangling prefix routes
 
 		if (prefix->iface) {
 			if (prefix->iface->ip6table)
@@ -749,16 +748,12 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 							addr.mask, 0, iface, "unreachable");
 		}
 
-		if (addr.mask < 64)
-			addr.mask = 64;
-
-		interface_handle_subnet_route(iface, &addr, false);
+		system_del_route(l3_downlink, &route);
 		system_add_address(l3_downlink, &addr);
 
 		assignment->enabled = false;
 	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP) &&
 			!system_add_address(l3_downlink, &addr)) {
-		interface_handle_subnet_route(iface, &addr, false);
 
 		if (prefix->iface && !assignment->enabled) {
 			set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
@@ -769,10 +764,8 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 						addr.mask, prefix->iface->ip6table, iface, NULL);
 		}
 
-		if (addr.mask < 64)
-			addr.mask = 64;
-
-		interface_handle_subnet_route(iface, &addr, true);
+		route.metric = iface->metric;
+		system_add_route(l3_downlink, &route);
 
 		if (uplink && uplink->l3_dev.dev) {
 			int mtu = system_update_ipv6_mtu(

@@ -30,6 +30,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/sockios.h>
 #include <linux/ip.h>
+#include <linux/if_addr.h>
 #include <linux/if_link.h>
 #include <linux/if_vlan.h>
 #include <linux/if_bridge.h>
@@ -45,10 +46,6 @@
 
 #ifndef RT_TABLE_PRELOCAL
 #define RT_TABLE_PRELOCAL 128
-#endif
-
-#ifndef IFA_F_NOPREFIXROUTE
-#define IFA_F_NOPREFIXROUTE 0x200
 #endif
 
 #include <string.h>
@@ -1431,7 +1428,6 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 		.ifa_family = (alen == 4) ? AF_INET : AF_INET6,
 		.ifa_prefixlen = addr->mask,
 		.ifa_index = dev->ifindex,
-		.ifa_flags = (addr->flags & DEVADDR_OFFLINK) ? IFA_F_NOPREFIXROUTE : 0,
 	};
 
 	struct nl_msg *msg;
@@ -1474,6 +1470,9 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 		}
 
 		nla_put(msg, IFA_CACHEINFO, sizeof(cinfo), &cinfo);
+
+		if (cmd == RTM_NEWADDR && (addr->flags & DEVADDR_OFFLINK))
+			nla_put_u32(msg, IFA_FLAGS, IFA_F_NOPREFIXROUTE);
 	}
 
 	return system_rtnl_call(msg);
