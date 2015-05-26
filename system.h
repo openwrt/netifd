@@ -58,6 +58,7 @@ struct bridge_config {
 	int ageing_time;
 	int hello_time;
 	int max_age;
+	int hash_max;
 };
 
 enum macvlan_opt {

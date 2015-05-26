@@ -791,6 +791,7 @@ sec_to_jiffies(int val)
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
+	char buf[64];
 	unsigned long args[4] = {};
 
 	if (ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname) < 0)
@@ -809,6 +810,10 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 
 	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier",
 		bridge->ifname, cfg->multicast_querier ? "1" : "0");
+
+	snprintf(buf, sizeof(buf), "%i", cfg->hash_max);
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/hash_max",
+		bridge->ifname, buf);
 
 	args[0] = BRCTL_SET_BRIDGE_PRIORITY;
 	args[1] = cfg->priority;
