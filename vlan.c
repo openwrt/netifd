@@ -130,7 +130,7 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	vldev->id = id;
 	vlan_dev_set_name(vldev, dev);
 
-	device_init_virtual(&vldev->dev, &vlan_type, NULL);
+	device_init(&vldev->dev, &vlan_type, vldev->dev.ifname);
 	vldev->dev.default_config = true;
 
 	vldev->set_state = vldev->dev.set_state;
