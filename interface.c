@@ -74,6 +74,9 @@ const struct uci_blob_param_list interface_attr_list = {
 };
 
 static void
+set_config_state(struct interface *iface, enum interface_config_state s);
+
+static void
 interface_error_flush(struct interface *iface)
 {
 	struct interface_error *error, *tmp;
@@ -256,9 +259,6 @@ __interface_set_down(struct interface *iface, bool force)
 		interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, force);
 		if (force)
 			interface_flush_state(iface);
-
-		if (iface->dynamic)
-			vlist_delete(&interfaces, &iface->node);
 		break;
 
 	case IFS_DOWN:
@@ -644,6 +644,8 @@ interface_handle_config_change(struct interface *iface)
 	}
 	if (iface->autostart && iface->available)
 		interface_set_up(iface);
+	else if (iface->dynamic)
+		set_config_state(iface, IFC_REMOVE);
 }
 
 static void
