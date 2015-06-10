@@ -52,12 +52,14 @@ struct proto_shell_handler {
 struct proto_shell_dependency {
 	struct list_head list;
 
-	char *interface;
 	struct proto_shell_state *proto;
 	struct interface_user dep;
 
 	union if_addr host;
 	bool v6;
+	bool any;
+
+	char interface[];
 };
 
 struct proto_shell_state {
@@ -111,10 +113,16 @@ proto_shell_update_host_dep(struct proto_shell_dependency *dep)
 	if (dep->dep.iface)
 		goto out;
 
-	if (dep->interface[0])
+	if (dep->interface[0]) {
 		iface = vlist_find(&interfaces, dep->interface, iface, node);
 
-	iface = interface_ip_add_target_route(&dep->host, dep->v6, iface);
+		if (!iface || iface->state != IFS_UP)
+			goto out;
+	}
+
+	if (!dep->any)
+		iface = interface_ip_add_target_route(&dep->host, dep->v6, iface);
+
 	if (!iface)
 		goto out;
 
@@ -673,20 +681,18 @@ static int
 proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_attr **tb)
 {
 	struct proto_shell_dependency *dep;
-	struct blob_attr *host = tb[NOTIFY_HOST];
-	struct blob_attr *ifname_a = tb[NOTIFY_IFNAME];
-	const char *ifname_str = ifname_a ? blobmsg_data(ifname_a) : "";
-	char *ifname;
+	const char *ifname = tb[NOTIFY_IFNAME] ? blobmsg_data(tb[NOTIFY_IFNAME]) : "";
+	const char *host = tb[NOTIFY_HOST] ? blobmsg_data(tb[NOTIFY_HOST]) : "";
 
 	if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
 		return UBUS_STATUS_PERMISSION_DENIED;
 
-	if (!host)
-		return UBUS_STATUS_INVALID_ARGUMENT;
+	dep = calloc(1, sizeof(*dep) + strlen(ifname) + 1);
 
-	dep = calloc_a(sizeof(*dep), &ifname, strlen(ifname_str) + 1);
-	if (inet_pton(AF_INET, blobmsg_data(host), &dep->host) < 1) {
-		if (inet_pton(AF_INET6, blobmsg_data(host), &dep->host) < 1) {
+	if (!host[0] && ifname[0]) {
+		dep->any = true;
+	} else if (inet_pton(AF_INET, host, &dep->host) < 1) {
+		if (inet_pton(AF_INET6, host, &dep->host) < 1) {
 			free(dep);
 			return UBUS_STATUS_INVALID_ARGUMENT;
 		} else {
@@ -695,7 +701,7 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 	}
 
 	dep->proto = state;
-	dep->interface = strcpy(ifname, ifname_str);
+	strcpy(dep->interface, ifname);
 
 	dep->dep.cb = proto_shell_if_up_cb;
 	interface_add_user(&dep->dep, NULL);
