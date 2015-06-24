@@ -1019,6 +1019,10 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->flags |= DEV_OPT_MTU;
 	}
 
+	s->mtu6 = system_update_ipv6_mtu(dev, 0);
+	if (s->mtu6 > 0)
+		s->flags |= DEV_OPT_MTU6;
+
 	if (ioctl(sock_ioctl, SIOCGIFTXQLEN, &ifr) == 0) {
 		s->txqueuelen = ifr.ifr_qlen;
 		s->flags |= DEV_OPT_TXQUEUELEN;
@@ -1113,6 +1117,9 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		ifr.ifr_mtu = s->mtu;
 		if (ioctl(sock_ioctl, SIOCSIFMTU, &ifr) < 0)
 			s->flags &= ~DEV_OPT_MTU;
+	}
+	if (s->flags & DEV_OPT_MTU6 & apply_mask) {
+		system_update_ipv6_mtu(dev, s->mtu6);
 	}
 	if (s->flags & DEV_OPT_TXQUEUELEN & apply_mask) {
 		ifr.ifr_qlen = s->txqueuelen;
@@ -2163,19 +2170,18 @@ int system_update_ipv6_mtu(struct device *dev, int mtu)
 			dev->ifname);
 
 	int fd = open(buf, O_RDWR);
-	ssize_t len = read(fd, buf, sizeof(buf) - 1);
-	if (len < 0)
-		goto out;
 
-	buf[len] = 0;
-	ret = atoi(buf);
+	if (!mtu) {
+		ssize_t len = read(fd, buf, sizeof(buf) - 1);
+		if (len < 0)
+			goto out;
 
-	if (!mtu || ret <= mtu)
-		goto out;
-
-	lseek(fd, 0, SEEK_SET);
-	if (write(fd, buf, snprintf(buf, sizeof(buf), "%i", mtu)) <= 0)
-		ret = -1;
+		buf[len] = 0;
+		ret = atoi(buf);
+	} else {
+		if (write(fd, buf, snprintf(buf, sizeof(buf), "%i", mtu)) > 0)
+			ret = mtu;
+	}
 
 out:
 	close(fd);

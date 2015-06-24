@@ -767,10 +767,11 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		route.metric = iface->metric;
 		system_add_route(l3_downlink, &route);
 
-		if (uplink && uplink->l3_dev.dev) {
-			int mtu = system_update_ipv6_mtu(
-					uplink->l3_dev.dev, 0);
-			if (mtu > 0)
+		if (uplink && uplink->l3_dev.dev && !(l3_downlink->settings.flags & DEV_OPT_MTU6)) {
+			int mtu = system_update_ipv6_mtu(uplink->l3_dev.dev, 0);
+			int mtu_old = system_update_ipv6_mtu(l3_downlink, 0);
+
+			if (mtu > 0 && mtu_old > mtu)
 				system_update_ipv6_mtu(l3_downlink, mtu);
 		}
 

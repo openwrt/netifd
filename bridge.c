@@ -299,7 +299,7 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 			 * bridge mtu is set
 			 */
 			system_if_apply_settings(&bst->dev, &bst->dev.settings,
-						 DEV_OPT_MTU);
+						 DEV_OPT_MTU | DEV_OPT_MTU6);
 		}
 
 		break;

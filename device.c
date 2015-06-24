@@ -34,6 +34,7 @@ static bool default_ps = true;
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_MTU] = { .name = "mtu", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_MTU6] = { .name = "mtu6", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MACADDR] = { .name = "macaddr", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_TXQUEUELEN] = { .name = "txqueuelen", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_ENABLED] = { .name = "enabled", .type = BLOBMSG_TYPE_BOOL },
@@ -154,6 +155,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 
 	memset(n, 0, sizeof(*n));
 	n->mtu = s->flags & DEV_OPT_MTU ? s->mtu : os->mtu;
+	n->mtu6 = s->flags & DEV_OPT_MTU6 ? s->mtu6 : os->mtu6;
 	n->txqueuelen = s->flags & DEV_OPT_TXQUEUELEN ?
 		s->txqueuelen : os->txqueuelen;
 	memcpy(n->macaddr,
@@ -187,6 +189,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_MTU])) {
 		s->mtu = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_MTU;
+	}
+
+	if ((cur = tb[DEV_ATTR_MTU6])) {
+		s->mtu6 = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_MTU6;
 	}
 
 	if ((cur = tb[DEV_ATTR_TXQUEUELEN])) {
@@ -843,6 +850,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 		device_merge_settings(dev, &st);
 		if (st.flags & DEV_OPT_MTU)
 			blobmsg_add_u32(b, "mtu", st.mtu);
+		if (st.flags & DEV_OPT_MTU6)
+			blobmsg_add_u32(b, "mtu6", st.mtu6);
 		if (st.flags & DEV_OPT_MACADDR)
 			blobmsg_add_string(b, "macaddr", format_macaddr(st.macaddr));
 		if (st.flags & DEV_OPT_TXQUEUELEN)

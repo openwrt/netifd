@@ -28,6 +28,7 @@ typedef int (*device_state_cb)(struct device *, bool up);
 enum {
 	DEV_ATTR_TYPE,
 	DEV_ATTR_MTU,
+	DEV_ATTR_MTU6,
 	DEV_ATTR_MACADDR,
 	DEV_ATTR_TXQUEUELEN,
 	DEV_ATTR_ENABLED,
@@ -80,6 +81,7 @@ enum {
 	DEV_OPT_NEIGHREACHABLETIME	= (1 << 9),
 	DEV_OPT_RPS			= (1 << 10),
 	DEV_OPT_XPS			= (1 << 11),
+	DEV_OPT_MTU6		= (1 << 12),
 };
 
 /* events broadcasted to all users of a device */
@@ -123,6 +125,7 @@ struct device_user {
 struct device_settings {
 	unsigned int flags;
 	unsigned int mtu;
+	unsigned int mtu6;
 	unsigned int txqueuelen;
 	uint8_t macaddr[6];
 	bool ipv6;
