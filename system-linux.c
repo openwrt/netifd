@@ -310,6 +310,11 @@ static void system_set_neigh6reachabletime(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms", dev->ifname, val);
 }
 
+static void system_set_dadtransmits(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -377,6 +382,12 @@ static int system_get_neigh4reachabletime(struct device *dev, char *buf, const s
 static int system_get_neigh6reachabletime(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_dadtransmits(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -1072,6 +1083,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->neigh6reachabletime = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
 	}
+
+	if (!system_get_dadtransmits(dev, buf, sizeof(buf))) {
+		s->dadtransmits = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_DADTRANSMITS;
+	}
 }
 
 static void
@@ -1110,6 +1126,7 @@ void
 system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
 {
 	struct ifreq ifr;
+	char buf[12];
 
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
@@ -1140,32 +1157,28 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 			s->flags &= ~DEV_OPT_PROMISC;
 	}
 	if (s->flags & DEV_OPT_RPFILTER & apply_mask) {
-		char buf[2];
-
 		snprintf(buf, sizeof(buf), "%d", s->rpfilter);
 		system_set_rpfilter(dev, buf);
 	}
 	if (s->flags & DEV_OPT_ACCEPTLOCAL & apply_mask)
 		system_set_acceptlocal(dev, s->acceptlocal ? "1" : "0");
 	if (s->flags & DEV_OPT_IGMPVERSION & apply_mask) {
-		char buf[2];
-
 		snprintf(buf, sizeof(buf), "%d", s->igmpversion);
 		system_set_igmpversion(dev, buf);
 	}
 	if (s->flags & DEV_OPT_MLDVERSION & apply_mask) {
-		char buf[2];
-
 		snprintf(buf, sizeof(buf), "%d", s->mldversion);
 		system_set_mldversion(dev, buf);
 	}
 	if (s->flags & DEV_OPT_NEIGHREACHABLETIME & apply_mask) {
-		char buf[12];
-
 		snprintf(buf, sizeof(buf), "%d", s->neigh4reachabletime);
 		system_set_neigh4reachabletime(dev, buf);
 		snprintf(buf, sizeof(buf), "%d", s->neigh6reachabletime);
 		system_set_neigh6reachabletime(dev, buf);
+	}
+	if (s->flags & DEV_OPT_DADTRANSMITS & apply_mask) {
+		snprintf(buf, sizeof(buf), "%d", s->dadtransmits);
+		system_set_dadtransmits(dev, buf);
 	}
 
 	system_if_apply_rps_xps(dev, s);

@@ -41,6 +41,7 @@ enum {
 	DEV_ATTR_NEIGHREACHABLETIME,
 	DEV_ATTR_RPS,
 	DEV_ATTR_XPS,
+	DEV_ATTR_DADTRANSMITS,
 	__DEV_ATTR_MAX,
 };
 
@@ -81,7 +82,8 @@ enum {
 	DEV_OPT_NEIGHREACHABLETIME	= (1 << 9),
 	DEV_OPT_RPS			= (1 << 10),
 	DEV_OPT_XPS			= (1 << 11),
-	DEV_OPT_MTU6		= (1 << 12),
+	DEV_OPT_MTU6			= (1 << 12),
+	DEV_OPT_DADTRANSMITS		= (1 << 13),
 };
 
 /* events broadcasted to all users of a device */
@@ -138,6 +140,7 @@ struct device_settings {
 	unsigned int neigh6reachabletime;
 	bool rps;
 	bool xps;
+	unsigned int dadtransmits;
 };
 
 /*
