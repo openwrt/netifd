@@ -410,6 +410,8 @@ device_create_default(const char *name, bool external)
 	dev->set_state = simple_device_set_state;
 	device_init(dev, &simple_device_type, name);
 	dev->default_config = true;
+	if (external)
+		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 	return dev;
 }
 
