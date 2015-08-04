@@ -702,10 +702,9 @@ static void
 device_replace(struct device *dev, struct device *odev)
 {
 	struct device_user *dep, *tmp;
-	bool present = odev->present;
 
 	__devlock++;
-	if (present)
+	if (odev->present)
 		device_set_present(odev, false);
 
 	list_for_each_entry_safe(dep, tmp, &odev->users.list, list.list) {
@@ -717,9 +716,6 @@ device_replace(struct device *dev, struct device *odev)
 	__devlock--;
 
 	device_free(odev);
-
-	if (present)
-		device_set_present(dev, true);
 }
 
 void
