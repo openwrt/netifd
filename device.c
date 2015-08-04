@@ -704,6 +704,7 @@ device_replace(struct device *dev, struct device *odev)
 	struct device_user *dep, *tmp;
 	bool present = odev->present;
 
+	__devlock++;
 	if (present)
 		device_set_present(odev, false);
 
@@ -713,6 +714,8 @@ device_replace(struct device *dev, struct device *odev)
 		safe_list_add(&dep->list, &dev->users);
 		dep->dev = dev;
 	}
+	__devlock--;
+
 	device_free(odev);
 
 	if (present)
