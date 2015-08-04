@@ -534,18 +534,10 @@ static int device_refcount(struct device *dev)
 	return count;
 }
 
-void device_add_user(struct device_user *dep, struct device *dev)
+static void
+__device_add_user(struct device_user *dep, struct device *dev)
 {
 	struct safe_list *head;
-
-	if (dep->dev == dev)
-		return;
-
-	if (dep->dev)
-		device_remove_user(dep);
-
-	if (!dev)
-		return;
 
 	dep->dev = dev;
 
@@ -565,6 +557,20 @@ void device_add_user(struct device_user *dep, struct device *dev)
 		if (dev->link_active)
 			dep->cb(dep, DEV_EVENT_LINK_UP);
 	}
+}
+
+void device_add_user(struct device_user *dep, struct device *dev)
+{
+	if (dep->dev == dev)
+		return;
+
+	if (dep->dev)
+		device_remove_user(dep);
+
+	if (!dev)
+		return;
+
+	__device_add_user(dep, dev);
 }
 
 void
@@ -710,8 +716,7 @@ device_replace(struct device *dev, struct device *odev)
 	list_for_each_entry_safe(dep, tmp, &odev->users.list, list.list) {
 		device_release(dep);
 		safe_list_del(&dep->list);
-		safe_list_add(&dep->list, &dev->users);
-		dep->dev = dev;
+		__device_add_user(dep, dev);
 	}
 	__devlock--;
 
