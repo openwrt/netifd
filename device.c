@@ -741,6 +741,9 @@ device_reset_old(void)
 			continue;
 
 		ndev = device_create_default(dev->ifname, dev->external);
+		if (!ndev)
+			continue;
+
 		device_replace(ndev, dev);
 	}
 }
