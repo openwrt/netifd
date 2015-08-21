@@ -160,8 +160,11 @@ struct device {
 	struct blob_attr *config;
 	bool config_pending;
 	bool sys_present;
+	/* DEV_EVENT_ADD */
 	bool present;
+	/* DEV_EVENT_UP */
 	int active;
+	/* DEV_EVENT_LINK_UP */
 	bool link_active;
 
 	bool external;

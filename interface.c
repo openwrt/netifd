@@ -649,7 +649,7 @@ interface_handle_config_change(struct interface *iface)
 }
 
 static void
-interface_proto_cb(struct interface_proto_state *state, enum interface_proto_event ev)
+interface_proto_event_cb(struct interface_proto_state *state, enum interface_proto_event ev)
 {
 	struct interface *iface = state->iface;
 
@@ -708,7 +708,7 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 	if (!state)
 		return;
 
-	state->proto_event = interface_proto_cb;
+	state->proto_event = interface_proto_event_cb;
 	state->iface = iface;
 }
 

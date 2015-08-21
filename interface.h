@@ -120,6 +120,7 @@ struct interface {
 
 	struct list_head users;
 
+	/* for alias interface */
 	const char *parent_ifname;
 	struct interface_user parent_iface;
 

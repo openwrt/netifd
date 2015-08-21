@@ -817,7 +817,7 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 
 	cur = tb[DEV_LINK_EXT];
 	if (cur)
-		link_ext = !!blobmsg_get_u8(cur);
+		link_ext = blobmsg_get_bool(cur);
 
 	return interface_handle_link(iface, blobmsg_data(tb[DEV_LINK_NAME]), add, link_ext);
 }
