@@ -69,6 +69,15 @@ struct proto_shell_state {
 
 	struct uloop_timeout teardown_timeout;
 
+	/*
+	 * Teardown and setup interface again if it is still not up (IFS_UP)
+	 * after checkup_interval seconds since previous attempt.  This check
+	 * will be disabled when the config option "checkup_interval" is
+	 * missing or has a negative value
+	 */
+	int checkup_interval;
+	struct uloop_timeout checkup_timeout;
+
 	struct netifd_process script_task;
 	struct netifd_process proto_task;
 
@@ -303,6 +312,12 @@ proto_shell_task_finish(struct proto_shell_state *state,
 				proto_shell_handler(&state->proto,
 						    PROTO_CMD_TEARDOWN,
 						    false);
+
+			/* check up status after setup attempt by this script_task */
+			if (state->sm == S_SETUP && state->checkup_interval > 0) {
+				uloop_timeout_set(&state->checkup_timeout,
+						  state->checkup_interval * 1000);
+			}
 		}
 		break;
 
@@ -311,7 +326,9 @@ proto_shell_task_finish(struct proto_shell_state *state,
 		    state->proto_task.uloop.pending)
 			break;
 
+		/* completed aborting all tasks, now idle */
 		uloop_timeout_cancel(&state->teardown_timeout);
+		uloop_timeout_cancel(&state->checkup_timeout);
 		state->sm = S_IDLE;
 		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
 		break;
@@ -326,7 +343,9 @@ proto_shell_task_finish(struct proto_shell_state *state,
 			break;
 		}
 
+		/* completed tearing down all tasks, now idle */
 		uloop_timeout_cancel(&state->teardown_timeout);
+		uloop_timeout_cancel(&state->checkup_timeout);
 		state->sm = S_IDLE;
 		state->proto.proto_event(&state->proto, IFPEV_DOWN);
 		break;
@@ -374,6 +393,7 @@ proto_shell_free(struct interface_proto_state *proto)
 
 	state = container_of(proto, struct proto_shell_state, proto);
 	uloop_timeout_cancel(&state->teardown_timeout);
+	uloop_timeout_cancel(&state->checkup_timeout);
 	proto_shell_clear_host_dep(state);
 	netifd_kill_process(&state->script_task);
 	netifd_kill_process(&state->proto_task);
@@ -768,6 +788,45 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 	}
 }
 
+static void
+proto_shell_checkup_timeout_cb(struct uloop_timeout *timeout)
+{
+	struct proto_shell_state *state = container_of(timeout, struct
+			proto_shell_state, checkup_timeout);
+	struct interface_proto_state *proto = &state->proto;
+	struct interface *iface = proto->iface;
+
+	if (!iface->autostart)
+		return;
+
+	if (iface->state == IFS_UP)
+		return;
+
+	D(INTERFACE, "Interface '%s' is not up after %d sec\n",
+			iface->name, state->checkup_interval);
+	proto_shell_handler(proto, PROTO_CMD_TEARDOWN, false);
+}
+
+static void
+proto_shell_checkup_attach(struct proto_shell_state *state,
+		const struct blob_attr *attr)
+{
+	struct blob_attr *tb;
+	struct blobmsg_policy checkup_policy = {
+		.name = "checkup_interval",
+		.type = BLOBMSG_TYPE_INT32
+	};
+
+	blobmsg_parse(&checkup_policy, 1, &tb, blob_data(attr), blob_len(attr));
+	if (!tb) {
+		state->checkup_interval = -1;
+		state->checkup_timeout.cb = NULL;
+	} else {
+		state->checkup_interval = blobmsg_get_u32(tb);
+		state->checkup_timeout.cb = proto_shell_checkup_timeout_cb;
+	}
+}
+
 static struct interface_proto_state *
 proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 		   struct blob_attr *attr)
@@ -782,6 +841,7 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 		goto error;
 
 	memcpy(state->config, attr, blob_pad_len(attr));
+	proto_shell_checkup_attach(state, state->config);
 	state->proto.free = proto_shell_free;
 	state->proto.notify = proto_shell_notify;
 	state->proto.cb = proto_shell_handler;
