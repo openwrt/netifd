@@ -35,12 +35,14 @@ static const struct uci_blob_param_list wdev_param = {
 enum {
 	VIF_ATTR_DISABLED,
 	VIF_ATTR_NETWORK,
+	VIF_ATTR_ISOLATE,
 	__VIF_ATTR_MAX,
 };
 
 static const struct blobmsg_policy vif_policy[__VIF_ATTR_MAX] = {
 	[VIF_ATTR_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 	[VIF_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_ARRAY },
+	[VIF_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_list vif_param = {
@@ -204,8 +206,10 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, bool 
 
 	if (up) {
 		struct device *dev = device_get(vif->ifname, 2);
-		if (dev)
+		if (dev) {
+			dev->wireless_isolate = vif->isolate;
 			dev->wireless = true;
+		}
 	}
 
 	blobmsg_for_each_attr(cur, vif->network, rem) {
@@ -700,6 +704,12 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 	vif->wdev = wdev;
 	vif->config = data;
 	vif->section = section;
+	vif->isolate = false;
+
+	cur = tb[VIF_ATTR_ISOLATE];
+	if (cur && blobmsg_get_bool(cur))
+		vif->isolate = blobmsg_get_bool(cur);
+
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 }
 

@@ -77,6 +77,7 @@ struct wireless_interface {
 
 	const char *ifname;
 	struct blob_attr *network;
+	bool isolate;
 };
 
 struct wireless_process {

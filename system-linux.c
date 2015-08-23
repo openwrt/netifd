@@ -315,6 +315,16 @@ static void system_set_dadtransmits(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits", dev->ifname, val);
 }
 
+static void system_bridge_set_multicast_to_unicast(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/class/net/%s/brport/multicast_to_unicast", dev->ifname, val);
+}
+
+static void system_bridge_set_hairpin_mode(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/class/net/%s/brport/hairpin_mode", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -556,12 +566,16 @@ static char *system_get_bridge(const char *name, char *buf, int buflen)
 	return path + 1;
 }
 
-static void system_bridge_set_wireless(const char *bridge, const char *dev)
+static void
+system_bridge_set_wireless(struct device *dev)
 {
-	snprintf(dev_buf, sizeof(dev_buf),
-		 "/sys/devices/virtual/net/%s/brif/%s/multicast_to_unicast",
-		 bridge, dev);
-	system_set_sysctl(dev_buf, "1");
+	bool hairpin = true;
+
+	if (dev->wireless_isolate)
+		hairpin = false;
+
+	system_bridge_set_multicast_to_unicast(dev, "1");
+	system_bridge_set_hairpin_mode(dev, hairpin ? "1" : "0");
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
@@ -574,7 +588,7 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 		ret = system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
 
 	if (dev->wireless)
-		system_bridge_set_wireless(bridge->ifname, dev->ifname);
+		system_bridge_set_wireless(dev);
 
 	return ret;
 }

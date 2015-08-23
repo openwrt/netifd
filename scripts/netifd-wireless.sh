@@ -248,11 +248,25 @@ wireless_vif_parse_encryption() {
 	esac
 }
 
+_wireless_set_brsnoop_isolation() {
+	local multicast_to_unicast="$1"
+	local isolate
+
+	json_get_var isolate isolate
+
+	[ $isolate -gt 0 -o -z "$network_bridge" ] && return
+
+	[ -z "$multicast_to_unicast" ] && multicast_to_unicast=1
+	[ $multicast_to_unicast -gt 0 ] && json_add_boolean isolate 1
+}
+
 for_each_interface() {
 	local _w_types="$1"; shift
 	local _w_ifaces _w_iface
 	local _w_type
 	local _w_found
+
+	local multicast_to_unicast
 
 	json_get_keys _w_ifaces interfaces
 	json_select interfaces
@@ -261,6 +275,7 @@ for_each_interface() {
 		if [ -n "$_w_types" ]; then
 			json_get_var network_bridge bridge
 			json_select config
+			_wireless_set_brsnoop_isolation "$multicast_to_unicast"
 			json_get_var _w_type mode
 			json_select ..
 			_w_types=" $_w_types "
