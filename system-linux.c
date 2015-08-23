@@ -325,6 +325,13 @@ static void system_bridge_set_hairpin_mode(struct device *dev, const char *val)
 	system_set_dev_sysctl("/sys/class/net/%s/brport/hairpin_mode", dev->ifname, val);
 }
 
+static void system_bridge_set_multicast_router(struct device *dev, const char *val, bool bridge)
+{
+	system_set_dev_sysctl(bridge ? "/sys/class/net/%s/bridge/multicast_router" :
+				       "/sys/class/net/%s/brport/multicast_router",
+			      dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -585,6 +592,7 @@ system_bridge_set_wireless(struct device *bridge, struct device *dev)
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
+	char buf[64];
 	char *oldbr;
 	int ret = 0;
 
@@ -594,6 +602,11 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 
 	if (dev->wireless)
 		system_bridge_set_wireless(bridge, dev);
+
+	if (dev->settings.flags & DEV_OPT_MULTICAST_ROUTER) {
+		snprintf(buf, sizeof(buf), "%i", dev->settings.multicast_router);
+		system_bridge_set_multicast_router(dev, buf, false);
+	}
 
 	return ret;
 }
@@ -844,6 +857,11 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	snprintf(buf, sizeof(buf), "%i", cfg->hash_max);
 	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/hash_max",
 		bridge->ifname, buf);
+
+	if (bridge->settings.flags & DEV_OPT_MULTICAST_ROUTER) {
+		snprintf(buf, sizeof(buf), "%i", bridge->settings.multicast_router);
+		system_bridge_set_multicast_router(bridge, buf, true);
+	}
 
 	args[0] = BRCTL_SET_BRIDGE_PRIORITY;
 	args[1] = cfg->priority;

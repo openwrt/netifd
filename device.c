@@ -49,6 +49,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_XPS] = { .name = "xps", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DADTRANSMITS] = { .name = "dadtransmits", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MULTICAST_TO_UNICAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_MULTICAST_ROUTER] = { .name = "multicast_router", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -176,6 +177,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->dadtransmits = s->flags & DEV_OPT_DADTRANSMITS ?
 		s->dadtransmits : os->dadtransmits;
 	n->multicast_to_unicast = s->multicast_to_unicast;
+	n->multicast_router = s->multicast_router;
 	n->flags = s->flags | os->flags;
 }
 
@@ -279,6 +281,14 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_MULTICAST_TO_UNICAST])) {
 		s->multicast_to_unicast = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_MULTICAST_TO_UNICAST;
+	}
+
+	if ((cur = tb[DEV_ATTR_MULTICAST_ROUTER])) {
+		s->multicast_router = blobmsg_get_u32(cur);
+		if (s->multicast_router <= 2)
+			s->flags |= DEV_OPT_MULTICAST_ROUTER;
+		else
+			DPRINTF("Invalid value: %d - (Use 0: never, 1: learn, 2: always)\n", blobmsg_get_u32(cur));
 	}
 
 	device_set_disabled(dev, disabled);
@@ -900,6 +910,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "dadtransmits", st.dadtransmits);
 		if (st.flags & DEV_OPT_MULTICAST_TO_UNICAST)
 			blobmsg_add_u8(b, "multicast_to_unicast", st.multicast_to_unicast);
+		if (st.flags & DEV_OPT_MULTICAST_ROUTER)
+			blobmsg_add_u32(b, "multicast_router", st.multicast_router);
 	}
 
 	s = blobmsg_open_table(b, "statistics");
