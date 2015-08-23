@@ -42,6 +42,7 @@ enum {
 	DEV_ATTR_RPS,
 	DEV_ATTR_XPS,
 	DEV_ATTR_DADTRANSMITS,
+	DEV_ATTR_MULTICAST_TO_UNICAST,
 	__DEV_ATTR_MAX,
 };
 
@@ -84,6 +85,7 @@ enum {
 	DEV_OPT_XPS			= (1 << 11),
 	DEV_OPT_MTU6			= (1 << 12),
 	DEV_OPT_DADTRANSMITS		= (1 << 13),
+	DEV_OPT_MULTICAST_TO_UNICAST	= (1 << 14),
 };
 
 /* events broadcasted to all users of a device */
@@ -141,6 +143,7 @@ struct device_settings {
 	bool rps;
 	bool xps;
 	unsigned int dadtransmits;
+	bool multicast_to_unicast;
 };
 
 /*

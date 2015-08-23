@@ -48,6 +48,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_RPS] = { .name = "rps", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_XPS] = { .name = "xps", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DADTRANSMITS] = { .name = "dadtransmits", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_MULTICAST_TO_UNICAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -174,6 +175,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->neigh6reachabletime : os->neigh6reachabletime;
 	n->dadtransmits = s->flags & DEV_OPT_DADTRANSMITS ?
 		s->dadtransmits : os->dadtransmits;
+	n->multicast_to_unicast = s->multicast_to_unicast;
 	n->flags = s->flags | os->flags;
 }
 
@@ -272,6 +274,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_DADTRANSMITS])) {
 		s->dadtransmits = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_DADTRANSMITS;
+	}
+
+	if ((cur = tb[DEV_ATTR_MULTICAST_TO_UNICAST])) {
+		s->multicast_to_unicast = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_MULTICAST_TO_UNICAST;
 	}
 
 	device_set_disabled(dev, disabled);
@@ -891,6 +898,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 		}
 		if (st.flags & DEV_OPT_DADTRANSMITS)
 			blobmsg_add_u32(b, "dadtransmits", st.dadtransmits);
+		if (st.flags & DEV_OPT_MULTICAST_TO_UNICAST)
+			blobmsg_add_u8(b, "multicast_to_unicast", st.multicast_to_unicast);
 	}
 
 	s = blobmsg_open_table(b, "statistics");

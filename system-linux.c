@@ -567,14 +567,19 @@ static char *system_get_bridge(const char *name, char *buf, int buflen)
 }
 
 static void
-system_bridge_set_wireless(struct device *dev)
+system_bridge_set_wireless(struct device *bridge, struct device *dev)
 {
+	bool mcast_to_ucast = true;
 	bool hairpin = true;
 
-	if (dev->wireless_isolate)
+	if (bridge->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST &&
+	    !bridge->settings.multicast_to_unicast)
+		mcast_to_ucast = false;
+
+	if (!mcast_to_ucast || dev->wireless_isolate)
 		hairpin = false;
 
-	system_bridge_set_multicast_to_unicast(dev, "1");
+	system_bridge_set_multicast_to_unicast(dev, mcast_to_ucast ? "1" : "0");
 	system_bridge_set_hairpin_mode(dev, hairpin ? "1" : "0");
 }
 
@@ -588,7 +593,7 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 		ret = system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
 
 	if (dev->wireless)
-		system_bridge_set_wireless(dev);
+		system_bridge_set_wireless(bridge, dev);
 
 	return ret;
 }

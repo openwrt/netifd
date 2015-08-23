@@ -92,6 +92,10 @@ vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool pre
 		dev->hotplug_ops->prepare(dev);
 
 	blobmsg_add_string(buf, "bridge", dev->ifname);
+
+	if (dev->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST)
+		blobmsg_add_u8(buf, "multicast_to_unicast",
+			       dev->settings.multicast_to_unicast);
 }
 
 static void
