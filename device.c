@@ -81,9 +81,6 @@ static int set_device_state(struct device *dev, bool state)
 			return -1;
 	}
 
-	if (dev->external)
-		return 0;
-
 	if (state)
 		system_if_up(dev);
 	else
@@ -324,7 +321,7 @@ void device_broadcast_event(struct device *dev, enum device_event ev)
 int device_claim(struct device_user *dep)
 {
 	struct device *dev = dep->dev;
-	int ret;
+	int ret = 0;
 
 	if (dep->claimed)
 		return 0;
@@ -335,7 +332,9 @@ int device_claim(struct device_user *dep)
 		return 0;
 
 	device_broadcast_event(dev, DEV_EVENT_SETUP);
-	ret = dev->set_state(dev, true);
+	if (!dev->external)
+		ret = dev->set_state(dev, true);
+
 	if (ret == 0)
 		device_broadcast_event(dev, DEV_EVENT_UP);
 	else {
