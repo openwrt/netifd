@@ -446,6 +446,7 @@ device_get(const char *name, int create)
 	dev = avl_find_element(&devices, name, dev, avl);
 	if (dev) {
 		if (create > 1 && !dev->external) {
+			system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 			dev->external = true;
 			device_set_present(dev, true);
 		}
