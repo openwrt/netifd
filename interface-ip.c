@@ -500,9 +500,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	}
 
 	if (node_old) {
-		if (!(a_old->flags & DEVADDR_EXTERNAL) && a_old->enabled && !keep) {
-			interface_handle_subnet_route(iface, a_old, false);
-
+		if (a_old->enabled && !keep) {
 			if ((a_old->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
 				v6 = true;
 
@@ -519,7 +517,10 @@ interface_update_proto_addr(struct vlist_tree *tree,
 						a_old->mask, table, NULL, NULL);
 			}
 
-			system_del_address(dev, a_old);
+			if (!(a_old->flags & DEVADDR_EXTERNAL)) {
+				interface_handle_subnet_route(iface, a_old, false);
+				system_del_address(dev, a_old);
+			}
 		}
 		free(a_old->pclass);
 		free(a_old);
@@ -527,9 +528,14 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 	if (node_new) {
 		a_new->enabled = true;
-		if (!(a_new->flags & DEVADDR_EXTERNAL) && (!keep || replace)) {
-			if (system_add_address(dev, a_new))
-				a_new->failed = true;
+		if (!keep || replace) {
+			if (!(a_new->flags & DEVADDR_EXTERNAL)) {
+				if (system_add_address(dev, a_new))
+					a_new->failed = true;
+
+				if (iface->metric)
+					interface_handle_subnet_route(iface, a_new, true);
+			}
 
 			if (!keep) {
 				if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
@@ -544,9 +550,6 @@ interface_update_proto_addr(struct vlist_tree *tree,
 							a_new->mask, table, NULL, NULL);
 				}
 			}
-
-			if (iface->metric)
-				interface_handle_subnet_route(iface, a_new, true);
 		}
 	}
 }
