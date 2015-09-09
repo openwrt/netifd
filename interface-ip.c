@@ -133,23 +133,6 @@ static int set_ip_source_policy(bool add, bool v6, unsigned int priority,
 	return (add) ? system_add_iprule(&rule) : system_del_iprule(&rule);
 }
 
-static int set_ip_lo_policy(bool add, bool v6, struct interface *iface)
-{
-	struct iprule rule = {
-		.flags = IPRULE_IN | IPRULE_LOOKUP | IPRULE_PRIORITY,
-		.priority = IPRULE_PRIORITY_NW + iface->l3_dev.dev->ifindex,
-		.lookup = (v6) ? iface->ip6table : iface->ip4table,
-		.in_dev = "lo"
-	};
-
-	if (!rule.lookup)
-		return 0;
-
-	rule.flags |= (v6) ? IPRULE_INET6 : IPRULE_INET4;
-
-	return (add) ? system_add_iprule(&rule) : system_del_iprule(&rule);
-}
-
 static bool
 __find_ip_addr_target(struct interface_ip_settings *ip, union if_addr *a, bool v6)
 {
@@ -1258,13 +1241,9 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			if (!strcmp(a->name, ip->iface->name))
 				interface_set_prefix_address(a, c, ip->iface, enabled);
 
-	if (ip->iface && ip->iface->l3_dev.dev) {
-		set_ip_lo_policy(enabled, true, ip->iface);
-		set_ip_lo_policy(enabled, false, ip->iface);
-
+	if (ip->iface && ip->iface->l3_dev.dev)
 		set_ip_source_policy(enabled, true, IPRULE_PRIORITY_REJECT + ip->iface->l3_dev.dev->ifindex,
 			NULL, 0, 0, ip->iface, "failed_policy");
-	}
 }
 
 void
