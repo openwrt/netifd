@@ -513,8 +513,10 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			if (table) {
 				set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &a_old->addr,
 						(v6) ? 128 : 32, table, NULL, NULL);
-				set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
-						a_old->mask, table, NULL, NULL);
+
+				if (a_old->mask != ((v6) ? 128 : 32))
+					set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
+							a_old->mask, table, NULL, NULL);
 			}
 
 			if (!(a_old->flags & DEVADDR_EXTERNAL)) {
@@ -546,8 +548,10 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				if (table) {
 					set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
 							(v6) ? 128 : 32, table, NULL, NULL);
-					set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
-							a_new->mask, table, NULL, NULL);
+
+					if (a_new->mask != ((v6) ? 128 : 32))
+						set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
+								a_new->mask, table, NULL, NULL);
 				}
 			}
 		}
