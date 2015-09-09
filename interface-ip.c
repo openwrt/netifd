@@ -1234,6 +1234,15 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			if (!(route->flags & DEVROUTE_METRIC))
 				route->metric = ip->iface->metric;
 
+			if (!(route->flags & DEVROUTE_TABLE)) {
+				route->flags &= ~DEVROUTE_SRCTABLE;
+				route->table = ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET6) ?
+							iface->ip6table : iface->ip4table;
+
+				if (route->table)
+					route->flags |= DEVROUTE_SRCTABLE;
+			}
+
 			if (system_add_route(dev, route))
 				route->failed = true;
 		} else
