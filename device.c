@@ -74,15 +74,14 @@ void device_unlock(void)
 static int set_device_state(struct device *dev, bool state)
 {
 	if (state) {
-		/* Set ifindex for all devices being enabled so a valid  */
+		/* Get ifindex for all devices being enabled so a valid  */
 		/* ifindex is in place avoiding possible race conditions */
 		device_set_ifindex(dev, system_if_resolve(dev));
 		if (!dev->ifindex)
 			return -1;
-	}
 
-	if (state)
 		system_if_up(dev);
+	}
 	else
 		system_if_down(dev);
 
@@ -332,7 +331,13 @@ int device_claim(struct device_user *dep)
 		return 0;
 
 	device_broadcast_event(dev, DEV_EVENT_SETUP);
-	if (!dev->external)
+	if (dev->external) {
+		/* Get ifindex for external claimed devices so a valid   */
+		/* ifindex is in place avoiding possible race conditions */
+		device_set_ifindex(dev, system_if_resolve(dev));
+		if (!dev->ifindex)
+			ret = -1;
+	} else
 		ret = dev->set_state(dev, true);
 
 	if (ret == 0)
