@@ -182,6 +182,7 @@ struct device {
 	bool iface_config;
 	bool default_config;
 	bool wireless;
+	bool wireless_ap;
 	bool wireless_isolate;
 
 	struct interface *config_iface;

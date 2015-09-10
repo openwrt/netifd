@@ -576,7 +576,7 @@ static char *system_get_bridge(const char *name, char *buf, int buflen)
 static void
 system_bridge_set_wireless(struct device *bridge, struct device *dev)
 {
-	bool mcast_to_ucast = true;
+	bool mcast_to_ucast = dev->wireless_ap;
 	bool hairpin = true;
 
 	if (bridge->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST &&

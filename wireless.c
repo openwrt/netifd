@@ -36,6 +36,7 @@ enum {
 	VIF_ATTR_DISABLED,
 	VIF_ATTR_NETWORK,
 	VIF_ATTR_ISOLATE,
+	VIF_ATTR_MODE,
 	__VIF_ATTR_MAX,
 };
 
@@ -43,6 +44,7 @@ static const struct blobmsg_policy vif_policy[__VIF_ATTR_MAX] = {
 	[VIF_ATTR_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 	[VIF_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_ARRAY },
 	[VIF_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
+	[VIF_ATTR_MODE] = { .name = "mode", .type = BLOBMSG_TYPE_STRING },
 };
 
 static const struct uci_blob_param_list vif_param = {
@@ -213,6 +215,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, bool 
 		if (dev) {
 			dev->wireless_isolate = vif->isolate;
 			dev->wireless = true;
+			dev->wireless_ap = vif->ap_mode;
 		}
 	}
 
@@ -582,6 +585,8 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		D(WIRELESS, "Update wireless interface %s on device %s\n", vif_new->name, wdev->name);
 		free(vif_old->config);
 		vif_old->config = blob_memdup(vif_new->config);
+		vif_old->isolate = vif_new->isolate;
+		vif_old->ap_mode = vif_new->ap_mode;
 		wireless_interface_init_config(vif_old);
 		free(vif_new);
 	} else if (vif_new) {
@@ -713,6 +718,10 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 	cur = tb[VIF_ATTR_ISOLATE];
 	if (cur && blobmsg_get_bool(cur))
 		vif->isolate = blobmsg_get_bool(cur);
+
+	cur = tb[VIF_ATTR_MODE];
+	if (cur && !strcmp(blobmsg_get_string(cur), "ap"))
+		vif->ap_mode = true;
 
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 }
