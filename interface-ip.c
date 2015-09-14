@@ -473,11 +473,17 @@ interface_update_proto_addr(struct vlist_tree *tree,
 		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET4 &&
 		    !a_new->broadcast) {
 
-			uint32_t mask = ~0;
-			uint32_t *a = (uint32_t *) &a_new->addr;
+			/* /31 and /32 addressing need 255.255.255.255
+			 * as broadcast address. */
+			if (a_new->mask >= 31) {
+				a_new->broadcast = (uint32_t) ~0;
+			} else {
+				uint32_t mask = ~0;
+				uint32_t *a = (uint32_t *) &a_new->addr;
 
-			mask >>= a_new->mask;
-			a_new->broadcast = *a | htonl(mask);
+				mask >>= a_new->mask;
+				a_new->broadcast = *a | htonl(mask);
+			}
 		}
 	}
 
