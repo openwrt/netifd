@@ -559,6 +559,14 @@ wireless_interface_init_config(struct wireless_interface *vif)
 
 	if ((cur = tb[VIF_ATTR_NETWORK]))
 		vif->network = cur;
+
+	cur = tb[VIF_ATTR_ISOLATE];
+	if (cur)
+		vif->isolate = blobmsg_get_bool(cur);
+
+	cur = tb[VIF_ATTR_MODE];
+	if (cur)
+		vif->ap_mode = !strcmp(blobmsg_get_string(cur), "ap");
 }
 
 static void
@@ -714,14 +722,6 @@ void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *d
 	vif->config = data;
 	vif->section = section;
 	vif->isolate = false;
-
-	cur = tb[VIF_ATTR_ISOLATE];
-	if (cur && blobmsg_get_bool(cur))
-		vif->isolate = blobmsg_get_bool(cur);
-
-	cur = tb[VIF_ATTR_MODE];
-	if (cur && !strcmp(blobmsg_get_string(cur), "ap"))
-		vif->ap_mode = true;
 
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 }
