@@ -254,10 +254,8 @@ _wireless_set_brsnoop_isolation() {
 
 	json_get_var isolate isolate
 
-	[ $isolate -gt 0 -o -z "$network_bridge" ] && return
-
-	[ -z "$multicast_to_unicast" ] && multicast_to_unicast=1
-	[ $multicast_to_unicast -gt 0 ] && json_add_boolean isolate 1
+	[ ${isolate:-0} -gt 0 -o -z "$network_bridge" ] && return
+	[ ${multicast_to_unicast:-1} -gt 0 ] && json_add_boolean isolate 1
 }
 
 for_each_interface() {
