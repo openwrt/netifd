@@ -531,14 +531,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			//has two connections to a network using the same subnet, adding
 			//only the network-rule will cause packets to be routed through the
 			//first matching network (source IP matches both masks).
-			if (a_old->policy_table) {
+			if (a_old->policy_table)
 				set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &a_old->addr,
 						(v6) ? 128 : 32, a_old->policy_table, NULL, NULL);
-
-				if (a_old->mask != ((v6) ? 128 : 32))
-					set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
-							a_old->mask, a_old->policy_table, NULL, NULL);
-			}
 
 			if (!(a_old->flags & DEVADDR_EXTERNAL)) {
 				interface_handle_subnet_route(iface, a_old, false);
@@ -567,14 +562,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			}
 
 			if (!keep) {
-				if (a_new->policy_table) {
+				if (a_new->policy_table)
 					set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
 							(v6) ? 128 : 32, a_new->policy_table, NULL, NULL);
-
-					if (a_new->mask != ((v6) ? 128 : 32))
-						set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
-								a_new->mask, a_new->policy_table, NULL, NULL);
-				}
 			}
 		}
 	}
@@ -1240,26 +1230,16 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 				interface_handle_subnet_route(iface, addr, true);
 
 			addr->policy_table = (v6) ? iface->ip6table : iface->ip4table;
-			if (addr->policy_table) {
+			if (addr->policy_table)
 				set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &addr->addr,
 						(v6) ? 128 : 32, addr->policy_table, NULL, NULL);
-
-					if (addr->mask != ((v6) ? 128 : 32))
-						set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &addr->addr,
-								addr->mask, addr->policy_table, NULL, NULL);
-			}
 		} else {
 			interface_handle_subnet_route(iface, addr, false);
 			system_del_address(dev, addr);
 
-			if (addr->policy_table) {
+			if (addr->policy_table)
 				set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &addr->addr,
 						(v6) ? 128 : 32, addr->policy_table, NULL, NULL);
-
-				if (addr->mask != ((v6) ? 128 : 32))
-					set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &addr->addr,
-							addr->mask, addr->policy_table, NULL, NULL);
-			}
 		}
 		addr->enabled = enabled;
 	}
