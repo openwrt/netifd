@@ -18,7 +18,7 @@
 #include "interface-ip.h"
 
 #define IPRULE_PRIORITY_ADDR 10000
-#define IPRULE_PRIORITY_NW 20000
+#define IPRULE_PRIORITY_NW 90000
 #define IPRULE_PRIORITY_REJECT 4200000000
 
 enum iprule_flags {
