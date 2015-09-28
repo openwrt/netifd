@@ -510,19 +510,17 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			if ((a_old->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
 				v6 = true;
 
-			unsigned int table = (v6) ? iface->ip6table : iface->ip4table;
-
 			//This is needed for source routing to work correctly. If a device
 			//has two connections to a network using the same subnet, adding
 			//only the network-rule will cause packets to be routed through the
 			//first matching network (source IP matches both masks).
-			if (table) {
+			if (a_old->policy_table) {
 				set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &a_old->addr,
-						(v6) ? 128 : 32, table, NULL, NULL);
+						(v6) ? 128 : 32, a_old->policy_table, NULL, NULL);
 
 				if (a_old->mask != ((v6) ? 128 : 32))
 					set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &a_old->addr,
-							a_old->mask, table, NULL, NULL);
+							a_old->mask, a_old->policy_table, NULL, NULL);
 			}
 
 			if (!(a_old->flags & DEVADDR_EXTERNAL)) {
@@ -536,6 +534,12 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 	if (node_new) {
 		a_new->enabled = true;
+
+		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+				v6 = true;
+
+		a_new->policy_table = (v6) ? iface->ip6table : iface->ip4table;
+
 		if (!keep || replace) {
 			if (!(a_new->flags & DEVADDR_EXTERNAL)) {
 				if (system_add_address(dev, a_new))
@@ -546,18 +550,13 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			}
 
 			if (!keep) {
-				if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
-					v6 = true;
-
-				unsigned int table = (v6) ? iface->ip6table : iface->ip4table;
-
-				if (table) {
+				if (a_new->policy_table) {
 					set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &a_new->addr,
-							(v6) ? 128 : 32, table, NULL, NULL);
+							(v6) ? 128 : 32, a_new->policy_table, NULL, NULL);
 
 					if (a_new->mask != ((v6) ? 128 : 32))
 						set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &a_new->addr,
-								a_new->mask, table, NULL, NULL);
+								a_new->mask, a_new->policy_table, NULL, NULL);
 				}
 			}
 		}
@@ -1213,6 +1212,8 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		return;
 
 	vlist_for_each_element(&ip->addr, addr, node) {
+		bool v6 = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6) ? true : false;
+
 		if (addr->enabled == enabled)
 			continue;
 
@@ -1220,9 +1221,28 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			system_add_address(dev, addr);
 			if (iface->metric)
 				interface_handle_subnet_route(iface, addr, true);
+
+			addr->policy_table = (v6) ? iface->ip6table : iface->ip4table;
+			if (addr->policy_table) {
+				set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &addr->addr,
+						(v6) ? 128 : 32, addr->policy_table, NULL, NULL);
+
+					if (addr->mask != ((v6) ? 128 : 32))
+						set_ip_source_policy(true, v6, IPRULE_PRIORITY_NW, &addr->addr,
+								addr->mask, addr->policy_table, NULL, NULL);
+			}
 		} else {
 			interface_handle_subnet_route(iface, addr, false);
 			system_del_address(dev, addr);
+
+			if (addr->policy_table) {
+				set_ip_source_policy(false, v6, IPRULE_PRIORITY_ADDR, &addr->addr,
+						(v6) ? 128 : 32, addr->policy_table, NULL, NULL);
+
+				if (addr->mask != ((v6) ? 128 : 32))
+					set_ip_source_policy(false, v6, IPRULE_PRIORITY_NW, &addr->addr,
+							addr->mask, addr->policy_table, NULL, NULL);
+			}
 		}
 		addr->enabled = enabled;
 	}

@@ -85,6 +85,7 @@ struct device_addr {
 	struct vlist_node node;
 	bool enabled;
 	bool failed;
+	unsigned int policy_table;
 
 	/* ipv4 only */
 	uint32_t broadcast;
