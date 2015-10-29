@@ -1295,9 +1295,12 @@ int system_if_check(struct device *dev)
 	int ret = 1;
 
 	msg = nlmsg_alloc_simple(RTM_GETLINK, 0);
-	if (!msg || nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
-	    nla_put_string(msg, IFLA_IFNAME, dev->ifname))
+	if (!msg)
 		goto out;
+
+	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
+	    nla_put_string(msg, IFLA_IFNAME, dev->ifname))
+		goto free;
 
 	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_if_check_valid, &chk);
 	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_if_check_ack, &chk);
@@ -1307,9 +1310,10 @@ int system_if_check(struct device *dev)
 	while (chk.pending > 0)
 		nl_recvmsgs(sock_rtnl, cb);
 
-	nlmsg_free(msg);
 	ret = chk.pending;
 
+free:
+	nlmsg_free(msg);
 out:
 	nl_cb_put(cb);
 	return ret;
