@@ -1532,8 +1532,10 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 
 		if (addr->valid_until) {
 			int64_t valid = addr->valid_until - now;
-			if (valid <= 0)
+			if (valid <= 0) {
+				nlmsg_free(msg);
 				return -1;
+			}
 			else if (valid > UINT32_MAX)
 				valid = UINT32_MAX;
 
