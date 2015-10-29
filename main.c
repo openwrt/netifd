@@ -173,9 +173,6 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 		exit(127);
 	}
 
-	if (pid < 0)
-		goto error;
-
 	close(pfds[1]);
 	proc->uloop.cb = netifd_process_cb;
 	proc->uloop.pid = pid;
