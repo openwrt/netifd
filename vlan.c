@@ -79,11 +79,6 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 	case DEV_EVENT_REMOVE:
 		device_set_present(&vldev->dev, new_state);
 		break;
-	case DEV_EVENT_LINK_UP:
-		new_state = true;
-	case DEV_EVENT_LINK_DOWN:
-		device_set_link(&vldev->dev, new_state);
-		break;
 	case DEV_EVENT_UPDATE_IFNAME:
 		vlan_dev_set_name(vldev, dep->dev);
 		device_broadcast_event(&vldev->dev, ev);
@@ -102,7 +97,6 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	static const struct device_type vlan_type = {
 		.name = "VLAN",
 		.config_params = &device_attr_list,
-		.keep_link_status = true,
 		.free = free_vlan_if,
 	};
 	struct vlan_device *vldev;

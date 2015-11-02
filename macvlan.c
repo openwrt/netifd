@@ -72,12 +72,6 @@ macvlan_base_cb(struct device_user *dev, enum device_event ev)
 	case DEV_EVENT_REMOVE:
 		device_set_present(&mvdev->dev, false);
 		break;
-	case DEV_EVENT_LINK_UP:
-		device_set_link(&mvdev->dev, true);
-		break;
-	case DEV_EVENT_LINK_DOWN:
-		device_set_link(&mvdev->dev, false);
-		break;
 	default:
 		return;
 	}
@@ -261,8 +255,6 @@ macvlan_create(const char *name, struct blob_attr *attr)
 const struct device_type macvlan_device_type = {
 	.name = "MAC VLAN",
 	.config_params = &macvlan_attr_list,
-	.keep_link_status = true,
-
 	.create = macvlan_create,
 	.config_init = macvlan_config_init,
 	.reload = macvlan_reload,

@@ -424,7 +424,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 		goto out;
 
 	struct device *dev = device_get(nla_data(nla[IFLA_IFNAME]), false);
-	if (!dev || dev->type->keep_link_status)
+	if (!dev)
 		goto out;
 
 	if (!system_get_dev_sysctl("/sys/class/net/%s/carrier", dev->ifname, buf, sizeof(buf)))

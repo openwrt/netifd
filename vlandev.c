@@ -63,12 +63,6 @@ vlandev_base_cb(struct device_user *dev, enum device_event ev)
 	case DEV_EVENT_REMOVE:
 		device_set_present(&mvdev->dev, false);
 		break;
-	case DEV_EVENT_LINK_UP:
-		device_set_link(&mvdev->dev, true);
-		break;
-	case DEV_EVENT_LINK_DOWN:
-		device_set_link(&mvdev->dev, false);
-		break;
 	default:
 		return;
 	}
@@ -249,8 +243,6 @@ vlandev_create(const char *name, struct blob_attr *attr)
 const struct device_type vlandev_device_type = {
 	.name = "VLANDEV",
 	.config_params = &vlandev_attr_list,
-	.keep_link_status = true,
-
 	.create = vlandev_create,
 	.config_init = vlandev_config_init,
 	.reload = vlandev_reload,
