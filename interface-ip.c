@@ -441,6 +441,7 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 {
 	struct device *dev = iface->l3_dev.dev;
 	struct device_route route;
+	bool v6 = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6);
 
 	if (addr->flags & DEVADDR_OFFLINK)
 		return;
@@ -458,6 +459,9 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 
 		route.flags &= ~DEVADDR_KERNEL;
 		route.metric = iface->metric;
+		route.table = (v6) ? iface->ip6table : iface->ip4table;
+		if (route.table)
+			route.flags |= DEVROUTE_SRCTABLE;
 		system_add_route(dev, &route);
 	} else {
 		system_del_route(dev, &route);
@@ -557,7 +561,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				if (system_add_address(dev, a_new))
 					a_new->failed = true;
 
-				if (iface->metric)
+				if (iface->metric || a_new->policy_table)
 					interface_handle_subnet_route(iface, a_new, true);
 			}
 
