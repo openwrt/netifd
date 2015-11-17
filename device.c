@@ -337,6 +337,8 @@ int device_claim(struct device_user *dep)
 		device_set_ifindex(dev, system_if_resolve(dev));
 		if (!dev->ifindex)
 			ret = -1;
+
+		system_if_get_settings(dev, &dev->orig_settings);
 	} else
 		ret = dev->set_state(dev, true);
 

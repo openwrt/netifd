@@ -83,6 +83,10 @@ int system_if_down(struct device *dev)
 	return 0;
 }
 
+void system_if_get_settings(struct device *dev, struct device_settings *s)
+{
+}
+
 void system_if_clear_state(struct device *dev)
 {
 }

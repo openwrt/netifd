@@ -1053,7 +1053,7 @@ int system_vlandev_del(struct device *vlandev)
 	return system_link_del(vlandev->ifname);
 }
 
-static void
+void
 system_if_get_settings(struct device *dev, struct device_settings *s)
 {
 	struct ifreq ifr;
