@@ -174,7 +174,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->dadtransmits : os->dadtransmits;
 	n->multicast_to_unicast = s->multicast_to_unicast;
 	n->multicast_router = s->multicast_router;
-	n->flags = s->flags | os->flags;
+	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
 void

@@ -128,6 +128,7 @@ struct device_user {
 
 struct device_settings {
 	unsigned int flags;
+	unsigned int valid_flags;
 	unsigned int mtu;
 	unsigned int mtu6;
 	unsigned int txqueuelen;
