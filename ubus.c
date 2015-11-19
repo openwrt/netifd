@@ -649,6 +649,7 @@ netifd_dump_status(struct interface *iface)
 	blobmsg_add_u8(&b, "pending", iface->state == IFS_SETUP);
 	blobmsg_add_u8(&b, "available", iface->available);
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
+	blobmsg_add_u8(&b, "dynamic", iface->dynamic);
 
 	if (iface->state == IFS_UP) {
 		time_t cur = system_get_rtime();
