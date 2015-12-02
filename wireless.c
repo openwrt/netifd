@@ -591,6 +591,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		}
 
 		D(WIRELESS, "Update wireless interface %s on device %s\n", vif_new->name, wdev->name);
+		wireless_interface_handle_link(vif_old, false);
 		free(vif_old->config);
 		vif_old->config = blob_memdup(vif_new->config);
 		vif_old->isolate = vif_new->isolate;
