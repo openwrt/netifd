@@ -81,27 +81,6 @@ struct device_prefix {
 	char pclass[];
 };
 
-struct device_addr {
-	struct vlist_node node;
-	bool enabled;
-	bool failed;
-	unsigned int policy_table;
-
-	/* ipv4 only */
-	uint32_t broadcast;
-	uint32_t point_to_point;
-
-	/* ipv6 only */
-	time_t valid_until;
-	time_t preferred_until;
-	char *pclass;
-
-	/* must be last */
-	enum device_addr_flags flags;
-	unsigned int mask;
-	union if_addr addr;
-};
-
 struct device_route {
 	struct vlist_node node;
 	struct interface *iface;
@@ -123,6 +102,27 @@ struct device_route {
 	unsigned int sourcemask;
 	union if_addr addr;
 	union if_addr source;
+};
+
+struct device_addr {
+	struct vlist_node node;
+	bool enabled;
+	bool failed;
+	unsigned int policy_table;
+
+	/* ipv4 only */
+	uint32_t broadcast;
+	uint32_t point_to_point;
+
+	/* ipv6 only */
+	time_t valid_until;
+	time_t preferred_until;
+	char *pclass;
+
+	/* must be last */
+	enum device_addr_flags flags;
+	unsigned int mask;
+	union if_addr addr;
 };
 
 struct device_source_table {
