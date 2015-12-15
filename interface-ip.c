@@ -440,32 +440,37 @@ static void
 interface_handle_subnet_route(struct interface *iface, struct device_addr *addr, bool add)
 {
 	struct device *dev = iface->l3_dev.dev;
-	struct device_route route;
 	bool v6 = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6);
+	struct device_route *r = &addr->subnet;
 
 	if (addr->flags & DEVADDR_OFFLINK)
 		return;
 
-	memset(&route, 0, sizeof(route));
-	route.iface = iface;
-	route.flags = addr->flags;
-	route.mask = addr->mask;
-	memcpy(&route.addr, &addr->addr, sizeof(route.addr));
-	clear_if_addr(&route.addr, route.mask);
+	if (!add) {
+		if (!addr->subnet.iface)
+			return;
 
-	if (add) {
-		route.flags |= DEVADDR_KERNEL;
-		system_del_route(dev, &route);
-
-		route.flags &= ~DEVADDR_KERNEL;
-		route.metric = iface->metric;
-		route.table = (v6) ? iface->ip6table : iface->ip4table;
-		if (route.table)
-			route.flags |= DEVROUTE_SRCTABLE;
-		system_add_route(dev, &route);
-	} else {
-		system_del_route(dev, &route);
+		system_del_route(dev, r);
+		memset(r, 0, sizeof(*r));
+		return;
 	}
+
+	r->iface = iface;
+	r->flags = addr->flags;
+	r->mask = addr->mask;
+	memcpy(&r->addr, &addr->addr, sizeof(r->addr));
+	clear_if_addr(&r->addr, r->mask);
+
+	r->flags |= DEVADDR_KERNEL;
+	system_del_route(dev, r);
+
+	r->flags &= ~DEVADDR_KERNEL;
+	r->metric = iface->metric;
+	r->table = (v6) ? iface->ip6table : iface->ip4table;
+	if (r->table)
+		r->flags |= DEVROUTE_SRCTABLE;
+
+	system_add_route(dev, r);
 }
 
 static void
@@ -1230,10 +1235,11 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 
 		if (enabled) {
 			system_add_address(dev, addr);
-			if (iface->metric)
-				interface_handle_subnet_route(iface, addr, true);
 
 			addr->policy_table = (v6) ? iface->ip6table : iface->ip4table;
+			if (iface->metric || addr->policy_table)
+				interface_handle_subnet_route(iface, addr, true);
+
 			if (addr->policy_table)
 				set_ip_source_policy(true, v6, IPRULE_PRIORITY_ADDR, &addr->addr,
 						(v6) ? 128 : 32, addr->policy_table, NULL, NULL);

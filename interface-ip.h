@@ -110,6 +110,8 @@ struct device_addr {
 	bool failed;
 	unsigned int policy_table;
 
+	struct device_route subnet;
+
 	/* ipv4 only */
 	uint32_t broadcast;
 	uint32_t point_to_point;
