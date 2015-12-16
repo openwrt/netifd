@@ -274,6 +274,24 @@ done:
 	return iface;
 }
 
+static void
+interface_set_route_info(struct interface *iface, struct device_route *route)
+{
+	bool v6 = ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET6);
+
+	if (!iface)
+		return;
+
+	if (!(route->flags & DEVROUTE_METRIC))
+		route->metric = iface->metric;
+
+	if (!(route->flags & DEVROUTE_TABLE)) {
+		route->table = (v6) ? iface->ip6table : iface->ip4table;
+		if (route->table)
+			route->flags |= DEVROUTE_SRCTABLE;
+	}
+}
+
 void
 interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 {
@@ -281,7 +299,6 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	struct blob_attr *tb[__ROUTE_MAX], *cur;
 	struct device_route *route;
 	int af = v6 ? AF_INET6 : AF_INET;
-	bool is_proto_route = !!iface;
 
 	blobmsg_parse(route_attr, __ROUTE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
 
@@ -327,8 +344,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_METRIC]) != NULL) {
 		route->metric = blobmsg_get_u32(cur);
 		route->flags |= DEVROUTE_METRIC;
-	} else
-		route->metric = iface->metric;
+	}
 
 	if ((cur = tb[ROUTE_MTU]) != NULL) {
 		route->mtu = blobmsg_get_u32(cur);
@@ -353,11 +369,6 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_ONLINK]) != NULL && blobmsg_get_bool(cur))
 		route->flags |= DEVROUTE_ONLINK;
-
-	if (is_proto_route) {
-		route->table = (v6) ? iface->ip6table : iface->ip4table;
-		route->flags |= DEVROUTE_SRCTABLE;
-	}
 
 	if ((cur = tb[ROUTE_TABLE]) != NULL) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &route->table)) {
@@ -388,6 +399,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		route->flags |= DEVROUTE_TYPE;
 	}
 
+	interface_set_route_info(iface, route);
 	vlist_add(&ip->route, &route->node, route);
 	return;
 
@@ -440,7 +452,6 @@ static void
 interface_handle_subnet_route(struct interface *iface, struct device_addr *addr, bool add)
 {
 	struct device *dev = iface->l3_dev.dev;
-	bool v6 = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6);
 	struct device_route *r = &addr->subnet;
 
 	if (addr->flags & DEVADDR_OFFLINK)
@@ -465,10 +476,7 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 	system_del_route(dev, r);
 
 	r->flags &= ~DEVADDR_KERNEL;
-	r->metric = iface->metric;
-	r->table = (v6) ? iface->ip6table : iface->ip4table;
-	if (r->table)
-		r->flags |= DEVROUTE_SRCTABLE;
+	interface_set_route_info(iface, r);
 
 	system_add_route(dev, r);
 }
@@ -743,6 +751,7 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	route.mask = addr.mask < 64 ? 64 : addr.mask;
 	route.addr = addr.addr;
 	clear_if_addr(&route.addr, route.mask);
+	interface_set_route_info(iface, &route);
 
 	if (!add && assignment->enabled) {
 		time_t now = system_get_rtime();
@@ -1264,17 +1273,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			continue;
 
 		if (_enabled) {
-			if (!(route->flags & DEVROUTE_METRIC))
-				route->metric = ip->iface->metric;
-
-			if (!(route->flags & DEVROUTE_TABLE)) {
-				route->flags &= ~DEVROUTE_SRCTABLE;
-				route->table = ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET6) ?
-							iface->ip6table : iface->ip4table;
-
-				if (route->table)
-					route->flags |= DEVROUTE_SRCTABLE;
-			}
+			interface_set_route_info(ip->iface, route);
 
 			if (system_add_route(dev, route))
 				route->failed = true;
