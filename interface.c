@@ -240,6 +240,7 @@ mark_interface_down(struct interface *iface)
 	if (state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
 	interface_ip_set_enabled(&iface->config_ip, false);
+	interface_ip_set_enabled(&iface->proto_ip, false);
 	interface_ip_flush(&iface->proto_ip);
 	interface_flush_state(iface);
 	system_flush_routes();
@@ -664,6 +665,7 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 			interface_set_l3_dev(iface, iface->main_dev.dev);
 
 		interface_ip_set_enabled(&iface->config_ip, true);
+		interface_ip_set_enabled(&iface->proto_ip, true);
 		system_flush_routes();
 		iface->state = IFS_UP;
 		iface->start_time = system_get_rtime();
@@ -873,6 +875,7 @@ interface_set_l3_dev(struct interface *iface, struct device *dev)
 		return;
 
 	interface_ip_set_enabled(&iface->config_ip, false);
+	interface_ip_set_enabled(&iface->proto_ip, false);
 	interface_ip_flush(&iface->proto_ip);
 	device_add_user(&iface->l3_dev, dev);
 
@@ -882,6 +885,7 @@ interface_set_l3_dev(struct interface *iface, struct device *dev)
 				return;
 		}
 		interface_ip_set_enabled(&iface->config_ip, enabled);
+		interface_ip_set_enabled(&iface->proto_ip, enabled);
 	}
 }
 
