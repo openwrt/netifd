@@ -75,6 +75,8 @@ const struct uci_blob_param_list interface_attr_list = {
 
 static void
 set_config_state(struct interface *iface, enum interface_config_state s);
+static void
+interface_event(struct interface *iface, enum interface_event ev);
 
 static void
 interface_error_flush(struct interface *iface)
@@ -192,6 +194,25 @@ interface_add_data(struct interface *iface, const struct blob_attr *data)
 	avl_insert(&iface->data, &n->node);
 
 	iface->updated |= IUF_DATA;
+	return 0;
+}
+
+int interface_parse_data(struct interface *iface, const struct blob_attr *attr)
+{
+	struct blob_attr *cur;
+	int rem, ret;
+
+	iface->updated = 0;
+
+	blob_for_each_attr(cur, attr, rem) {
+		ret = interface_add_data(iface, cur);
+		if (ret)
+			return ret;
+	}
+
+	if (iface->updated && iface->state == IFS_UP)
+		interface_event(iface, IFEV_UPDATE);
+
 	return 0;
 }
 

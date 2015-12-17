@@ -891,18 +891,10 @@ netifd_handle_set_data(struct ubus_context *ctx, struct ubus_object *obj,
 		       struct blob_attr *msg)
 {
 	struct interface *iface;
-	struct blob_attr *cur;
-	int rem, ret;
 
 	iface = container_of(obj, struct interface, ubus);
 
-	blob_for_each_attr(cur, msg, rem) {
-		ret = interface_add_data(iface, cur);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
+	return interface_parse_data(iface, msg);
 }
 
 static struct ubus_method iface_object_methods[] = {
