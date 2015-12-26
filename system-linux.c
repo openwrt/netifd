@@ -2133,6 +2133,103 @@ failure:
 }
 #endif
 
+#ifdef IFLA_VTI_MAX
+static int system_add_vti_tunnel(const char *name, const char *kind,
+				 const unsigned int link, struct blob_attr **tb, bool v6)
+{
+	struct nl_msg *nlm;
+	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
+	struct blob_attr *cur;
+	uint32_t ikey = 0, okey = 0;
+	int ret = 0;
+
+	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
+	if (!nlm)
+		return -1;
+
+	nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
+	nla_put_string(nlm, IFLA_IFNAME, name);
+
+	struct nlattr *linkinfo = nla_nest_start(nlm, IFLA_LINKINFO);
+	if (!linkinfo) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	nla_put_string(nlm, IFLA_INFO_KIND, kind);
+	struct nlattr *infodata = nla_nest_start(nlm, IFLA_INFO_DATA);
+	if (!infodata) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	if (link)
+		nla_put_u32(nlm, IFLA_VTI_LINK, link);
+
+	if ((cur = tb[TUNNEL_ATTR_INFO]) && (blobmsg_type(cur) == BLOBMSG_TYPE_STRING)) {
+		if (sscanf(blobmsg_get_string(cur), "%u,%u",
+			&ikey, &okey) < 2) {
+			ret = -EINVAL;
+			goto failure;
+		}
+	}
+
+	if (v6) {
+		struct in6_addr in6buf;
+		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_VTI_LOCAL, sizeof(in6buf), &in6buf);
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_VTI_REMOTE, sizeof(in6buf), &in6buf);
+		}
+
+	} else {
+		struct in_addr inbuf;
+
+		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
+			if (inet_pton(AF_INET, blobmsg_data(cur), &inbuf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_VTI_LOCAL, sizeof(inbuf), &inbuf);
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
+			if (inet_pton(AF_INET, blobmsg_data(cur), &inbuf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(nlm, IFLA_VTI_REMOTE, sizeof(inbuf), &inbuf);
+		}
+
+	}
+
+	if (okey)
+		nla_put_u32(nlm, IFLA_VTI_OKEY, okey);
+
+	if (ikey)
+		nla_put_u32(nlm, IFLA_VTI_IKEY, ikey);
+
+	nla_nest_end(nlm, infodata);
+	nla_nest_end(nlm, linkinfo);
+
+	return system_rtnl_call(nlm);
+
+failure:
+	nlmsg_free(nlm);
+	return ret;
+}
+#endif
+
 static int system_add_proto_tunnel(const char *name, const uint8_t proto, const unsigned int link, struct blob_attr **tb)
 {
 	struct blob_attr *cur;
@@ -2201,7 +2298,8 @@ static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb)
 	str = blobmsg_data(cur);
 
 	if (!strcmp(str, "greip") || !strcmp(str, "gretapip") ||
-	    !strcmp(str, "greip6") || !strcmp(str, "gretapip6"))
+	    !strcmp(str, "greip6") || !strcmp(str, "gretapip6") ||
+	    !strcmp(str, "vtiip") || !strcmp(str, "vtiip6"))
 		return system_link_del(name);
 	else
 		return tunnel_ioctl(name, SIOCDELTUNNEL, NULL);
@@ -2415,6 +2513,12 @@ failure:
 		return system_add_gre_tunnel(name, "ip6gre", link, tb, true);
 	} else if (!strcmp(str, "gretapip6")) {
 		return system_add_gre_tunnel(name, "ip6gretap", link, tb, true);
+#ifdef IFLA_VTI_MAX
+	} else if (!strcmp(str, "vtiip")) {
+		return system_add_vti_tunnel(name, "vti", link, tb, false);
+	} else if (!strcmp(str, "vtiip6")) {
+		return system_add_vti_tunnel(name, "vti6", link, tb, true);
+#endif
 #endif
 	} else if (!strcmp(str, "ipip")) {
 		return system_add_proto_tunnel(name, IPPROTO_IPIP, link, tb);
