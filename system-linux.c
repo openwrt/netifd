@@ -1792,10 +1792,8 @@ static int system_iprule(struct iprule *rule, int cmd)
 		.rtm_flags = 0,
 	};
 
-	if (cmd == RTM_NEWRULE) {
+	if (cmd == RTM_NEWRULE)
 		rtm.rtm_type = RTN_UNICAST;
-		rtm.rtm_flags |= NLM_F_REPLACE | NLM_F_EXCL;
-	}
 
 	if (rule->invert)
 		rtm.rtm_flags |= FIB_RULE_INVERT;

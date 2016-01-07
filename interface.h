@@ -112,6 +112,7 @@ struct interface {
 	bool link_state;
 	bool force_link;
 	bool dynamic;
+	bool policy_rules_set;
 
 	time_t start_time;
 	enum interface_state state;

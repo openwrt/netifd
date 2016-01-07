@@ -1289,12 +1289,14 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			if (!strcmp(a->name, ip->iface->name))
 				interface_set_prefix_address(a, c, ip->iface, enabled);
 
-	if (ip->iface && ip->iface->l3_dev.dev) {
+	if (ip->iface && ip->iface->policy_rules_set != enabled &&
+	    ip->iface->l3_dev.dev) {
 		set_ip_lo_policy(enabled, true, ip->iface);
 		set_ip_lo_policy(enabled, false, ip->iface);
 
 		set_ip_source_policy(enabled, true, IPRULE_PRIORITY_REJECT + ip->iface->l3_dev.dev->ifindex,
 			NULL, 0, 0, ip->iface, "failed_policy");
+		ip->iface->policy_rules_set = enabled;
 	}
 }
 
