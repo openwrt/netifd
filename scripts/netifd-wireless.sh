@@ -195,15 +195,15 @@ wireless_vif_parse_encryption() {
 	auth_mode_open=1
 	auth_mode_shared=0
 	auth_type=none
-	wpa_pairwise=CCMP
+	wpa_cipher=CCMP
 	case "$encryption" in
-		*tkip+aes|*tkip+ccmp|*aes+tkip|*ccmp+tkip) wpa_pairwise="CCMP TKIP";;
-		*aes|*ccmp) wpa_pairwise="CCMP";;
-		*tkip) wpa_pairwise="TKIP";;
+		*tkip+aes|*tkip+ccmp|*aes+tkip|*ccmp+tkip) wpa_cipher="CCMP TKIP";;
+		*aes|*ccmp) wpa_cipher="CCMP";;
+		*tkip) wpa_cipher="TKIP";;
 	esac
 
 	# 802.11n requires CCMP for WPA
-	[ "$enable_ht:$wpa_pairwise" = "1:TKIP" ] && wpa_pairwise="CCMP TKIP"
+	[ "$enable_ht:$wpa_cipher" = "1:TKIP" ] && wpa_cipher="CCMP TKIP"
 
 	# Examples:
 	# psk-mixed/tkip    => WPA1+2 PSK, TKIP
@@ -222,9 +222,10 @@ wireless_vif_parse_encryption() {
 		;;
 		*)
 			wpa=0
-			wpa_pairwise=
+			wpa_cipher=
 		;;
 	esac
+	wpa_pairwise="$wpa_cipher"
 
 	case "$encryption" in
 		*psk*)
