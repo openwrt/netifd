@@ -130,6 +130,8 @@ static void alias_device_free(struct device *dev)
 	struct alias_device *alias;
 
 	alias = container_of(dev, struct alias_device, dev);
+	device_remove_user(&alias->new_dep);
+	device_remove_user(&alias->dep);
 	avl_delete(&aliases, &alias->avl);
 	free(alias);
 }
