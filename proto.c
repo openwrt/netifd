@@ -287,7 +287,7 @@ static bool
 parse_prefix_option(struct interface *iface, const char *str, size_t len)
 {
 	char buf[128] = {0}, *saveptr;
-	if (len > sizeof(buf))
+	if (len >= sizeof(buf))
 		return false;
 
 	memcpy(buf, str, len);
