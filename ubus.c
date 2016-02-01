@@ -969,6 +969,9 @@ static void netifd_add_iface_object(void)
 	int i;
 
 	methods = calloc(1, sizeof(iface_object_methods));
+	if (!methods)
+		return;
+
 	memcpy(methods, iface_object_methods, sizeof(iface_object_methods));
 	iface_object.methods = methods;
 
