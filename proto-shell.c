@@ -708,6 +708,8 @@ proto_shell_add_host_dependency(struct proto_shell_state *state, struct blob_att
 		return UBUS_STATUS_PERMISSION_DENIED;
 
 	dep = calloc(1, sizeof(*dep) + strlen(ifname) + 1);
+	if (!dep)
+		return UBUS_STATUS_UNKNOWN_ERROR;
 
 	if (!host[0] && ifname[0]) {
 		dep->any = true;
@@ -834,6 +836,9 @@ proto_shell_attach(const struct proto_handler *h, struct interface *iface,
 	struct proto_shell_state *state;
 
 	state = calloc(1, sizeof(*state));
+	if (!state)
+		return NULL;
+
 	INIT_LIST_HEAD(&state->deps);
 
 	state->config = malloc(blob_pad_len(attr));
