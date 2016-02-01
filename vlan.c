@@ -120,6 +120,8 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	D(DEVICE, "Create vlan device '%s.%d'\n", dev->ifname, id);
 
 	vldev = calloc(1, sizeof(*vldev));
+	if (!vldev)
+		return NULL;
 
 	vldev->id = id;
 	vlan_dev_set_name(vldev, dev);
