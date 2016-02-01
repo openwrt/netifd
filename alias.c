@@ -112,6 +112,9 @@ alias_device_create(const char *name, struct blob_attr *attr)
 	struct alias_device *alias;
 
 	alias = calloc(1, sizeof(*alias) + strlen(name) + 1);
+	if (!alias)
+		return NULL;
+
 	strcpy(alias->name, name);
 	alias->dev.set_state = alias_device_set_state;
 	alias->dev.hidden = true;
