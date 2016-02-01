@@ -333,6 +333,9 @@ int device_claim(struct device_user *dep)
 	if (dep->claimed)
 		return 0;
 
+	if (!dev)
+		return -1;
+
 	dep->claimed = true;
 	D(DEVICE, "Claim %s %s, new active count: %d\n", dev->type->name, dev->ifname, dev->active + 1);
 	if (++dev->active != 1)
@@ -721,12 +724,16 @@ device_apply_config(struct device *dev, const struct device_type *type,
 			free(dev->config);
 			dev->config = config;
 			if (change == DEV_CONFIG_RESTART && dev->present) {
+				int ret = 0;
+
 				device_set_present(dev, false);
 				if (dev->active && !dev->external) {
-					dev->set_state(dev, false);
-					dev->set_state(dev, true);
+					ret = dev->set_state(dev, false);
+					if (!ret)
+						ret = dev->set_state(dev, true);
 				}
-				device_set_present(dev, true);
+				if (!ret)
+					device_set_present(dev, true);
 			}
 			break;
 		case DEV_CONFIG_NO_CHANGE:
