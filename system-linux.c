@@ -1140,6 +1140,8 @@ system_if_set_rps_xps_val(const char *path, int val)
 	snprintf(val_buf, sizeof(val_buf), "%x", val);
 	for (i = 0; i < gl.gl_pathc; i++)
 		system_set_sysctl(gl.gl_pathv[i], val_buf);
+
+	globfree(&gl);
 }
 
 static void
