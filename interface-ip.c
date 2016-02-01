@@ -366,7 +366,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		const char *mask = strtok_r(NULL, "/", &saveptr);
 
 		if (!addr || inet_pton(af, addr, &route->source) < 1) {
-			DPRINTF("Failed to parse route source: %s\n", addr);
+			DPRINTF("Failed to parse route source: %s\n", addr ? addr : "NULL");
 			goto error;
 		}
 
@@ -857,6 +857,9 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 
 	// End-of-assignment sentinel
 	c = malloc(sizeof(*c) + 1);
+	if (!c)
+		return;
+
 	c->assigned = 1 << (64 - prefix->length);
 	c->length = 64;
 	c->name[0] = 0;
@@ -867,12 +870,14 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	if (prefix->excl_length > 0) {
 		const char name[] = "!excluded";
 		c = malloc(sizeof(*c) + sizeof(name));
-		c->assigned = ntohl(prefix->excl_addr.s6_addr32[1]) &
-				((1 << (64 - prefix->length)) - 1);
-		c->length = prefix->excl_length;
-		c->addr = in6addr_any;
-		memcpy(c->name, name, sizeof(name));
-		list_add(&c->head, &prefix->assignments);
+		if (c) {
+			c->assigned = ntohl(prefix->excl_addr.s6_addr32[1]) &
+					((1 << (64 - prefix->length)) - 1);
+			c->length = prefix->excl_length;
+			c->addr = in6addr_any;
+			memcpy(c->name, name, sizeof(name));
+			list_add(&c->head, &prefix->assignments);
+		}
 	}
 
 	bool assigned_any = false;
@@ -900,6 +905,9 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 
 		size_t namelen = strlen(iface->name) + 1;
 		c = malloc(sizeof(*c) + namelen);
+		if (!c)
+			continue;
+
 		c->length = iface->assignment_length;
 		c->assigned = iface->assignment_hint;
 		c->addr = in6addr_any;
@@ -1033,6 +1041,9 @@ interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 		pclass = (iface) ? iface->name : "local";
 
 	struct device_prefix *prefix = calloc(1, sizeof(*prefix) + strlen(pclass) + 1);
+	if (!prefix)
+		return NULL;
+
 	prefix->length = length;
 	prefix->addr = *addr;
 	prefix->preferred_until = preferred_until;
