@@ -101,6 +101,9 @@ alloc_device_addr(bool v6, bool ext)
 	struct device_addr *addr;
 
 	addr = calloc(1, sizeof(*addr));
+	if (!addr)
+		return NULL;
+
 	addr->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
 	if (ext)
 		addr->flags |= DEVADDR_EXTERNAL;
@@ -262,6 +265,9 @@ parse_gateway_option(struct interface *iface, struct blob_attr *attr, bool v6)
 	int af = v6 ? AF_INET6 : AF_INET;
 
 	route = calloc(1, sizeof(*route));
+	if (!route)
+		return NULL;
+
 	if (!inet_pton(af, str, &route->nexthop)) {
 		interface_add_error(iface, "proto", "INVALID_GATEWAY", &str, 1);
 		free(route);
@@ -514,6 +520,9 @@ default_proto_attach(const struct proto_handler *h,
 	struct interface_proto_state *proto;
 
 	proto = calloc(1, sizeof(*proto));
+	if (!proto)
+		return NULL;
+
 	proto->free = default_proto_free;
 	proto->cb = no_proto_handler;
 
