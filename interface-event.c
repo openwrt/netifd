@@ -30,7 +30,7 @@ static void task_complete(struct uloop_process *proc, int ret);
 static struct uloop_process task = {
 	.cb = task_complete,
 };
-static const char * const eventnames[] = {"ifdown", "ifup", "ifupdate"};
+static const char * const eventnames[] = {"ifdown", "ifup", "ifupdate", "free", "reload"};
 
 static void
 run_cmd(const char *ifname, const char *device, enum interface_event event,
