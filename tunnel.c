@@ -49,12 +49,11 @@ tunnel_reload(struct device *dev, struct blob_attr *attr)
 	if (uci_blob_check_equal(dev->config, attr, cfg))
 		return DEV_CONFIG_NO_CHANGE;
 
-	if (attr) {
-		memset(tb_dev, 0, sizeof(tb_dev));
+	memset(tb_dev, 0, sizeof(tb_dev));
 
+	if (attr)
 		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
 			blob_data(attr), blob_len(attr));
-	}
 
 	device_init_settings(dev, tb_dev);
 
