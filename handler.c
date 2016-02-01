@@ -128,10 +128,14 @@ void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 	int i, prev_fd;
 
 	prev_fd = netifd_dir_push(dir_fd);
-	glob("./*.sh", 0, NULL, &g);
+	if (glob("./*.sh", 0, NULL, &g))
+		return;
+
 	for (i = 0; i < g.gl_pathc; i++)
 		netifd_parse_script_handler(g.gl_pathv[i], cb);
 	netifd_dir_pop(prev_fd);
+
+	globfree(&g);
 }
 
 char *
