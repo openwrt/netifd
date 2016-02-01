@@ -189,6 +189,9 @@ interface_add_data(struct interface *iface, const struct blob_attr *data)
 	}
 
 	n = calloc(1, sizeof(*n) + len);
+	if (!n)
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
 	memcpy(n->data, data, len);
 	n->node.key = blobmsg_name(n->data);
 	avl_insert(&iface->data, &n->node);
