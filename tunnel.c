@@ -67,6 +67,9 @@ tunnel_create(const char *name, struct blob_attr *attr)
 	struct device *dev;
 
 	tun = calloc(1, sizeof(*tun));
+	if (!tun)
+		return NULL;
+
 	dev = &tun->dev;
 	device_init(dev, &tunnel_device_type, name);
 	tun->set_state = dev->set_state;
