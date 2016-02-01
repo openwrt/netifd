@@ -429,6 +429,9 @@ device_create_default(const char *name, bool external)
 
 	D(DEVICE, "Create simple device '%s'\n", name);
 	dev = calloc(1, sizeof(*dev));
+	if (!dev)
+		return NULL;
+
 	dev->external = external;
 	dev->set_state = simple_device_set_state;
 	device_init(dev, &simple_device_type, name);
