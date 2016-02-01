@@ -44,6 +44,7 @@ enum {
 	DEV_ATTR_DADTRANSMITS,
 	DEV_ATTR_MULTICAST_TO_UNICAST,
 	DEV_ATTR_MULTICAST_ROUTER,
+	DEV_ATTR_MULTICAST,
 	__DEV_ATTR_MAX,
 };
 
@@ -86,6 +87,7 @@ enum {
 	DEV_OPT_DADTRANSMITS		= (1 << 13),
 	DEV_OPT_MULTICAST_TO_UNICAST	= (1 << 14),
 	DEV_OPT_MULTICAST_ROUTER	= (1 << 15),
+	DEV_OPT_MULTICAST		= (1 << 16),
 };
 
 /* events broadcasted to all users of a device */
@@ -146,6 +148,7 @@ struct device_settings {
 	unsigned int dadtransmits;
 	bool multicast_to_unicast;
 	unsigned int multicast_router;
+	bool multicast;
 };
 
 /*

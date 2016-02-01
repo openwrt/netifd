@@ -1089,6 +1089,9 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) == 0) {
 		s->promisc = ifr.ifr_flags & IFF_PROMISC;
 		s->flags |= DEV_OPT_PROMISC;
+
+		s->multicast = ifr.ifr_flags & IFF_MULTICAST;
+		s->flags |= DEV_OPT_MULTICAST;
 	}
 
 	if (!system_get_rpfilter(dev, buf, sizeof(buf))) {
@@ -1218,6 +1221,11 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	if (s->flags & DEV_OPT_DADTRANSMITS & apply_mask) {
 		snprintf(buf, sizeof(buf), "%d", s->dadtransmits);
 		system_set_dadtransmits(dev, buf);
+	}
+	if (s->flags & DEV_OPT_MULTICAST & apply_mask) {
+		if (system_if_flags(dev->ifname, s->multicast ? IFF_MULTICAST : 0,
+				    !s->multicast ? IFF_MULTICAST : 0) < 0)
+			s->flags &= ~DEV_OPT_MULTICAST;
 	}
 
 	system_if_apply_rps_xps(dev, s);
