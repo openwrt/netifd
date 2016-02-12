@@ -50,6 +50,7 @@ enum {
 	DEV_ATTR_LEARNING,
 	DEV_ATTR_UNICAST_FLOOD,
 	DEV_ATTR_NEIGHGCSTALETIME,
+	DEV_ATTR_SENDREDIRECTS,
 	__DEV_ATTR_MAX,
 };
 
@@ -101,6 +102,7 @@ enum {
 	DEV_OPT_UNICAST_FLOOD		= (1 << 18),
 	DEV_OPT_NEIGHGCSTALETIME	= (1 << 19),
 	DEV_OPT_MULTICAST_FAST_LEAVE	= (1 << 20),
+	DEV_OPT_SENDREDIRECTS		= (1 << 17),
 };
 
 /* events broadcasted to all users of a device */
@@ -167,6 +169,7 @@ struct device_settings {
 	bool multicast;
 	bool learning;
 	bool unicast_flood;
+	bool sendredirects;
 };
 
 /*

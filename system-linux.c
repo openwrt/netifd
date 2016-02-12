@@ -397,6 +397,11 @@ static void system_bridge_set_unicast_flood(struct device *dev, const char *val)
 	system_set_dev_sysctl("/sys/class/net/%s/brport/unicast_flood", dev->ifname, val);
 }
 
+static void system_set_sendredirects(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -482,6 +487,12 @@ static int system_get_neigh6gcstaletime(struct device *dev, char *buf, const siz
 static int system_get_dadtransmits(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_sendredirects(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -1288,6 +1299,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->dadtransmits = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_DADTRANSMITS;
 	}
+
+	if (!system_get_sendredirects(dev, buf, sizeof(buf))) {
+		s->sendredirects = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_SENDREDIRECTS;
+	}
 }
 
 static void
@@ -1393,6 +1409,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 				    !s->multicast ? IFF_MULTICAST : 0) < 0)
 			s->flags &= ~DEV_OPT_MULTICAST;
 	}
+	if (s->flags & DEV_OPT_SENDREDIRECTS & apply_mask)
+		system_set_sendredirects(dev, s->sendredirects ? "1" : "0");
 
 	system_if_apply_rps_xps(dev, s);
 }
