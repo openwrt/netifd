@@ -1264,6 +1264,9 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 	vlist_for_each_element(&ip->addr, addr, node) {
 		bool v6 = ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6) ? true : false;
 
+		if (addr->flags & DEVADDR_EXTERNAL)
+			continue;
+
 		if (addr->enabled == enabled)
 			continue;
 
@@ -1288,6 +1291,9 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 
 	vlist_for_each_element(&ip->route, route, node) {
 		bool _enabled = enabled;
+
+		if (route->flags & DEVADDR_EXTERNAL)
+			continue;
 
 		if (!enable_route(ip, route))
 			_enabled = false;
