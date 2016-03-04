@@ -2224,10 +2224,10 @@ static int system_add_vti_tunnel(const char *name, const char *kind,
 	}
 
 	if (okey)
-		nla_put_be32(nlm, IFLA_VTI_OKEY, okey);
+		nla_put_u32(nlm, IFLA_VTI_OKEY, htonl(okey));
 
 	if (ikey)
-		nla_put_be32(nlm, IFLA_VTI_IKEY, ikey);
+		nla_put_u32(nlm, IFLA_VTI_IKEY, htonl(ikey));
 
 	nla_nest_end(nlm, infodata);
 	nla_nest_end(nlm, linkinfo);
