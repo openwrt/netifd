@@ -34,6 +34,10 @@ enum {
 	BRIDGE_ATTR_BRIDGE_EMPTY,
 	BRIDGE_ATTR_MULTICAST_QUERIER,
 	BRIDGE_ATTR_HASH_MAX,
+	BRIDGE_ATTR_ROBUSTNESS,
+	BRIDGE_ATTR_QUERY_INTERVAL,
+	BRIDGE_ATTR_QUERY_RESPONSE_INTERVAL,
+	BRIDGE_ATTR_LAST_MEMBER_INTERVAL,
 	__BRIDGE_ATTR_MAX
 };
 
@@ -49,6 +53,10 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_BRIDGE_EMPTY] = { "bridge_empty", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_MULTICAST_QUERIER] = { "multicast_querier", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_HASH_MAX] = { "hash_max", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_ROBUSTNESS] = { "robustness", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_QUERY_INTERVAL] = { "query_interval", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_QUERY_RESPONSE_INTERVAL] = { "query_response_interval", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_LAST_MEMBER_INTERVAL] = { "last_member_interval", BLOBMSG_TYPE_INT32 },
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -553,6 +561,10 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->forward_delay = 2;
 	cfg->igmp_snoop = true;
 	cfg->multicast_querier = true;
+	cfg->robustness = 2;
+	cfg->query_interval = 12500;
+	cfg->query_response_interval = 1000;
+	cfg->last_member_interval = 100;
 	cfg->hash_max = 512;
 	cfg->bridge_empty = false;
 	cfg->priority = 0x7FFF;
@@ -574,6 +586,26 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 
 	if ((cur = tb[BRIDGE_ATTR_HASH_MAX]))
 		cfg->hash_max = blobmsg_get_u32(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_ROBUSTNESS])) {
+		cfg->robustness = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_ROBUSTNESS;
+	}
+
+	if ((cur = tb[BRIDGE_ATTR_QUERY_INTERVAL])) {
+		cfg->query_interval = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_QUERY_INTERVAL;
+	}
+
+	if ((cur = tb[BRIDGE_ATTR_QUERY_RESPONSE_INTERVAL])) {
+		cfg->query_response_interval = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_QUERY_RESPONSE_INTERVAL;
+	}
+
+	if ((cur = tb[BRIDGE_ATTR_LAST_MEMBER_INTERVAL])) {
+		cfg->last_member_interval = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_LAST_MEMBER_INTERVAL;
+	}
 
 	if ((cur = tb[BRIDGE_ATTR_AGEING_TIME])) {
 		cfg->ageing_time = blobmsg_get_u32(cur);

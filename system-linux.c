@@ -332,6 +332,50 @@ static void system_bridge_set_multicast_router(struct device *dev, const char *v
 			      dev->ifname, val);
 }
 
+static void system_bridge_set_robustness(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_startup_query_count",
+			      dev->ifname, val);
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_last_member_count",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_query_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_query_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_query_response_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_query_response_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_last_member_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_last_member_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_membership_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_membership_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_other_querier_timeout(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_startup_query_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_startup_query_interval",
+			      dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -832,6 +876,80 @@ sec_to_jiffies(int val)
 	return (unsigned long) val * 100;
 }
 
+static void system_bridge_conf_multicast_deps(struct device *bridge,
+					      struct bridge_config *cfg,
+					      char *buf,
+					      int buf_len)
+{
+	int val;
+
+	if (cfg->flags & BRIDGE_OPT_ROBUSTNESS ||
+	    cfg->flags & BRIDGE_OPT_QUERY_INTERVAL ||
+	    cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL) {
+		val = cfg->robustness * cfg->query_interval +
+			cfg->query_response_interval;
+
+		snprintf(buf, buf_len, "%i", val);
+		system_bridge_set_membership_interval(bridge, buf);
+
+		val = cfg->robustness * cfg->query_interval +
+			cfg->query_response_interval / 2;
+
+		snprintf(buf, buf_len, "%i", val);
+		system_bridge_set_other_querier_timeout(bridge, buf);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_QUERY_INTERVAL) {
+		val = cfg->query_interval / 4;
+
+		snprintf(buf, buf_len, "%i", val);
+		system_bridge_set_startup_query_interval(bridge, buf);
+	}
+}
+
+static void system_bridge_conf_multicast(struct device *bridge,
+					 struct bridge_config *cfg,
+					 char *buf,
+					 int buf_len)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_snooping",
+		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
+
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier",
+		bridge->ifname, cfg->multicast_querier ? "1" : "0");
+
+	snprintf(buf, buf_len, "%i", cfg->hash_max);
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/hash_max",
+		bridge->ifname, buf);
+
+	if (bridge->settings.flags & DEV_OPT_MULTICAST_ROUTER) {
+		snprintf(buf, buf_len, "%i", bridge->settings.multicast_router);
+		system_bridge_set_multicast_router(bridge, buf, true);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_ROBUSTNESS) {
+		snprintf(buf, buf_len, "%i", cfg->robustness);
+		system_bridge_set_robustness(bridge, buf);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_QUERY_INTERVAL) {
+		snprintf(buf, buf_len, "%i", cfg->query_interval);
+		system_bridge_set_query_interval(bridge, buf);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL) {
+		snprintf(buf, buf_len, "%i", cfg->query_response_interval);
+		system_bridge_set_query_response_interval(bridge, buf);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_LAST_MEMBER_INTERVAL) {
+		snprintf(buf, buf_len, "%i", cfg->last_member_interval);
+		system_bridge_set_last_member_interval(bridge, buf);
+	}
+
+	system_bridge_conf_multicast_deps(bridge, cfg, buf, buf_len);
+}
+
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
 	char buf[64];
@@ -848,20 +966,7 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	args[1] = sec_to_jiffies(cfg->forward_delay);
 	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
 
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_snooping",
-		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
-
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier",
-		bridge->ifname, cfg->multicast_querier ? "1" : "0");
-
-	snprintf(buf, sizeof(buf), "%i", cfg->hash_max);
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/hash_max",
-		bridge->ifname, buf);
-
-	if (bridge->settings.flags & DEV_OPT_MULTICAST_ROUTER) {
-		snprintf(buf, sizeof(buf), "%i", bridge->settings.multicast_router);
-		system_bridge_set_multicast_router(bridge, buf, true);
-	}
+	system_bridge_conf_multicast(bridge, cfg, buf, sizeof(buf));
 
 	args[0] = BRCTL_SET_BRIDGE_PRIORITY;
 	args[1] = cfg->priority;

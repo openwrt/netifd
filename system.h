@@ -41,16 +41,26 @@ extern const struct uci_blob_param_list tunnel_attr_list;
 
 enum bridge_opt {
 	/* stp and forward delay always set */
-	BRIDGE_OPT_AGEING_TIME = (1 << 0),
-	BRIDGE_OPT_HELLO_TIME  = (1 << 1),
-	BRIDGE_OPT_MAX_AGE     = (1 << 2),
+	BRIDGE_OPT_AGEING_TIME             = (1 << 0),
+	BRIDGE_OPT_HELLO_TIME              = (1 << 1),
+	BRIDGE_OPT_MAX_AGE                 = (1 << 2),
+	BRIDGE_OPT_ROBUSTNESS              = (1 << 3),
+	BRIDGE_OPT_QUERY_INTERVAL          = (1 << 4),
+	BRIDGE_OPT_QUERY_RESPONSE_INTERVAL = (1 << 5),
+	BRIDGE_OPT_LAST_MEMBER_INTERVAL    = (1 << 6),
 };
 
 struct bridge_config {
 	enum bridge_opt flags;
 	bool stp;
+
 	bool igmp_snoop;
 	bool multicast_querier;
+	int robustness;
+	int query_interval;
+	int query_response_interval;
+	int last_member_interval;
+
 	unsigned short priority;
 	int forward_delay;
 	bool bridge_empty;
