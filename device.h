@@ -45,6 +45,8 @@ enum {
 	DEV_ATTR_MULTICAST_TO_UNICAST,
 	DEV_ATTR_MULTICAST_ROUTER,
 	DEV_ATTR_MULTICAST,
+	DEV_ATTR_LEARNING,
+	DEV_ATTR_UNICAST_FLOOD,
 	__DEV_ATTR_MAX,
 };
 
@@ -88,6 +90,8 @@ enum {
 	DEV_OPT_MULTICAST_TO_UNICAST	= (1 << 14),
 	DEV_OPT_MULTICAST_ROUTER	= (1 << 15),
 	DEV_OPT_MULTICAST		= (1 << 16),
+	DEV_OPT_LEARNING		= (1 << 17),
+	DEV_OPT_UNICAST_FLOOD		= (1 << 18),
 };
 
 /* events broadcasted to all users of a device */
@@ -149,6 +153,8 @@ struct device_settings {
 	bool multicast_to_unicast;
 	unsigned int multicast_router;
 	bool multicast;
+	bool learning;
+	bool unicast_flood;
 };
 
 /*

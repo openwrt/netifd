@@ -51,6 +51,8 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_MULTICAST_TO_UNICAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MULTICAST_ROUTER] = { .name = "multicast_router", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MULTICAST] = { .name ="multicast", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_LEARNING] = { .name ="learning", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_UNICAST_FLOOD] = { .name ="unicast_flood", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -177,6 +179,8 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->multicast : os->multicast;
 	n->multicast_to_unicast = s->multicast_to_unicast;
 	n->multicast_router = s->multicast_router;
+	n->learning = s->learning;
+	n->unicast_flood = s->unicast_flood;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -293,6 +297,16 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_MULTICAST])) {
 		s->multicast = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_MULTICAST;
+	}
+
+	if ((cur = tb[DEV_ATTR_LEARNING])) {
+		s->learning = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_LEARNING;
+	}
+
+	if ((cur = tb[DEV_ATTR_UNICAST_FLOOD])) {
+		s->unicast_flood = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_UNICAST_FLOOD;
 	}
 
 	device_set_disabled(dev, disabled);
@@ -939,6 +953,10 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "multicast_router", st.multicast_router);
 		if (st.flags & DEV_OPT_MULTICAST)
 			blobmsg_add_u8(b, "multicast", st.multicast);
+		if (st.flags & DEV_OPT_LEARNING)
+			blobmsg_add_u8(b, "learning", st.learning);
+		if (st.flags & DEV_OPT_UNICAST_FLOOD)
+			blobmsg_add_u8(b, "unicast_flood", st.unicast_flood);
 	}
 
 	s = blobmsg_open_table(b, "statistics");

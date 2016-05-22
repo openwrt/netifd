@@ -372,6 +372,16 @@ static void system_bridge_set_startup_query_interval(struct device *dev, const c
 			      dev->ifname, val);
 }
 
+static void system_bridge_set_learning(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/class/net/%s/brport/learning", dev->ifname, val);
+}
+
+static void system_bridge_set_unicast_flood(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/class/net/%s/brport/unicast_flood", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -647,6 +657,14 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 		snprintf(buf, sizeof(buf), "%i", dev->settings.multicast_router);
 		system_bridge_set_multicast_router(dev, buf, false);
 	}
+
+	if (dev->settings.flags & DEV_OPT_LEARNING &&
+	    !dev->settings.learning)
+		system_bridge_set_learning(dev, "0");
+
+	if (dev->settings.flags & DEV_OPT_UNICAST_FLOOD &&
+	    !dev->settings.unicast_flood)
+		system_bridge_set_unicast_flood(dev, "0");
 
 	return ret;
 }
