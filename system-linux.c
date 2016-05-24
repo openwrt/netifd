@@ -306,6 +306,16 @@ static void system_set_neigh6reachabletime(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms", dev->ifname, val);
 }
 
+static void system_set_neigh4gcstaletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/gc_stale_time", dev->ifname, val);
+}
+
+static void system_set_neigh6gcstaletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/gc_stale_time", dev->ifname, val);
+}
+
 static void system_set_dadtransmits(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits", dev->ifname, val);
@@ -449,6 +459,18 @@ static int system_get_neigh4reachabletime(struct device *dev, char *buf, const s
 static int system_get_neigh6reachabletime(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_neigh4gcstaletime(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/gc_stale_time",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_neigh6gcstaletime(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/gc_stale_time",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -1243,6 +1265,16 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
 	}
 
+	if (!system_get_neigh4gcstaletime(dev, buf, sizeof(buf))) {
+		s->neigh4gcstaletime = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_NEIGHGCSTALETIME;
+	}
+
+	if (!system_get_neigh6gcstaletime(dev, buf, sizeof(buf))) {
+		s->neigh6gcstaletime = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_NEIGHGCSTALETIME;
+	}
+
 	if (!system_get_dadtransmits(dev, buf, sizeof(buf))) {
 		s->dadtransmits = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_DADTRANSMITS;
@@ -1336,6 +1368,12 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		system_set_neigh4reachabletime(dev, buf);
 		snprintf(buf, sizeof(buf), "%d", s->neigh6reachabletime);
 		system_set_neigh6reachabletime(dev, buf);
+	}
+	if (s->flags & DEV_OPT_NEIGHGCSTALETIME & apply_mask) {
+		snprintf(buf, sizeof(buf), "%d", s->neigh4gcstaletime);
+		system_set_neigh4gcstaletime(dev, buf);
+		snprintf(buf, sizeof(buf), "%d", s->neigh6gcstaletime);
+		system_set_neigh6gcstaletime(dev, buf);
 	}
 	if (s->flags & DEV_OPT_DADTRANSMITS & apply_mask) {
 		snprintf(buf, sizeof(buf), "%d", s->dadtransmits);

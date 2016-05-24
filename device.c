@@ -45,6 +45,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_IGMPVERSION] = { .name = "igmpversion", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MLDVERSION] = { .name = "mldversion", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_NEIGHREACHABLETIME] = { .name = "neighreachabletime", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_NEIGHGCSTALETIME] = { .name = "neighgcstaletime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_RPS] = { .name = "rps", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_XPS] = { .name = "xps", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DADTRANSMITS] = { .name = "dadtransmits", .type = BLOBMSG_TYPE_INT32 },
@@ -173,6 +174,10 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->neigh4reachabletime : os->neigh4reachabletime;
 	n->neigh6reachabletime = s->flags & DEV_OPT_NEIGHREACHABLETIME ?
 		s->neigh6reachabletime : os->neigh6reachabletime;
+	n->neigh4gcstaletime = s->flags & DEV_OPT_NEIGHGCSTALETIME ?
+		s->neigh4gcstaletime : os->neigh4gcstaletime;
+	n->neigh6gcstaletime = s->flags & DEV_OPT_NEIGHGCSTALETIME ?
+		s->neigh6gcstaletime : os->neigh6gcstaletime;
 	n->dadtransmits = s->flags & DEV_OPT_DADTRANSMITS ?
 		s->dadtransmits : os->dadtransmits;
 	n->multicast = s->flags & DEV_OPT_MULTICAST ?
@@ -260,6 +265,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_NEIGHREACHABLETIME])) {
 		s->neigh6reachabletime = s->neigh4reachabletime = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_NEIGHREACHABLETIME;
+	}
+
+	if ((cur = tb[DEV_ATTR_NEIGHGCSTALETIME])) {
+		s->neigh6gcstaletime = s->neigh4gcstaletime = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGHGCSTALETIME;
 	}
 
 	if ((cur = tb[DEV_ATTR_RPS])) {
@@ -944,6 +954,10 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 		if (st.flags & DEV_OPT_NEIGHREACHABLETIME) {
 			blobmsg_add_u32(b, "neigh4reachabletime", st.neigh4reachabletime);
 			blobmsg_add_u32(b, "neigh6reachabletime", st.neigh6reachabletime);
+		}
+		if (st.flags & DEV_OPT_NEIGHGCSTALETIME) {
+			blobmsg_add_u32(b, "neigh4gcstaletime", st.neigh4gcstaletime);
+			blobmsg_add_u32(b, "neigh6gcstaletime", st.neigh6gcstaletime);
 		}
 		if (st.flags & DEV_OPT_DADTRANSMITS)
 			blobmsg_add_u32(b, "dadtransmits", st.dadtransmits);

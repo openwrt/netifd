@@ -47,6 +47,7 @@ enum {
 	DEV_ATTR_MULTICAST,
 	DEV_ATTR_LEARNING,
 	DEV_ATTR_UNICAST_FLOOD,
+	DEV_ATTR_NEIGHGCSTALETIME,
 	__DEV_ATTR_MAX,
 };
 
@@ -92,6 +93,7 @@ enum {
 	DEV_OPT_MULTICAST		= (1 << 16),
 	DEV_OPT_LEARNING		= (1 << 17),
 	DEV_OPT_UNICAST_FLOOD		= (1 << 18),
+	DEV_OPT_NEIGHGCSTALETIME	= (1 << 19),
 };
 
 /* events broadcasted to all users of a device */
@@ -147,6 +149,8 @@ struct device_settings {
 	unsigned int mldversion;
 	unsigned int neigh4reachabletime;
 	unsigned int neigh6reachabletime;
+	unsigned int neigh4gcstaletime;
+	unsigned int neigh6gcstaletime;
 	bool rps;
 	bool xps;
 	unsigned int dadtransmits;
