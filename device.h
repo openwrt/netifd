@@ -241,7 +241,8 @@ void device_set_default_ps(bool state);
 
 void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);
 int device_init(struct device *iface, const struct device_type *type, const char *ifname);
-void device_cleanup(struct device *iface);
+void device_cleanup(struct device *dev);
+struct device *device_find(const char *name);
 struct device *device_get(const char *name, int create);
 void device_add_user(struct device_user *dep, struct device *iface);
 void device_remove_user(struct device_user *dep);

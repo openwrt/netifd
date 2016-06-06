@@ -495,7 +495,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (!nla[IFLA_IFNAME])
 		goto out;
 
-	struct device *dev = device_get(nla_data(nla[IFLA_IFNAME]), false);
+	struct device *dev = device_find(nla_data(nla[IFLA_IFNAME]));
 	if (!dev)
 		goto out;
 

@@ -477,6 +477,14 @@ device_create_default(const char *name, bool external)
 }
 
 struct device *
+device_find(const char *name)
+{
+	struct device *dev;
+
+	return avl_find_element(&devices, name, dev, avl);
+}
+
+struct device *
 device_get(const char *name, int create)
 {
 	struct device *dev;
