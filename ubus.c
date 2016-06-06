@@ -290,7 +290,7 @@ netifd_handle_set_state(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!cur)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	dev = device_get(blobmsg_data(cur), false);
+	dev = device_find(blobmsg_data(cur));
 	if (!dev)
 		return UBUS_STATUS_NOT_FOUND;
 

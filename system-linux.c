@@ -548,7 +548,7 @@ handle_hotplug_msg(char *data, int size)
 	return;
 
 found:
-	dev = device_get(interface, false);
+	dev = device_find(interface);
 	if (!dev)
 		return;
 
