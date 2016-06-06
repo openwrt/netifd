@@ -422,13 +422,13 @@ void device_init_virtual(struct device *dev, const struct device_type *type, con
 	assert(dev);
 	assert(type);
 
-	if (name)
-		strncpy(dev->ifname, name, IFNAMSIZ);
-
-	D(DEVICE, "Initialize device '%s'\n", dev->ifname);
+	D(DEVICE, "Initialize device '%s'\n", name ? name : "");
 	INIT_SAFE_LIST(&dev->users);
 	INIT_SAFE_LIST(&dev->aliases);
 	dev->type = type;
+
+	if (name)
+		device_set_ifname(dev, name);
 
 	if (!dev->set_state)
 		dev->set_state = set_device_state;
@@ -580,6 +580,27 @@ void device_set_ifindex(struct device *dev, int ifindex)
 
 	dev->ifindex = ifindex;
 	device_broadcast_event(dev, DEV_EVENT_UPDATE_IFINDEX);
+}
+
+int device_set_ifname(struct device *dev, const char *name)
+{
+	int ret = 0;
+
+	if (!strcmp(dev->ifname, name))
+		return 0;
+
+	if (dev->avl.key)
+		avl_delete(&devices, &dev->avl);
+
+	strncpy(dev->ifname, name, IFNAMSIZ);
+
+	if (dev->avl.key)
+		ret = avl_insert(&devices, &dev->avl);
+
+	if (ret == 0)
+		device_broadcast_event(dev, DEV_EVENT_UPDATE_IFNAME);
+
+	return ret;
 }
 
 static int device_refcount(struct device *dev)

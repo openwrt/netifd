@@ -63,8 +63,11 @@ static int vlan_set_device_state(struct device *dev, bool up)
 
 static void vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
 {
+	char name[IFNAMSIZ];
+
 	vldev->dev.hidden = dev->hidden;
-	snprintf(vldev->dev.ifname, IFNAMSIZ, "%s.%d", dev->ifname, vldev->id);
+	snprintf(name, IFNAMSIZ, "%s.%d", dev->ifname, vldev->id);
+	device_set_ifname(&vldev->dev, name);
 }
 
 static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
@@ -81,7 +84,6 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		break;
 	case DEV_EVENT_UPDATE_IFNAME:
 		vlan_dev_set_name(vldev, dep->dev);
-		device_broadcast_event(&vldev->dev, ev);
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
 		/* Propagate topo changes */
@@ -124,9 +126,10 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 		return NULL;
 
 	vldev->id = id;
-	vlan_dev_set_name(vldev, dev);
 
-	device_init(&vldev->dev, &vlan_type, vldev->dev.ifname);
+	device_init(&vldev->dev, &vlan_type, NULL);
+
+	vlan_dev_set_name(vldev, dev);
 	vldev->dev.default_config = true;
 
 	vldev->set_state = vldev->dev.set_state;

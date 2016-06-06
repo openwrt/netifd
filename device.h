@@ -250,6 +250,7 @@ void device_broadcast_event(struct device *dev, enum device_event ev);
 void device_set_present(struct device *dev, bool state);
 void device_set_link(struct device *dev, bool state);
 void device_set_ifindex(struct device *dev, int ifindex);
+int device_set_ifname(struct device *dev, const char *name);
 void device_refresh_present(struct device *dev);
 int device_claim(struct device_user *dep);
 void device_release(struct device_user *dep);

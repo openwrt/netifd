@@ -59,13 +59,10 @@ static void alias_set_device(struct alias_device *alias, struct device *dev)
 	alias->dev.hidden = !dev;
 	if (dev) {
 		device_set_ifindex(&alias->dev, dev->ifindex);
-		strcpy(alias->dev.ifname, dev->ifname);
-		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
+		device_set_ifname(&alias->dev, dev->ifname);
 		device_add_user(&alias->dep, dev);
-	} else {
-		alias->dev.ifname[0] = 0;
-		device_broadcast_event(&alias->dev, DEV_EVENT_UPDATE_IFNAME);
-	}
+	} else
+		device_set_ifname(&alias->dev, "");
 }
 
 static int
