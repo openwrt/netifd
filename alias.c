@@ -61,8 +61,10 @@ static void alias_set_device(struct alias_device *alias, struct device *dev)
 		device_set_ifindex(&alias->dev, dev->ifindex);
 		device_set_ifname(&alias->dev, dev->ifname);
 		device_add_user(&alias->dep, dev);
-	} else
+	} else {
 		device_set_ifname(&alias->dev, "");
+		device_set_link(&alias->dev, false);
+	}
 }
 
 static int
