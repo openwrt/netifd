@@ -26,6 +26,7 @@ enum interface_event {
 	IFEV_UPDATE,
 	IFEV_FREE,
 	IFEV_RELOAD,
+	IFEV_LINK_UP,
 };
 
 enum interface_state {
@@ -113,6 +114,7 @@ struct interface {
 	bool force_link;
 	bool dynamic;
 	bool policy_rules_set;
+	bool link_up_event;
 
 	time_t start_time;
 	enum interface_state state;

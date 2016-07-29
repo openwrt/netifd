@@ -30,7 +30,14 @@ static void task_complete(struct uloop_process *proc, int ret);
 static struct uloop_process task = {
 	.cb = task_complete,
 };
-static const char * const eventnames[] = {"ifdown", "ifup", "ifupdate", "free", "reload"};
+static const char * const eventnames[] = {
+	[IFEV_DOWN] = "ifdown",
+	[IFEV_UP] = "ifup",
+	[IFEV_UPDATE] = "ifupdate",
+	[IFEV_FREE] = "free",
+	[IFEV_RELOAD] = "reload",
+	[IFEV_LINK_UP] = "iflink",
+};
 
 static void
 run_cmd(const char *ifname, const char *device, enum interface_event event,
@@ -178,6 +185,7 @@ static void interface_event_cb(struct interface_user *dep, struct interface *ifa
 			       enum interface_event ev)
 {
 	switch (ev) {
+		case IFEV_LINK_UP:
 		case IFEV_UP:
 		case IFEV_UPDATE:
 		case IFEV_DOWN:

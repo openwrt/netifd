@@ -260,6 +260,7 @@ mark_interface_down(struct interface *iface)
 	if (state == IFS_DOWN)
 		return;
 
+	iface->link_up_event = false;
 	iface->state = IFS_DOWN;
 	if (state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
@@ -355,6 +356,11 @@ interface_set_link_state(struct interface *iface, bool new_state)
 	netifd_log_message(L_NOTICE, "Interface '%s' has link connectivity %s\n", iface->name, new_state ? "" : "loss");
 	iface->link_state = new_state;
 	interface_check_state(iface);
+
+	if (new_state && iface->force_link && iface->state == IFS_UP && !iface->link_up_event) {
+		interface_event(iface, IFEV_LINK_UP);
+		iface->link_up_event = true;
+	}
 }
 
 static void
@@ -550,8 +556,7 @@ interface_alias_cb(struct interface_user *dep, struct interface *iface, enum int
 	case IFEV_FREE:
 		interface_remove_user(dep);
 		break;
-	case IFEV_RELOAD:
-	case IFEV_UPDATE:
+	default:
 		break;
 	}
 }
