@@ -124,6 +124,10 @@ interface_queue_event(struct interface *iface, enum interface_event ev)
 
 	netifd_ubus_interface_notify(iface, ev != IFEV_DOWN);
 
+	/* no hotplug.d calls for link up */
+	if (ev == IFEV_LINK_UP)
+		return;
+
 	if (current == iface) {
 		/* an event for iface is being processed */
 		if (!list_empty(&iface->hotplug_list)) {
