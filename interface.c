@@ -414,7 +414,8 @@ interface_l3_dev_cb(struct device_user *dep, enum device_event ev)
 
 	switch (ev) {
 	case DEV_EVENT_LINK_DOWN:
-		interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
+		if (iface->proto_handler->flags & PROTO_FLAG_TEARDOWN_ON_L3_LINK_DOWN)
+			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
 		break;
 	default:
 		break;

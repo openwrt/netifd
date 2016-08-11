@@ -38,6 +38,7 @@ enum {
 	PROTO_FLAG_RENEW_AVAILABLE = (1 << 3),
 	PROTO_FLAG_FORCE_LINK_DEFAULT = (1 << 4),
 	PROTO_FLAG_LASTERROR = (1 << 5),
+	PROTO_FLAG_TEARDOWN_ON_L3_LINK_DOWN = (1 << 6),
 };
 
 struct interface_proto_state {
