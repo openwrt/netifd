@@ -586,6 +586,8 @@ interface_claim_device(struct interface *iface)
 	if (iface->parent_iface.iface)
 		interface_remove_user(&iface->parent_iface);
 
+	device_lock();
+
 	if (iface->parent_ifname) {
 		parent = vlist_find(&interfaces, iface->parent_ifname, parent, node);
 		iface->parent_iface.cb = interface_alias_cb;
@@ -600,6 +602,8 @@ interface_claim_device(struct interface *iface)
 
 	if (dev)
 		interface_set_main_dev(iface, dev);
+
+	device_unlock();
 
 	if (iface->proto_handler->flags & PROTO_FLAG_INIT_AVAILABLE)
 		interface_set_available(iface, true);
