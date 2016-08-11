@@ -39,6 +39,7 @@ enum {
 	PROTO_FLAG_FORCE_LINK_DEFAULT = (1 << 4),
 	PROTO_FLAG_LASTERROR = (1 << 5),
 	PROTO_FLAG_TEARDOWN_ON_L3_LINK_DOWN = (1 << 6),
+	PROTO_FLAG_NO_TASK = (1 << 7),
 };
 
 struct interface_proto_state {

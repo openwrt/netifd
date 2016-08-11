@@ -44,7 +44,6 @@ struct proto_shell_handler {
 	char *config_buf;
 	char *script_name;
 	bool init_available;
-	bool no_proto_task;
 
 	struct uci_blob_param_list config;
 };
@@ -306,7 +305,7 @@ proto_shell_task_finish(struct proto_shell_state *state,
 			if (state->renew_pending)
 				proto_shell_handler(&state->proto,
 						    PROTO_CMD_RENEW, false);
-			else if (!state->handler->no_proto_task &&
+			else if (!(state->handler->proto.flags & PROTO_FLAG_NO_TASK) &&
 				 !state->proto_task.uloop.pending &&
 				 state->sm == S_SETUP)
 				proto_shell_handler(&state->proto,
@@ -892,7 +891,8 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 		handler->proto.flags |= PROTO_FLAG_NODEV;
 
 	tmp = json_get_field(obj, "no-proto-task", json_type_boolean);
-	handler->no_proto_task = tmp && json_object_get_boolean(tmp);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_NO_TASK;
 
 	tmp = json_get_field(obj, "available", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
