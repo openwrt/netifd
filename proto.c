@@ -123,17 +123,27 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask,
 		return false;
 
 	addr->mask = mask;
-	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask)) {
-		interface_add_error(iface, "proto", "INVALID_ADDRESS", &str, 1);
-		free(addr);
-		return false;
-	}
+	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask))
+		goto error;
+
+	if (!v6) {
+		if (IN_EXPERIMENTAL(ntohl(addr->addr.in.s_addr)))
+			goto error;
+
+	} else if (IN6_IS_ADDR_MULTICAST(&addr->addr.in6))
+		goto error;
 
 	if (broadcast)
 		addr->broadcast = broadcast;
 
 	vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
 	return true;
+
+error:
+	interface_add_error(iface, "proto", "INVALID_ADDRESS", &str, 1);
+	free(addr);
+
+	return false;
 }
 
 static int

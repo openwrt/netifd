@@ -119,7 +119,6 @@ int
 parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 {
 	char *astr = alloca(strlen(str) + 1);
-	int ret = 0;
 
 	strcpy(astr, str);
 	if (!split_netmask(astr, netmask, af == AF_INET6))
@@ -133,23 +132,7 @@ parse_ip_and_netmask(int af, const char *str, void *addr, unsigned int *netmask)
 			return 0;
 	}
 
-	ret = inet_pton(af, astr, addr);
-	if (ret > 0) {
-		if (af == AF_INET) {
-			struct in_addr *ip4_addr = (struct in_addr *)addr;
-			uint32_t host_addr = ntohl(ip4_addr->s_addr);
-
-			if (IN_EXPERIMENTAL(host_addr)) {
-				return 0;
-			}
-		}
-		else if (af == AF_INET6) {
-			if (IN6_IS_ADDR_MULTICAST((struct in6_addr *)addr)) {
-				return 0;
-			}
-		}
-	}
-	return ret;
+	return inet_pton(af, astr, addr);
 }
 
 char *
