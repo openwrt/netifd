@@ -287,6 +287,12 @@ __wireless_device_set_up(struct wireless_device *wdev)
 	if (wdev->disabled)
 		return;
 
+	if (wdev->retry_setup_failed)
+		return;
+
+	if (!wdev->autostart)
+		return;
+
 	if (wdev->state != IFS_DOWN || config_init)
 		return;
 
@@ -314,9 +320,9 @@ wdev_handle_config_change(struct wireless_device *wdev)
 	switch(state) {
 	case IFC_NORMAL:
 	case IFC_RELOAD:
+		__wireless_device_set_up(wdev);
+
 		wdev->config_state = IFC_NORMAL;
-		if (wdev->autostart)
-			__wireless_device_set_up(wdev);
 		break;
 	case IFC_REMOVE:
 		wireless_device_free(wdev);
@@ -399,7 +405,7 @@ wireless_device_retry_setup(struct wireless_device *wdev)
 		return;
 
 	if (--wdev->retry < 0)
-		wdev->autostart = false;
+		wdev->retry_setup_failed = true;
 
 	__wireless_device_set_down(wdev);
 }
@@ -424,6 +430,7 @@ wireless_device_script_task_cb(struct netifd_process *proc, int ret)
 void
 wireless_device_set_down(struct wireless_device *wdev)
 {
+	wdev->retry_setup_failed = false;
 	wdev->autostart = false;
 	__wireless_device_set_down(wdev);
 }
@@ -467,6 +474,7 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 	free(wdev->config);
 	wdev->config = blob_memdup(new_config);
 	wdev->disabled = disabled;
+	wdev->retry_setup_failed = false;
 	wdev_set_config_state(wdev, IFC_RELOAD);
 }
 
@@ -681,6 +689,7 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	wdev->config_state = IFC_NORMAL;
 	wdev->name = strcpy(name_buf, name);
 	wdev->config = data;
+	wdev->retry_setup_failed = false;
 	wdev->config_autostart = true;
 	wdev->autostart = wdev->config_autostart;
 	INIT_LIST_HEAD(&wdev->script_proc);
@@ -991,6 +1000,5 @@ wireless_start_pending(void)
 	struct wireless_device *wdev;
 
 	vlist_for_each_element(&wireless_devices, wdev, node)
-		if (wdev->autostart)
-			__wireless_device_set_up(wdev);
+		__wireless_device_set_up(wdev);
 }

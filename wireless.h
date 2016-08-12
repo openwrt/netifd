@@ -56,6 +56,7 @@ struct wireless_device {
 	bool config_autostart;
 	bool autostart;
 	bool disabled;
+	bool retry_setup_failed;
 
 	enum interface_state state;
 	enum interface_config_state config_state;
