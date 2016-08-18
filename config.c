@@ -53,18 +53,18 @@ config_section_idx(struct uci_section *s)
 }
 
 static int
-config_parse_bridge_interface(struct uci_section *s)
+config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype)
 {
 	char *name;
 
-	name = alloca(strlen(s->e.name) + 4);
-	sprintf(name, "br-%s", s->e.name);
+	name = alloca(strlen(s->e.name) + strlen(devtype->name_prefix) + 2);
+	sprintf(name, "%s-%s", devtype->name_prefix, s->e.name);
 	blobmsg_add_string(&b, "name", name);
 
-	uci_to_blob(&b, s, bridge_device_type.config_params);
-	if (!device_create(name, &bridge_device_type, b.head)) {
-		D(INTERFACE, "Failed to create bridge for interface '%s'\n", s->e.name);
-		return -EINVAL;
+	uci_to_blob(&b, s, devtype->config_params);
+	if (!device_create(name, devtype, b.head)) {
+		D(INTERFACE, "Failed to create '%s' device for interface '%s'\n",
+			devtype->name, s->e.name);
 	}
 
 	blob_buf_init(&b, 0);
@@ -79,6 +79,7 @@ config_parse_interface(struct uci_section *s, bool alias)
 	const char *type = NULL, *disabled;
 	struct blob_attr *config;
 	bool bridge = false;
+	struct device_type *devtype = NULL;
 
 	disabled = uci_lookup_option_string(uci_ctx, s, "disabled");
 	if (disabled && !strcmp(disabled, "1"))
@@ -88,8 +89,12 @@ config_parse_interface(struct uci_section *s, bool alias)
 
 	if (!alias)
 		type = uci_lookup_option_string(uci_ctx, s, "type");
-	if (type && !strcmp(type, "bridge")) {
-		if (config_parse_bridge_interface(s))
+
+	if (type)
+		devtype = device_type_get(type);
+
+	if (devtype && devtype->bridge_capability) {
+		if (config_parse_bridge_interface(s, devtype))
 			return;
 
 		bridge = true;
@@ -169,18 +174,8 @@ config_init_devices(void)
 			continue;
 
 		type = uci_lookup_option_string(uci_ctx, s, "type");
-		if (type) {
-			if (!strcmp(type, "8021ad"))
-				devtype = &vlandev_device_type;
-			else if (!strcmp(type, "8021q"))
-				devtype = &vlandev_device_type;
-			else if (!strcmp(type, "bridge"))
-				devtype = &bridge_device_type;
-			else if (!strcmp(type, "macvlan"))
-				devtype = &macvlan_device_type;
-			else if (!strcmp(type, "tunnel"))
-				devtype = &tunnel_device_type;
-		}
+		if (type)
+			devtype = device_type_get(type);
 
 		if (devtype)
 			params = devtype->config_params;

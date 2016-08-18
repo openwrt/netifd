@@ -84,6 +84,9 @@ struct device_type bridge_device_type = {
 	.name = "bridge",
 	.config_params = &bridge_attr_list,
 
+	.bridge_capability = true,
+	.name_prefix = "br",
+
 	.create = bridge_create,
 	.config_init = bridge_config_init,
 	.reload = bridge_reload,

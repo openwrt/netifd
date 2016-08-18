@@ -24,10 +24,13 @@
 #include <netinet/ether.h>
 #endif
 
+#include <libubox/list.h>
+
 #include "netifd.h"
 #include "system.h"
 #include "config.h"
 
+static struct list_head devtypes = LIST_HEAD_INIT(devtypes);
 static struct avl_tree devices;
 static bool default_ps = true;
 
@@ -62,6 +65,46 @@ const struct uci_blob_param_list device_attr_list = {
 };
 
 static int __devlock = 0;
+
+int device_type_add(struct device_type *devtype)
+{
+	if (device_type_get(devtype->name)) {
+		netifd_log_message(L_WARNING, "Device handler '%s' already exists\n",
+				   devtype->name);
+		return 1;
+	}
+
+	netifd_log_message(L_NOTICE, "Added device handler type: %s\n",
+		devtype->name);
+
+	list_add(&devtype->list, &devtypes);
+	return 0;
+}
+
+/* initialize device type list and add known types */
+static void __init devtypes_init(void)
+{
+	device_type_add(&simple_device_type);
+	device_type_add(&bridge_device_type);
+	device_type_add(&tunnel_device_type);
+	device_type_add(&macvlan_device_type);
+	device_type_add(&vlandev_device_type);
+}
+
+/* Retrieve the device type for the given name. If 'bridge' is true, the type
+ * must have bridge capabilities
+ */
+struct device_type *
+device_type_get(const char *tname)
+{
+	struct device_type *cur;
+
+	list_for_each_entry(cur, &devtypes, list)
+		if (!strcmp(cur->name, tname))
+			return cur;
+
+	return NULL;
+}
 
 void device_lock(void)
 {

@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 
 struct device;
+struct device_type;
 struct device_user;
 struct device_hotplug_ops;
 struct interface;
@@ -61,6 +62,9 @@ enum dev_change_type {
 struct device_type {
 	struct list_head list;
 	const char *name;
+
+	bool bridge_capability;
+	const char *name_prefix;
 
 	const struct uci_blob_param_list *config_params;
 
@@ -227,6 +231,8 @@ extern struct device_type vlandev_device_type;
 void device_lock(void);
 void device_unlock(void);
 
+int device_type_add(struct device_type *devtype);
+struct device_type *device_type_get(const char *tname);
 struct device *device_create(const char *name, struct device_type *type,
 			     struct blob_attr *config);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
