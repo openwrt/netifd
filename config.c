@@ -157,7 +157,7 @@ config_init_devices(void)
 	uci_foreach_element(&uci_network->sections, e) {
 		const struct uci_blob_param_list *params = NULL;
 		struct uci_section *s = uci_to_section(e);
-		const struct device_type *devtype = NULL;
+		struct device_type *devtype = NULL;
 		struct device *dev;
 		const char *type, *name;
 

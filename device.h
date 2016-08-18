@@ -64,7 +64,8 @@ struct device_type {
 
 	const struct uci_blob_param_list *config_params;
 
-	struct device *(*create)(const char *name, struct blob_attr *attr);
+	struct device *(*create)(const char *name, struct device_type *devtype,
+		struct blob_attr *attr);
 	void (*config_init)(struct device *);
 	enum dev_change_type (*reload)(struct device *, struct blob_attr *);
 	void (*dump_info)(struct device *, struct blob_buf *buf);
@@ -166,7 +167,7 @@ struct device_settings {
  * can be used to support VLANs as well
  */
 struct device {
-	const struct device_type *type;
+	struct device_type *type;
 
 	struct avl_node avl;
 	struct safe_list users;
@@ -217,30 +218,30 @@ struct device_hotplug_ops {
 };
 
 extern const struct uci_blob_param_list device_attr_list;
-extern const struct device_type simple_device_type;
-extern const struct device_type bridge_device_type;
-extern const struct device_type tunnel_device_type;
-extern const struct device_type macvlan_device_type;
-extern const struct device_type vlandev_device_type;
+extern struct device_type simple_device_type;
+extern struct device_type bridge_device_type;
+extern struct device_type tunnel_device_type;
+extern struct device_type macvlan_device_type;
+extern struct device_type vlandev_device_type;
 
 void device_lock(void);
 void device_unlock(void);
 
-struct device *device_create(const char *name, const struct device_type *type,
+struct device *device_create(const char *name, struct device_type *type,
 			     struct blob_attr *config);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
 void device_init_pending(void);
 
 enum dev_change_type
-device_apply_config(struct device *dev, const struct device_type *type,
+device_apply_config(struct device *dev, struct device_type *type,
 		    struct blob_attr *config);
 
 void device_reset_config(void);
 void device_reset_old(void);
 void device_set_default_ps(bool state);
 
-void device_init_virtual(struct device *dev, const struct device_type *type, const char *name);
-int device_init(struct device *iface, const struct device_type *type, const char *ifname);
+void device_init_virtual(struct device *dev, struct device_type *type, const char *name);
+int device_init(struct device *iface, struct device_type *type, const char *ifname);
 void device_cleanup(struct device *dev);
 struct device *device_find(const char *name);
 struct device *device_get(const char *name, int create);

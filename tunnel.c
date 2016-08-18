@@ -61,7 +61,8 @@ tunnel_reload(struct device *dev, struct blob_attr *attr)
 }
 
 static struct device *
-tunnel_create(const char *name, struct blob_attr *attr)
+tunnel_create(const char *name, struct device_type *devtype,
+	struct blob_attr *attr)
 {
 	struct tunnel *tun;
 	struct device *dev;
@@ -71,10 +72,10 @@ tunnel_create(const char *name, struct blob_attr *attr)
 		return NULL;
 
 	dev = &tun->dev;
-	device_init(dev, &tunnel_device_type, name);
+	device_init(dev, devtype, name);
 	tun->set_state = dev->set_state;
 	dev->set_state = tunnel_set_state;
-	device_apply_config(dev, &tunnel_device_type, attr);
+	device_apply_config(dev, devtype, attr);
 	device_set_present(dev, true);
 
 	return dev;
@@ -88,7 +89,7 @@ tunnel_free(struct device *dev)
 	free(tun);
 }
 
-const struct device_type tunnel_device_type = {
+struct device_type tunnel_device_type = {
 	.name = "IP tunnel",
 	.config_params = &tunnel_attr_list,
 	.reload = tunnel_reload,

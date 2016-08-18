@@ -118,10 +118,14 @@ simple_device_set_state(struct device *dev, bool state)
 }
 
 static struct device *
-simple_device_create(const char *name, struct blob_attr *attr)
+simple_device_create(const char *name, struct device_type *devtype,
+		     struct blob_attr *attr)
 {
 	struct blob_attr *tb[__DEV_ATTR_MAX];
 	struct device *dev = NULL;
+
+	/* device type is unused for simple devices */
+	devtype = NULL;
 
 	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb, blob_data(attr), blob_len(attr));
 	dev = device_get(name, true);
@@ -141,7 +145,7 @@ static void simple_device_free(struct device *dev)
 	free(dev);
 }
 
-const struct device_type simple_device_type = {
+struct device_type simple_device_type = {
 	.name = "Network device",
 	.config_params = &device_attr_list,
 
@@ -417,7 +421,7 @@ int device_check_state(struct device *dev)
 	return dev->type->check_state(dev);
 }
 
-void device_init_virtual(struct device *dev, const struct device_type *type, const char *name)
+void device_init_virtual(struct device *dev, struct device_type *type, const char *name)
 {
 	assert(dev);
 	assert(type);
@@ -434,7 +438,7 @@ void device_init_virtual(struct device *dev, const struct device_type *type, con
 		dev->set_state = set_device_state;
 }
 
-int device_init(struct device *dev, const struct device_type *type, const char *ifname)
+int device_init(struct device *dev, struct device_type *type, const char *ifname)
 {
 	int ret;
 
@@ -729,7 +733,7 @@ device_init_pending(void)
 }
 
 static enum dev_change_type
-device_set_config(struct device *dev, const struct device_type *type,
+device_set_config(struct device *dev, struct device_type *type,
 		  struct blob_attr *attr)
 {
 	struct blob_attr *tb[__DEV_ATTR_MAX];
@@ -758,7 +762,7 @@ device_set_config(struct device *dev, const struct device_type *type,
 }
 
 enum dev_change_type
-device_apply_config(struct device *dev, const struct device_type *type,
+device_apply_config(struct device *dev, struct device_type *type,
 		    struct blob_attr *config)
 {
 	enum dev_change_type change;
@@ -883,7 +887,7 @@ device_set_default_ps(bool state)
 }
 
 struct device *
-device_create(const char *name, const struct device_type *type,
+device_create(const char *name, struct device_type *type,
 	      struct blob_attr *config)
 {
 	struct device *odev = NULL, *dev;
@@ -908,7 +912,7 @@ device_create(const char *name, const struct device_type *type,
 	if (!config)
 		return NULL;
 
-	dev = type->create(name, config);
+	dev = type->create(name, type, config);
 	if (!dev)
 		return NULL;
 

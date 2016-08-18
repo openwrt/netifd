@@ -228,7 +228,8 @@ macvlan_reload(struct device *dev, struct blob_attr *attr)
 }
 
 static struct device *
-macvlan_create(const char *name, struct blob_attr *attr)
+macvlan_create(const char *name, struct device_type *devtype,
+	struct blob_attr *attr)
 {
 	struct macvlan_device *mvdev;
 	struct device *dev = NULL;
@@ -238,7 +239,7 @@ macvlan_create(const char *name, struct blob_attr *attr)
 		return NULL;
 
 	dev = &mvdev->dev;
-	device_init(dev, &macvlan_device_type, name);
+	device_init(dev, devtype, name);
 	dev->config_pending = true;
 
 	mvdev->set_state = dev->set_state;
@@ -252,7 +253,7 @@ macvlan_create(const char *name, struct blob_attr *attr)
 	return dev;
 }
 
-const struct device_type macvlan_device_type = {
+struct device_type macvlan_device_type = {
 	.name = "MAC VLAN",
 	.config_params = &macvlan_attr_list,
 	.create = macvlan_create,

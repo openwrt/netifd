@@ -30,7 +30,7 @@ struct alias_device {
 	char name[];
 };
 
-static const struct device_type alias_device_type;
+static struct device_type alias_device_type;
 
 static void alias_set_device(struct alias_device *alias, struct device *dev)
 {
@@ -113,7 +113,8 @@ static void alias_device_cb(struct device_user *dep, enum device_event ev)
 }
 
 static struct device *
-alias_device_create(const char *name, struct blob_attr *attr)
+alias_device_create(const char *name, struct device_type *devtype,
+		    struct blob_attr *attr)
 {
 	struct alias_device *alias;
 
@@ -124,7 +125,7 @@ alias_device_create(const char *name, struct blob_attr *attr)
 	strcpy(alias->name, name);
 	alias->dev.set_state = alias_device_set_state;
 	alias->dev.hidden = true;
-	device_init_virtual(&alias->dev, &alias_device_type, NULL);
+	device_init_virtual(&alias->dev, devtype, NULL);
 	alias->avl.key = alias->name;
 	avl_insert(&aliases, &alias->avl);
 	alias->dep.alias = true;
@@ -162,7 +163,7 @@ static int alias_check_state(struct device *dev)
 	return 0;
 }
 
-static const struct device_type alias_device_type = {
+static struct device_type alias_device_type = {
 	.name = "Network alias",
 	.create = alias_device_create,
 	.free = alias_device_free,
@@ -192,7 +193,7 @@ device_alias_get(const char *name)
 	if (alias)
 		return &alias->dev;
 
-	return alias_device_create(name, NULL);
+	return alias_device_create(name, &alias_device_type, NULL);
 }
 
 static void __init alias_init(void)

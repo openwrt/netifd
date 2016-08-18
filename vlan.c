@@ -96,7 +96,7 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 
 static struct device *get_vlan_device(struct device *dev, int id, bool create)
 {
-	static const struct device_type vlan_type = {
+	static struct device_type vlan_type = {
 		.name = "VLAN",
 		.config_params = &device_attr_list,
 		.free = free_vlan_if,

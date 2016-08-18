@@ -216,7 +216,8 @@ vlandev_reload(struct device *dev, struct blob_attr *attr)
 }
 
 static struct device *
-vlandev_create(const char *name, struct blob_attr *attr)
+vlandev_create(const char *name, struct device_type *devtype,
+	       struct blob_attr *attr)
 {
 	struct vlandev_device *mvdev;
 	struct device *dev = NULL;
@@ -226,7 +227,7 @@ vlandev_create(const char *name, struct blob_attr *attr)
 		return NULL;
 
 	dev = &mvdev->dev;
-	device_init(dev, &vlandev_device_type, name);
+	device_init(dev, devtype, name);
 	dev->config_pending = true;
 
 	mvdev->set_state = dev->set_state;
@@ -240,7 +241,7 @@ vlandev_create(const char *name, struct blob_attr *attr)
 	return dev;
 }
 
-const struct device_type vlandev_device_type = {
+struct device_type vlandev_device_type = {
 	.name = "VLANDEV",
 	.config_params = &vlandev_attr_list,
 	.create = vlandev_create,

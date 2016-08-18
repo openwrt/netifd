@@ -72,15 +72,16 @@ static const struct uci_blob_param_list bridge_attr_list = {
 	.next = { &device_attr_list },
 };
 
-static struct device *bridge_create(const char *name, struct blob_attr *attr);
+static struct device *bridge_create(const char *name, struct device_type *devtype,
+	struct blob_attr *attr);
 static void bridge_config_init(struct device *dev);
 static void bridge_free(struct device *dev);
 static void bridge_dump_info(struct device *dev, struct blob_buf *b);
 enum dev_change_type
 bridge_reload(struct device *dev, struct blob_attr *attr);
 
-const struct device_type bridge_device_type = {
-	.name = "Bridge",
+struct device_type bridge_device_type = {
+	.name = "bridge",
 	.config_params = &bridge_attr_list,
 
 	.create = bridge_create,
@@ -699,7 +700,8 @@ bridge_retry_members(struct uloop_timeout *timeout)
 }
 
 static struct device *
-bridge_create(const char *name, struct blob_attr *attr)
+bridge_create(const char *name, struct device_type *devtype,
+	struct blob_attr *attr)
 {
 	struct bridge_state *bst;
 	struct device *dev = NULL;
@@ -709,7 +711,7 @@ bridge_create(const char *name, struct blob_attr *attr)
 		return NULL;
 
 	dev = &bst->dev;
-	device_init(dev, &bridge_device_type, name);
+	device_init(dev, devtype, name);
 	dev->config_pending = true;
 	bst->retry.cb = bridge_retry_members;
 
