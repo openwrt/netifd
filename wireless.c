@@ -761,6 +761,7 @@ wireless_device_status(struct wireless_device *wdev, struct blob_buf *b)
 	blobmsg_add_u8(b, "pending", wdev->state == IFS_SETUP || wdev->state == IFS_TEARDOWN);
 	blobmsg_add_u8(b, "autostart", wdev->autostart);
 	blobmsg_add_u8(b, "disabled", wdev->disabled);
+	blobmsg_add_u8(b, "retry_setup_failed", wdev->retry_setup_failed);
 	put_container(b, wdev->config, "config");
 
 	i = blobmsg_open_array(b, "interfaces");
