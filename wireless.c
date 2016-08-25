@@ -690,8 +690,7 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	wdev->name = strcpy(name_buf, name);
 	wdev->config = data;
 	wdev->retry_setup_failed = false;
-	wdev->config_autostart = true;
-	wdev->autostart = wdev->config_autostart;
+	wdev->autostart = true;
 	INIT_LIST_HEAD(&wdev->script_proc);
 	vlist_init(&wdev->interfaces, avl_strcmp, vif_update);
 	wdev->interfaces.keep_old = true;

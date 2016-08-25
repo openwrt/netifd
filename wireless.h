@@ -53,7 +53,6 @@ struct wireless_device {
 	struct blob_attr *config;
 	struct blob_attr *data;
 
-	bool config_autostart;
 	bool autostart;
 	bool disabled;
 	bool retry_setup_failed;
