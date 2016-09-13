@@ -1197,10 +1197,70 @@ write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip, const char 
 	}
 }
 
+/* Sorting of interface resolver entries :               */
+/* Primary on interface dns_metric : lowest metric first */
+/* Secondary on interface metric : lowest metric first   */
+/* Finally alphabetical order of interface names         */
+static int resolv_conf_iface_cmp(const void *k1, const void *k2, void *ptr)
+{
+	const struct interface *iface1 = k1, *iface2 = k2;
+
+	if (iface1->dns_metric != iface2->dns_metric)
+		return iface1->dns_metric - iface2->dns_metric;
+
+	if (iface1->metric != iface2->metric)
+		return iface1->metric - iface2->metric;
+
+	return strcmp(iface1->name, iface2->name);
+}
+
+static void
+__interface_write_dns_entries(FILE *f)
+{
+	struct interface *iface;
+	struct {
+		struct avl_node node;
+	} *entry, *n_entry;
+	struct avl_tree resolv_conf_iface_entries;
+
+	avl_init(&resolv_conf_iface_entries, resolv_conf_iface_cmp, false, NULL);
+
+	vlist_for_each_element(&interfaces, iface, node) {
+		if (iface->state != IFS_UP)
+			continue;
+
+		if (vlist_simple_empty(&iface->proto_ip.dns_search) &&
+		    vlist_simple_empty(&iface->proto_ip.dns_servers) &&
+		    vlist_simple_empty(&iface->config_ip.dns_search) &&
+		    vlist_simple_empty(&iface->config_ip.dns_servers))
+			continue;
+
+		entry = calloc(1, sizeof(*entry));
+		if (!entry)
+			continue;
+
+		entry->node.key = iface;
+		avl_insert(&resolv_conf_iface_entries, &entry->node);
+	}
+
+	avl_for_each_element(&resolv_conf_iface_entries, entry, node) {
+		iface = (struct interface *)entry->node.key;
+
+		fprintf(f, "# Interface %s\n", iface->name);
+
+		write_resolv_conf_entries(f, &iface->config_ip, iface->ifname);
+
+		if (!iface->proto_ip.no_dns)
+			write_resolv_conf_entries(f, &iface->proto_ip, iface->ifname);
+	}
+
+	avl_remove_all_elements(&resolv_conf_iface_entries, entry, node, n_entry)
+		free(entry);
+}
+
 void
 interface_write_resolv_conf(void)
 {
-	struct interface *iface;
 	char *path = alloca(strlen(resolv_conf) + 5);
 	FILE *f;
 	uint32_t crcold, crcnew;
@@ -1213,21 +1273,8 @@ interface_write_resolv_conf(void)
 		return;
 	}
 
-	vlist_for_each_element(&interfaces, iface, node) {
-		if (iface->state != IFS_UP)
-			continue;
+	__interface_write_dns_entries(f);
 
-		if (vlist_simple_empty(&iface->proto_ip.dns_search) &&
-		    vlist_simple_empty(&iface->proto_ip.dns_servers) &&
-			vlist_simple_empty(&iface->config_ip.dns_search) &&
-		    vlist_simple_empty(&iface->config_ip.dns_servers))
-			continue;
-
-		fprintf(f, "# Interface %s\n", iface->name);
-		write_resolv_conf_entries(f, &iface->config_ip, iface->ifname);
-		if (!iface->proto_ip.no_dns)
-			write_resolv_conf_entries(f, &iface->proto_ip, iface->ifname);
-	}
 	fflush(f);
 	rewind(f);
 	crcnew = crc32_file(f);

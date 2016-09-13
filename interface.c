@@ -35,6 +35,7 @@ enum {
 	IFACE_ATTR_PEERDNS,
 	IFACE_ATTR_DNS,
 	IFACE_ATTR_DNS_SEARCH,
+	IFACE_ATTR_DNS_METRIC,
 	IFACE_ATTR_METRIC,
 	IFACE_ATTR_INTERFACE,
 	IFACE_ATTR_IP6ASSIGN,
@@ -57,6 +58,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
+	[IFACE_ATTR_DNS_METRIC] = { .name = "dns_metric", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6ASSIGN] = { .name = "ip6assign", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_IP6HINT] = { .name = "ip6hint", .type = BLOBMSG_TYPE_STRING },
@@ -795,6 +797,9 @@ interface_alloc(const char *name, struct blob_attr *config)
 	if ((cur = tb[IFACE_ATTR_DNS_SEARCH]))
 		interface_add_dns_search_list(&iface->config_ip, cur);
 
+	if ((cur = tb[IFACE_ATTR_DNS_METRIC]))
+		iface->dns_metric = blobmsg_get_u32(cur);
+
 	if ((cur = tb[IFACE_ATTR_METRIC]))
 		iface->metric = blobmsg_get_u32(cur);
 
@@ -1185,6 +1190,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->parent_ifname = if_new->parent_ifname;
 	if_old->proto_handler = if_new->proto_handler;
 	if_old->force_link = if_new->force_link;
+	if_old->dns_metric = if_new->dns_metric;
 
 	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
