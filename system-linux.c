@@ -326,6 +326,11 @@ static void system_bridge_set_multicast_to_unicast(struct device *dev, const cha
 	system_set_dev_sysctl("/sys/class/net/%s/brport/multicast_to_unicast", dev->ifname, val);
 }
 
+static void system_bridge_set_multicast_fast_leave(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/class/net/%s/brport/multicast_fast_leave", dev->ifname, val);
+}
+
 static void system_bridge_set_hairpin_mode(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("/sys/class/net/%s/brport/hairpin_mode", dev->ifname, val);
@@ -679,6 +684,10 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 		snprintf(buf, sizeof(buf), "%i", dev->settings.multicast_router);
 		system_bridge_set_multicast_router(dev, buf, false);
 	}
+
+	if (dev->settings.flags & DEV_OPT_MULTICAST_FAST_LEAVE &&
+	    dev->settings.multicast_fast_leave)
+		system_bridge_set_multicast_fast_leave(dev, "1");
 
 	if (dev->settings.flags & DEV_OPT_LEARNING &&
 	    !dev->settings.learning)

@@ -45,6 +45,7 @@ enum {
 	DEV_ATTR_DADTRANSMITS,
 	DEV_ATTR_MULTICAST_TO_UNICAST,
 	DEV_ATTR_MULTICAST_ROUTER,
+	DEV_ATTR_MULTICAST_FAST_LEAVE,
 	DEV_ATTR_MULTICAST,
 	DEV_ATTR_LEARNING,
 	DEV_ATTR_UNICAST_FLOOD,
@@ -99,6 +100,7 @@ enum {
 	DEV_OPT_LEARNING		= (1 << 17),
 	DEV_OPT_UNICAST_FLOOD		= (1 << 18),
 	DEV_OPT_NEIGHGCSTALETIME	= (1 << 19),
+	DEV_OPT_MULTICAST_FAST_LEAVE	= (1 << 20),
 };
 
 /* events broadcasted to all users of a device */
@@ -161,6 +163,7 @@ struct device_settings {
 	unsigned int dadtransmits;
 	bool multicast_to_unicast;
 	unsigned int multicast_router;
+	bool multicast_fast_leave;
 	bool multicast;
 	bool learning;
 	bool unicast_flood;

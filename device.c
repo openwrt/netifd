@@ -54,6 +54,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_DADTRANSMITS] = { .name = "dadtransmits", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MULTICAST_TO_UNICAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MULTICAST_ROUTER] = { .name = "multicast_router", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_MULTICAST_FAST_LEAVE] = { .name = "multicast_fast_leave", . type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MULTICAST] = { .name ="multicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_LEARNING] = { .name ="learning", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_UNICAST_FLOOD] = { .name ="unicast_flood", .type = BLOBMSG_TYPE_BOOL },
@@ -231,6 +232,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->multicast : os->multicast;
 	n->multicast_to_unicast = s->multicast_to_unicast;
 	n->multicast_router = s->multicast_router;
+	n->multicast_fast_leave = s->multicast_fast_leave;
 	n->learning = s->learning;
 	n->unicast_flood = s->unicast_flood;
 	n->flags = s->flags | os->flags | os->valid_flags;
@@ -349,6 +351,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 			s->flags |= DEV_OPT_MULTICAST_ROUTER;
 		else
 			DPRINTF("Invalid value: %d - (Use 0: never, 1: learn, 2: always)\n", blobmsg_get_u32(cur));
+	}
+
+	if ((cur = tb[DEV_ATTR_MULTICAST_FAST_LEAVE])) {
+		s->multicast_fast_leave = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_MULTICAST_FAST_LEAVE;
 	}
 
 	if ((cur = tb[DEV_ATTR_MULTICAST])) {
@@ -1041,6 +1048,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "multicast_to_unicast", st.multicast_to_unicast);
 		if (st.flags & DEV_OPT_MULTICAST_ROUTER)
 			blobmsg_add_u32(b, "multicast_router", st.multicast_router);
+		if (st.flags & DEV_OPT_MULTICAST_FAST_LEAVE)
+			blobmsg_add_u8(b, "multicast_fast_leave", st.multicast_fast_leave);
 		if (st.flags & DEV_OPT_MULTICAST)
 			blobmsg_add_u8(b, "multicast", st.multicast);
 		if (st.flags & DEV_OPT_LEARNING)
