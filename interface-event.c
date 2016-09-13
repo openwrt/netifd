@@ -196,8 +196,9 @@ static void interface_event_cb(struct interface_user *dep, struct interface *ifa
 			interface_queue_event(iface, ev);
 			break;
 		case IFEV_FREE:
-		case IFEV_RELOAD:
 			interface_dequeue_event(iface);
+			break;
+		default:
 			break;
 	}
 }
