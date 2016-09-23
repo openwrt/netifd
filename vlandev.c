@@ -241,8 +241,18 @@ vlandev_create(const char *name, struct device_type *devtype,
 	return dev;
 }
 
-static struct device_type vlandev_device_type = {
-	.name = "VLANDEV",
+static struct device_type vlan8021ad_device_type = {
+	.name = "8021ad",
+	.config_params = &vlandev_attr_list,
+	.create = vlandev_create,
+	.config_init = vlandev_config_init,
+	.reload = vlandev_reload,
+	.free = vlandev_free,
+	.dump_info = vlandev_dump_info,
+};
+
+static struct device_type vlan8021q_device_type = {
+	.name = "8021q",
 	.config_params = &vlandev_attr_list,
 	.create = vlandev_create,
 	.config_init = vlandev_config_init,
@@ -253,5 +263,6 @@ static struct device_type vlandev_device_type = {
 
 static void __init vlandev_device_type_init(void)
 {
-	device_type_add(&vlandev_device_type);
+	device_type_add(&vlan8021ad_device_type);
+	device_type_add(&vlan8021q_device_type);
 }
