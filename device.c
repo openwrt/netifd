@@ -82,16 +82,6 @@ int device_type_add(struct device_type *devtype)
 	return 0;
 }
 
-/* initialize device type list and add known types */
-static void __init devtypes_init(void)
-{
-	device_type_add(&simple_device_type);
-	device_type_add(&bridge_device_type);
-	device_type_add(&tunnel_device_type);
-	device_type_add(&macvlan_device_type);
-	device_type_add(&vlandev_device_type);
-}
-
 /* Retrieve the device type for the given name. If 'bridge' is true, the type
  * must have bridge capabilities
  */
@@ -1064,4 +1054,9 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 	else
 		system_if_dump_stats(dev, b);
 	blobmsg_close_table(b, s);
+}
+
+static void __init simple_device_type_init(void)
+{
+	device_type_add(&simple_device_type);
 }

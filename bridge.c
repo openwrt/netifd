@@ -729,3 +729,8 @@ bridge_create(const char *name, struct device_type *devtype,
 
 	return dev;
 }
+
+static void __init bridge_device_type_init(void)
+{
+	device_type_add(&bridge_device_type);
+}

@@ -97,4 +97,7 @@ struct device_type tunnel_device_type = {
 	.free = tunnel_free,
 };
 
-
+static void __init tunnel_device_type_init(void)
+{
+	device_type_add(&tunnel_device_type);
+}

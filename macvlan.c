@@ -253,7 +253,7 @@ macvlan_create(const char *name, struct device_type *devtype,
 	return dev;
 }
 
-struct device_type macvlan_device_type = {
+static struct device_type macvlan_device_type = {
 	.name = "MAC VLAN",
 	.config_params = &macvlan_attr_list,
 	.create = macvlan_create,
@@ -262,3 +262,8 @@ struct device_type macvlan_device_type = {
 	.free = macvlan_free,
 	.dump_info = macvlan_dump_info,
 };
+
+static void __init macvlan_device_type_init(void)
+{
+	device_type_add(&macvlan_device_type);
+}

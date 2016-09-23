@@ -30,8 +30,6 @@ struct alias_device {
 	char name[];
 };
 
-static struct device_type alias_device_type;
-
 static void alias_set_device(struct alias_device *alias, struct device *dev)
 {
 	if (dev == alias->dep.dev) {

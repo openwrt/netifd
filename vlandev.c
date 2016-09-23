@@ -241,7 +241,7 @@ vlandev_create(const char *name, struct device_type *devtype,
 	return dev;
 }
 
-struct device_type vlandev_device_type = {
+static struct device_type vlandev_device_type = {
 	.name = "VLANDEV",
 	.config_params = &vlandev_attr_list,
 	.create = vlandev_create,
@@ -250,3 +250,8 @@ struct device_type vlandev_device_type = {
 	.free = vlandev_free,
 	.dump_info = vlandev_dump_info,
 };
+
+static void __init vlandev_device_type_init(void)
+{
+	device_type_add(&vlandev_device_type);
+}
