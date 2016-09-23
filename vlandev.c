@@ -20,14 +20,12 @@
 #include "system.h"
 
 enum {
-	VLANDEV_ATTR_TYPE,
 	VLANDEV_ATTR_IFNAME,
 	VLANDEV_ATTR_VID,
 	__VLANDEV_ATTR_MAX
 };
 
 static const struct blobmsg_policy vlandev_attrs[__VLANDEV_ATTR_MAX] = {
-	[VLANDEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
 	[VLANDEV_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_STRING },
 	[VLANDEV_ATTR_VID] = { "vid", BLOBMSG_TYPE_INT32 },
 };
@@ -39,6 +37,8 @@ static const struct uci_blob_param_list vlandev_attr_list = {
 	.n_next = 1,
 	.next = { &device_attr_list },
 };
+
+static struct device_type vlan8021q_device_type;
 
 struct vlandev_device {
 	struct device dev;
@@ -158,14 +158,9 @@ vlandev_apply_settings(struct vlandev_device *mvdev, struct blob_attr **tb)
 	struct vlandev_config *cfg = &mvdev->config;
 	struct blob_attr *cur;
 
-	cfg->proto = VLAN_PROTO_8021Q;
+	cfg->proto = (mvdev->dev.type == &vlan8021q_device_type) ?
+		VLAN_PROTO_8021Q : VLAN_PROTO_8021AD;
 	cfg->vid = 1;
-
-	if ((cur = tb[VLANDEV_ATTR_TYPE]))
-	{
-		if(!strcmp(blobmsg_data(cur), "8021ad"))
-			cfg->proto = VLAN_PROTO_8021AD;
-	}
 
 	if ((cur = tb[VLANDEV_ATTR_VID]))
 		cfg->vid = (uint16_t) blobmsg_get_u32(cur);
