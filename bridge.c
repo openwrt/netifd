@@ -80,7 +80,7 @@ static void bridge_dump_info(struct device *dev, struct blob_buf *b);
 enum dev_change_type
 bridge_reload(struct device *dev, struct blob_attr *attr);
 
-struct device_type bridge_device_type = {
+static struct device_type bridge_device_type = {
 	.name = "bridge",
 	.config_params = &bridge_attr_list,
 

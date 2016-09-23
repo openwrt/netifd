@@ -226,7 +226,6 @@ struct device_hotplug_ops {
 
 extern const struct uci_blob_param_list device_attr_list;
 extern struct device_type simple_device_type;
-extern struct device_type bridge_device_type;
 extern struct device_type tunnel_device_type;
 
 void device_lock(void);

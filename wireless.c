@@ -83,7 +83,7 @@ vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool pre
 		if (!dev)
 			return;
 
-		if (dev->type != &bridge_device_type)
+		if (!dev->type->bridge_capability)
 			return;
 	}
 
