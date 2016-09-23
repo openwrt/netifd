@@ -450,6 +450,10 @@ void device_release(struct device_user *dep)
 	device_broadcast_event(dev, DEV_EVENT_TEARDOWN);
 	if (!dev->external)
 		dev->set_state(dev, false);
+
+	if (dev->active)
+		return;
+
 	device_broadcast_event(dev, DEV_EVENT_DOWN);
 }
 
