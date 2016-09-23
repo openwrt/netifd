@@ -90,7 +90,7 @@ tunnel_free(struct device *dev)
 }
 
 struct device_type tunnel_device_type = {
-	.name = "IP tunnel",
+	.name = "tunnel",
 	.config_params = &tunnel_attr_list,
 	.reload = tunnel_reload,
 	.create = tunnel_create,
