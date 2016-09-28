@@ -240,12 +240,12 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_ENABLED]))
 		disabled = !blobmsg_get_bool(cur);
 
-	if ((cur = tb[DEV_ATTR_MTU])) {
+	if ((cur = tb[DEV_ATTR_MTU]) && blobmsg_get_u32(cur) >= 68) {
 		s->mtu = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_MTU;
 	}
 
-	if ((cur = tb[DEV_ATTR_MTU6])) {
+	if ((cur = tb[DEV_ATTR_MTU6]) && blobmsg_get_u32(cur) >= 1280) {
 		s->mtu6 = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_MTU6;
 	}
