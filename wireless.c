@@ -613,6 +613,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		wireless_interface_init_config(vif_new);
 	} else if (vif_old) {
 		D(WIRELESS, "Delete wireless interface %s on device %s\n", vif_old->name, wdev->name);
+		wireless_interface_handle_link(vif_old, false);
 		free((void *) vif_old->section);
 		free(vif_old->config);
 		free(vif_old);
