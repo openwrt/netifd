@@ -394,24 +394,25 @@ bridge_set_state(struct device *dev, bool up)
 }
 
 static struct bridge_member *
-bridge_create_member(struct bridge_state *bst, struct device *dev, bool hotplug)
+bridge_create_member(struct bridge_state *bst, const char *name,
+		     struct device *dev, bool hotplug)
 {
 	struct bridge_member *bm;
 
-	bm = calloc(1, sizeof(*bm) + strlen(dev->ifname) + 1);
+	bm = calloc(1, sizeof(*bm) + strlen(name) + 1);
 	if (!bm)
 		return NULL;
 
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
 	bm->dev.hotplug = hotplug;
-	strcpy(bm->name, dev->ifname);
+	strcpy(bm->name, name);
 	bm->dev.dev = dev;
 	vlist_add(&bst->members, &bm->node, bm->name);
 	// Need to look up the bridge member again as the above
 	// created pointer will be freed in case the bridge member
 	// already existed
-	bm = vlist_find(&bst->members, dev->ifname, bm, node);
+	bm = vlist_find(&bst->members, name, bm, node);
 	if (hotplug && bm)
 		bm->node.version = -1;
 
@@ -455,7 +456,7 @@ bridge_add_member(struct bridge_state *bst, const char *name)
 	if (!dev)
 		return;
 
-	bridge_create_member(bst, dev, false);
+	bridge_create_member(bst, name, dev, false);
 }
 
 static int
@@ -463,7 +464,7 @@ bridge_hotplug_add(struct device *dev, struct device *member)
 {
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
 
-	bridge_create_member(bst, member, true);
+	bridge_create_member(bst, member->ifname, member, true);
 
 	return 0;
 }
@@ -523,8 +524,12 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 	system_if_dump_info(dev, b);
 	list = blobmsg_open_array(b, "bridge-members");
 
-	vlist_for_each_element(&bst->members, bm, node)
+	vlist_for_each_element(&bst->members, bm, node) {
+		if (bm->dev.dev->hidden)
+			continue;
+
 		blobmsg_add_string(b, NULL, bm->dev.dev->ifname);
+	}
 
 	blobmsg_close_array(b, list);
 }
