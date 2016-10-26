@@ -1,4 +1,5 @@
 NETIFD_MAIN_DIR="${NETIFD_MAIN_DIR:-/lib/netifd}"
+PROTO_DEFAULT_OPTIONS="defaultroute peerdns metric"
 
 . /usr/share/libubox/jshn.sh
 . $NETIFD_MAIN_DIR/utils.sh
@@ -13,6 +14,18 @@ proto_config_add_string() {
 
 proto_config_add_boolean() {
 	config_add_boolean "$@"
+}
+
+proto_config_add_defaults() {
+	proto_config_add_boolean "defaultroute"
+	proto_config_add_boolean "peerdns"
+	proto_config_add_int "metric"
+}
+
+proto_add_dynamic_defaults() {
+	[ -n "$defaultroute" ] && json_add_boolean defaultroute "$defaultroute"
+	[ -n "$peerdns" ] && json_add_boolean peerdns "$peerdns"
+	[ -n "$metric" ] && json_add_int metric "$metric"
 }
 
 _proto_do_teardown() {
