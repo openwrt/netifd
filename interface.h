@@ -199,7 +199,7 @@ void interface_add_error(struct interface *iface, const char *subsystem,
 int interface_add_data(struct interface *iface, const struct blob_attr *data);
 int interface_parse_data(struct interface *iface, const struct blob_attr *attr);
 
-void interface_update_start(struct interface *iface);
+void interface_update_start(struct interface *iface, const bool keep_old);
 void interface_update_complete(struct interface *iface);
 
 void interface_start_pending(void);

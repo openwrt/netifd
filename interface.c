@@ -693,7 +693,8 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 	switch (ev) {
 	case IFPEV_UP:
 		if (iface->state != IFS_SETUP) {
-			interface_event(iface, IFEV_UPDATE);
+			if (iface->state == IFS_UP && iface->updated)
+				interface_event(iface, IFEV_UPDATE);
 			return;
 		}
 
@@ -1091,10 +1092,12 @@ set_config_state(struct interface *iface, enum interface_config_state s)
 }
 
 void
-interface_update_start(struct interface *iface)
+interface_update_start(struct interface *iface, const bool keep_old)
 {
 	iface->updated = 0;
-	interface_ip_update_start(&iface->proto_ip);
+
+	if (!keep_old)
+		interface_ip_update_start(&iface->proto_ip);
 }
 
 void

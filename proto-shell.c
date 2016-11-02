@@ -538,9 +538,9 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 			return UBUS_STATUS_UNKNOWN_ERROR;
 
 		device_set_present(dev, true);
-
-		interface_update_start(iface);
 	}
+
+	interface_update_start(iface, keep);
 
 	proto_apply_ip_settings(iface, data, addr_ext);
 
@@ -562,8 +562,7 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 	interface_update_complete(state->proto.iface);
 
 	if ((state->sm != S_SETUP_ABORT) && (state->sm != S_TEARDOWN)) {
-		if (!keep)
-			state->proto.proto_event(&state->proto, IFPEV_UP);
+		state->proto.proto_event(&state->proto, IFPEV_UP);
 		state->sm = S_IDLE;
 	}
 
