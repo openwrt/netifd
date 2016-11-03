@@ -2489,6 +2489,8 @@ int system_update_ipv6_mtu(struct device *dev, int mtu)
 			dev->ifname);
 
 	int fd = open(buf, O_RDWR);
+	if (fd < 0)
+		return ret;
 
 	if (!mtu) {
 		ssize_t len = read(fd, buf, sizeof(buf) - 1);
