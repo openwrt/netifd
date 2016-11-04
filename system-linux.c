@@ -2485,10 +2485,12 @@ int system_update_ipv6_mtu(struct device *dev, int mtu)
 {
 	int ret = -1;
 	char buf[64];
+	int fd;
+
 	snprintf(buf, sizeof(buf), "/proc/sys/net/ipv6/conf/%s/mtu",
 			dev->ifname);
 
-	int fd = open(buf, O_RDWR);
+	fd = open(buf, O_RDWR);
 	if (fd < 0)
 		return ret;
 
