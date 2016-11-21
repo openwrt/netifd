@@ -204,7 +204,7 @@ netifd_dev_status(struct ubus_context *ctx, struct ubus_object *obj,
 	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(msg), blob_len(msg));
 
 	if (tb[DEV_NAME]) {
-		dev = device_get(blobmsg_data(tb[DEV_NAME]), false);
+		dev = device_find(blobmsg_data(tb[DEV_NAME]));
 		if (!dev)
 			return UBUS_STATUS_INVALID_ARGUMENT;
 	}
