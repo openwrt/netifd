@@ -937,7 +937,7 @@ device_create(const char *name, struct device_type *type,
 	struct device *odev = NULL, *dev;
 	enum dev_change_type change;
 
-	odev = device_get(name, false);
+	odev = device_find(name);
 	if (odev) {
 		odev->current_config = true;
 		change = device_apply_config(odev, type, config);
