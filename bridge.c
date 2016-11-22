@@ -655,6 +655,9 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 	blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, tb_br,
 		blob_data(attr), blob_len(attr));
 
+	if (tb_dev[DEV_ATTR_MACADDR])
+		bst->primary_port = NULL;
+
 	bst->ifnames = tb_br[BRIDGE_ATTR_IFNAME];
 	device_init_settings(dev, tb_dev);
 	bridge_apply_settings(bst, tb_br);
