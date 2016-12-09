@@ -600,11 +600,20 @@ interface_ip_dump_prefix_assignment_list(struct interface *iface)
 			if (prefix->valid_until)
 				blobmsg_add_u32(&b, "valid", prefix->valid_until - now);
 
+			void *c = blobmsg_open_table(&b, "local-address");
+			if (assign->enabled) {
+				buf = blobmsg_alloc_string_buffer(&b, "address", buflen);
+				inet_ntop(AF_INET6, &assign->addr, buf, buflen);
+				blobmsg_add_string_buffer(&b);
+
+				blobmsg_add_u32(&b, "mask", assign->length < 64 ? 64 : assign->length);
+			}
+			blobmsg_close_table(&b, c);
+
 			blobmsg_close_table(&b, a);
 		}
 	}
 }
-
 
 static void
 interface_ip_dump_dns_server_list(struct interface_ip_settings *ip,
