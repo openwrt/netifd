@@ -2127,7 +2127,7 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 	uint32_t ikey = 0, okey = 0, flags = 0, flowinfo = 0;
 	uint16_t iflags = 0, oflags = 0;
 	uint8_t tos = 0;
-	int ret = 0, ttl = 64;
+	int ret = 0, ttl = 0;
 
 	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
 	if (!nlm)
@@ -2154,8 +2154,6 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 
 	if ((cur = tb[TUNNEL_ATTR_TTL]))
 		ttl = blobmsg_get_u32(cur);
-
-	nla_put_u8(nlm, IFLA_GRE_TTL, ttl);
 
 	if ((cur = tb[TUNNEL_ATTR_TOS])) {
 		char *str = blobmsg_get_string(cur);
@@ -2230,6 +2228,9 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 
 		if (flags)
 			nla_put_u32(nlm, IFLA_GRE_FLAGS, flags);
+
+		if (!ttl)
+			ttl = 64;
 	} else {
 		struct in_addr inbuf;
 		bool set_df = true;
@@ -2265,16 +2266,22 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 		if ((cur = tb[TUNNEL_ATTR_DF]))
 			set_df = blobmsg_get_bool(cur);
 
-		/* ttl !=0 and nopmtudisc are incompatible */
-		if (ttl && !set_df) {
-			ret = -EINVAL;
-			goto failure;
-		}
+		if (!set_df) {
+			/* ttl != 0 and nopmtudisc are incompatible */
+			if (ttl) {
+				ret = -EINVAL;
+				goto failure;
+			}
+		} else if (!ttl)
+			ttl = 64;
 
 		nla_put_u8(nlm, IFLA_GRE_PMTUDISC, set_df ? 1 : 0);
 
 		nla_put_u8(nlm, IFLA_GRE_TOS, tos);
 	}
+
+	if (ttl)
+		nla_put_u8(nlm, IFLA_GRE_TTL, ttl);
 
 	if (oflags)
 		nla_put_u16(nlm, IFLA_GRE_OFLAGS, oflags);
