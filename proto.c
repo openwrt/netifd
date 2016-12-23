@@ -36,6 +36,7 @@ enum {
 	OPT_GATEWAY,
 	OPT_IP6GW,
 	OPT_IP6PREFIX,
+	OPT_IP6DEPRECATED,
 	__OPT_MAX,
 };
 
@@ -47,6 +48,7 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6PREFIX] = { .name = "ip6prefix", .type = BLOBMSG_TYPE_ARRAY },
+	[OPT_IP6DEPRECATED] = { .name = "ip6deprecated", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_info proto_ip_attr_info[__OPT_MAX] = {
@@ -113,7 +115,7 @@ alloc_device_addr(bool v6, bool ext)
 
 static bool
 parse_addr(struct interface *iface, const char *str, bool v6, int mask,
-	   bool ext, uint32_t broadcast)
+	   bool ext, uint32_t broadcast, bool deprecated)
 {
 	struct device_addr *addr;
 	int af = v6 ? AF_INET6 : AF_INET;
@@ -136,6 +138,9 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask,
 	if (broadcast)
 		addr->broadcast = broadcast;
 
+	if (deprecated)
+		addr->preferred_until = system_get_rtime();
+
 	vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
 	return true;
 
@@ -148,7 +153,8 @@ error:
 
 static int
 parse_static_address_option(struct interface *iface, struct blob_attr *attr,
-			    bool v6, int netmask, bool ext, uint32_t broadcast)
+			    bool v6, int netmask, bool ext, uint32_t broadcast,
+			    bool deprecated)
 {
 	struct blob_attr *cur;
 	int n_addr = 0;
@@ -160,7 +166,7 @@ parse_static_address_option(struct interface *iface, struct blob_attr *attr,
 
 		n_addr++;
 		if (!parse_addr(iface, blobmsg_data(cur), v6, netmask, ext,
-				broadcast))
+				broadcast, deprecated))
 			return -1;
 	}
 
@@ -400,6 +406,7 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 	struct blob_attr *cur;
 	const char *error;
 	unsigned int netmask = 32;
+	bool ip6deprecated;
 	int n_v4 = 0, n_v6 = 0;
 	struct in_addr bcast = {};
 
@@ -420,13 +427,15 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 		}
 	}
 
+	ip6deprecated = blobmsg_get_bool_default(tb[OPT_IP6DEPRECATED], false);
+
 	if ((cur = tb[OPT_IPADDR]))
 		n_v4 = parse_static_address_option(iface, cur, false,
-			netmask, false, bcast.s_addr);
+			netmask, false, bcast.s_addr, false);
 
 	if ((cur = tb[OPT_IP6ADDR]))
 		n_v6 = parse_static_address_option(iface, cur, true,
-			128, false, 0);
+			128, false, 0, ip6deprecated);
 
 	if ((cur = tb[OPT_IP6PREFIX]))
 		if (parse_prefix_list(iface, cur) < 0)
