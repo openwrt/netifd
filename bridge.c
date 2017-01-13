@@ -568,8 +568,6 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	/* defaults */
 	cfg->stp = false;
 	cfg->forward_delay = 2;
-	cfg->igmp_snoop = true;
-	cfg->multicast_querier = true;
 	cfg->robustness = 2;
 	cfg->query_interval = 12500;
 	cfg->query_response_interval = 1000;
