@@ -102,7 +102,7 @@ enum {
 	DEV_OPT_UNICAST_FLOOD		= (1 << 18),
 	DEV_OPT_NEIGHGCSTALETIME	= (1 << 19),
 	DEV_OPT_MULTICAST_FAST_LEAVE	= (1 << 20),
-	DEV_OPT_SENDREDIRECTS		= (1 << 17),
+	DEV_OPT_SENDREDIRECTS		= (1 << 21),
 };
 
 /* events broadcasted to all users of a device */
