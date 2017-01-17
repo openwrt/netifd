@@ -59,6 +59,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_LEARNING] = { .name ="learning", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_UNICAST_FLOOD] = { .name ="unicast_flood", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_SENDREDIRECTS] = { .name = "sendredirects", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_NEIGHLOCKTIME] = { .name = "neighlocktime", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -217,6 +218,8 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->neigh4gcstaletime : os->neigh4gcstaletime;
 	n->neigh6gcstaletime = s->flags & DEV_OPT_NEIGHGCSTALETIME ?
 		s->neigh6gcstaletime : os->neigh6gcstaletime;
+	n->neigh4locktime = s->flags & DEV_OPT_NEIGHLOCKTIME ?
+		s->neigh4locktime : os->neigh4locktime;
 	n->dadtransmits = s->flags & DEV_OPT_DADTRANSMITS ?
 		s->dadtransmits : os->dadtransmits;
 	n->multicast = s->flags & DEV_OPT_MULTICAST ?
@@ -312,6 +315,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_NEIGHGCSTALETIME])) {
 		s->neigh6gcstaletime = s->neigh4gcstaletime = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_NEIGHGCSTALETIME;
+	}
+
+	if ((cur = tb[DEV_ATTR_NEIGHLOCKTIME])) {
+		s->neigh4locktime = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGHLOCKTIME;
 	}
 
 	if ((cur = tb[DEV_ATTR_RPS])) {
@@ -1044,6 +1052,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "neigh4gcstaletime", st.neigh4gcstaletime);
 			blobmsg_add_u32(b, "neigh6gcstaletime", st.neigh6gcstaletime);
 		}
+		if (st.flags & DEV_OPT_NEIGHLOCKTIME)
+			blobmsg_add_u32(b, "neigh4locktime", st.neigh4locktime);
 		if (st.flags & DEV_OPT_DADTRANSMITS)
 			blobmsg_add_u32(b, "dadtransmits", st.dadtransmits);
 		if (st.flags & DEV_OPT_MULTICAST_TO_UNICAST)

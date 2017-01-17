@@ -51,6 +51,7 @@ enum {
 	DEV_ATTR_UNICAST_FLOOD,
 	DEV_ATTR_NEIGHGCSTALETIME,
 	DEV_ATTR_SENDREDIRECTS,
+	DEV_ATTR_NEIGHLOCKTIME,
 	__DEV_ATTR_MAX,
 };
 
@@ -103,6 +104,7 @@ enum {
 	DEV_OPT_NEIGHGCSTALETIME	= (1 << 19),
 	DEV_OPT_MULTICAST_FAST_LEAVE	= (1 << 20),
 	DEV_OPT_SENDREDIRECTS		= (1 << 21),
+	DEV_OPT_NEIGHLOCKTIME		= (1 << 22),
 };
 
 /* events broadcasted to all users of a device */
@@ -160,6 +162,7 @@ struct device_settings {
 	unsigned int neigh6reachabletime;
 	unsigned int neigh4gcstaletime;
 	unsigned int neigh6gcstaletime;
+	unsigned int neigh4locktime;
 	bool rps;
 	bool xps;
 	unsigned int dadtransmits;
