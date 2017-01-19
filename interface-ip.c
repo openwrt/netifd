@@ -40,6 +40,7 @@ enum {
 	ROUTE_SOURCE,
 	ROUTE_ONLINK,
 	ROUTE_TYPE,
+	ROUTE_PROTO,
 	__ROUTE_MAX
 };
 
@@ -54,7 +55,8 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_VALID] = { .name = "valid", .type = BLOBMSG_TYPE_INT32 },
 	[ROUTE_SOURCE] = { .name = "source", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_ONLINK] = { .name = "onlink", .type = BLOBMSG_TYPE_BOOL },
-	[ROUTE_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING }
+	[ROUTE_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct uci_blob_param_list route_attr_list = {
@@ -405,6 +407,14 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		route->flags |= DEVROUTE_TYPE;
 	}
 
+	if ((cur = tb[ROUTE_PROTO]) != NULL) {
+		if (!system_resolve_rt_proto(blobmsg_data(cur), &route->proto)) {
+			DPRINTF("Failed to resolve proto type: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+		route->flags |= DEVROUTE_PROTO;
+	}
+
 	interface_set_route_info(iface, route);
 	vlist_add(&ip->route, &route->node, route);
 	return;
@@ -478,10 +488,13 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 	memcpy(&r->addr, &addr->addr, sizeof(r->addr));
 	clear_if_addr(&r->addr, r->mask);
 
-	r->flags |= DEVADDR_KERNEL;
+	if (!system_resolve_rt_proto("kernel", &r->proto))
+		return;
+
+	r->flags |= DEVROUTE_PROTO;
 	system_del_route(dev, r);
 
-	r->flags &= ~DEVADDR_KERNEL;
+	r->flags &= ~DEVROUTE_PROTO;
 	interface_set_route_info(iface, r);
 
 	system_add_route(dev, r);
@@ -634,7 +647,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 	if (node_old && node_new)
 		keep = !memcmp(&route_old->nexthop, &route_new->nexthop, sizeof(route_old->nexthop)) &&
 			(route_old->mtu == route_new->mtu) && (route_old->type == route_new->type) &&
-			!route_old->failed;
+			(route_old->proto == route_new->proto) && !route_old->failed;
 
 	if (node_old) {
 		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)

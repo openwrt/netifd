@@ -202,6 +202,12 @@ bool system_resolve_rt_type(const char *type, unsigned int *id)
 	return true;
 }
 
+bool system_resolve_rt_proto(const char *type, unsigned int *id)
+{
+	*id = 0;
+	return true;
+}
+
 bool system_resolve_rt_table(const char *name, unsigned int *id)
 {
 	*id = 0;

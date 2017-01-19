@@ -31,8 +31,8 @@ enum device_addr_flags {
 	/* route overrides the default interface mtu */
 	DEVROUTE_MTU		= (1 << 4),
 
-	/* route automatically added by kernel */
-	DEVADDR_KERNEL		= (1 << 5),
+	/* route overrides the default proto type */
+	DEVROUTE_PROTO		= (1 << 5),
 
 	/* address is off-link (no subnet-route) */
 	DEVADDR_OFFLINK		= (1 << 6),
@@ -92,6 +92,7 @@ struct device_route {
 	union if_addr nexthop;
 	int mtu;
 	unsigned int type;
+	unsigned int proto;
 	time_t valid_until;
 
 	/* must be last */

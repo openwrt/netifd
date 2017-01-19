@@ -52,7 +52,6 @@
 #define IFA_FLAGS (IFA_MULTICAST + 1)
 #endif
 
-
 #include <string.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -1782,7 +1781,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		.rtm_dst_len = route->mask,
 		.rtm_src_len = route->sourcemask,
 		.rtm_table = (table < 256) ? table : RT_TABLE_UNSPEC,
-		.rtm_protocol = (route->flags & DEVADDR_KERNEL) ? RTPROT_KERNEL : RTPROT_STATIC,
+		.rtm_protocol = (route->flags & DEVROUTE_PROTO) ? route->proto : RTPROT_STATIC,
 		.rtm_scope = RT_SCOPE_NOWHERE,
 		.rtm_type = (cmd == RTM_DELROUTE) ? 0: RTN_UNICAST,
 		.rtm_flags = (route->flags & DEVROUTE_ONLINK) ? RTNH_F_ONLINK : 0,
@@ -1898,6 +1897,45 @@ int system_flush_routes(void)
 bool system_resolve_rt_type(const char *type, unsigned int *id)
 {
 	return system_rtn_aton(type, id);
+}
+
+bool system_resolve_rt_proto(const char *type, unsigned int *id)
+{
+	FILE *f;
+	char *e, buf[128];
+	unsigned int n, proto = 256;
+
+	if ((n = strtoul(type, &e, 0)) >= 0 && !*e && e != type)
+		proto = n;
+	else if (!strcmp(type, "unspec"))
+		proto = RTPROT_UNSPEC;
+	else if (!strcmp(type, "kernel"))
+		proto = RTPROT_KERNEL;
+	else if (!strcmp(type, "boot"))
+		proto = RTPROT_BOOT;
+	else if (!strcmp(type, "static"))
+		proto = RTPROT_STATIC;
+	else if ((f = fopen("/etc/iproute2/rt_protos", "r")) != NULL) {
+		while (fgets(buf, sizeof(buf) - 1, f) != NULL) {
+			if ((e = strtok(buf, " \t\n")) == NULL || *e == '#')
+				continue;
+
+			n = strtoul(e, NULL, 10);
+			e = strtok(NULL, " \t\n");
+
+			if (e && !strcmp(e, type)) {
+				proto = n;
+				break;
+			}
+		}
+		fclose(f);
+	}
+
+	if (proto > 255)
+		return false;
+
+	*id = proto;
+	return true;
 }
 
 bool system_resolve_rt_table(const char *name, unsigned int *id)

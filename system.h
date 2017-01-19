@@ -146,6 +146,7 @@ int system_del_route(struct device *dev, struct device_route *route);
 int system_flush_routes(void);
 
 bool system_resolve_rt_type(const char *type, unsigned int *id);
+bool system_resolve_rt_proto(const char *type, unsigned int *id);
 bool system_resolve_rt_table(const char *name, unsigned int *id);
 bool system_is_default_rt_table(unsigned int id);
 bool system_resolve_rpfilter(const char *filter, unsigned int *id);
