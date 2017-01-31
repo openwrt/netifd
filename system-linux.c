@@ -139,7 +139,7 @@ create_socket(int protocol, int groups)
 
 static bool
 create_raw_event_socket(struct event_socket *ev, int protocol, int groups,
-                        uloop_fd_handler cb, int flags)
+			uloop_fd_handler cb, int flags)
 {
 	ev->sock = create_socket(protocol, groups);
 	if (!ev->sock)
@@ -243,7 +243,7 @@ int system_init(void)
 		return -1;
 
 	if (!create_raw_event_socket(&hotplug_event, NETLINK_KOBJECT_UEVENT, 1,
-	                             handle_hotplug_event, 0))
+					handle_hotplug_event, 0))
 		return -1;
 
 	// Receive network link events form kernel
@@ -1176,10 +1176,10 @@ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlande
 	nlmsg_append(msg, &iim, sizeof(iim), 0);
 	nla_put_string(msg, IFLA_IFNAME, vlandev->ifname);
 	nla_put_u32(msg, IFLA_LINK, dev->ifindex);
-	
+
 	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
 		goto nla_put_failure;
-	
+
 	nla_put_string(msg, IFLA_INFO_KIND, "vlan");
 
 	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
@@ -2231,7 +2231,7 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 			else
 				tos = 1;
 		}
-        }
+	}
 
 	if ((cur = tb[TUNNEL_ATTR_INFO]) && (blobmsg_type(cur) == BLOBMSG_TYPE_STRING)) {
 		uint8_t icsum, ocsum, iseqno, oseqno;
@@ -2464,7 +2464,7 @@ static int system_add_proto_tunnel(const char *name, const uint8_t proto, const 
 	struct blob_attr *cur;
 	bool set_df = true;
 	struct ip_tunnel_parm p  = {
-	        .link = link,
+		.link = link,
 		.iph = {
 			.version = 4,
 			.ihl = 5,

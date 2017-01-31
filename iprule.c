@@ -233,7 +233,7 @@ rule_cmp(const void *k1, const void *k2, void *ptr)
 
 static void
 iprule_update_rule(struct vlist_tree *tree,
-                   struct vlist_node *node_new, struct vlist_node *node_old)
+			struct vlist_node *node_new, struct vlist_node *node_old)
 {
 	struct iprule *rule_old, *rule_new;
 

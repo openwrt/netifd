@@ -402,8 +402,7 @@ netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
 }
 
 static void
-interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6,
-                               bool enabled)
+interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6, bool enabled)
 {
 	struct device_addr *addr;
 	char *buf;
@@ -619,8 +618,7 @@ interface_ip_dump_prefix_assignment_list(struct interface *iface)
 }
 
 static void
-interface_ip_dump_dns_server_list(struct interface_ip_settings *ip,
-                                  bool enabled)
+interface_ip_dump_dns_server_list(struct interface_ip_settings *ip, bool enabled)
 {
 	struct dns_server *dns;
 	int buflen = 128;
@@ -637,8 +635,7 @@ interface_ip_dump_dns_server_list(struct interface_ip_settings *ip,
 }
 
 static void
-interface_ip_dump_dns_search_list(struct interface_ip_settings *ip,
-                                  bool enabled)
+interface_ip_dump_dns_search_list(struct interface_ip_settings *ip, bool enabled)
 {
 	struct dns_search_domain *dns;
 
