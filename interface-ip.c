@@ -850,6 +850,25 @@ static bool interface_prefix_assign(struct list_head *list,
 	return false;
 }
 
+/*
+ * Sorting of assignment entries:
+ * Primary on assignment length: smallest assignment first
+ * Secondary on assignment weight: highest weight first
+ * Finally alphabetical order of interface names
+ */
+static int prefix_assignment_cmp(const void *k1, const void *k2, void *ptr)
+{
+	const struct device_prefix_assignment *a1 = k1, *a2 = k2;
+
+	if (a1->length != a2->length)
+		return a1->length - a2->length;
+
+	if (a1->weight != a2->weight)
+		return a2->weight - a1->weight;
+
+	return strcmp(a1->name, a2->name);
+}
+
 static void interface_update_prefix_assignments(struct device_prefix *prefix, bool setup)
 {
 	struct device_prefix_assignment *c;
@@ -894,7 +913,13 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	}
 
 	bool assigned_any = false;
-	struct list_head assign_later = LIST_HEAD_INIT(assign_later);
+	struct {
+		struct avl_node node;
+	} *entry, *n_entry;
+	struct avl_tree assign_later;
+
+	avl_init(&assign_later, prefix_assignment_cmp, false, NULL);
+
 	vlist_for_each_element(&interfaces, iface, node) {
 		if (iface->assignment_length < 48 ||
 				iface->assignment_length > 64)
@@ -923,6 +948,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 
 		c->length = iface->assignment_length;
 		c->assigned = iface->assignment_hint;
+		c->weight = iface->assignment_weight;
 		c->addr = in6addr_any;
 		c->enabled = false;
 		memcpy(c->name, iface->name, namelen);
@@ -935,27 +961,25 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 						"of size %hhu for %s, trying other\n", c->length, c->name);
 			}
 
-			struct list_head *next = &assign_later;
-			struct device_prefix_assignment *n;
-			list_for_each_entry(n, &assign_later, head) {
-				if (n->length < c->length) {
-					next = &n->head;
-					break;
-				}
-			}
-			list_add_tail(&c->head, next);
+			entry = calloc(1, sizeof(*entry));
+			if (!entry)
+				continue;
+
+			entry->node.key = c;
+			avl_insert(&assign_later, &entry->node);
 		}
 
 		if (c->assigned != -1)
 			assigned_any = true;
 	}
 
-	// Then try to assign all other + failed custom assignments
-	while (!list_empty(&assign_later)) {
-		c = list_first_entry(&assign_later, struct device_prefix_assignment, head);
-		list_del(&c->head);
-
+	/* Then try to assign all other + failed custom assignments */
+	avl_for_each_element_safe(&assign_later, entry, node, n_entry) {
 		bool assigned = false;
+
+		c = (struct device_prefix_assignment *)entry->node.key;
+		avl_delete(&assign_later, &entry->node);
+
 		do {
 			assigned = interface_prefix_assign(&prefix->assignments, c);
 		} while (!assigned && ++c->length <= 64);
@@ -964,9 +988,10 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 			netifd_log_message(L_WARNING, "Failed to assign subprefix "
 					"of size %hhu for %s\n", c->length, c->name);
 			free(c);
-		} else {
+		} else
 			assigned_any = true;
-		}
+
+		free(entry);
 	}
 
 	list_for_each_entry(c, &prefix->assignments, head)

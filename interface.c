@@ -46,6 +46,7 @@ enum {
 	IFACE_ATTR_DELEGATE,
 	IFACE_ATTR_IP6IFACEID,
 	IFACE_ATTR_FORCE_LINK,
+	IFACE_ATTR_IP6WEIGHT,
 	IFACE_ATTR_MAX
 };
 
@@ -68,6 +69,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_DELEGATE] = { .name = "delegate", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6IFACEID] = { .name = "ip6ifaceid", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_IP6WEIGHT] = { .name = "ip6weight", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct uci_blob_param_list interface_attr_list = {
@@ -497,6 +499,7 @@ interface_merge_assignment_data(struct interface *old, struct interface *new)
 	bool changed = (old->assignment_hint != new->assignment_hint ||
 			old->assignment_length != new->assignment_length ||
 			old->assignment_iface_id_selection != new->assignment_iface_id_selection ||
+			old->assignment_weight != new->assignment_weight ||
 			(old->assignment_iface_id_selection == IFID_FIXED &&
 			 memcmp(&old->assignment_fixed_iface_id, &new->assignment_fixed_iface_id,
 				sizeof(old->assignment_fixed_iface_id))) ||
@@ -534,6 +537,7 @@ interface_merge_assignment_data(struct interface *old, struct interface *new)
 		old->assignment_length = new->assignment_length;
 		old->assignment_iface_id_selection = new->assignment_iface_id_selection;
 		old->assignment_fixed_iface_id = new->assignment_fixed_iface_id;
+		old->assignment_weight = new->assignment_weight;
 		interface_refresh_assignments(true);
 	}
 }
@@ -842,6 +846,8 @@ interface_alloc(const char *name, struct blob_attr *config)
 	if ((cur = tb[IFACE_ATTR_IP6CLASS]))
 		interface_add_assignment_classes(iface, cur);
 
+	if ((cur = tb[IFACE_ATTR_IP6WEIGHT]))
+		iface->assignment_weight = blobmsg_get_u32(cur);
 
 	if ((cur = tb[IFACE_ATTR_IP4TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip4table))

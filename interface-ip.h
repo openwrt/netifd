@@ -59,6 +59,7 @@ struct device_prefix_assignment {
 	struct list_head head;
 	int32_t assigned;
 	uint8_t length;
+	int weight;
 	struct in6_addr addr;
 	bool enabled;
 	char name[];

@@ -155,6 +155,7 @@ struct interface {
 	uint8_t assignment_length;
 	int32_t assignment_hint;
 	struct list_head assignment_classes;
+	int assignment_weight;
 
 	/* errors/warnings while trying to bring up the interface */
 	struct list_head errors;
