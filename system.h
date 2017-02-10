@@ -14,6 +14,7 @@
 #ifndef __NETIFD_SYSTEM_H
 #define __NETIFD_SYSTEM_H
 
+#include <net/if.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -82,6 +83,20 @@ struct macvlan_config {
 	unsigned char macaddr[6];
 };
 
+enum veth_opt {
+	VETH_OPT_MACADDR = (1 << 0),
+	VETH_OPT_PEER_NAME = (1 << 1),
+	VETH_OPT_PEER_MACADDR = (1 << 2),
+};
+
+struct veth_config {
+	enum veth_opt flags;
+
+	unsigned char macaddr[6];
+	char peer_name[IFNAMSIZ];
+	unsigned char peer_macaddr[6];
+};
+
 enum vlan_proto {
 	VLAN_PROTO_8021Q = 0x8100,
 	VLAN_PROTO_8021AD = 0x88A8
@@ -117,6 +132,9 @@ int system_bridge_delif(struct device *bridge, struct device *dev);
 
 int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvlan_config *cfg);
 int system_macvlan_del(struct device *macvlan);
+
+int system_veth_add(struct device *veth, struct veth_config *cfg);
+int system_veth_del(struct device *veth);
 
 int system_vlan_add(struct device *dev, int id);
 int system_vlan_del(struct device *dev);

@@ -38,6 +38,7 @@
 #include <linux/ip6_tunnel.h>
 #include <linux/ethtool.h>
 #include <linux/fib_rules.h>
+#include <linux/veth.h>
 #include <linux/version.h>
 
 #ifndef RTN_FAILED_POLICY
@@ -1129,6 +1130,66 @@ static int system_link_del(const char *ifname)
 int system_macvlan_del(struct device *macvlan)
 {
 	return system_link_del(macvlan->ifname);
+}
+
+int system_veth_add(struct device *veth, struct veth_config *cfg)
+{
+	struct nl_msg *msg;
+	struct ifinfomsg empty_iim = {};
+	struct nlattr *linkinfo, *data, *veth_info;
+	int rv;
+
+	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &empty_iim, sizeof(empty_iim), 0);
+
+	if (cfg->flags & VETH_OPT_MACADDR)
+		nla_put(msg, IFLA_ADDRESS, sizeof(cfg->macaddr), cfg->macaddr);
+	nla_put_string(msg, IFLA_IFNAME, veth->ifname);
+
+	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
+		goto nla_put_failure;
+
+	nla_put_string(msg, IFLA_INFO_KIND, "veth");
+
+	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
+		goto nla_put_failure;
+
+	if (!(veth_info = nla_nest_start(msg, VETH_INFO_PEER)))
+		goto nla_put_failure;
+
+	nlmsg_append(msg, &empty_iim, sizeof(empty_iim), 0);
+
+	if (cfg->flags & VETH_OPT_PEER_NAME)
+		nla_put_string(msg, IFLA_IFNAME, cfg->peer_name);
+	if (cfg->flags & VETH_OPT_PEER_MACADDR)
+		nla_put(msg, IFLA_ADDRESS, sizeof(cfg->peer_macaddr), cfg->peer_macaddr);
+
+	nla_nest_end(msg, veth_info);
+	nla_nest_end(msg, data);
+	nla_nest_end(msg, linkinfo);
+
+	rv = system_rtnl_call(msg);
+	if (rv) {
+		if (cfg->flags & VETH_OPT_PEER_NAME)
+			D(SYSTEM, "Error adding veth '%s' with peer '%s': %d\n", veth->ifname, cfg->peer_name, rv);
+		else
+			D(SYSTEM, "Error adding veth '%s': %d\n", veth->ifname, rv);
+	}
+
+	return rv;
+
+nla_put_failure:
+	nlmsg_free(msg);
+	return -ENOMEM;
+}
+
+int system_veth_del(struct device *veth)
+{
+	return system_link_del(veth->ifname);
 }
 
 static int system_vlan(struct device *dev, int id)

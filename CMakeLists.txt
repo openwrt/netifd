@@ -9,7 +9,7 @@ SET(SOURCES
 	main.c utils.c system.c tunnel.c handler.c
 	interface.c interface-ip.c interface-event.c
 	iprule.c proto.c proto-static.c proto-shell.c
-	config.c device.c bridge.c vlan.c alias.c
+	config.c device.c bridge.c veth.c vlan.c alias.c
 	macvlan.c ubus.c vlandev.c wireless.c)
 
 
