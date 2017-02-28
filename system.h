@@ -35,10 +35,20 @@ enum tunnel_param {
 	TUNNEL_ATTR_LINK,
 	TUNNEL_ATTR_FMRS,
 	TUNNEL_ATTR_INFO,
+	TUNNEL_ATTR_DATA,
 	__TUNNEL_ATTR_MAX
 };
 
 extern const struct uci_blob_param_list tunnel_attr_list;
+
+enum vxlan_data {
+	VXLAN_DATA_ATTR_ID,
+	VXLAN_DATA_ATTR_PORT,
+	VXLAN_DATA_ATTR_MACADDR,
+	__VXLAN_DATA_ATTR_MAX
+};
+
+extern const struct uci_blob_param_list vxlan_data_attr_list;
 
 enum bridge_opt {
 	/* stp and forward delay always set */

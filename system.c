@@ -28,11 +28,23 @@ static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_LINK] = { .name = "link", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_FMRS] = { .name = "fmrs", .type = BLOBMSG_TYPE_ARRAY },
 	[TUNNEL_ATTR_INFO] = { .name = "info", .type = BLOBMSG_TYPE_STRING },
+	[TUNNEL_ATTR_DATA] = { .name = "data", .type = BLOBMSG_TYPE_TABLE },
 };
 
 const struct uci_blob_param_list tunnel_attr_list = {
 	.n_params = __TUNNEL_ATTR_MAX,
 	.params = tunnel_attrs,
+};
+
+static const struct blobmsg_policy vxlan_data_attrs[__VXLAN_DATA_ATTR_MAX] = {
+	[VXLAN_DATA_ATTR_ID] = { .name = "id", .type = BLOBMSG_TYPE_INT32 },
+	[VXLAN_DATA_ATTR_PORT] = { .name = "port", .type = BLOBMSG_TYPE_INT32 },
+	[VXLAN_DATA_ATTR_MACADDR] = { .name = "macaddr", .type = BLOBMSG_TYPE_STRING },
+};
+
+const struct uci_blob_param_list vxlan_data_attr_list = {
+	.n_params = __VXLAN_DATA_ATTR_MAX,
+	.params = vxlan_data_attrs,
 };
 
 void system_fd_set_cloexec(int fd)

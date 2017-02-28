@@ -4,6 +4,7 @@
  * Copyright (C) 2013 Jo-Philipp Wich <jow@openwrt.org>
  * Copyright (C) 2013 Steven Barth <steven@midlink.org>
  * Copyright (C) 2014 Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2017 Matthias Schiffer <mschiffer@universe-factory.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -25,6 +26,7 @@
 #include <net/if_arp.h>
 
 #include <arpa/inet.h>
+#include <netinet/ether.h>
 #include <netinet/in.h>
 
 #include <linux/rtnetlink.h>
@@ -2540,6 +2542,155 @@ failure:
 }
 #endif
 
+#ifdef IFLA_VXLAN_MAX
+static int system_add_vxlan(const char *name, const unsigned int link, struct blob_attr **tb, bool v6)
+{
+	struct blob_attr *tb_data[__VXLAN_DATA_ATTR_MAX];
+	struct nl_msg *msg;
+	struct nlattr *linkinfo, *data;
+	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC, };
+	struct blob_attr *cur;
+	int ret = 0;
+
+	if ((cur = tb[TUNNEL_ATTR_DATA]))
+		blobmsg_parse(vxlan_data_attr_list.params, __VXLAN_DATA_ATTR_MAX, tb_data,
+			blobmsg_data(cur), blobmsg_len(cur));
+	else
+		return -EINVAL;
+
+	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+
+	nla_put_string(msg, IFLA_IFNAME, name);
+
+	if ((cur = tb_data[VXLAN_DATA_ATTR_MACADDR])) {
+		struct ether_addr *ea = ether_aton(blobmsg_get_string(cur));
+		if (!ea) {
+			ret = -EINVAL;
+			goto failure;
+		}
+
+		nla_put(msg, IFLA_ADDRESS, ETH_ALEN, ea);
+	}
+
+	if ((cur = tb[TUNNEL_ATTR_MTU])) {
+		uint32_t mtu = blobmsg_get_u32(cur);
+		nla_put_u32(msg, IFLA_MTU, mtu);
+	}
+
+	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO))) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	nla_put_string(msg, IFLA_INFO_KIND, "vxlan");
+
+	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA))) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	if (link)
+		nla_put_u32(msg, IFLA_VXLAN_LINK, link);
+
+	if ((cur = tb_data[VXLAN_DATA_ATTR_ID])) {
+		uint32_t id = blobmsg_get_u32(cur);
+		if (id >= (1u << 24) - 1) {
+			ret = -EINVAL;
+			goto failure;
+		}
+
+		nla_put_u32(msg, IFLA_VXLAN_ID, id);
+	}
+
+	if (v6) {
+		struct in6_addr in6buf;
+		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(msg, IFLA_VXLAN_LOCAL6, sizeof(in6buf), &in6buf);
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
+			if (inet_pton(AF_INET6, blobmsg_data(cur), &in6buf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(msg, IFLA_VXLAN_GROUP6, sizeof(in6buf), &in6buf);
+		}
+	} else {
+		struct in_addr inbuf;
+
+		if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
+			if (inet_pton(AF_INET, blobmsg_data(cur), &inbuf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(msg, IFLA_VXLAN_LOCAL, sizeof(inbuf), &inbuf);
+		}
+
+		if ((cur = tb[TUNNEL_ATTR_REMOTE])) {
+			if (inet_pton(AF_INET, blobmsg_data(cur), &inbuf) < 1) {
+				ret = -EINVAL;
+				goto failure;
+			}
+			nla_put(msg, IFLA_VXLAN_GROUP, sizeof(inbuf), &inbuf);
+		}
+	}
+
+	uint32_t port = 4789;
+	if ((cur = tb_data[VXLAN_DATA_ATTR_PORT])) {
+		port = blobmsg_get_u32(cur);
+		if (port < 1 || port > 65535) {
+			ret = -EINVAL;
+			goto failure;
+		}
+	}
+	nla_put_u16(msg, IFLA_VXLAN_PORT, htons(port));
+
+	if ((cur = tb[TUNNEL_ATTR_TOS])) {
+		char *str = blobmsg_get_string(cur);
+		unsigned tos = 1;
+
+		if (strcmp(str, "inherit")) {
+			if (!system_tos_aton(str, &tos))
+				return -EINVAL;
+		}
+
+		nla_put_u8(msg, IFLA_VXLAN_TOS, tos);
+	}
+
+	if ((cur = tb[TUNNEL_ATTR_TTL])) {
+		uint32_t ttl = blobmsg_get_u32(cur);
+		if (ttl < 1 || ttl > 255) {
+			ret = -EINVAL;
+			goto failure;
+		}
+
+		nla_put_u8(msg, IFLA_VXLAN_TTL, ttl);
+	}
+
+	nla_nest_end(msg, data);
+	nla_nest_end(msg, linkinfo);
+
+	ret = system_rtnl_call(msg);
+	if (ret)
+		D(SYSTEM, "Error adding vxlan '%s': %d\n", name, ret);
+
+	return ret;
+
+failure:
+	nlmsg_free(msg);
+	return ret;
+}
+#endif
+
 static int system_add_proto_tunnel(const char *name, const uint8_t proto, const unsigned int link, struct blob_attr **tb)
 {
 	struct blob_attr *cur;
@@ -2609,7 +2760,8 @@ static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb)
 
 	if (!strcmp(str, "greip") || !strcmp(str, "gretapip") ||
 	    !strcmp(str, "greip6") || !strcmp(str, "gretapip6") ||
-	    !strcmp(str, "vtiip") || !strcmp(str, "vtiip6"))
+	    !strcmp(str, "vtiip") || !strcmp(str, "vtiip6") ||
+	    !strcmp(str, "vxlan") || !strcmp(str, "vxlan6"))
 		return system_link_del(name);
 	else
 		return tunnel_ioctl(name, SIOCDELTUNNEL, NULL);
@@ -2832,6 +2984,12 @@ failure:
 		return system_add_vti_tunnel(name, "vti", link, tb, false);
 	} else if (!strcmp(str, "vtiip6")) {
 		return system_add_vti_tunnel(name, "vti6", link, tb, true);
+#endif
+#ifdef IFLA_VXLAN_MAX
+	} else if(!strcmp(str, "vxlan")) {
+		return system_add_vxlan(name, link, tb, false);
+	} else if(!strcmp(str, "vxlan6")) {
+		return system_add_vxlan(name, link, tb, true);
 #endif
 #endif
 	} else if (!strcmp(str, "ipip")) {
