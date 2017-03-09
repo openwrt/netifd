@@ -1047,6 +1047,10 @@ interface_update_prefix(struct vlist_tree *tree,
 		list_for_each_entry(c, &prefix_new->assignments, head)
 			if ((iface = vlist_find(&interfaces, c->name, iface, node)))
 				interface_set_prefix_address(c, prefix_new, iface, true);
+
+		if (prefix_new->preferred_until != prefix_old->preferred_until ||
+				prefix_new->valid_until != prefix_old->valid_until)
+			ip->iface->updated |= IUF_PREFIX;
 	} else if (node_new) {
 		// Set null-route to avoid routing loops
 		system_add_route(NULL, &route);
