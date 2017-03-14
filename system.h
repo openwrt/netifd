@@ -34,7 +34,6 @@ enum tunnel_param {
 	TUNNEL_ATTR_6RD_RELAY_PREFIX,
 	TUNNEL_ATTR_LINK,
 	TUNNEL_ATTR_FMRS,
-	TUNNEL_ATTR_INFO,
 	TUNNEL_ATTR_DATA,
 	__TUNNEL_ATTR_MAX
 };
@@ -58,8 +57,15 @@ enum gre_data {
 	__GRE_DATA_ATTR_MAX
 };
 
+enum vti_data {
+	VTI_DATA_IKEY,
+	VTI_DATA_OKEY,
+	__VTI_DATA_ATTR_MAX
+};
+
 extern const struct uci_blob_param_list vxlan_data_attr_list;
 extern const struct uci_blob_param_list gre_data_attr_list;
+extern const struct uci_blob_param_list vti_data_attr_list;
 
 enum bridge_opt {
 	/* stp and forward delay always set */

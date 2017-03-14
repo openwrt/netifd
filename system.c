@@ -27,7 +27,6 @@ static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_6RD_RELAY_PREFIX] = { .name = "6rd-relay-prefix", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_LINK] = { .name = "link", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_FMRS] = { .name = "fmrs", .type = BLOBMSG_TYPE_ARRAY },
-	[TUNNEL_ATTR_INFO] = { .name = "info", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_DATA] = { .name = "data", .type = BLOBMSG_TYPE_TABLE },
 };
 
@@ -59,6 +58,16 @@ static const struct blobmsg_policy gre_data_attrs[__GRE_DATA_ATTR_MAX] = {
 const struct uci_blob_param_list gre_data_attr_list = {
 	.n_params = __GRE_DATA_ATTR_MAX,
 	.params = gre_data_attrs,
+};
+
+static const struct blobmsg_policy vti_data_attrs[__VTI_DATA_ATTR_MAX] = {
+	[VTI_DATA_IKEY] = { .name = "ikey", .type = BLOBMSG_TYPE_INT32 },
+	[VTI_DATA_OKEY] = { .name = "okey", .type = BLOBMSG_TYPE_INT32 },
+};
+
+const struct uci_blob_param_list vti_data_attr_list = {
+	.n_params = __VTI_DATA_ATTR_MAX,
+	.params = vti_data_attrs,
 };
 
 void system_fd_set_cloexec(int fd)

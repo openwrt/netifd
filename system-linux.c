@@ -2462,7 +2462,6 @@ static int system_add_vti_tunnel(const char *name, const char *kind,
 	struct nl_msg *nlm;
 	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
 	struct blob_attr *cur;
-	uint32_t ikey = 0, okey = 0;
 	int ret = 0;
 
 	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
@@ -2487,14 +2486,6 @@ static int system_add_vti_tunnel(const char *name, const char *kind,
 
 	if (link)
 		nla_put_u32(nlm, IFLA_VTI_LINK, link);
-
-	if ((cur = tb[TUNNEL_ATTR_INFO]) && (blobmsg_type(cur) == BLOBMSG_TYPE_STRING)) {
-		if (sscanf(blobmsg_get_string(cur), "%u,%u",
-			&ikey, &okey) < 2) {
-			ret = -EINVAL;
-			goto failure;
-		}
-	}
 
 	if (v6) {
 		struct in6_addr in6buf;
@@ -2535,11 +2526,23 @@ static int system_add_vti_tunnel(const char *name, const char *kind,
 
 	}
 
-	if (okey)
-		nla_put_u32(nlm, IFLA_VTI_OKEY, htonl(okey));
+	if ((cur = tb[TUNNEL_ATTR_DATA])) {
+		struct blob_attr *tb_data[__VTI_DATA_ATTR_MAX];
+		uint32_t ikey = 0, okey = 0;
 
-	if (ikey)
-		nla_put_u32(nlm, IFLA_VTI_IKEY, htonl(ikey));
+		blobmsg_parse(vti_data_attr_list.params, __VTI_DATA_ATTR_MAX, tb_data,
+			blobmsg_data(cur), blobmsg_len(cur));
+
+		if ((cur = tb_data[VTI_DATA_IKEY])) {
+			if ((ikey = blobmsg_get_u32(cur)))
+				nla_put_u32(nlm, IFLA_VTI_IKEY, htonl(ikey));
+		}
+
+		if ((cur = tb_data[VTI_DATA_OKEY])) {
+			if ((okey = blobmsg_get_u32(cur)))
+				nla_put_u32(nlm, IFLA_VTI_OKEY, htonl(okey));
+		}
+	}
 
 	nla_nest_end(nlm, infodata);
 	nla_nest_end(nlm, linkinfo);
