@@ -48,7 +48,18 @@ enum vxlan_data {
 	__VXLAN_DATA_ATTR_MAX
 };
 
+enum gre_data {
+	GRE_DATA_IKEY,
+	GRE_DATA_OKEY,
+	GRE_DATA_ICSUM,
+	GRE_DATA_OCSUM,
+	GRE_DATA_ISEQNO,
+	GRE_DATA_OSEQNO,
+	__GRE_DATA_ATTR_MAX
+};
+
 extern const struct uci_blob_param_list vxlan_data_attr_list;
+extern const struct uci_blob_param_list gre_data_attr_list;
 
 enum bridge_opt {
 	/* stp and forward delay always set */

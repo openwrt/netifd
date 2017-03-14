@@ -2316,31 +2316,41 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 		}
 	}
 
-	if ((cur = tb[TUNNEL_ATTR_INFO]) && (blobmsg_type(cur) == BLOBMSG_TYPE_STRING)) {
-		uint8_t icsum, ocsum, iseqno, oseqno;
-		if (sscanf(blobmsg_get_string(cur), "%u,%u,%hhu,%hhu,%hhu,%hhu",
-			&ikey, &okey, &icsum, &ocsum, &iseqno, &oseqno) < 6) {
-			ret = -EINVAL;
-			goto failure;
+	if ((cur = tb[TUNNEL_ATTR_DATA])) {
+		struct blob_attr *tb_data[__GRE_DATA_ATTR_MAX];
+
+		blobmsg_parse(gre_data_attr_list.params, __GRE_DATA_ATTR_MAX, tb_data,
+			blobmsg_data(cur), blobmsg_len(cur));
+
+		if ((cur = tb_data[GRE_DATA_IKEY])) {
+			if ((ikey = blobmsg_get_u32(cur)))
+				iflags |= GRE_KEY;
 		}
 
-		if (ikey)
-			iflags |= GRE_KEY;
+		if ((cur = tb_data[GRE_DATA_OKEY])) {
+			if ((okey = blobmsg_get_u32(cur)))
+				oflags |= GRE_KEY;
+		}
 
-		if (okey)
-			oflags |= GRE_KEY;
+		if ((cur = tb_data[GRE_DATA_ICSUM])) {
+			if (blobmsg_get_bool(cur))
+				iflags |= GRE_CSUM;
+		}
 
-		if (icsum)
-			iflags |= GRE_CSUM;
+		if ((cur = tb_data[GRE_DATA_OCSUM])) {
+			if (blobmsg_get_bool(cur))
+				oflags |= GRE_CSUM;
+		}
 
-		if (ocsum)
-			oflags |= GRE_CSUM;
+		if ((cur = tb_data[GRE_DATA_ISEQNO])) {
+			if (blobmsg_get_bool(cur))
+				iflags |= GRE_SEQ;
+		}
 
-		if (iseqno)
-			iflags |= GRE_SEQ;
-
-		if (oseqno)
-			oflags |= GRE_SEQ;
+		if ((cur = tb[GRE_DATA_OSEQNO])) {
+			if (blobmsg_get_bool(cur))
+				oflags |= GRE_SEQ;
+		}
 	}
 
 	if (v6) {

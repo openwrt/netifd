@@ -47,6 +47,20 @@ const struct uci_blob_param_list vxlan_data_attr_list = {
 	.params = vxlan_data_attrs,
 };
 
+static const struct blobmsg_policy gre_data_attrs[__GRE_DATA_ATTR_MAX] = {
+	[GRE_DATA_IKEY] = { .name = "ikey", .type = BLOBMSG_TYPE_INT32 },
+	[GRE_DATA_OKEY] = { .name = "okey", .type = BLOBMSG_TYPE_INT32 },
+	[GRE_DATA_ICSUM] = { .name = "icsum", .type = BLOBMSG_TYPE_BOOL },
+	[GRE_DATA_OCSUM] = { .name = "ocsum", .type = BLOBMSG_TYPE_BOOL },
+	[GRE_DATA_ISEQNO] = { .name = "iseqno", .type = BLOBMSG_TYPE_BOOL },
+	[GRE_DATA_OSEQNO] = { .name = "oseqno", .type = BLOBMSG_TYPE_BOOL },
+};
+
+const struct uci_blob_param_list gre_data_attr_list = {
+	.n_params = __GRE_DATA_ATTR_MAX,
+	.params = gre_data_attrs,
+};
+
 void system_fd_set_cloexec(int fd)
 {
 #ifdef FD_CLOEXEC
