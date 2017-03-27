@@ -19,6 +19,6 @@
 
 extern bool config_init;
 
-void config_init_all(void);
+int config_init_all(void);
 
 #endif

@@ -208,9 +208,9 @@ static void netifd_do_restart(struct uloop_timeout *timeout)
 	execvp(global_argv[0], global_argv);
 }
 
-void netifd_reload(void)
+int netifd_reload(void)
 {
-	config_init_all();
+	return config_init_all();
 }
 
 void netifd_restart(void)

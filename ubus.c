@@ -44,8 +44,10 @@ netifd_handle_reload(struct ubus_context *ctx, struct ubus_object *obj,
 		     struct ubus_request_data *req, const char *method,
 		     struct blob_attr *msg)
 {
-	netifd_reload();
-	return 0;
+	if (netifd_reload())
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
+	return UBUS_STATUS_OK;
 }
 
 enum {

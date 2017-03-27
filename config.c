@@ -393,16 +393,20 @@ config_init_wireless(void)
 		vlist_flush(&wdev->interfaces);
 }
 
-void
+int
 config_init_all(void)
 {
+	int ret = 0;
+
 	uci_network = config_init_package("network");
 	if (!uci_network) {
 		fprintf(stderr, "Failed to load network config\n");
-		return;
+		return -1;
 	}
 
 	uci_wireless = config_init_package("wireless");
+	if (!uci_wireless)
+		ret = -1;
 
 	vlist_update(&interfaces);
 	config_init = true;
@@ -426,4 +430,6 @@ config_init_all(void)
 	interface_refresh_assignments(false);
 	interface_start_pending();
 	wireless_start_pending();
+
+	return ret;
 }

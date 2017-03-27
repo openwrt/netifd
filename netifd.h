@@ -98,6 +98,6 @@ struct interface;
 extern const char *main_path;
 extern const char *config_path;
 void netifd_restart(void);
-void netifd_reload(void);
+int netifd_reload(void);
 
 #endif
