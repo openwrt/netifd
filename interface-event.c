@@ -33,6 +33,7 @@ static struct uloop_process task = {
 static const char * const eventnames[] = {
 	[IFEV_DOWN] = "ifdown",
 	[IFEV_UP] = "ifup",
+	[IFEV_UP_FAILED] = "ifup-failed",
 	[IFEV_UPDATE] = "ifupdate",
 	[IFEV_FREE] = "free",
 	[IFEV_RELOAD] = "reload",
@@ -191,6 +192,7 @@ static void interface_event_cb(struct interface_user *dep, struct interface *ifa
 	switch (ev) {
 		case IFEV_LINK_UP:
 		case IFEV_UP:
+		case IFEV_UP_FAILED:
 		case IFEV_UPDATE:
 		case IFEV_DOWN:
 			interface_queue_event(iface, ev);

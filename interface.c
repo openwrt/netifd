@@ -241,6 +241,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 		adev = iface->l3_dev.dev;
 		/* fall through */
 	case IFEV_DOWN:
+	case IFEV_UP_FAILED:
 		alias_notify_device(iface->name, adev);
 		break;
 	default:
@@ -268,6 +269,8 @@ mark_interface_down(struct interface *iface)
 	iface->state = IFS_DOWN;
 	if (state == IFS_UP)
 		interface_event(iface, IFEV_DOWN);
+	else
+		interface_event(iface, IFEV_UP_FAILED);
 	interface_ip_set_enabled(&iface->config_ip, false);
 	interface_ip_set_enabled(&iface->proto_ip, false);
 	interface_ip_flush(&iface->proto_ip);
@@ -557,6 +560,7 @@ interface_alias_cb(struct interface_user *dep, struct interface *iface, enum int
 		interface_set_available(alias, true);
 		break;
 	case IFEV_DOWN:
+	case IFEV_UP_FAILED:
 		interface_set_available(alias, false);
 		interface_set_main_dev(alias, NULL);
 		break;

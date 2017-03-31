@@ -23,6 +23,7 @@ struct interface_proto_state;
 enum interface_event {
 	IFEV_DOWN,
 	IFEV_UP,
+	IFEV_UP_FAILED,
 	IFEV_UPDATE,
 	IFEV_FREE,
 	IFEV_RELOAD,
