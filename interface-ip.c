@@ -1287,13 +1287,14 @@ __interface_write_dns_entries(FILE *f)
 
 	avl_for_each_element(&resolv_conf_iface_entries, entry, node) {
 		iface = (struct interface *)entry->node.key;
+		struct device *dev = iface->l3_dev.dev;
 
 		fprintf(f, "# Interface %s\n", iface->name);
 
-		write_resolv_conf_entries(f, &iface->config_ip, iface->ifname);
+		write_resolv_conf_entries(f, &iface->config_ip, dev->ifname);
 
 		if (!iface->proto_ip.no_dns)
-			write_resolv_conf_entries(f, &iface->proto_ip, iface->ifname);
+			write_resolv_conf_entries(f, &iface->proto_ip, dev->ifname);
 	}
 
 	avl_remove_all_elements(&resolv_conf_iface_entries, entry, node, n_entry)
