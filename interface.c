@@ -1076,6 +1076,15 @@ interface_set_down(struct interface *iface)
 	return 0;
 }
 
+int
+interface_renew(struct interface *iface)
+{
+	if (iface->state == IFS_TEARDOWN || iface->state == IFS_DOWN)
+		return -1;
+
+	return interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);
+}
+
 void
 interface_start_pending(void)
 {

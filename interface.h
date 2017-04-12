@@ -184,6 +184,7 @@ void interface_set_available(struct interface *iface, bool new_state);
 int interface_set_up(struct interface *iface);
 int interface_set_down(struct interface *iface);
 void __interface_set_down(struct interface *iface, bool force);
+int interface_renew(struct interface *iface);
 
 void interface_set_main_dev(struct interface *iface, struct device *dev);
 void interface_set_l3_dev(struct interface *iface, struct device *dev);
