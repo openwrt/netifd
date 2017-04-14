@@ -1896,7 +1896,8 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 				rtm.rtm_type == RTN_ANYCAST) {
 			rtm.rtm_scope = RT_SCOPE_LINK;
 		} else if (rtm.rtm_type == RTN_BLACKHOLE || rtm.rtm_type == RTN_UNREACHABLE ||
-				rtm.rtm_type == RTN_PROHIBIT || rtm.rtm_type == RTN_FAILED_POLICY) {
+				rtm.rtm_type == RTN_PROHIBIT || rtm.rtm_type == RTN_FAILED_POLICY ||
+				rtm.rtm_type == RTN_THROW) {
 			rtm.rtm_scope = RT_SCOPE_UNIVERSE;
 			dev = NULL;
 		}
