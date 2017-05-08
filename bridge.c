@@ -240,14 +240,14 @@ bridge_remove_member(struct bridge_member *bm)
 	if (!bm->present)
 		return;
 
-	if (bm == bst->primary_port)
-		bridge_reset_primary(bst);
-
 	if (bst->dev.active)
 		bridge_disable_member(bm);
 
 	bm->present = false;
 	bm->bst->n_present--;
+
+	if (bm == bst->primary_port)
+		bridge_reset_primary(bst);
 
 	if (bst->config.bridge_empty)
 		return;
