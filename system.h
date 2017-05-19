@@ -63,9 +63,16 @@ enum vti_data {
 	__VTI_DATA_ATTR_MAX
 };
 
+enum sixrd_data {
+	SIXRD_DATA_PREFIX,
+	SIXRD_DATA_RELAY_PREFIX,
+	__SIXRD_DATA_ATTR_MAX
+};
+
 extern const struct uci_blob_param_list vxlan_data_attr_list;
 extern const struct uci_blob_param_list gre_data_attr_list;
 extern const struct uci_blob_param_list vti_data_attr_list;
+extern const struct uci_blob_param_list sixrd_data_attr_list;
 
 enum bridge_opt {
 	/* stp and forward delay always set */

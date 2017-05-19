@@ -81,6 +81,9 @@ static struct nl_sock *sock_rtnl = NULL;
 
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
+static int system_add_proto_tunnel(const char *name, const uint8_t proto,
+					const unsigned int link, struct blob_attr **tb);
+static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb);
 
 static char dev_buf[256];
 
@@ -2705,6 +2708,59 @@ failure:
 }
 #endif
 
+static int system_add_sit_tunnel(const char *name, const unsigned int link, struct blob_attr **tb)
+{
+	struct blob_attr *cur;
+	int ret = 0;
+
+	if (system_add_proto_tunnel(name, IPPROTO_IPV6, link, tb) < 0)
+		return -1;
+
+#ifdef SIOCADD6RD
+	if ((cur = tb[TUNNEL_ATTR_DATA])) {
+		struct blob_attr *tb_data[__SIXRD_DATA_ATTR_MAX];
+		unsigned int mask;
+		struct ip_tunnel_6rd p6;
+
+		blobmsg_parse(sixrd_data_attr_list.params, __SIXRD_DATA_ATTR_MAX, tb_data,
+			blobmsg_data(cur), blobmsg_len(cur));
+
+		memset(&p6, 0, sizeof(p6));
+
+		if ((cur = tb_data[SIXRD_DATA_PREFIX])) {
+			if (!parse_ip_and_netmask(AF_INET6, blobmsg_data(cur),
+						&p6.prefix, &mask) || mask > 128) {
+				ret = -EINVAL;
+				goto failure;
+			}
+
+			p6.prefixlen = mask;
+		}
+
+		if ((cur = tb[SIXRD_DATA_RELAY_PREFIX])) {
+			if (!parse_ip_and_netmask(AF_INET, blobmsg_data(cur),
+						&p6.relay_prefix, &mask) || mask > 32) {
+				ret = -EINVAL;
+				goto failure;
+			}
+
+			p6.relay_prefixlen = mask;
+		}
+
+		if (tunnel_ioctl(name, SIOCADD6RD, &p6) < 0) {
+			ret = -1;
+			goto failure;
+		}
+	}
+#endif
+
+	return ret;
+
+failure:
+	__system_del_ip_tunnel(name, tb);
+	return ret;
+}
+
 static int system_add_proto_tunnel(const char *name, const uint8_t proto, const unsigned int link, struct blob_attr **tb)
 {
 	struct blob_attr *cur;
@@ -2853,37 +2909,10 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 			link = iface->l3_dev.dev->ifindex;
 	}
 
-	if (!strcmp(str, "sit")) {
-		if (system_add_proto_tunnel(name, IPPROTO_IPV6, link, tb) < 0)
-			return -1;
-
-#ifdef SIOCADD6RD
-		if ((cur = tb[TUNNEL_ATTR_6RD_PREFIX])) {
-			unsigned int mask;
-			struct ip_tunnel_6rd p6;
-
-			memset(&p6, 0, sizeof(p6));
-
-			if (!parse_ip_and_netmask(AF_INET6, blobmsg_data(cur),
-						&p6.prefix, &mask) || mask > 128)
-				return -EINVAL;
-			p6.prefixlen = mask;
-
-			if ((cur = tb[TUNNEL_ATTR_6RD_RELAY_PREFIX])) {
-				if (!parse_ip_and_netmask(AF_INET, blobmsg_data(cur),
-							&p6.relay_prefix, &mask) || mask > 32)
-					return -EINVAL;
-				p6.relay_prefixlen = mask;
-			}
-
-			if (tunnel_ioctl(name, SIOCADD6RD, &p6) < 0) {
-				__system_del_ip_tunnel(name, tb);
-				return -1;
-			}
-		}
-#endif
+	if (!strcmp(str, "sit"))
+		return system_add_sit_tunnel(name, link, tb);
 #ifdef IFLA_IPTUN_MAX
-	} else if (!strcmp(str, "ipip6")) {
+	else if (!strcmp(str, "ipip6")) {
 		struct nl_msg *nlm = nlmsg_alloc_simple(RTM_NEWLINK,
 				NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
 		struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC };

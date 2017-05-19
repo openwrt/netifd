@@ -23,8 +23,6 @@ static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_DF] = { .name = "df", .type = BLOBMSG_TYPE_BOOL },
 	[TUNNEL_ATTR_TTL] = { .name = "ttl", .type = BLOBMSG_TYPE_INT32 },
 	[TUNNEL_ATTR_TOS] = { .name = "tos", .type = BLOBMSG_TYPE_STRING },
-	[TUNNEL_ATTR_6RD_PREFIX] = {.name =  "6rd-prefix", .type = BLOBMSG_TYPE_STRING },
-	[TUNNEL_ATTR_6RD_RELAY_PREFIX] = { .name = "6rd-relay-prefix", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_LINK] = { .name = "link", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_FMRS] = { .name = "fmrs", .type = BLOBMSG_TYPE_ARRAY },
 	[TUNNEL_ATTR_DATA] = { .name = "data", .type = BLOBMSG_TYPE_TABLE },
@@ -68,6 +66,16 @@ static const struct blobmsg_policy vti_data_attrs[__VTI_DATA_ATTR_MAX] = {
 const struct uci_blob_param_list vti_data_attr_list = {
 	.n_params = __VTI_DATA_ATTR_MAX,
 	.params = vti_data_attrs,
+};
+
+static const struct blobmsg_policy sixrd_data_attrs[__SIXRD_DATA_ATTR_MAX] = {
+	[SIXRD_DATA_PREFIX] = { .name = "prefix", .type = BLOBMSG_TYPE_STRING },
+	[SIXRD_DATA_RELAY_PREFIX] = { .name = "relay-prefix", .type = BLOBMSG_TYPE_STRING },
+};
+
+const struct uci_blob_param_list sixrd_data_attr_list = {
+	.n_params = __SIXRD_DATA_ATTR_MAX,
+	.params = sixrd_data_attrs,
 };
 
 void system_fd_set_cloexec(int fd)
