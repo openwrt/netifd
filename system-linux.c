@@ -1988,8 +1988,8 @@ bool system_resolve_rt_proto(const char *type, unsigned int *id)
 	FILE *f;
 	char *e, buf[128];
 	unsigned int n, proto = 256;
-
-	if ((n = strtoul(type, &e, 0)) >= 0 && !*e && e != type)
+	n = strtoul(type, &e, 0);
+	if (!*e && e != type)
 		proto = n;
 	else if (!strcmp(type, "unspec"))
 		proto = RTPROT_UNSPEC;
