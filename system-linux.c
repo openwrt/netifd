@@ -2737,7 +2737,7 @@ static int system_add_sit_tunnel(const char *name, const unsigned int link, stru
 			p6.prefixlen = mask;
 		}
 
-		if ((cur = tb[SIXRD_DATA_RELAY_PREFIX])) {
+		if ((cur = tb_data[SIXRD_DATA_RELAY_PREFIX])) {
 			if (!parse_ip_and_netmask(AF_INET, blobmsg_data(cur),
 						&p6.relay_prefix, &mask) || mask > 32) {
 				ret = -EINVAL;
