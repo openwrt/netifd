@@ -2171,6 +2171,9 @@ static int system_iprule(struct iprule *rule, int cmd)
 			nla_put_u32(msg, FRA_TABLE, rule->lookup);
 	}
 
+	if (rule->flags & IPRULE_SUP_PREFIXLEN)
+		nla_put_u32(msg, FRA_SUPPRESS_PREFIXLEN, rule->sup_prefixlen);
+
 	if (rule->flags & IPRULE_GOTO)
 		nla_put_u32(msg, FRA_GOTO, rule->gotoid);
 

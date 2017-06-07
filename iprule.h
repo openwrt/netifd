@@ -60,6 +60,9 @@ enum iprule_flags {
 
 	/* rule is a goto */
 	IPRULE_GOTO			= (1 << 12),
+
+	/* rule suppresses results by prefix length */
+	IPRULE_SUP_PREFIXLEN	= (1 << 13),
 };
 
 struct iprule {
@@ -87,6 +90,7 @@ struct iprule {
 	unsigned int fwmask;
 
 	unsigned int lookup;
+	unsigned int sup_prefixlen;
 	unsigned int action;
 	unsigned int gotoid;
 };

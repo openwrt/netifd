@@ -42,6 +42,7 @@ enum {
 	RULE_LOOKUP,
 	RULE_ACTION,
 	RULE_GOTO,
+	RULE_SUP_PREFIXLEN,
 	__RULE_MAX
 };
 
@@ -55,6 +56,7 @@ static const struct blobmsg_policy rule_attr[__RULE_MAX] = {
 	[RULE_TOS] = { .name = "tos", .type = BLOBMSG_TYPE_INT32 },
 	[RULE_FWMARK] = { .name = "mark", .type = BLOBMSG_TYPE_STRING },
 	[RULE_LOOKUP] = { .name = "lookup", .type = BLOBMSG_TYPE_STRING },
+	[RULE_SUP_PREFIXLEN] = { .name = "suppress_prefixlength", .type = BLOBMSG_TYPE_INT32 },
 	[RULE_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_STRING },
 	[RULE_GOTO]   = { .name = "goto", .type = BLOBMSG_TYPE_INT32 },
 };
@@ -183,6 +185,11 @@ iprule_add(struct blob_attr *attr, bool v6)
 			goto error;
 		}
 		rule->flags |= IPRULE_LOOKUP;
+	}
+
+	if ((cur = tb[RULE_SUP_PREFIXLEN]) != NULL) {
+		rule->sup_prefixlen = blobmsg_get_u32(cur);
+		rule->flags |= IPRULE_SUP_PREFIXLEN;
 	}
 
 	if ((cur = tb[RULE_ACTION]) != NULL) {
