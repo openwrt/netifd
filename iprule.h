@@ -17,10 +17,10 @@
 
 #include "interface-ip.h"
 
-#define IPRULE_PRIORITY_ADDR 10000
-#define IPRULE_PRIORITY_ADDR_MASK 20000
-#define IPRULE_PRIORITY_NW 90000
-#define IPRULE_PRIORITY_REJECT 4200000000
+#define IPRULE_PRIORITY_ADDR		10000
+#define IPRULE_PRIORITY_ADDR_MASK	20000
+#define IPRULE_PRIORITY_NW		90000
+#define IPRULE_PRIORITY_REJECT		4200000000
 
 enum iprule_flags {
 	/* address family for rule */
@@ -29,22 +29,22 @@ enum iprule_flags {
 	IPRULE_FAMILY		= IPRULE_INET4 | IPRULE_INET6,
 
 	/* rule specifies input device */
-	IPRULE_IN			= (1 << 2),
+	IPRULE_IN		= (1 << 2),
 
 	/* rule specifies output device */
-	IPRULE_OUT			= (1 << 3),
+	IPRULE_OUT		= (1 << 3),
 
 	/* rule specifies src */
-	IPRULE_SRC			= (1 << 4),
+	IPRULE_SRC		= (1 << 4),
 
 	/* rule specifies dest */
-	IPRULE_DEST			= (1 << 5),
+	IPRULE_DEST		= (1 << 5),
 
 	/* rule specifies priority */
 	IPRULE_PRIORITY		= (1 << 6),
 
 	/* rule specifies diffserv/tos */
-	IPRULE_TOS			= (1 << 7),
+	IPRULE_TOS		= (1 << 7),
 
 	/* rule specifies fwmark */
 	IPRULE_FWMARK		= (1 << 8),
@@ -59,7 +59,7 @@ enum iprule_flags {
 	IPRULE_ACTION		= (1 << 11),
 
 	/* rule is a goto */
-	IPRULE_GOTO			= (1 << 12),
+	IPRULE_GOTO		= (1 << 12),
 
 	/* rule suppresses results by prefix length */
 	IPRULE_SUP_PREFIXLEN	= (1 << 13),
