@@ -129,7 +129,6 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 	struct blob_attr *tb[__DI_MAX];
 	struct interface *iface;
 	struct blob_attr *config;
-	struct device *dev;
 
 	blobmsg_parse(dynamic_policy, __DI_MAX, tb, blob_data(msg), blob_len(msg));
 
@@ -156,10 +155,6 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 
 	// Set interface as dynamic
 	interface_set_dynamic(iface);
-
-	dev = iface->main_dev.dev;
-	if (!dev || !dev->default_config)
-		return UBUS_STATUS_UNKNOWN_ERROR;
 
 	return UBUS_STATUS_OK;
 
