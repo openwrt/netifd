@@ -708,7 +708,7 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 		system_bridge_set_wireless(bridge, dev);
 
 	if (dev->settings.flags & DEV_OPT_MULTICAST_ROUTER) {
-		snprintf(buf, sizeof(buf), "%i", dev->settings.multicast_router);
+		snprintf(buf, sizeof(buf), "%u", dev->settings.multicast_router);
 		system_bridge_set_multicast_router(dev, buf, false);
 	}
 
@@ -995,7 +995,7 @@ static void system_bridge_conf_multicast(struct device *bridge,
 		bridge->ifname, buf);
 
 	if (bridge->settings.flags & DEV_OPT_MULTICAST_ROUTER) {
-		snprintf(buf, buf_len, "%i", bridge->settings.multicast_router);
+		snprintf(buf, buf_len, "%u", bridge->settings.multicast_router);
 		system_bridge_set_multicast_router(bridge, buf, true);
 	}
 
@@ -1456,37 +1456,37 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 			s->flags &= ~DEV_OPT_PROMISC;
 	}
 	if (s->flags & DEV_OPT_RPFILTER & apply_mask) {
-		snprintf(buf, sizeof(buf), "%d", s->rpfilter);
+		snprintf(buf, sizeof(buf), "%u", s->rpfilter);
 		system_set_rpfilter(dev, buf);
 	}
 	if (s->flags & DEV_OPT_ACCEPTLOCAL & apply_mask)
 		system_set_acceptlocal(dev, s->acceptlocal ? "1" : "0");
 	if (s->flags & DEV_OPT_IGMPVERSION & apply_mask) {
-		snprintf(buf, sizeof(buf), "%d", s->igmpversion);
+		snprintf(buf, sizeof(buf), "%u", s->igmpversion);
 		system_set_igmpversion(dev, buf);
 	}
 	if (s->flags & DEV_OPT_MLDVERSION & apply_mask) {
-		snprintf(buf, sizeof(buf), "%d", s->mldversion);
+		snprintf(buf, sizeof(buf), "%u", s->mldversion);
 		system_set_mldversion(dev, buf);
 	}
 	if (s->flags & DEV_OPT_NEIGHREACHABLETIME & apply_mask) {
-		snprintf(buf, sizeof(buf), "%d", s->neigh4reachabletime);
+		snprintf(buf, sizeof(buf), "%u", s->neigh4reachabletime);
 		system_set_neigh4reachabletime(dev, buf);
-		snprintf(buf, sizeof(buf), "%d", s->neigh6reachabletime);
+		snprintf(buf, sizeof(buf), "%u", s->neigh6reachabletime);
 		system_set_neigh6reachabletime(dev, buf);
 	}
 	if (s->flags & DEV_OPT_NEIGHLOCKTIME & apply_mask) {
-		snprintf(buf, sizeof(buf), "%d", s->neigh4locktime);
+		snprintf(buf, sizeof(buf), "%u", s->neigh4locktime);
 		system_set_neigh4locktime(dev, buf);
 	}
 	if (s->flags & DEV_OPT_NEIGHGCSTALETIME & apply_mask) {
-		snprintf(buf, sizeof(buf), "%d", s->neigh4gcstaletime);
+		snprintf(buf, sizeof(buf), "%u", s->neigh4gcstaletime);
 		system_set_neigh4gcstaletime(dev, buf);
-		snprintf(buf, sizeof(buf), "%d", s->neigh6gcstaletime);
+		snprintf(buf, sizeof(buf), "%u", s->neigh6gcstaletime);
 		system_set_neigh6gcstaletime(dev, buf);
 	}
 	if (s->flags & DEV_OPT_DADTRANSMITS & apply_mask) {
-		snprintf(buf, sizeof(buf), "%d", s->dadtransmits);
+		snprintf(buf, sizeof(buf), "%u", s->dadtransmits);
 		system_set_dadtransmits(dev, buf);
 	}
 	if (s->flags & DEV_OPT_MULTICAST & apply_mask) {

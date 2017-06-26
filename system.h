@@ -216,6 +216,6 @@ time_t system_get_rtime(void);
 
 void system_fd_set_cloexec(int fd);
 
-int system_update_ipv6_mtu(struct device *device, int mtu);
+int system_update_ipv6_mtu(struct device *dev, int mtu);
 
 #endif

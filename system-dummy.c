@@ -134,7 +134,7 @@ static int system_address_msg(struct device *dev, struct device_addr *addr, cons
 	char ipaddr[64];
 	int af = system_get_addr_family(addr->flags);
 
-	D(SYSTEM, "ifconfig %s %s %s/%d\n",
+	D(SYSTEM, "ifconfig %s %s %s/%u\n",
 		dev->ifname, type, inet_ntop(af, &addr->addr.in, ipaddr, sizeof(ipaddr)),
 		addr->mask);
 
