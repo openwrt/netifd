@@ -2446,10 +2446,10 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 		nla_put_u16(nlm, IFLA_GRE_IFLAGS, iflags);
 
 	if (okey)
-		nla_put_u32(nlm, IFLA_GRE_OKEY, okey);
+		nla_put_u32(nlm, IFLA_GRE_OKEY, htonl(okey));
 
 	if (ikey)
-		nla_put_u32(nlm, IFLA_GRE_IKEY, ikey);
+		nla_put_u32(nlm, IFLA_GRE_IKEY, htonl(ikey));
 
 	nla_nest_end(nlm, infodata);
 	nla_nest_end(nlm, linkinfo);
