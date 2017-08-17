@@ -162,7 +162,7 @@ struct device_settings {
 	unsigned int neigh6reachabletime;
 	unsigned int neigh4gcstaletime;
 	unsigned int neigh6gcstaletime;
-	unsigned int neigh4locktime;
+	int neigh4locktime;
 	bool rps;
 	bool xps;
 	unsigned int dadtransmits;

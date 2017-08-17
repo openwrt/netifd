@@ -1362,7 +1362,7 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	}
 
 	if (!system_get_neigh4locktime(dev, buf, sizeof(buf))) {
-		s->neigh4locktime = strtoul(buf, NULL, 0);
+		s->neigh4locktime = strtol(buf, NULL, 0);
 		s->flags |= DEV_OPT_NEIGHLOCKTIME;
 	}
 
@@ -1476,7 +1476,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		system_set_neigh6reachabletime(dev, buf);
 	}
 	if (s->flags & DEV_OPT_NEIGHLOCKTIME & apply_mask) {
-		snprintf(buf, sizeof(buf), "%u", s->neigh4locktime);
+		snprintf(buf, sizeof(buf), "%d", s->neigh4locktime);
 		system_set_neigh4locktime(dev, buf);
 	}
 	if (s->flags & DEV_OPT_NEIGHGCSTALETIME & apply_mask) {
