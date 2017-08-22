@@ -33,6 +33,9 @@
 static struct list_head devtypes = LIST_HEAD_INIT(devtypes);
 static struct avl_tree devices;
 static bool default_ps = true;
+static int default_rps_val;
+static int default_rps_flow_cnt;
+static int default_xps_val;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
@@ -912,14 +915,18 @@ device_reset_old(void)
 }
 
 void
-device_set_default_ps(bool state)
+device_set_default_ps(bool state, int xps, int rps, int rps_flow_cnt)
 {
 	struct device *dev;
 
-	if (state == default_ps)
+	if ((state == default_ps) && (default_rps_val == rps) &&
+	    (default_xps_val == xps) && (default_rps_flow_cnt == rps_flow_cnt))
 		return;
 
 	default_ps = state;
+	default_rps_val = rps;
+	default_rps_flow_cnt = rps_flow_cnt;
+	default_xps_val = xps;
 
 	avl_for_each_element(&devices, dev, avl) {
 		struct device_settings *s = &dev->settings;
@@ -927,11 +934,14 @@ device_set_default_ps(bool state)
 
 		if (!(s->flags & DEV_OPT_RPS)) {
 			s->rps = default_ps;
+			s->rps_val = default_rps_val;
+			s->rps_flow_cnt = default_rps_flow_cnt;
 			apply_mask |= DEV_OPT_RPS;
 		}
 
 		if (!(s->flags & DEV_OPT_XPS)) {
 			s->xps = default_ps;
+			s->xps_val = default_xps_val;
 			apply_mask |= DEV_OPT_XPS;
 		}
 

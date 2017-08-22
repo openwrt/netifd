@@ -164,7 +164,10 @@ struct device_settings {
 	unsigned int neigh6gcstaletime;
 	int neigh4locktime;
 	bool rps;
+	int rps_val;
+	int rps_flow_cnt;
 	bool xps;
+	int xps_val;
 	unsigned int dadtransmits;
 	bool multicast_to_unicast;
 	unsigned int multicast_router;
@@ -250,7 +253,7 @@ device_apply_config(struct device *dev, struct device_type *type,
 
 void device_reset_config(void);
 void device_reset_old(void);
-void device_set_default_ps(bool state);
+void device_set_default_ps(bool state, int xps, int rps, int rps_flow_cnt);
 
 void device_init_virtual(struct device *dev, struct device_type *type, const char *name);
 int device_init(struct device *dev, struct device_type *type, const char *ifname);
