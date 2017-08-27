@@ -31,7 +31,6 @@ enum tunnel_param {
 	TUNNEL_ATTR_TTL,
 	TUNNEL_ATTR_TOS,
 	TUNNEL_ATTR_LINK,
-	TUNNEL_ATTR_FMRS,
 	TUNNEL_ATTR_DATA,
 	__TUNNEL_ATTR_MAX
 };
@@ -67,10 +66,19 @@ enum sixrd_data {
 	__SIXRD_DATA_ATTR_MAX
 };
 
+enum fmr_data {
+	FMR_DATA_PREFIX6,
+	FMR_DATA_PREFIX4,
+	FMR_DATA_EALEN,
+	FMR_DATA_OFFSET,
+	__FMR_DATA_ATTR_MAX
+};
+
 extern const struct uci_blob_param_list vxlan_data_attr_list;
 extern const struct uci_blob_param_list gre_data_attr_list;
 extern const struct uci_blob_param_list vti_data_attr_list;
 extern const struct uci_blob_param_list sixrd_data_attr_list;
+extern const struct uci_blob_param_list fmr_data_attr_list;
 
 enum bridge_opt {
 	/* stp and forward delay always set */

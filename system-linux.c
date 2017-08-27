@@ -2328,45 +2328,68 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 	}
 
 #ifdef IFLA_IPTUN_FMR_MAX
-	if ((cur = tb[TUNNEL_ATTR_FMRS])) {
+	if ((cur = tb[TUNNEL_ATTR_DATA])) {
 		struct nlattr *fmrs = nla_nest_start(nlm, IFLA_IPTUN_FMRS);
+		struct blob_attr *dcur;
+		unsigned drem, fmrcnt = 0;
 
-		struct blob_attr *fmr;
-		unsigned rem, fmrcnt = 0;
-		blobmsg_for_each_attr(fmr, cur, rem) {
-			if (blobmsg_type(fmr) != BLOBMSG_TYPE_STRING)
+		blobmsg_for_each_attr(dcur, cur, drem) {
+			if (blobmsg_type(dcur) != BLOBMSG_TYPE_ARRAY ||
+					strcmp(blobmsg_name(dcur), "fmrs") ||
+					blobmsg_check_array(dcur, BLOBMSG_TYPE_UNSPEC) <= 0)
 				continue;
 
-			unsigned ip4len, ip6len, ealen, offset = 6;
-			char ip6buf[48];
-			char ip4buf[16];
+			struct blob_attr *rcur;
+			unsigned rrem;
+			blobmsg_for_each_attr(rcur, dcur, rrem) {
+				struct blob_attr *tb_fmr[__FMR_DATA_ATTR_MAX], *tb_cur;
+				struct in6_addr ip6prefix;
+				struct in_addr ip4prefix;
+				unsigned ip4len, ip6len, ealen, offset;
 
-			if (sscanf(blobmsg_get_string(fmr), "%47[^/]/%u,%15[^/]/%u,%u,%u",
-					ip6buf, &ip6len, ip4buf, &ip4len, &ealen, &offset) < 5) {
-				ret = -EINVAL;
-				goto failure;
+				blobmsg_parse(fmr_data_attr_list.params, __FMR_DATA_ATTR_MAX, tb_fmr,
+						blobmsg_data(rcur), blobmsg_len(rcur));
+
+				if (!(tb_cur = tb_fmr[FMR_DATA_PREFIX6]) ||
+						!parse_ip_and_netmask(AF_INET6,
+							blobmsg_data(tb_cur), &ip6prefix,
+							&ip6len)) {
+					ret = -EINVAL;
+					goto failure;
+				}
+
+				if (!(tb_cur = tb_fmr[FMR_DATA_PREFIX4]) ||
+						!parse_ip_and_netmask(AF_INET,
+							blobmsg_data(tb_cur), &ip4prefix,
+							&ip4len)) {
+					ret = -EINVAL;
+					goto failure;
+				}
+
+				if (!(tb_cur = tb_fmr[FMR_DATA_EALEN])) {
+					ret = -EINVAL;
+					goto failure;
+				}
+				ealen = blobmsg_get_u32(tb_cur);
+
+				if (!(tb_cur = tb_fmr[FMR_DATA_OFFSET])) {
+					ret = -EINVAL;
+					goto failure;
+				}
+				offset = blobmsg_get_u32(tb_cur);
+
+				struct nlattr *rule = nla_nest_start(nlm, ++fmrcnt);
+
+				nla_put(nlm, IFLA_IPTUN_FMR_IP6_PREFIX, sizeof(ip6prefix), &ip6prefix);
+				nla_put(nlm, IFLA_IPTUN_FMR_IP4_PREFIX, sizeof(ip4prefix), &ip4prefix);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_IP6_PREFIX_LEN, ip6len);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_IP4_PREFIX_LEN, ip4len);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_EA_LEN, ealen);
+				nla_put_u8(nlm, IFLA_IPTUN_FMR_OFFSET, offset);
+
+				nla_nest_end(nlm, rule);
 			}
-
-			struct in6_addr ip6prefix;
-			struct in_addr ip4prefix;
-			if (inet_pton(AF_INET6, ip6buf, &ip6prefix) != 1 ||
-					inet_pton(AF_INET, ip4buf, &ip4prefix) != 1) {
-				ret = -EINVAL;
-				goto failure;
-			}
-
-			struct nlattr *rule = nla_nest_start(nlm, ++fmrcnt);
-
-			nla_put(nlm, IFLA_IPTUN_FMR_IP6_PREFIX, sizeof(ip6prefix), &ip6prefix);
-			nla_put(nlm, IFLA_IPTUN_FMR_IP4_PREFIX, sizeof(ip4prefix), &ip4prefix);
-			nla_put_u8(nlm, IFLA_IPTUN_FMR_IP6_PREFIX_LEN, ip6len);
-			nla_put_u8(nlm, IFLA_IPTUN_FMR_IP4_PREFIX_LEN, ip4len);
-			nla_put_u8(nlm, IFLA_IPTUN_FMR_EA_LEN, ealen);
-			nla_put_u8(nlm, IFLA_IPTUN_FMR_OFFSET, offset);
-
-			nla_nest_end(nlm, rule);
 		}
-
 		nla_nest_end(nlm, fmrs);
 	}
 #endif

@@ -24,7 +24,6 @@ static const struct blobmsg_policy tunnel_attrs[__TUNNEL_ATTR_MAX] = {
 	[TUNNEL_ATTR_TTL] = { .name = "ttl", .type = BLOBMSG_TYPE_INT32 },
 	[TUNNEL_ATTR_TOS] = { .name = "tos", .type = BLOBMSG_TYPE_STRING },
 	[TUNNEL_ATTR_LINK] = { .name = "link", .type = BLOBMSG_TYPE_STRING },
-	[TUNNEL_ATTR_FMRS] = { .name = "fmrs", .type = BLOBMSG_TYPE_ARRAY },
 	[TUNNEL_ATTR_DATA] = { .name = "data", .type = BLOBMSG_TYPE_TABLE },
 };
 
@@ -76,6 +75,18 @@ static const struct blobmsg_policy sixrd_data_attrs[__SIXRD_DATA_ATTR_MAX] = {
 const struct uci_blob_param_list sixrd_data_attr_list = {
 	.n_params = __SIXRD_DATA_ATTR_MAX,
 	.params = sixrd_data_attrs,
+};
+
+static const struct blobmsg_policy fmr_data_attrs[__FMR_DATA_ATTR_MAX] = {
+	[FMR_DATA_PREFIX6] = { .name = "prefix6", .type = BLOBMSG_TYPE_STRING },
+	[FMR_DATA_PREFIX4] = { .name = "prefix4", .type = BLOBMSG_TYPE_STRING },
+	[FMR_DATA_EALEN] = { .name = "ealen", .type = BLOBMSG_TYPE_INT32 },
+	[FMR_DATA_OFFSET] = { .name = "offset", .type = BLOBMSG_TYPE_INT32 },
+};
+
+const struct uci_blob_param_list fmr_data_attr_list = {
+	.n_params = __FMR_DATA_ATTR_MAX,
+	.params = fmr_data_attrs,
 };
 
 void system_fd_set_cloexec(int fd)
