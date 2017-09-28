@@ -543,16 +543,20 @@ out:
 static void
 handle_hotplug_msg(char *data, int size)
 {
-	const char *subsystem = NULL, *interface = NULL;
+	const char *subsystem = NULL, *interface = NULL, *interface_old = NULL;
 	char *cur, *end, *sep;
 	struct device *dev;
 	int skip;
-	bool add;
+	bool add, move = false;
 
 	if (!strncmp(data, "add@", 4))
 		add = true;
 	else if (!strncmp(data, "remove@", 7))
 		add = false;
+	else if (!strncmp(data, "move@", 5)) {
+		add = true;
+		move = true;
+	}
 	else
 		return;
 
@@ -573,11 +577,31 @@ handle_hotplug_msg(char *data, int size)
 			subsystem = sep + 1;
 			if (strcmp(subsystem, "net") != 0)
 				return;
+		} else if (!strcmp(cur, "DEVPATH_OLD")) {
+			interface_old = strrchr(sep + 1, '/');
+			if (interface_old)
+				interface_old++;
 		}
-		if (subsystem && interface)
+	}
+
+	if (subsystem && interface) {
+		if (move && interface_old)
+			goto move;
+		else
 			goto found;
 	}
+
 	return;
+
+move:
+	dev = device_find(interface_old);
+	if (!dev)
+		goto found;
+
+	if (dev->type != &simple_device_type)
+		goto found;
+
+	device_set_present(dev, false);
 
 found:
 	dev = device_find(interface);
