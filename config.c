@@ -412,16 +412,23 @@ int
 config_init_all(void)
 {
 	int ret = 0;
+	char *err;
 
 	uci_network = config_init_package("network");
 	if (!uci_network) {
-		fprintf(stderr, "Failed to load network config\n");
+		uci_get_errorstr(uci_ctx, &err, NULL);
+		netifd_log_message(L_CRIT, "Failed to load network config (%s)\n", err);
+		free(err);
 		return -1;
 	}
 
 	uci_wireless = config_init_package("wireless");
-	if (!uci_wireless)
+	if (!uci_wireless && uci_ctx->err != UCI_ERR_NOTFOUND) {
+		uci_get_errorstr(uci_ctx, &err, NULL);
+		netifd_log_message(L_CRIT, "Failed to load wireless config (%s)\n", err);
+		free(err);
 		ret = -1;
+	}
 
 	vlist_update(&interfaces);
 	config_init = true;
