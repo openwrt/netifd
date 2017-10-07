@@ -45,7 +45,7 @@ netifd_handle_reload(struct ubus_context *ctx, struct ubus_object *obj,
 		     struct blob_attr *msg)
 {
 	if (netifd_reload())
-		return UBUS_STATUS_UNKNOWN_ERROR;
+		return UBUS_STATUS_NOT_FOUND;
 
 	return UBUS_STATUS_OK;
 }
