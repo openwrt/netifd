@@ -566,8 +566,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				a_old->preferred_until != a_new->preferred_until)
 			replace = true;
 
-		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET4 &&
-		    a_new->broadcast != a_old->broadcast)
+		if (((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET4) &&
+		     (a_new->broadcast != a_old->broadcast ||
+		      a_new->point_to_point != a_old->point_to_point))
 			keep = false;
 	}
 

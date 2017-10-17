@@ -33,6 +33,7 @@ enum {
 	OPT_IP6ADDR,
 	OPT_NETMASK,
 	OPT_BROADCAST,
+	OPT_PTPADDR,
 	OPT_GATEWAY,
 	OPT_IP6GW,
 	OPT_IP6PREFIX,
@@ -45,6 +46,7 @@ static const struct blobmsg_policy proto_ip_attributes[__OPT_MAX] = {
 	[OPT_IP6ADDR] = { .name = "ip6addr", .type = BLOBMSG_TYPE_ARRAY },
 	[OPT_NETMASK] = { .name = "netmask", .type = BLOBMSG_TYPE_STRING },
 	[OPT_BROADCAST] = { .name = "broadcast", .type = BLOBMSG_TYPE_STRING },
+	[OPT_PTPADDR] = { .name = "ptpaddr", .type = BLOBMSG_TYPE_STRING },
 	[OPT_GATEWAY] = { .name = "gateway", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6GW] = { .name = "ip6gw", .type = BLOBMSG_TYPE_STRING },
 	[OPT_IP6PREFIX] = { .name = "ip6prefix", .type = BLOBMSG_TYPE_ARRAY },
@@ -62,6 +64,7 @@ static const char * const proto_ip_validate[__OPT_MAX] = {
 	[OPT_IP6ADDR] = "ip6addr",
 	[OPT_NETMASK] = "netmask",
 	[OPT_BROADCAST] = "ipaddr",
+	[OPT_PTPADDR] = "ip4addr",
 	[OPT_GATEWAY] = "ip4addr",
 	[OPT_IP6GW] = "ip6addr",
 	[OPT_IP6PREFIX] = "ip6addr",
@@ -115,7 +118,7 @@ alloc_device_addr(bool v6, bool ext)
 
 static bool
 parse_addr(struct interface *iface, const char *str, bool v6, int mask,
-	   bool ext, uint32_t broadcast, bool deprecated)
+	   bool ext, uint32_t broadcast, uint32_t ptp, bool deprecated)
 {
 	struct device_addr *addr;
 	int af = v6 ? AF_INET6 : AF_INET;
@@ -138,6 +141,9 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask,
 	if (broadcast)
 		addr->broadcast = broadcast;
 
+	if (ptp)
+		addr->point_to_point = ptp;
+
 	if (deprecated)
 		addr->preferred_until = system_get_rtime();
 
@@ -154,7 +160,7 @@ error:
 static int
 parse_static_address_option(struct interface *iface, struct blob_attr *attr,
 			    bool v6, int netmask, bool ext, uint32_t broadcast,
-			    bool deprecated)
+			    uint32_t ptp, bool deprecated)
 {
 	struct blob_attr *cur;
 	int n_addr = 0;
@@ -166,7 +172,7 @@ parse_static_address_option(struct interface *iface, struct blob_attr *attr,
 
 		n_addr++;
 		if (!parse_addr(iface, blobmsg_data(cur), v6, netmask, ext,
-				broadcast, deprecated))
+				broadcast, ptp, deprecated))
 			return -1;
 	}
 
@@ -408,7 +414,7 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 	unsigned int netmask = 32;
 	bool ip6deprecated;
 	int n_v4 = 0, n_v6 = 0;
-	struct in_addr bcast = {};
+	struct in_addr bcast = {}, ptp = {};
 
 	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
 
@@ -427,15 +433,22 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 		}
 	}
 
+	if ((cur = tb[OPT_PTPADDR])) {
+		if (!inet_pton(AF_INET, blobmsg_data(cur), &ptp)) {
+			error = "INVALID_PTPADDR";
+			goto error;
+		}
+	}
+
 	ip6deprecated = blobmsg_get_bool_default(tb[OPT_IP6DEPRECATED], false);
 
 	if ((cur = tb[OPT_IPADDR]))
 		n_v4 = parse_static_address_option(iface, cur, false,
-			netmask, false, bcast.s_addr, false);
+			netmask, false, bcast.s_addr, ptp.s_addr, false);
 
 	if ((cur = tb[OPT_IP6ADDR]))
 		n_v6 = parse_static_address_option(iface, cur, true,
-			128, false, 0, ip6deprecated);
+			128, false, 0, 0, ip6deprecated);
 
 	if ((cur = tb[OPT_IP6PREFIX]))
 		if (parse_prefix_list(iface, cur) < 0)
