@@ -441,6 +441,12 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6, bool e
 
 		blobmsg_add_u32(&b, "mask", addr->mask);
 
+		if (addr->point_to_point) {
+			buf = blobmsg_alloc_string_buffer(&b, "ptpaddress", buflen);
+			inet_ntop(af, &addr->point_to_point, buf, buflen);
+			blobmsg_add_string_buffer(&b);
+		}
+
 		if (addr->preferred_until) {
 			int preferred = addr->preferred_until - now;
 			if (preferred < 0)
