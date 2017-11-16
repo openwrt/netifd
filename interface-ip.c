@@ -787,6 +787,10 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		if (!addr.valid_until || addr.valid_until - now > 7200)
 			addr.valid_until = now + 7200;
 
+		if (iface->ip6table)
+			set_ip_source_policy(false, true, IPRULE_PRIORITY_ADDR_MASK, &addr.addr,
+					addr.mask < 64 ? 64 : addr.mask, iface->ip6table, NULL, NULL, false);
+
 		if (prefix->iface) {
 			if (prefix->iface->ip6table)
 				set_ip_source_policy(false, true, IPRULE_PRIORITY_NW, &addr.addr,
@@ -803,13 +807,19 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP) &&
 			!system_add_address(l3_downlink, &addr)) {
 
-		if (prefix->iface && !assignment->enabled) {
-			set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
-					addr.mask, 0, iface, "unreachable", true);
+		if (!assignment->enabled) {
+			if (iface->ip6table)
+				set_ip_source_policy(true, true, IPRULE_PRIORITY_ADDR_MASK, &addr.addr,
+						addr.mask < 64 ? 64 : addr.mask, iface->ip6table, NULL, NULL, false);
 
-			if (prefix->iface->ip6table)
-				set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &addr.addr,
-						addr.mask, prefix->iface->ip6table, iface, NULL, true);
+			if (prefix->iface) {
+				set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
+						addr.mask, 0, iface, "unreachable", true);
+
+				if (prefix->iface->ip6table)
+					set_ip_source_policy(true, true, IPRULE_PRIORITY_NW, &addr.addr,
+							addr.mask, prefix->iface->ip6table, iface, NULL, true);
+			}
 		}
 
 		route.metric = iface->metric;
