@@ -105,7 +105,7 @@ netifd_parse_script_handler(const char *name, script_dump_cb cb)
 			tok = json_tokener_new();
 
 		obj = json_tokener_parse_ex(tok, start, len);
-		if (!is_error(obj)) {
+		if (obj) {
 			netifd_init_script_handler(name, obj, cb);
 			json_object_put(obj);
 			json_tokener_free(tok);
