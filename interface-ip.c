@@ -761,15 +761,7 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	memset(&addr, 0, sizeof(addr));
 	memset(&route, 0, sizeof(route));
 
-	if (IN6_IS_ADDR_UNSPECIFIED(&assignment->addr)) {
-		addr.addr.in6 = prefix->addr;
-		addr.addr.in6.s6_addr32[1] |= htonl(assignment->assigned);
-		generate_ifaceid(iface, &addr.addr.in6);
-		assignment->addr = addr.addr.in6;
-	}
-	else
-		addr.addr.in6 = assignment->addr;
-
+	addr.addr.in6 = assignment->addr;
 	addr.mask = assignment->length;
 	addr.flags = DEVADDR_INET6 | DEVADDR_OFFLINK;
 	addr.preferred_until = prefix->preferred_until;
@@ -778,11 +770,10 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	route.flags = DEVADDR_INET6;
 	route.mask = addr.mask < 64 ? 64 : addr.mask;
 	route.addr = addr.addr;
-	clear_if_addr(&route.addr, route.mask);
-	interface_set_route_info(iface, &route);
 
 	if (!add && assignment->enabled) {
 		time_t now = system_get_rtime();
+
 		addr.preferred_until = now;
 		if (!addr.valid_until || addr.valid_until - now > 7200)
 			addr.valid_until = now + 7200;
@@ -800,12 +791,24 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 							addr.mask, 0, iface, "unreachable", true);
 		}
 
+		clear_if_addr(&route.addr, route.mask);
+		interface_set_route_info(iface, &route);
+
 		system_del_route(l3_downlink, &route);
 		system_add_address(l3_downlink, &addr);
 
 		assignment->enabled = false;
-	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP) &&
-			!system_add_address(l3_downlink, &addr)) {
+	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP)) {
+		if (IN6_IS_ADDR_UNSPECIFIED(&addr.addr.in6)) {
+			addr.addr.in6 = prefix->addr;
+			addr.addr.in6.s6_addr32[1] |= htonl(assignment->assigned);
+			generate_ifaceid(iface, &addr.addr.in6);
+			assignment->addr = addr.addr.in6;
+			route.addr = addr.addr;
+		}
+
+		if (system_add_address(l3_downlink, &addr))
+			return;
 
 		if (!assignment->enabled) {
 			if (iface->ip6table)
@@ -822,7 +825,9 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			}
 		}
 
-		route.metric = iface->metric;
+		clear_if_addr(&route.addr, route.mask);
+		interface_set_route_info(iface, &route);
+
 		system_add_route(l3_downlink, &route);
 
 		if (uplink && uplink->l3_dev.dev && !(l3_downlink->settings.flags & DEV_OPT_MTU6)) {
