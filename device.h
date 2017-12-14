@@ -244,6 +244,7 @@ int device_type_add(struct device_type *devtype);
 struct device_type *device_type_get(const char *tname);
 struct device *device_create(const char *name, struct device_type *type,
 			     struct blob_attr *config);
+void device_merge_settings(struct device *dev, struct device_settings *n);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
 void device_init_pending(void);
 

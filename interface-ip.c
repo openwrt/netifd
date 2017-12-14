@@ -712,9 +712,16 @@ random_ifaceid(struct in6_addr *addr)
 	addr->s6_addr32[3] = (uint32_t)mrand48();
 }
 
-static void
+static bool
 eui64_ifaceid(struct interface *iface, struct in6_addr *addr)
 {
+	struct device_settings st;
+
+	device_merge_settings(iface->l3_dev.dev, &st);
+
+	if (!(st.flags & DEV_OPT_MACADDR))
+		return false;
+
 	/* get mac address */
 	uint8_t *macaddr = iface->l3_dev.dev->settings.macaddr;
 	uint8_t *ifaceid = addr->s6_addr + 8;
@@ -723,11 +730,15 @@ eui64_ifaceid(struct interface *iface, struct in6_addr *addr)
 	ifaceid[3] = 0xff;
 	ifaceid[4] = 0xfe;
 	ifaceid[0] ^= 0x02;
+
+	return true;
 }
 
-static void
+static bool
 generate_ifaceid(struct interface *iface, struct in6_addr *addr)
 {
+	bool ret = true;
+
 	/* generate new iface id */
 	switch (iface->assignment_iface_id_selection) {
 	case IFID_FIXED:
@@ -741,9 +752,13 @@ generate_ifaceid(struct interface *iface, struct in6_addr *addr)
 		break;
 	case IFID_EUI64:
 		/* eui64 */
-		eui64_ifaceid(iface, addr);
+		ret = eui64_ifaceid(iface, addr);
+		break;
+	default:
+		ret = false;
 		break;
 	}
+	return ret;
 }
 
 static void
@@ -797,12 +812,15 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		system_del_route(l3_downlink, &route);
 		system_add_address(l3_downlink, &addr);
 
+		assignment->addr = in6addr_any;
 		assignment->enabled = false;
 	} else if (add && (iface->state == IFS_UP || iface->state == IFS_SETUP)) {
 		if (IN6_IS_ADDR_UNSPECIFIED(&addr.addr.in6)) {
 			addr.addr.in6 = prefix->addr;
 			addr.addr.in6.s6_addr32[1] |= htonl(assignment->assigned);
-			generate_ifaceid(iface, &addr.addr.in6);
+			if (!generate_ifaceid(iface, &addr.addr.in6))
+				return;
+
 			assignment->addr = addr.addr.in6;
 			route.addr = addr.addr;
 		}

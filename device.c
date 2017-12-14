@@ -193,7 +193,7 @@ struct device_type simple_device_type = {
 	.free = simple_device_free,
 };
 
-static void
+void
 device_merge_settings(struct device *dev, struct device_settings *n)
 {
 	struct device_settings *os = &dev->orig_settings;
