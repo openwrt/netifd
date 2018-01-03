@@ -591,7 +591,7 @@ proto_dump_handlers(struct blob_buf *b)
 		void *v;
 
 		c = blobmsg_open_table(b, p->name);
-		if (p->config_params->validate) {
+		if (p->config_params && p->config_params->validate) {
 			int i;
 
 			v = blobmsg_open_table(b, "validate");
