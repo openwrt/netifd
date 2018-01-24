@@ -2841,6 +2841,17 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 	}
 	nla_put_u16(msg, IFLA_VXLAN_PORT, htons(port));
 
+	if ((cur = tb_data[VXLAN_DATA_ATTR_RXCSUM])) {
+		bool rxcsum = blobmsg_get_bool(cur);
+		nla_put_u8(msg, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, !rxcsum);
+	}
+
+	if ((cur = tb_data[VXLAN_DATA_ATTR_TXCSUM])) {
+		bool txcsum = blobmsg_get_bool(cur);
+		nla_put_u8(msg, IFLA_VXLAN_UDP_CSUM, txcsum);
+		nla_put_u8(msg, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, !txcsum);
+	}
+
 	if ((cur = tb[TUNNEL_ATTR_TOS])) {
 		char *str = blobmsg_get_string(cur);
 		unsigned tos = 1;

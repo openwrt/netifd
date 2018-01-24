@@ -36,6 +36,8 @@ static const struct blobmsg_policy vxlan_data_attrs[__VXLAN_DATA_ATTR_MAX] = {
 	[VXLAN_DATA_ATTR_ID] = { .name = "id", .type = BLOBMSG_TYPE_INT32 },
 	[VXLAN_DATA_ATTR_PORT] = { .name = "port", .type = BLOBMSG_TYPE_INT32 },
 	[VXLAN_DATA_ATTR_MACADDR] = { .name = "macaddr", .type = BLOBMSG_TYPE_STRING },
+	[VXLAN_DATA_ATTR_RXCSUM] = { .name = "rxcsum", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_TXCSUM] = { .name = "txcsum", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list vxlan_data_attr_list = {
