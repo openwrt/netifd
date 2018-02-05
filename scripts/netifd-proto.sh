@@ -16,6 +16,10 @@ proto_config_add_boolean() {
 	config_add_boolean "$@"
 }
 
+proto_config_add_array() {
+	config_add_array "$@"
+}
+
 proto_config_add_defaults() {
 	proto_config_add_boolean "defaultroute"
 	proto_config_add_boolean "peerdns"
