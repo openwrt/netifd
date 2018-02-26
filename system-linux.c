@@ -1411,46 +1411,6 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	}
 }
 
-static void
-system_if_set_rps_xps_val(const char *path, char *fmt, int val)
-{
-	char val_buf[8];
-	glob_t gl;
-	int i;
-
-	if (glob(path, 0, NULL, &gl))
-		return;
-
-	snprintf(val_buf, sizeof(val_buf), fmt, val);
-	for (i = 0; i < gl.gl_pathc; i++)
-		system_set_sysctl(gl.gl_pathv[i], val_buf);
-
-	globfree(&gl);
-}
-
-static void
-system_if_apply_rps_xps(struct device *dev, struct device_settings *s)
-{
-	long n_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-	int val, rps_val, rps_flow_cnt, xps_val;
-
-	if (n_cpus < 2)
-		return;
-
-	val = (1 << n_cpus) - 1;
-	rps_val = s->rps_val ? s->rps_val : val;
-	snprintf(dev_buf, sizeof(dev_buf), "/sys/class/net/%s/queues/*/rps_cpus", dev->ifname);
-	system_if_set_rps_xps_val(dev_buf, "%x", s->rps ? rps_val : 0);
-
-	rps_flow_cnt = s->rps_flow_cnt ? s->rps_flow_cnt : 0;
-	snprintf(dev_buf, sizeof(dev_buf), "/sys/class/net/%s/queues/*/rps_flow_cnt", dev->ifname);
-	system_if_set_rps_xps_val(dev_buf, "%d", s->rps ? rps_flow_cnt : 0);
-
-	xps_val = s->xps_val ? s->xps_val : val;
-	snprintf(dev_buf, sizeof(dev_buf), "/sys/class/net/%s/queues/*/xps_cpus", dev->ifname);
-	system_if_set_rps_xps_val(dev_buf, "%x", s->xps ? xps_val : 0);
-}
-
 void
 system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
 {
@@ -1526,8 +1486,6 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	}
 	if (s->flags & DEV_OPT_SENDREDIRECTS & apply_mask)
 		system_set_sendredirects(dev, s->sendredirects ? "1" : "0");
-
-	system_if_apply_rps_xps(dev, s);
 }
 
 int system_if_up(struct device *dev)

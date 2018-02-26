@@ -32,10 +32,6 @@
 
 static struct list_head devtypes = LIST_HEAD_INIT(devtypes);
 static struct avl_tree devices;
-static bool default_ps = true;
-static int default_rps_val;
-static int default_rps_flow_cnt;
-static int default_xps_val;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
@@ -52,8 +48,6 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_MLDVERSION] = { .name = "mldversion", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_NEIGHREACHABLETIME] = { .name = "neighreachabletime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_NEIGHGCSTALETIME] = { .name = "neighgcstaletime", .type = BLOBMSG_TYPE_INT32 },
-	[DEV_ATTR_RPS] = { .name = "rps", .type = BLOBMSG_TYPE_BOOL },
-	[DEV_ATTR_XPS] = { .name = "xps", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DADTRANSMITS] = { .name = "dadtransmits", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MULTICAST_TO_UNICAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MULTICAST_ROUTER] = { .name = "multicast_router", .type = BLOBMSG_TYPE_INT32 },
@@ -325,20 +319,6 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->flags |= DEV_OPT_NEIGHLOCKTIME;
 	}
 
-	if ((cur = tb[DEV_ATTR_RPS])) {
-		s->rps = blobmsg_get_bool(cur);
-		s->flags |= DEV_OPT_RPS;
-	}
-	else
-		s->rps = default_ps;
-
-	if ((cur = tb[DEV_ATTR_XPS])) {
-		s->xps = blobmsg_get_bool(cur);
-		s->flags |= DEV_OPT_XPS;
-	}
-	else
-		s->xps = default_ps;
-
 	if ((cur = tb[DEV_ATTR_DADTRANSMITS])) {
 		s->dadtransmits = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_DADTRANSMITS;
@@ -515,8 +495,6 @@ int device_init(struct device *dev, struct device_type *type, const char *ifname
 
 	system_if_clear_state(dev);
 	device_check_state(dev);
-	dev->settings.rps = default_ps;
-	dev->settings.xps = default_ps;
 
 	return 0;
 }
@@ -911,48 +889,6 @@ device_reset_old(void)
 			continue;
 
 		device_replace(ndev, dev);
-	}
-}
-
-void
-device_set_default_ps(bool state, int xps, int rps, int rps_flow_cnt)
-{
-	struct device *dev;
-
-	if ((state == default_ps) && (default_rps_val == rps) &&
-	    (default_xps_val == xps) && (default_rps_flow_cnt == rps_flow_cnt))
-		return;
-
-	default_ps = state;
-	default_rps_val = rps;
-	default_rps_flow_cnt = rps_flow_cnt;
-	default_xps_val = xps;
-
-	avl_for_each_element(&devices, dev, avl) {
-		struct device_settings *s = &dev->settings;
-		unsigned int apply_mask = 0;
-
-		if (!(s->flags & DEV_OPT_RPS)) {
-			s->rps = default_ps;
-			s->rps_val = default_rps_val;
-			s->rps_flow_cnt = default_rps_flow_cnt;
-			apply_mask |= DEV_OPT_RPS;
-		}
-
-		if (!(s->flags & DEV_OPT_XPS)) {
-			s->xps = default_ps;
-			s->xps_val = default_xps_val;
-			apply_mask |= DEV_OPT_XPS;
-		}
-
-		if (!apply_mask)
-			continue;
-
-		if (!(dev->external || (dev->present && dev->active)) ||
-				dev->config_pending)
-			continue;
-
-		system_if_apply_settings(dev, s, apply_mask);
 	}
 }
 

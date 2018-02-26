@@ -289,18 +289,6 @@ config_init_rules(void)
 
 	iprule_update_complete();
 }
-static int
-config_parse_global_ps_val(struct uci_section *globals, const char *option)
-{
-	const char *val = uci_lookup_option_string(
-			uci_ctx, globals, option);
-	int ret = 0;
-
-	if (val)
-		ret = strtol(val, 0, 10);
-
-	return ret;
-}
 
 static void
 config_init_globals(void)
@@ -313,15 +301,6 @@ config_init_globals(void)
 	const char *ula_prefix = uci_lookup_option_string(
 			uci_ctx, globals, "ula_prefix");
 	interface_ip_set_ula_prefix(ula_prefix);
-
-	const char *default_ps = uci_lookup_option_string(
-			uci_ctx, globals, "default_ps");
-
-	if (default_ps)
-		device_set_default_ps(strcmp(default_ps, "1") ? false : true,
-			config_parse_global_ps_val(globals, "default_xps_val"),
-			config_parse_global_ps_val(globals, "default_rps_val"),
-			config_parse_global_ps_val(globals, "default_rps_flow_cnt"));
 }
 
 static void

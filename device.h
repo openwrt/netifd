@@ -40,8 +40,6 @@ enum {
 	DEV_ATTR_IGMPVERSION,
 	DEV_ATTR_MLDVERSION,
 	DEV_ATTR_NEIGHREACHABLETIME,
-	DEV_ATTR_RPS,
-	DEV_ATTR_XPS,
 	DEV_ATTR_DADTRANSMITS,
 	DEV_ATTR_MULTICAST_TO_UNICAST,
 	DEV_ATTR_MULTICAST_ROUTER,
@@ -92,8 +90,7 @@ enum {
 	DEV_OPT_IGMPVERSION		= (1 << 7),
 	DEV_OPT_MLDVERSION		= (1 << 8),
 	DEV_OPT_NEIGHREACHABLETIME	= (1 << 9),
-	DEV_OPT_RPS			= (1 << 10),
-	DEV_OPT_XPS			= (1 << 11),
+	/* 2 bit hole */
 	DEV_OPT_MTU6			= (1 << 12),
 	DEV_OPT_DADTRANSMITS		= (1 << 13),
 	DEV_OPT_MULTICAST_TO_UNICAST	= (1 << 14),
@@ -163,11 +160,6 @@ struct device_settings {
 	unsigned int neigh4gcstaletime;
 	unsigned int neigh6gcstaletime;
 	int neigh4locktime;
-	bool rps;
-	int rps_val;
-	int rps_flow_cnt;
-	bool xps;
-	int xps_val;
 	unsigned int dadtransmits;
 	bool multicast_to_unicast;
 	unsigned int multicast_router;
@@ -254,7 +246,6 @@ device_apply_config(struct device *dev, struct device_type *type,
 
 void device_reset_config(void);
 void device_reset_old(void);
-void device_set_default_ps(bool state, int xps, int rps, int rps_flow_cnt);
 
 void device_init_virtual(struct device *dev, struct device_type *type, const char *name);
 int device_init(struct device *dev, struct device_type *type, const char *ifname);
