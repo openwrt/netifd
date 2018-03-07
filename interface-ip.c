@@ -262,6 +262,7 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 		}
 	}
 
+done:
 	if (!r_next) {
 		free(route);
 		return NULL;
@@ -272,8 +273,6 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 	route->mtu = r_next->mtu;
 	route->metric = r_next->metric;
 	route->table = r_next->table;
-
-done:
 	route->iface = iface;
 	if (defaultroute_target)
 		free(route);
