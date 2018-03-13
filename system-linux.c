@@ -346,6 +346,11 @@ static void system_bridge_set_hairpin_mode(struct device *dev, const char *val)
 	system_set_dev_sysctl("/sys/class/net/%s/brport/hairpin_mode", dev->ifname, val);
 }
 
+static void system_bridge_set_isolate_mode(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/class/net/%s/brport/isolate_mode", dev->ifname, val);
+}
+
 static void system_bridge_set_multicast_router(struct device *dev, const char *val, bool bridge)
 {
 	system_set_dev_sysctl(bridge ? "/sys/class/net/%s/bridge/multicast_router" :
@@ -747,6 +752,10 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 	if (dev->settings.flags & DEV_OPT_UNICAST_FLOOD &&
 	    !dev->settings.unicast_flood)
 		system_bridge_set_unicast_flood(dev, "0");
+
+	if (dev->settings.flags & DEV_OPT_ISOLATE &&
+	    dev->settings.isolate)
+		system_bridge_set_isolate_mode(dev, "1");
 
 	return ret;
 }

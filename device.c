@@ -57,6 +57,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_UNICAST_FLOOD] = { .name ="unicast_flood", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_SENDREDIRECTS] = { .name = "sendredirects", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_NEIGHLOCKTIME] = { .name = "neighlocktime", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -360,6 +361,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_SENDREDIRECTS])) {
 		s->sendredirects = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_SENDREDIRECTS;
+	}
+
+	if ((cur = tb[DEV_ATTR_ISOLATE])) {
+		s->isolate = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_ISOLATE;
 	}
 
 	device_set_disabled(dev, disabled);

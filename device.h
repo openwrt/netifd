@@ -50,6 +50,7 @@ enum {
 	DEV_ATTR_NEIGHGCSTALETIME,
 	DEV_ATTR_SENDREDIRECTS,
 	DEV_ATTR_NEIGHLOCKTIME,
+	DEV_ATTR_ISOLATE,
 	__DEV_ATTR_MAX,
 };
 
@@ -102,6 +103,7 @@ enum {
 	DEV_OPT_MULTICAST_FAST_LEAVE	= (1 << 20),
 	DEV_OPT_SENDREDIRECTS		= (1 << 21),
 	DEV_OPT_NEIGHLOCKTIME		= (1 << 22),
+	DEV_OPT_ISOLATE			= (1 << 23),
 };
 
 /* events broadcasted to all users of a device */
@@ -168,6 +170,7 @@ struct device_settings {
 	bool learning;
 	bool unicast_flood;
 	bool sendredirects;
+	bool isolate;
 };
 
 /*
