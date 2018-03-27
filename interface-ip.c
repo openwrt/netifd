@@ -245,7 +245,7 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 	if (iface) {
 		/* look for locally addressable target first */
 		if (interface_ip_find_addr_target(iface, addr, v6))
-			goto done;
+			return iface;
 
 		/* do not stop at the first route, let the lookup compare
 		 * masks to find the best match */
@@ -254,7 +254,7 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 		vlist_for_each_element(&interfaces, iface, node) {
 			/* look for locally addressable target first */
 			if (interface_ip_find_addr_target(iface, addr, v6))
-				goto done;
+				return iface;
 
 			/* do not stop at the first route, let the lookup compare
 			 * masks to find the best match */
@@ -262,7 +262,6 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 		}
 	}
 
-done:
 	if (!r_next) {
 		free(route);
 		return NULL;
