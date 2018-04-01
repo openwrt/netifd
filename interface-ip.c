@@ -229,18 +229,12 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 {
 	struct device_route *route, *r_next = NULL;
 	bool defaultroute_target = false;
+	union if_addr addr_zero;
 	int addrsize = v6 ? sizeof(addr->in6) : sizeof(addr->in);
 
-	route = calloc(1, sizeof(*route));
-	if (!route)
-		return NULL;
-
-	route->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
-	route->mask = v6 ? 128 : 32;
-	if (memcmp(&route->addr, addr, addrsize) == 0)
+	memset(&addr_zero, 0, sizeof(addr_zero));
+	if (memcmp(&addr_zero, addr, addrsize) == 0)
 		defaultroute_target = true;
-	else
-		memcpy(&route->addr, addr, addrsize);
 
 	if (iface) {
 		/* look for locally addressable target first */
@@ -262,21 +256,27 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 		}
 	}
 
-	if (!r_next) {
-		free(route);
+	if (!r_next)
 		return NULL;
-	}
 
 	iface = r_next->iface;
+	if (defaultroute_target)
+		return iface;
+
+	route = calloc(1, sizeof(*route));
+	if (!route)
+		return NULL;
+
+	route->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
+	route->mask = v6 ? 128 : 32;
+	memcpy(&route->addr, addr, addrsize);
 	memcpy(&route->nexthop, &r_next->nexthop, sizeof(route->nexthop));
 	route->mtu = r_next->mtu;
 	route->metric = r_next->metric;
 	route->table = r_next->table;
 	route->iface = iface;
-	if (defaultroute_target)
-		free(route);
-	else
-		vlist_add(&iface->host_routes, &route->node, route);
+	vlist_add(&iface->host_routes, &route->node, route);
+
 	return iface;
 }
 
