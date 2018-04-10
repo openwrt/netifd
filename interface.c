@@ -267,10 +267,16 @@ mark_interface_down(struct interface *iface)
 
 	iface->link_up_event = false;
 	iface->state = IFS_DOWN;
-	if (state == IFS_UP)
+	switch (state) {
+	case IFS_UP:
 		interface_event(iface, IFEV_DOWN);
-	else
+		break;
+	case IFS_SETUP:
 		interface_event(iface, IFEV_UP_FAILED);
+		break;
+	default:
+		break;
+	}
 	interface_ip_set_enabled(&iface->config_ip, false);
 	interface_ip_set_enabled(&iface->proto_ip, false);
 	interface_ip_flush(&iface->proto_ip);
