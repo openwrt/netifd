@@ -2824,8 +2824,10 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 		unsigned tos = 1;
 
 		if (strcmp(str, "inherit")) {
-			if (!system_tos_aton(str, &tos))
-				return -EINVAL;
+			if (!system_tos_aton(str, &tos)) {
+				ret = -EINVAL;
+				goto failure;
+			}
 		}
 
 		nla_put_u8(msg, IFLA_VXLAN_TOS, tos);
