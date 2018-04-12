@@ -34,6 +34,9 @@ netifd_dir_push(int fd)
 static void
 netifd_dir_pop(int prev_fd)
 {
+	if (prev_fd < 0)
+		return;
+
 	if (fchdir(prev_fd)) {}
 	close(prev_fd);
 }
@@ -128,8 +131,10 @@ void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 	int i, prev_fd;
 
 	prev_fd = netifd_dir_push(dir_fd);
-	if (glob("./*.sh", 0, NULL, &g))
+	if (glob("./*.sh", 0, NULL, &g)) {
+		netifd_dir_pop(prev_fd);
 		return;
+	}
 
 	for (i = 0; i < g.gl_pathc; i++)
 		netifd_parse_script_handler(g.gl_pathv[i], cb);
