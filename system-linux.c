@@ -1708,16 +1708,12 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 {
 	struct ethtool_cmd ecmd;
 	struct ifreq ifr;
-	char buf[64], *s;
+	char *s;
 	void *c;
-	int dir_fd;
-
-	snprintf(buf, sizeof(buf), "/sys/class/net/%s", dev->ifname);
-	dir_fd = open(buf, O_DIRECTORY);
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, dev->ifname);
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t) &ecmd;
 	ecmd.cmd = ETHTOOL_GSET;
 
@@ -1736,7 +1732,6 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 		blobmsg_add_string_buffer(b);
 	}
 
-	close(dir_fd);
 	return 0;
 }
 
