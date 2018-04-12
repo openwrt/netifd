@@ -994,8 +994,10 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 			}
 
 			entry = calloc(1, sizeof(*entry));
-			if (!entry)
+			if (!entry) {
+				free(c);
 				continue;
+			}
 
 			entry->node.key = c;
 			avl_insert(&assign_later, &entry->node);
