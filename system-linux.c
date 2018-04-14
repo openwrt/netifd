@@ -2315,9 +2315,14 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 
 #ifdef IFLA_IPTUN_FMR_MAX
 	if ((cur = tb[TUNNEL_ATTR_DATA])) {
-		struct nlattr *fmrs = nla_nest_start(nlm, IFLA_IPTUN_FMRS);
 		struct blob_attr *dcur;
 		unsigned drem, fmrcnt = 0;
+		struct nlattr *fmrs = nla_nest_start(nlm, IFLA_IPTUN_FMRS);
+
+		if (!fmrs) {
+			ret = -ENOMEM;
+			goto failure;
+		}
 
 		blobmsg_for_each_attr(dcur, cur, drem) {
 			if (blobmsg_type(dcur) != BLOBMSG_TYPE_ARRAY ||
@@ -2365,6 +2370,10 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 				offset = blobmsg_get_u32(tb_cur);
 
 				struct nlattr *rule = nla_nest_start(nlm, ++fmrcnt);
+				if (!rule) {
+					ret = -ENOMEM;
+					goto failure;
+				}
 
 				nla_put(nlm, IFLA_IPTUN_FMR_IP6_PREFIX, sizeof(ip6prefix), &ip6prefix);
 				nla_put(nlm, IFLA_IPTUN_FMR_IP4_PREFIX, sizeof(ip4prefix), &ip4prefix);
