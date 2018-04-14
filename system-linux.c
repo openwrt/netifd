@@ -781,7 +781,9 @@ static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
 
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-	ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr);
+	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) < 0)
+		return -1;
+
 	ifr.ifr_flags |= add;
 	ifr.ifr_flags &= ~rem;
 	return ioctl(sock_ioctl, SIOCSIFFLAGS, &ifr);
