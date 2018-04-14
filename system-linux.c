@@ -1571,6 +1571,9 @@ int system_if_check(struct device *dev)
 	};
 	int ret = 1;
 
+	if (!cb)
+		return ret;
+
 	msg = nlmsg_alloc_simple(RTM_GETLINK, 0);
 	if (!msg)
 		goto out;
