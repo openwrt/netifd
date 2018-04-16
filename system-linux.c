@@ -1250,7 +1250,8 @@ static int system_vlan(struct device *dev, int id)
 		.u.name_type = VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD,
 	};
 
-	ioctl(sock_ioctl, SIOCSIFVLAN, &ifr);
+	if (ioctl(sock_ioctl, SIOCSIFVLAN, &ifr) < 0)
+		return -1;
 
 	if (id < 0) {
 		ifr.cmd = DEL_VLAN_CMD;
