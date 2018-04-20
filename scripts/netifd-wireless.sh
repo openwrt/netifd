@@ -291,7 +291,7 @@ for_each_interface() {
 }
 
 _wdev_common_device_config() {
-	config_add_string channel hwmode htmode
+	config_add_string channel hwmode htmode noscan
 }
 
 _wdev_common_iface_config() {
