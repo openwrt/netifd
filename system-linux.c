@@ -665,7 +665,7 @@ static int system_bridge_if(const char *bridge, struct device *dev, int cmd, voi
 		ifr.ifr_ifindex = dev->ifindex;
 	else
 		ifr.ifr_data = data;
-	strncpy(ifr.ifr_name, bridge, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, bridge, sizeof(ifr.ifr_name) - 1);
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
 
@@ -768,7 +768,7 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 int system_if_resolve(struct device *dev)
 {
 	struct ifreq ifr;
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 	if (!ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
 		return ifr.ifr_ifindex;
 	else
@@ -780,7 +780,7 @@ static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
 	struct ifreq ifr;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
 	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) < 0)
 		return -1;
 
@@ -1333,7 +1333,7 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	char buf[10];
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 
 	if (ioctl(sock_ioctl, SIOCGIFMTU, &ifr) == 0) {
 		s->mtu = ifr.ifr_mtu;
@@ -1430,7 +1430,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	char buf[12];
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 	if (s->flags & DEV_OPT_MTU & apply_mask) {
 		ifr.ifr_mtu = s->mtu;
 		if (ioctl(sock_ioctl, SIOCSIFMTU, &ifr) < 0)
@@ -1719,7 +1719,7 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 	ifr.ifr_data = (caddr_t) &ecmd;
 	ecmd.cmd = ETHTOOL_GSET;
 
@@ -2255,7 +2255,7 @@ static int tunnel_ioctl(const char *name, int cmd, void *p)
 	struct ifreq ifr;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name) - 1);
 	ifr.ifr_ifru.ifru_data = p;
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
@@ -2966,7 +2966,7 @@ static int system_add_proto_tunnel(const char *name, const uint8_t proto, const 
 	if (p.iph.ttl && p.iph.frag_off == 0)
 		return -EINVAL;
 
-	strncpy(p.name, name, sizeof(p.name));
+	strncpy(p.name, name, sizeof(p.name) - 1);
 
 	switch (p.iph.protocol) {
 	case IPPROTO_IPIP:
