@@ -68,6 +68,12 @@ enum sixrd_data {
 	__SIXRD_DATA_ATTR_MAX
 };
 
+enum ipip6_data {
+	IPIP6_DATA_ENCAPLIMIT,
+	IPIP6_DATA_FMRS,
+	__IPIP6_DATA_ATTR_MAX
+};
+
 enum fmr_data {
 	FMR_DATA_PREFIX6,
 	FMR_DATA_PREFIX4,
@@ -80,6 +86,7 @@ extern const struct uci_blob_param_list vxlan_data_attr_list;
 extern const struct uci_blob_param_list gre_data_attr_list;
 extern const struct uci_blob_param_list vti_data_attr_list;
 extern const struct uci_blob_param_list sixrd_data_attr_list;
+extern const struct uci_blob_param_list ipip6_data_attr_list;
 extern const struct uci_blob_param_list fmr_data_attr_list;
 
 enum bridge_opt {

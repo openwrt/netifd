@@ -79,6 +79,16 @@ const struct uci_blob_param_list sixrd_data_attr_list = {
 	.params = sixrd_data_attrs,
 };
 
+static const struct blobmsg_policy ipip6_data_attrs[__SIXRD_DATA_ATTR_MAX] = {
+	[IPIP6_DATA_ENCAPLIMIT] = { .name = "encaplimit", .type = BLOBMSG_TYPE_STRING },
+	[IPIP6_DATA_FMRS] = { .name = "fmrs", .type = BLOBMSG_TYPE_ARRAY },
+};
+
+const struct uci_blob_param_list ipip6_data_attr_list = {
+	.n_params = __IPIP6_DATA_ATTR_MAX,
+	.params = ipip6_data_attrs,
+};
+
 static const struct blobmsg_policy fmr_data_attrs[__FMR_DATA_ATTR_MAX] = {
 	[FMR_DATA_PREFIX6] = { .name = "prefix6", .type = BLOBMSG_TYPE_STRING },
 	[FMR_DATA_PREFIX4] = { .name = "prefix4", .type = BLOBMSG_TYPE_STRING },

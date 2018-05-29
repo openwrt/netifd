@@ -2300,7 +2300,6 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 
 	nla_put_u8(nlm, IFLA_IPTUN_PROTO, IPPROTO_IPIP);
 	nla_put_u8(nlm, IFLA_IPTUN_TTL, (ttl) ? ttl : 64);
-	nla_put_u8(nlm, IFLA_IPTUN_ENCAP_LIMIT, 4);
 
 	struct in6_addr in6buf;
 	if ((cur = tb[TUNNEL_ATTR_LOCAL])) {
@@ -2319,26 +2318,41 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 		nla_put(nlm, IFLA_IPTUN_REMOTE, sizeof(in6buf), &in6buf);
 	}
 
-#ifdef IFLA_IPTUN_FMR_MAX
 	if ((cur = tb[TUNNEL_ATTR_DATA])) {
-		struct blob_attr *dcur;
-		unsigned drem, fmrcnt = 0;
-		struct nlattr *fmrs = nla_nest_start(nlm, IFLA_IPTUN_FMRS);
+		struct blob_attr *tb_data[__IPIP6_DATA_ATTR_MAX];
 
-		if (!fmrs) {
-			ret = -ENOMEM;
-			goto failure;
+		blobmsg_parse(ipip6_data_attr_list.params, __IPIP6_DATA_ATTR_MAX, tb_data,
+			blobmsg_data(cur), blobmsg_len(cur));
+
+		if ((cur = tb_data[IPIP6_DATA_ENCAPLIMIT])) {
+			char *str = blobmsg_get_string(cur);
+
+			if (strcmp(str, "ignore")) {
+				char *e;
+				unsigned encap_limit = strtoul(str, &e, 0);
+
+				if (e == str || *e || encap_limit > 255) {
+					ret = -EINVAL;
+					goto failure;
+				}
+
+				nla_put_u8(nlm, IFLA_IPTUN_ENCAP_LIMIT, encap_limit);
+			} else
+				nla_put_u32(nlm, IFLA_IPTUN_FLAGS, IP6_TNL_F_IGN_ENCAP_LIMIT);
 		}
 
-		blobmsg_for_each_attr(dcur, cur, drem) {
-			if (blobmsg_type(dcur) != BLOBMSG_TYPE_ARRAY ||
-					strcmp(blobmsg_name(dcur), "fmrs") ||
-					blobmsg_check_array(dcur, BLOBMSG_TYPE_UNSPEC) <= 0)
-				continue;
-
+#ifdef IFLA_IPTUN_FMR_MAX
+		if ((cur = tb_data[IPIP6_DATA_FMRS])) {
 			struct blob_attr *rcur;
-			unsigned rrem;
-			blobmsg_for_each_attr(rcur, dcur, rrem) {
+			unsigned rrem, fmrcnt = 0;
+			struct nlattr *fmrs = nla_nest_start(nlm, IFLA_IPTUN_FMRS);
+
+			if (!fmrs) {
+				ret = -ENOMEM;
+				goto failure;
+			}
+
+			blobmsg_for_each_attr(rcur, cur, rrem) {
 				struct blob_attr *tb_fmr[__FMR_DATA_ATTR_MAX], *tb_cur;
 				struct in6_addr ip6prefix;
 				struct in_addr ip4prefix;
@@ -2390,10 +2404,11 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 
 				nla_nest_end(nlm, rule);
 			}
+
+			nla_nest_end(nlm, fmrs);
 		}
-		nla_nest_end(nlm, fmrs);
-	}
 #endif
+	}
 
 	nla_nest_end(nlm, infodata);
 	nla_nest_end(nlm, linkinfo);
