@@ -1728,6 +1728,10 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 		system_add_link_modes(b, ecmd.advertising);
 		blobmsg_close_array(b, c);
 
+		c = blobmsg_open_array(b, "link-partner-advertising");
+		system_add_link_modes(b, ecmd.lp_advertising);
+		blobmsg_close_array(b, c);
+
 		c = blobmsg_open_array(b, "link-supported");
 		system_add_link_modes(b, ecmd.supported);
 		blobmsg_close_array(b, c);
@@ -1736,6 +1740,8 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 		snprintf(s, 8, "%d%c", ethtool_cmd_speed(&ecmd),
 			ecmd.duplex == DUPLEX_HALF ? 'H' : 'F');
 		blobmsg_add_string_buffer(b);
+
+		blobmsg_add_u8(b, "autoneg", !!ecmd.autoneg);
 	}
 
 	return 0;
