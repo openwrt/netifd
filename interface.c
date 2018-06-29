@@ -1275,6 +1275,7 @@ interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		set_config_state(if_old, IFC_REMOVE);
 	} else if (node_new) {
 		D(INTERFACE, "Create interface '%s'\n", if_new->name);
+		interface_event(if_new, IFEV_CREATE);
 		proto_init_interface(if_new, if_new->config);
 		interface_claim_device(if_new);
 		netifd_ubus_add_interface(if_new);

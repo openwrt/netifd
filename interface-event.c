@@ -38,6 +38,7 @@ static const char * const eventnames[] = {
 	[IFEV_FREE] = "free",
 	[IFEV_RELOAD] = "reload",
 	[IFEV_LINK_UP] = "iflink",
+	[IFEV_CREATE] = "create",
 };
 
 static void

@@ -28,6 +28,8 @@ enum interface_event {
 	IFEV_FREE,
 	IFEV_RELOAD,
 	IFEV_LINK_UP,
+	/* send when a new interface created. This is before proto handlers has been attached. */
+	IFEV_CREATE,
 };
 
 enum interface_state {
