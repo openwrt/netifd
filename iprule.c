@@ -2,6 +2,7 @@
  * netifd - network interface daemon
  * Copyright (C) 2012 Felix Fietkau <nbd@openwrt.org>
  * Copyright (C) 2013 Jo-Philipp Wich <jow@openwrt.org>
+ * Copyright (C) 2018 Alexander Couzens <lynxis@fe80.eu>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -12,6 +13,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -66,6 +68,16 @@ const struct uci_blob_param_list rule_attr_list = {
 	.params = rule_attr,
 };
 
+/* interface based rules are dynamic. */
+static bool rule_ready(struct iprule *rule) {
+	if (rule->flags & IPRULE_OUT && rule->out_dev == NULL)
+		return false;
+
+	if (rule->flags & IPRULE_IN && rule->in_dev == NULL)
+		return false;
+
+	return true;
+}
 
 static bool
 iprule_parse_mark(const char *mark, struct iprule *rule)
@@ -97,13 +109,102 @@ iprule_parse_mark(const char *mark, struct iprule *rule)
 	return true;
 }
 
+/* called on interface changes of the incoming interface */
+static void rule_in_cb(
+		struct interface_user *dep,
+		struct interface *iface,
+		enum interface_event ev)
+{
+	struct iprule *rule = container_of(dep, struct iprule, in_iface_user);
+
+	switch (ev) {
+	case IFEV_UP:
+		if (!iface->l3_dev.dev)
+			break;
+		memcpy(rule->in_dev, iface->l3_dev.dev->ifname, sizeof(rule->in_dev));
+		if (rule_ready(rule))
+			system_add_iprule(rule);
+		break;
+	case IFEV_DOWN:
+	case IFEV_UP_FAILED:
+	case IFEV_FREE:
+		if (rule_ready(rule))
+			system_del_iprule(rule);
+		rule->in_dev[0] = 0;
+		break;
+	default:
+		break;
+	}
+}
+
+/* called on interface changes of the outgoing interface */
+static void rule_out_cb(
+		struct interface_user *dep,
+		struct interface *iface,
+		enum interface_event ev)
+{
+	struct iprule *rule = container_of(dep, struct iprule, out_iface_user);
+
+	switch (ev) {
+	case IFEV_UP:
+		if (!iface->l3_dev.dev)
+			break;
+		memcpy(rule->out_dev, iface->l3_dev.dev->ifname, sizeof(rule->out_dev));
+		if (rule_ready(rule))
+			system_add_iprule(rule);
+		break;
+	case IFEV_DOWN:
+	case IFEV_UP_FAILED:
+	case IFEV_FREE:
+		if (rule_ready(rule))
+			system_del_iprule(rule);
+		rule->out_dev[0] = 0;
+		break;
+	default:
+		break;
+	}
+}
+
+/* called on all interface events */
+static void generic_interface_cb(
+		struct interface_user *dep,
+		struct interface *iface,
+		enum interface_event ev)
+{
+	struct iprule *rule;
+
+	if (ev != IFEV_CREATE)
+		return;
+
+	/* add new interfaces to rules */
+	vlist_for_each_element(&iprules, rule, node) {
+		if (rule_ready(rule))
+			continue;
+
+		if (!strcmp(rule->out_iface, iface->name)) {
+			assert(!rule->out_dev);
+			memcpy(rule->out_dev, iface->l3_dev.dev->ifname, sizeof(rule->out_dev));
+			interface_add_user(&rule->out_iface_user, iface);
+		}
+
+		if (!strcmp(rule->in_iface, iface->name)) {
+			assert(!rule->in_dev);
+			memcpy(rule->in_dev, iface->l3_dev.dev->ifname, sizeof(rule->in_dev));
+			interface_add_user(&rule->in_iface_user, iface);
+		}
+	}
+}
+
+struct interface_user generic_listener = {
+	.cb = generic_interface_cb
+};
+
 void
 iprule_add(struct blob_attr *attr, bool v6)
 {
-	struct interface *iif = NULL, *oif = NULL;
 	struct blob_attr *tb[__RULE_MAX], *cur;
-	struct interface *iface;
 	struct iprule *rule;
+	char *iface_name;
 	int af = v6 ? AF_INET6 : AF_INET;
 
 	blobmsg_parse(rule_attr, __RULE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
@@ -119,26 +220,16 @@ iprule_add(struct blob_attr *attr, bool v6)
 		rule->invert = blobmsg_get_bool(cur);
 
 	if ((cur = tb[RULE_INTERFACE_IN]) != NULL) {
-		iif = vlist_find(&interfaces, blobmsg_data(cur), iface, node);
-
-		if (!iif || !iif->l3_dev.dev) {
-			DPRINTF("Failed to resolve device of network: %s\n", (char *) blobmsg_data(cur));
-			goto error;
-		}
-
-		memcpy(rule->in_dev, iif->l3_dev.dev->ifname, sizeof(rule->in_dev));
+		iface_name = calloc(1, strlen(blobmsg_data(cur)) + 1);
+		rule->in_iface = strcpy(iface_name, blobmsg_data(cur));
+		rule->in_iface_user.cb = &rule_in_cb;
 		rule->flags |= IPRULE_IN;
 	}
 
 	if ((cur = tb[RULE_INTERFACE_OUT]) != NULL) {
-		oif = vlist_find(&interfaces, blobmsg_data(cur), iface, node);
-
-		if (!oif || !oif->l3_dev.dev) {
-			DPRINTF("Failed to resolve device of network: %s\n", (char *) blobmsg_data(cur));
-			goto error;
-		}
-
-		memcpy(rule->out_dev, oif->l3_dev.dev->ifname, sizeof(rule->out_dev));
+		iface_name = calloc(1, strlen(blobmsg_data(cur)) + 1);
+		rule->out_iface = strcpy(iface_name, blobmsg_data(cur));
+		rule->out_iface_user.cb = &rule_out_cb;
 		rule->flags |= IPRULE_OUT;
 	}
 
@@ -238,6 +329,31 @@ rule_cmp(const void *k1, const void *k2, void *ptr)
 	return memcmp(k1, k2, sizeof(struct iprule)-offsetof(struct iprule, flags));
 }
 
+static void deregister_interfaces(struct iprule *rule)
+{
+	if (rule->flags & IPRULE_IN && rule->in_iface_user.iface)
+		interface_remove_user(&rule->in_iface_user);
+
+	if (rule->flags & IPRULE_OUT && rule->out_iface_user.iface)
+		interface_remove_user(&rule->out_iface_user);
+}
+
+static void register_interfaces(struct iprule *rule)
+{
+	struct interface *iface, *tmp;
+
+	if (rule->flags & IPRULE_IN) {
+		tmp = vlist_find(&interfaces, rule->in_iface, iface, node);
+		if (tmp)
+			interface_add_user(&rule->in_iface_user, tmp);
+	}
+	if (rule->flags & IPRULE_OUT) {
+		tmp = vlist_find(&interfaces, rule->out_iface, iface, node);
+		if (tmp)
+			interface_add_user(&rule->out_iface_user, tmp);
+	}
+}
+
 static void
 iprule_update_rule(struct vlist_tree *tree,
 			struct vlist_node *node_new, struct vlist_node *node_old)
@@ -248,16 +364,34 @@ iprule_update_rule(struct vlist_tree *tree,
 	rule_new = container_of(node_new, struct iprule, node);
 
 	if (node_old) {
-		system_del_iprule(rule_old);
+		if (rule_ready(rule_old))
+			system_del_iprule(rule_old);
+
+		if (rule_old->flags & (IPRULE_IN | IPRULE_OUT))
+			deregister_interfaces(rule_old);
+
+		if (rule_old->in_iface)
+			free(rule_old->in_iface);
+
+		if (rule_old->out_iface)
+			free(rule_old->out_iface);
+
 		free(rule_old);
 	}
 
-	if (node_new)
-		system_add_iprule(rule_new);
+	if (node_new) {
+		/* interface based rules calls system_add_iprule over the event cb */
+		if (rule_new->flags & (IPRULE_IN | IPRULE_OUT)) {
+			register_interfaces(rule_new);
+		} else {
+			system_add_iprule(rule_new);
+		}
+	}
 }
 
 static void __init
 iprule_init_list(void)
 {
 	vlist_init(&iprules, rule_cmp, iprule_update_rule);
+	interface_add_user(&generic_listener, NULL);
 }

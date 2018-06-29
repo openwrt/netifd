@@ -74,6 +74,15 @@ struct iprule {
 
 	bool invert;
 
+	/* uci interface name */
+	char *in_iface;
+	char *out_iface;
+
+	/* to receive interface events */
+	struct interface_user in_iface_user;
+	struct interface_user out_iface_user;
+
+	/* device name */
 	char in_dev[IFNAMSIZ + 1];
 	char out_dev[IFNAMSIZ + 1];
 
