@@ -87,19 +87,20 @@ alias_device_set_state(struct device *dev, bool state)
 static void alias_device_cb(struct device_user *dep, enum device_event ev)
 {
 	struct alias_device *alias;
-	bool new_state = false;
 
 	alias = container_of(dep, struct alias_device, dep);
 	switch (ev) {
 	case DEV_EVENT_ADD:
-		new_state = true;
+		device_set_present(&alias->dev, true);
+		break;
 	case DEV_EVENT_REMOVE:
-		device_set_present(&alias->dev, new_state);
+		device_set_present(&alias->dev, false);
 		break;
 	case DEV_EVENT_LINK_UP:
-		new_state = true;
+		device_set_link(&alias->dev, true);
+		break;
 	case DEV_EVENT_LINK_DOWN:
-		device_set_link(&alias->dev, new_state);
+		device_set_link(&alias->dev, false);
 		break;
 	case DEV_EVENT_UPDATE_IFINDEX:
 		device_set_ifindex(&alias->dev, dep->dev->ifindex);

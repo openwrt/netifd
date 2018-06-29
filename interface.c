@@ -387,26 +387,28 @@ static void
 interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 {
 	struct interface *iface;
-	bool new_state = false;
 
 	iface = container_of(dep, struct interface, main_dev);
 	switch (ev) {
 	case DEV_EVENT_ADD:
-		new_state = true;
+		interface_set_available(iface, true);
+		break;
 	case DEV_EVENT_REMOVE:
-		interface_set_available(iface, new_state);
-		if (!new_state && dep->dev && dep->dev->external)
+		interface_set_available(iface, false);
+		if (dep->dev && dep->dev->external)
 			interface_set_main_dev(iface, NULL);
 		break;
 	case DEV_EVENT_UP:
-		new_state = true;
+		interface_set_enabled(iface, true);
+		break;
 	case DEV_EVENT_DOWN:
-		interface_set_enabled(iface, new_state);
+		interface_set_enabled(iface, false);
 		break;
 	case DEV_EVENT_LINK_UP:
-		new_state = true;
+		interface_set_link_state(iface, true);
+		break;
 	case DEV_EVENT_LINK_DOWN:
-		interface_set_link_state(iface, new_state);
+		interface_set_link_state(iface, false);
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
 		interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);
