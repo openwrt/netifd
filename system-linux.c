@@ -5,6 +5,7 @@
  * Copyright (C) 2013 Steven Barth <steven@midlink.org>
  * Copyright (C) 2014 Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (C) 2017 Matthias Schiffer <mschiffer@universe-factory.net>
+ * Copyright (C) 2018 Hans Dedecker <dedeckeh@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -1682,12 +1683,27 @@ static const struct {
 	uint32_t mask;
 	const char *name;
 } ethtool_link_modes[] = {
-	{ ADVERTISED_10baseT_Half, "10H" },
-	{ ADVERTISED_10baseT_Full, "10F" },
-	{ ADVERTISED_100baseT_Half, "100H" },
-	{ ADVERTISED_100baseT_Full, "100F" },
-	{ ADVERTISED_1000baseT_Half, "1000H" },
-	{ ADVERTISED_1000baseT_Full, "1000F" },
+	{ ADVERTISED_10baseT_Half, "10baseT-H" },
+	{ ADVERTISED_10baseT_Full, "10baseT-F" },
+	{ ADVERTISED_100baseT_Half, "100baseT-H" },
+	{ ADVERTISED_100baseT_Full, "100baseT-F" },
+	{ ADVERTISED_1000baseT_Half, "1000baseT-H" },
+	{ ADVERTISED_1000baseT_Full, "1000baseT-F" },
+	{ ADVERTISED_1000baseKX_Full, "1000baseKX-F" },
+	{ ADVERTISED_2500baseX_Full, "2500baseX-F" },
+	{ ADVERTISED_10000baseT_Full, "10000baseT-F" },
+	{ ADVERTISED_10000baseKX4_Full, "10000baseKX4-F" },
+	{ ADVERTISED_10000baseKR_Full, "10000baseKR-F" },
+	{ ADVERTISED_20000baseMLD2_Full, "20000baseMLD2-F" },
+	{ ADVERTISED_20000baseKR2_Full, "20000baseKR2-F" },
+	{ ADVERTISED_40000baseKR4_Full, "40000baseKR4-F" },
+	{ ADVERTISED_40000baseCR4_Full, "40000baseCR4-F" },
+	{ ADVERTISED_40000baseSR4_Full, "40000baseSR4-F" },
+	{ ADVERTISED_40000baseLR4_Full, "40000baseLR4-F" },
+	{ ADVERTISED_56000baseKR4_Full, "56000baseKR4-F" },
+	{ ADVERTISED_56000baseCR4_Full, "56000baseCR4-F" },
+	{ ADVERTISED_56000baseSR4_Full, "56000baseSR4-F" },
+	{ ADVERTISED_56000baseLR4_Full, "56000baseLR4-F" },
 };
 
 static void system_add_link_modes(struct blob_buf *b, __u32 mask)
