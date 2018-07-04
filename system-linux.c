@@ -1700,10 +1700,12 @@ static const struct {
 	{ ADVERTISED_40000baseCR4_Full, "40000baseCR4-F" },
 	{ ADVERTISED_40000baseSR4_Full, "40000baseSR4-F" },
 	{ ADVERTISED_40000baseLR4_Full, "40000baseLR4-F" },
+#ifdef ADVERTISED_56000baseKR4_Full
 	{ ADVERTISED_56000baseKR4_Full, "56000baseKR4-F" },
 	{ ADVERTISED_56000baseCR4_Full, "56000baseCR4-F" },
 	{ ADVERTISED_56000baseSR4_Full, "56000baseSR4-F" },
 	{ ADVERTISED_56000baseLR4_Full, "56000baseLR4-F" },
+#endif
 };
 
 static void system_add_link_modes(struct blob_buf *b, __u32 mask)
