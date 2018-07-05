@@ -212,7 +212,8 @@ proto_shell_handler(struct interface_proto_state *proto,
 				state->sm = S_SETUP_ABORT;
 				return 0;
 			}
-		/* fall through if no script task is running */
+		/* if no script task is running */
+		/* fall through */
 		case S_IDLE:
 			action = "teardown";
 			state->renew_pending = false;
