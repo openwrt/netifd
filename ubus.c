@@ -624,7 +624,7 @@ interface_ip_dump_prefix_assignment_list(struct interface *iface)
 				inet_ntop(AF_INET6, &assign->addr, buf, buflen);
 				blobmsg_add_string_buffer(&b);
 
-				blobmsg_add_u32(&b, "mask", assign->length < 64 ? 64 : assign->length);
+				blobmsg_add_u32(&b, "mask", assign->length);
 			}
 			blobmsg_close_table(&b, c);
 
