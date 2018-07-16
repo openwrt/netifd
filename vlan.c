@@ -106,6 +106,9 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	struct vlan_device *vldev;
 	struct device_user *dep;
 
+	if (strlen(dev->ifname) > (IFNAMSIZ - 6))
+		return NULL;
+
 	/* look for an existing interface before creating a new one */
 	list_for_each_entry(dep, &dev->users.list, list.list) {
 		if (dep->cb != vlan_dev_cb)
