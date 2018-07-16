@@ -63,10 +63,12 @@ static int vlan_set_device_state(struct device *dev, bool up)
 
 static void vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
 {
-	char name[IFNAMSIZ];
+	char *name;
 
+	name = alloca(strlen(dev->ifname) + sizeof(".2147483647\0"));
 	vldev->dev.hidden = dev->hidden;
-	snprintf(name, IFNAMSIZ, "%s.%d", dev->ifname, vldev->id);
+	sprintf(name, "%s.%d", dev->ifname, vldev->id);
+
 	device_set_ifname(&vldev->dev, name);
 }
 
