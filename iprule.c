@@ -70,10 +70,10 @@ const struct uci_blob_param_list rule_attr_list = {
 
 /* interface based rules are dynamic. */
 static bool rule_ready(struct iprule *rule) {
-	if (rule->flags & IPRULE_OUT && rule->out_dev == NULL)
+	if (rule->flags & IPRULE_OUT && !rule->out_dev[0])
 		return false;
 
-	if (rule->flags & IPRULE_IN && rule->in_dev == NULL)
+	if (rule->flags & IPRULE_IN && !rule->in_dev[0])
 		return false;
 
 	return true;
