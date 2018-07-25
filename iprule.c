@@ -13,7 +13,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -182,13 +181,11 @@ static void generic_interface_cb(
 			continue;
 
 		if (!strcmp(rule->out_iface, iface->name)) {
-			assert(!rule->out_dev);
 			memcpy(rule->out_dev, iface->l3_dev.dev->ifname, sizeof(rule->out_dev));
 			interface_add_user(&rule->out_iface_user, iface);
 		}
 
 		if (!strcmp(rule->in_iface, iface->name)) {
-			assert(!rule->in_dev);
 			memcpy(rule->in_dev, iface->l3_dev.dev->ifname, sizeof(rule->in_dev));
 			interface_add_user(&rule->in_iface_user, iface);
 		}
