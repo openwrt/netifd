@@ -723,8 +723,8 @@ eui64_ifaceid(struct interface *iface, struct in6_addr *addr)
 	/* get mac address */
 	uint8_t *macaddr = iface->l3_dev.dev->settings.macaddr;
 	uint8_t *ifaceid = addr->s6_addr + 8;
-	memcpy(ifaceid,macaddr,3);
-	memcpy(ifaceid + 5,macaddr + 3, 3);
+	memcpy(ifaceid, st.macaddr, 3);
+	memcpy(ifaceid + 5, st.macaddr + 3, 3);
 	ifaceid[3] = 0xff;
 	ifaceid[4] = 0xfe;
 	ifaceid[0] ^= 0x02;
