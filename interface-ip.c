@@ -849,8 +849,11 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			int mtu = system_update_ipv6_mtu(uplink->l3_dev.dev, 0);
 			int mtu_old = system_update_ipv6_mtu(l3_downlink, 0);
 
-			if (mtu > 0 && mtu_old > mtu)
-				system_update_ipv6_mtu(l3_downlink, mtu);
+			if (mtu > 0 && mtu_old != mtu) {
+				if (system_update_ipv6_mtu(l3_downlink, mtu) < 0)
+					netifd_log_message(L_WARNING, "Failed to set IPv6 mtu to %d"
+							"on interface '%s'\n", mtu, iface->name);
+			}
 		}
 
 		assignment->enabled = true;
