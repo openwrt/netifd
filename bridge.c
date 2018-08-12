@@ -720,7 +720,13 @@ bridge_create(const char *name, struct device_type *devtype,
 		return NULL;
 
 	dev = &bst->dev;
-	device_init(dev, devtype, name);
+
+	if (device_init(dev, devtype, name) < 0) {
+		device_cleanup(dev);
+		free(bst);
+		return NULL;
+	}
+
 	dev->config_pending = true;
 	bst->retry.cb = bridge_retry_members;
 

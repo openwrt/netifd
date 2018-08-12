@@ -250,7 +250,7 @@ device_apply_config(struct device *dev, struct device_type *type,
 void device_reset_config(void);
 void device_reset_old(void);
 
-void device_init_virtual(struct device *dev, struct device_type *type, const char *name);
+int device_init_virtual(struct device *dev, struct device_type *type, const char *name);
 int device_init(struct device *dev, struct device_type *type, const char *ifname);
 void device_cleanup(struct device *dev);
 struct device *device_find(const char *name);

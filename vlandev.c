@@ -222,7 +222,13 @@ vlandev_create(const char *name, struct device_type *devtype,
 		return NULL;
 
 	dev = &mvdev->dev;
-	device_init(dev, devtype, name);
+
+	if (device_init(dev, devtype, name) < 0) {
+		device_cleanup(dev);
+		free(mvdev);
+		return NULL;
+	}
+
 	dev->config_pending = true;
 
 	mvdev->set_state = dev->set_state;

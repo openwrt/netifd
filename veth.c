@@ -218,7 +218,12 @@ veth_create(const char *name, struct device_type *devtype,
 		return NULL;
 
 	dev = &veth->dev;
-	device_init(dev, devtype, name);
+	if (device_init(dev, devtype, name) < 0) {
+		device_cleanup(dev);
+		free(veth);
+		return NULL;
+	}
+
 	dev->config_pending = true;
 
 	veth->set_state = dev->set_state;

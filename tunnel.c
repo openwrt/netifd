@@ -72,7 +72,13 @@ tunnel_create(const char *name, struct device_type *devtype,
 		return NULL;
 
 	dev = &tun->dev;
-	device_init(dev, devtype, name);
+
+	if (device_init(dev, devtype, name) < 0) {
+		device_cleanup(dev);
+		free(tun);
+		return NULL;
+	}
+
 	tun->set_state = dev->set_state;
 	dev->set_state = tunnel_set_state;
 	device_apply_config(dev, devtype, attr);

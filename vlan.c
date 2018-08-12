@@ -61,7 +61,7 @@ static int vlan_set_device_state(struct device *dev, bool up)
 	return ret;
 }
 
-static void vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
+static int vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
 {
 	char *name;
 
@@ -69,7 +69,7 @@ static void vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
 	vldev->dev.hidden = dev->hidden;
 	sprintf(name, "%s.%d", dev->ifname, vldev->id);
 
-	device_set_ifname(&vldev->dev, name);
+	return device_set_ifname(&vldev->dev, name);
 }
 
 static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
@@ -85,7 +85,8 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		device_set_present(&vldev->dev, false);
 		break;
 	case DEV_EVENT_UPDATE_IFNAME:
-		vlan_dev_set_name(vldev, dep->dev);
+		if (vlan_dev_set_name(vldev, dep->dev) < 0)
+			free_vlan_if(&vldev->dev);
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
 		/* Propagate topo changes */
@@ -105,9 +106,6 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	};
 	struct vlan_device *vldev;
 	struct device_user *dep;
-
-	if (strlen(dev->ifname) > (IFNAMSIZ - 6))
-		return NULL;
 
 	/* look for an existing interface before creating a new one */
 	list_for_each_entry(dep, &dev->users.list, list.list) {
@@ -132,9 +130,12 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 
 	vldev->id = id;
 
-	device_init(&vldev->dev, &vlan_type, NULL);
+	if (device_init(&vldev->dev, &vlan_type, NULL) < 0)
+		goto error;
 
-	vlan_dev_set_name(vldev, dev);
+	if (vlan_dev_set_name(vldev, dev) < 0)
+		goto error;
+
 	vldev->dev.default_config = true;
 
 	vldev->set_state = vldev->dev.set_state;
@@ -144,6 +145,11 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	device_add_user(&vldev->dep, dev);
 
 	return &vldev->dev;
+
+error:
+	device_cleanup(&vldev->dev);
+	free(vldev);
+	return NULL;
 }
 
 static char *split_vlan(char *s)

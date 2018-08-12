@@ -124,7 +124,11 @@ alias_device_create(const char *name, struct device_type *devtype,
 	strcpy(alias->name, name);
 	alias->dev.set_state = alias_device_set_state;
 	alias->dev.hidden = true;
-	device_init_virtual(&alias->dev, devtype, NULL);
+	if (device_init_virtual(&alias->dev, devtype, NULL) < 0) {
+		free(alias);
+		return NULL;
+	}
+
 	alias->avl.key = alias->name;
 	avl_insert(&aliases, &alias->avl);
 	alias->dep.alias = true;

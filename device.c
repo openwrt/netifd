@@ -470,7 +470,7 @@ int device_check_state(struct device *dev)
 	return dev->type->check_state(dev);
 }
 
-void device_init_virtual(struct device *dev, struct device_type *type, const char *name)
+int device_init_virtual(struct device *dev, struct device_type *type, const char *name)
 {
 	assert(dev);
 	assert(type);
@@ -480,18 +480,27 @@ void device_init_virtual(struct device *dev, struct device_type *type, const cha
 	INIT_SAFE_LIST(&dev->aliases);
 	dev->type = type;
 
-	if (name)
-		device_set_ifname(dev, name);
+	if (name) {
+		int ret;
+
+		ret = device_set_ifname(dev, name);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (!dev->set_state)
 		dev->set_state = set_device_state;
+
+	return 0;
 }
 
 int device_init(struct device *dev, struct device_type *type, const char *ifname)
 {
 	int ret;
 
-	device_init_virtual(dev, type, ifname);
+	ret = device_init_virtual(dev, type, ifname);
+	if (ret < 0)
+		return ret;
 
 	dev->avl.key = dev->ifname;
 
@@ -520,7 +529,13 @@ device_create_default(const char *name, bool external)
 
 	dev->external = external;
 	dev->set_state = simple_device_set_state;
-	device_init(dev, &simple_device_type, name);
+
+	if (device_init(dev, &simple_device_type, name) < 0) {
+		device_cleanup(dev);
+		free(dev);
+		return NULL;
+	}
+
 	dev->default_config = true;
 	if (external)
 		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
@@ -648,10 +663,13 @@ int device_set_ifname(struct device *dev, const char *name)
 	if (!strcmp(dev->ifname, name))
 		return 0;
 
+	if (strlen(name) > sizeof(dev->ifname) - 1)
+		return -1;
+
 	if (dev->avl.key)
 		avl_delete(&devices, &dev->avl);
 
-	strncpy(dev->ifname, name, IFNAMSIZ);
+	strcpy(dev->ifname, name);
 
 	if (dev->avl.key)
 		ret = avl_insert(&devices, &dev->avl);
