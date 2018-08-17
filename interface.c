@@ -695,7 +695,7 @@ interface_handle_config_change(struct interface *iface)
 		interface_do_free(iface);
 		return;
 	}
-	if (iface->autostart && iface->available)
+	if (iface->autostart)
 		interface_set_up(iface);
 	else if (iface->dynamic)
 		set_config_state(iface, IFC_REMOVE);
@@ -1103,7 +1103,7 @@ interface_start_pending(void)
 	struct interface *iface;
 
 	vlist_for_each_element(&interfaces, iface, node) {
-		if (iface->available && iface->autostart)
+		if (iface->autostart)
 			interface_set_up(iface);
 	}
 }
