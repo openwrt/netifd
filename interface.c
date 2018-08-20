@@ -284,7 +284,7 @@ mark_interface_down(struct interface *iface)
 	system_flush_routes();
 }
 
-void
+static void
 __interface_set_down(struct interface *iface, bool force)
 {
 	enum interface_state state = iface->state;

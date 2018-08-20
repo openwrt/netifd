@@ -186,7 +186,6 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 void interface_set_available(struct interface *iface, bool new_state);
 void interface_set_up(struct interface *iface);
 int interface_set_down(struct interface *iface);
-void __interface_set_down(struct interface *iface, bool force);
 int interface_renew(struct interface *iface);
 
 void interface_set_main_dev(struct interface *iface, struct device *dev);
