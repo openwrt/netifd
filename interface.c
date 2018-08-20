@@ -1078,7 +1078,7 @@ interface_set_up(struct interface *iface)
 		interface_add_error(iface, "interface", error, NULL, 0);
 }
 
-int
+void
 interface_set_down(struct interface *iface)
 {
 	if (!iface) {
@@ -1088,8 +1088,6 @@ interface_set_down(struct interface *iface)
 		iface->autostart = false;
 		__interface_set_down(iface, false);
 	}
-
-	return 0;
 }
 
 int
