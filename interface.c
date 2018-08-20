@@ -1047,31 +1047,35 @@ out:
 	return ret;
 }
 
-int
+void
 interface_set_up(struct interface *iface)
 {
 	int ret;
+	const char *error = NULL;
 
 	iface->autostart = true;
 
 	if (iface->state != IFS_DOWN)
-		return 0;
+		return;
 
 	interface_clear_errors(iface);
-	if (!iface->available) {
-		interface_add_error(iface, "interface", "NO_DEVICE", NULL, 0);
-		return -1;
-	}
+	if (iface->available) {
+		if (iface->main_dev.dev) {
+			ret = device_claim(&iface->main_dev);
+			if (!ret)
+				interface_check_state(iface);
+			else
+				error = "DEVICE_CLAIM_FAILED";
+		} else {
+			ret = __interface_set_up(iface);
+			if (ret)
+				error = "SETUP_FAILED";
+		}
+	} else
+		error = "NO_DEVICE";
 
-	if (iface->main_dev.dev) {
-		ret = device_claim(&iface->main_dev);
-		if (!ret)
-			interface_check_state(iface);
-	}
-	else
-		ret = __interface_set_up(iface);
-
-	return ret;
+	if (error)
+		interface_add_error(iface, "interface", error, NULL, 0);
 }
 
 int
