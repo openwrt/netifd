@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 2.6)
 
 PROJECT(netifd C)
-ADD_DEFINITIONS(-Os -Wall -Werror --std=gnu99 -Wmissing-declarations -Wno-unknown-warning-option -Wno-format-truncation -Wimplicit-fallthrough)
+
+IF(NOT ${CMAKE_VERSION} LESS 3.0)
+  include(CheckCCompilerFlag)
+  check_c_compiler_flag(-Wimplicit-fallthrough HAS_IMPLICIT_FALLTHROUGH)
+ENDIF()
+
+ADD_DEFINITIONS(-Os -Wall -Werror --std=gnu99 -Wmissing-declarations -Wno-unknown-warning-option -Wno-format-truncation)
+
+IF(HAS_IMPLICIT_FALLTHROUGH)
+  ADD_DEFINITIONS(-Wimplicit-fallthrough)
+ENDIF()
 
 SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 
