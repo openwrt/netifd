@@ -214,7 +214,7 @@ wireless_vif_parse_encryption() {
 		wpa2*|*psk2*)
 			wpa=2
 		;;
-		wpa*mixed*|psk*mixed*)
+		wpa*mixed*|*psk*mixed*)
 			wpa=3
 		;;
 		wpa*|*psk*)
