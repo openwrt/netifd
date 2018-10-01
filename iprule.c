@@ -180,15 +180,11 @@ static void generic_interface_cb(
 		if (rule_ready(rule))
 			continue;
 
-		if (!strcmp(rule->out_iface, iface->name)) {
-			memcpy(rule->out_dev, iface->l3_dev.dev->ifname, sizeof(rule->out_dev));
+		if ((rule->flags & IPRULE_OUT) && !strcmp(rule->out_iface, iface->name))
 			interface_add_user(&rule->out_iface_user, iface);
-		}
 
-		if (!strcmp(rule->in_iface, iface->name)) {
-			memcpy(rule->in_dev, iface->l3_dev.dev->ifname, sizeof(rule->in_dev));
+		if ((rule->flags & IPRULE_IN) && !strcmp(rule->in_iface, iface->name))
 			interface_add_user(&rule->in_iface_user, iface);
-		}
 	}
 }
 
