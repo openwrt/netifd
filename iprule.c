@@ -68,7 +68,9 @@ const struct uci_blob_param_list rule_attr_list = {
 };
 
 /* interface based rules are dynamic. */
-static bool rule_ready(struct iprule *rule) {
+static bool
+rule_ready(struct iprule *rule)
+{
 	if (rule->flags & IPRULE_OUT && !rule->out_dev[0])
 		return false;
 
@@ -109,10 +111,8 @@ iprule_parse_mark(const char *mark, struct iprule *rule)
 }
 
 /* called on interface changes of the incoming interface */
-static void rule_in_cb(
-		struct interface_user *dep,
-		struct interface *iface,
-		enum interface_event ev)
+static void
+rule_in_cb(struct interface_user *dep, struct interface *iface, enum interface_event ev)
 {
 	struct iprule *rule = container_of(dep, struct iprule, in_iface_user);
 
@@ -120,7 +120,8 @@ static void rule_in_cb(
 	case IFEV_UP:
 		if (!iface->l3_dev.dev)
 			break;
-		memcpy(rule->in_dev, iface->l3_dev.dev->ifname, sizeof(rule->in_dev));
+
+		strcpy(rule->in_dev, iface->l3_dev.dev->ifname);
 		if (rule_ready(rule))
 			system_add_iprule(rule);
 		break;
@@ -129,6 +130,7 @@ static void rule_in_cb(
 	case IFEV_FREE:
 		if (rule_ready(rule))
 			system_del_iprule(rule);
+
 		rule->in_dev[0] = 0;
 		break;
 	default:
@@ -137,10 +139,8 @@ static void rule_in_cb(
 }
 
 /* called on interface changes of the outgoing interface */
-static void rule_out_cb(
-		struct interface_user *dep,
-		struct interface *iface,
-		enum interface_event ev)
+static void
+rule_out_cb(struct interface_user *dep, struct interface *iface, enum interface_event ev)
 {
 	struct iprule *rule = container_of(dep, struct iprule, out_iface_user);
 
@@ -148,7 +148,8 @@ static void rule_out_cb(
 	case IFEV_UP:
 		if (!iface->l3_dev.dev)
 			break;
-		memcpy(rule->out_dev, iface->l3_dev.dev->ifname, sizeof(rule->out_dev));
+
+		strcpy(rule->out_dev, iface->l3_dev.dev->ifname);
 		if (rule_ready(rule))
 			system_add_iprule(rule);
 		break;
@@ -157,6 +158,7 @@ static void rule_out_cb(
 	case IFEV_FREE:
 		if (rule_ready(rule))
 			system_del_iprule(rule);
+
 		rule->out_dev[0] = 0;
 		break;
 	default:
@@ -165,10 +167,9 @@ static void rule_out_cb(
 }
 
 /* called on all interface events */
-static void generic_interface_cb(
-		struct interface_user *dep,
-		struct interface *iface,
-		enum interface_event ev)
+static void
+generic_interface_cb(struct interface_user *dep,
+			struct interface *iface, enum interface_event ev)
 {
 	struct iprule *rule;
 
