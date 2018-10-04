@@ -211,7 +211,7 @@ wireless_vif_parse_encryption() {
 	# wpa2/tkip+aes     => WPA2 RADIUS, CCMP+TKIP
 
 	case "$encryption" in
-		wpa2*|*psk2*)
+		wpa2*|*psk2*|psk3*|sae*)
 			wpa=2
 		;;
 		wpa*mixed*|*psk*mixed*)
@@ -228,6 +228,12 @@ wireless_vif_parse_encryption() {
 	wpa_pairwise="$wpa_cipher"
 
 	case "$encryption" in
+		psk3-mixed*|sae-mixed*)
+			auth_type=psk-sae
+		;;
+		psk3*|sae*)
+			auth_type=sae
+		;;
 		*psk*)
 			auth_type=psk
 		;;
