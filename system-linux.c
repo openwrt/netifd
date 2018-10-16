@@ -2540,7 +2540,7 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 				iflags |= GRE_SEQ;
 		}
 
-		if ((cur = tb[GRE_DATA_OSEQNO])) {
+		if ((cur = tb_data[GRE_DATA_OSEQNO])) {
 			if (blobmsg_get_bool(cur))
 				oflags |= GRE_SEQ;
 		}
