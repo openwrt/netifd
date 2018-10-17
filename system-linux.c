@@ -2456,10 +2456,11 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 	struct nl_msg *nlm;
 	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
 	struct blob_attr *cur;
-	uint32_t ikey = 0, okey = 0, flags = 0, flowinfo = 0;
+	uint32_t ikey = 0, okey = 0, flowinfo = 0, flags6 = IP6_TNL_F_IGN_ENCAP_LIMIT;
 	uint16_t iflags = 0, oflags = 0;
 	uint8_t tos = 0;
 	int ret = 0, ttl = 0;
+	unsigned encap_limit = 0;
 
 	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
 	if (!nlm)
@@ -2503,7 +2504,7 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 				tos = uval;
 		} else {
 			if (v6)
-				flags |= IP6_TNL_F_USE_ORIG_TCLASS;
+				flags6 |= IP6_TNL_F_USE_ORIG_TCLASS;
 			else
 				tos = 1;
 		}
@@ -2544,6 +2545,23 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 			if (blobmsg_get_bool(cur))
 				oflags |= GRE_SEQ;
 		}
+
+		if ((cur = tb_data[GRE_DATA_ENCAPLIMIT])) {
+			char *str = blobmsg_get_string(cur);
+
+			if (strcmp(str, "ignore")) {
+				char *e;
+
+				encap_limit = strtoul(str, &e, 0);
+
+				if (e == str || *e || encap_limit > 255) {
+					ret = -EINVAL;
+					goto failure;
+				}
+
+				flags6 &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
+			}
+		}
 	}
 
 	if (v6) {
@@ -2563,13 +2581,15 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 			}
 			nla_put(nlm, IFLA_GRE_REMOTE, sizeof(in6buf), &in6buf);
 		}
-		nla_put_u8(nlm, IFLA_GRE_ENCAP_LIMIT, 4);
+
+		if (!(flags6 & IP6_TNL_F_IGN_ENCAP_LIMIT))
+			nla_put_u8(nlm, IFLA_GRE_ENCAP_LIMIT, encap_limit);
 
 		if (flowinfo)
 			nla_put_u32(nlm, IFLA_GRE_FLOWINFO, flowinfo);
 
-		if (flags)
-			nla_put_u32(nlm, IFLA_GRE_FLAGS, flags);
+		if (flags6)
+			nla_put_u32(nlm, IFLA_GRE_FLAGS, flags6);
 
 		if (!ttl)
 			ttl = 64;

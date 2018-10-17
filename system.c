@@ -52,6 +52,7 @@ static const struct blobmsg_policy gre_data_attrs[__GRE_DATA_ATTR_MAX] = {
 	[GRE_DATA_OCSUM] = { .name = "ocsum", .type = BLOBMSG_TYPE_BOOL },
 	[GRE_DATA_ISEQNO] = { .name = "iseqno", .type = BLOBMSG_TYPE_BOOL },
 	[GRE_DATA_OSEQNO] = { .name = "oseqno", .type = BLOBMSG_TYPE_BOOL },
+	[GRE_DATA_ENCAPLIMIT] = { .name = "encaplimit", .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct uci_blob_param_list gre_data_attr_list = {
