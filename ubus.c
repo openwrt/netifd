@@ -137,29 +137,22 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 
 	const char *name = blobmsg_get_string(tb[DI_NAME]);
 
-	iface = interface_alloc(name, msg);
+	iface = interface_alloc(name, msg, true);
 	if (!iface)
 		return UBUS_STATUS_UNKNOWN_ERROR;
 
 	config = blob_memdup(msg);
 	if (!config)
+		goto error_free;
+
+	if (!interface_add(iface, config))
 		goto error;
-
-	interface_add(iface, config);
-
-	// need to look up the interface name again, in case of config update
-	// the pointer will have changed
-	iface = vlist_find(&interfaces, name, iface, node);
-	if (!iface)
-		return UBUS_STATUS_UNKNOWN_ERROR;
-
-	// Set interface as dynamic
-	interface_set_dynamic(iface);
 
 	return UBUS_STATUS_OK;
 
-error:
+error_free:
 	free(iface);
+error:
 	return UBUS_STATUS_UNKNOWN_ERROR;
 }
 

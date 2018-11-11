@@ -768,7 +768,7 @@ void interface_set_proto_state(struct interface *iface, struct interface_proto_s
 }
 
 struct interface *
-interface_alloc(const char *name, struct blob_attr *config)
+interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 {
 	struct interface *iface;
 	struct blob_attr *tb[IFACE_ATTR_MAX];
@@ -803,6 +803,7 @@ interface_alloc(const char *name, struct blob_attr *config)
 
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
 	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], force_link);
+	iface->dynamic = dynamic;
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
 	iface->proto_ip.no_dns =
@@ -877,17 +878,11 @@ interface_alloc(const char *name, struct blob_attr *config)
 	return iface;
 }
 
-void interface_set_dynamic(struct interface *iface)
-{
-	iface->dynamic = true;
-	iface->autostart = true;
-	iface->node.version = -1; // Don't delete on reload
-}
-
 static bool __interface_add(struct interface *iface, struct blob_attr *config, bool alias)
 {
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
+	char *name = iface->dynamic ? strdup(iface->name) : NULL;
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
@@ -905,13 +900,25 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 
 	iface->config = config;
 	vlist_add(&interfaces, &iface->node, iface->name);
+
+	if (name) {
+		iface = vlist_find(&interfaces, name, iface, node);
+		free(name);
+
+		if (!iface)
+			return false;
+
+		/* Don't delete dynamic interface on reload */
+		iface->node.version = -1;
+	}
+
 	return true;
 }
 
-void
+bool
 interface_add(struct interface *iface, struct blob_attr *config)
 {
-	__interface_add(iface, config, false);
+	return __interface_add(iface, config, false);
 }
 
 bool
@@ -1220,6 +1227,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->config_autostart = if_new->config_autostart;
 	if_old->ifname = if_new->ifname;
 	if_old->parent_ifname = if_new->parent_ifname;
+	if_old->dynamic = if_new->dynamic;
 	if_old->proto_handler = if_new->proto_handler;
 	if_old->force_link = if_new->force_link;
 	if_old->dns_metric = if_new->dns_metric;
