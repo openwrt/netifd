@@ -284,6 +284,12 @@ mark_interface_down(struct interface *iface)
 	system_flush_routes();
 }
 
+static inline void
+__set_config_state(struct interface *iface, enum interface_config_state s)
+{
+	iface->config_state = s;
+}
+
 static void
 __interface_set_down(struct interface *iface, bool force)
 {
@@ -292,6 +298,9 @@ __interface_set_down(struct interface *iface, bool force)
 	case IFS_UP:
 	case IFS_SETUP:
 		iface->state = IFS_TEARDOWN;
+		if (iface->dynamic)
+			__set_config_state(iface, IFC_REMOVE);
+
 		if (state == IFS_UP)
 			interface_event(iface, IFEV_DOWN);
 
@@ -334,6 +343,9 @@ interface_check_state(struct interface *iface)
 	case IFS_SETUP:
 		if (!iface->enabled || !link_state) {
 			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
+			if (iface->dynamic)
+				__set_config_state(iface, IFC_REMOVE);
+
 			mark_interface_down(iface);
 		}
 		break;
@@ -697,8 +709,6 @@ interface_handle_config_change(struct interface *iface)
 	}
 	if (iface->autostart)
 		interface_set_up(iface);
-	else if (iface->dynamic)
-		set_config_state(iface, IFC_REMOVE);
 }
 
 static void
@@ -1120,7 +1130,7 @@ interface_start_pending(void)
 static void
 set_config_state(struct interface *iface, enum interface_config_state s)
 {
-	iface->config_state = s;
+	__set_config_state(iface, s);
 	if (iface->state == IFS_DOWN)
 		interface_handle_config_change(iface);
 	else
