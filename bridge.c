@@ -77,7 +77,7 @@ static struct device *bridge_create(const char *name, struct device_type *devtyp
 static void bridge_config_init(struct device *dev);
 static void bridge_free(struct device *dev);
 static void bridge_dump_info(struct device *dev, struct blob_buf *b);
-enum dev_change_type
+static enum dev_change_type
 bridge_reload(struct device *dev, struct blob_attr *attr);
 
 static struct device_type bridge_device_type = {
@@ -633,7 +633,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 		cfg->bridge_empty = blobmsg_get_bool(cur);
 }
 
-enum dev_change_type
+static enum dev_change_type
 bridge_reload(struct device *dev, struct blob_attr *attr)
 {
 	struct blob_attr *tb_dev[__DEV_ATTR_MAX];

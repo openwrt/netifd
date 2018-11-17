@@ -153,7 +153,6 @@ extern const struct uci_blob_param_list route_attr_list;
 extern struct list_head prefixes;
 
 void interface_ip_init(struct interface *iface);
-void interface_add_dns_server(struct interface_ip_settings *ip, const char *str);
 void interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list);
 void interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list);
 void interface_write_resolv_conf(void);

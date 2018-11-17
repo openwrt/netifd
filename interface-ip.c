@@ -1176,7 +1176,7 @@ interface_ip_set_ula_prefix(const char *prefix)
 	}
 }
 
-void
+static void
 interface_add_dns_server(struct interface_ip_settings *ip, const char *str)
 {
 	struct dns_server *s;

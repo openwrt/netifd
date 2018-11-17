@@ -269,7 +269,6 @@ void device_release(struct device_user *dep);
 int device_check_state(struct device *dev);
 void device_dump_status(struct blob_buf *b, struct device *dev);
 
-void device_free(struct device *dev);
 void device_free_unused(struct device *dev);
 
 struct device *get_vlan_device_chain(const char *ifname, bool create);

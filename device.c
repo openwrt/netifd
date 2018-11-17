@@ -733,7 +733,7 @@ void device_add_user(struct device_user *dep, struct device *dev)
 	__device_add_user(dep, dev);
 }
 
-void
+static void
 device_free(struct device *dev)
 {
 	__devlock++;

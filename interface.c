@@ -78,7 +78,7 @@ const struct uci_blob_param_list interface_attr_list = {
 };
 
 static void
-set_config_state(struct interface *iface, enum interface_config_state s);
+interface_set_main_dev(struct interface *iface, struct device *dev);
 static void
 interface_event(struct interface *iface, enum interface_event ev);
 
@@ -964,7 +964,7 @@ interface_set_l3_dev(struct interface *iface, struct device *dev)
 	}
 }
 
-void
+static void
 interface_set_main_dev(struct interface *iface, struct device *dev)
 {
 	bool claimed = iface->l3_dev.claimed;
@@ -988,7 +988,7 @@ interface_set_main_dev(struct interface *iface, struct device *dev)
 		interface_set_l3_dev(iface, dev);
 }
 
-int
+static int
 interface_remove_link(struct interface *iface, struct device *dev)
 {
 	struct device *mdev = iface->main_dev.dev;
