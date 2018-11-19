@@ -409,9 +409,11 @@ bridge_create_member(struct bridge_state *bst, const char *name,
 	strcpy(bm->name, name);
 	bm->dev.dev = dev;
 	vlist_add(&bst->members, &bm->node, bm->name);
-	// Need to look up the bridge member again as the above
-	// created pointer will be freed in case the bridge member
-	// already existed
+	/*
+	 * Need to look up the bridge member again as the above
+	 * created pointer will be freed in case the bridge member
+	 * already existed
+	 */
 	bm = vlist_find(&bst->members, name, bm, node);
 	if (hotplug && bm)
 		bm->node.version = -1;

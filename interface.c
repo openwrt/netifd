@@ -530,8 +530,8 @@ interface_merge_assignment_data(struct interface *old, struct interface *new)
 
 	struct interface_assignment_class *c;
 	list_for_each_entry(c, &new->assignment_classes, head) {
-		// Compare list entries one-by-one to see if there was a change
-		if (list_empty(&old->assignment_classes)) // The new list is longer
+		/* Compare list entries one-by-one to see if there was a change */
+		if (list_empty(&old->assignment_classes)) /* The new list is longer */
 			changed = true;
 
 		if (changed)
@@ -540,14 +540,14 @@ interface_merge_assignment_data(struct interface *old, struct interface *new)
 		struct interface_assignment_class *c_old = list_first_entry(&old->assignment_classes,
 				struct interface_assignment_class, head);
 
-		if (strcmp(c_old->name, c->name)) // An entry didn't match
+		if (strcmp(c_old->name, c->name)) /* An entry didn't match */
 			break;
 
 		list_del(&c_old->head);
 		free(c_old);
 	}
 
-	// The old list was longer than the new one or the last entry didn't match
+	/* The old list was longer than the new one or the last entry didn't match */
 	if (!list_empty(&old->assignment_classes)) {
 		interface_clear_assignment_classes(old);
 		changed = true;

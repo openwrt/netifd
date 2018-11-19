@@ -170,7 +170,7 @@ __find_ip_addr_target(struct interface_ip_settings *ip, union if_addr *a, bool v
 		if (v6 != ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
 			continue;
 
-		// Handle offlink addresses correctly
+		/* Handle offlink addresses correctly */
 		unsigned int mask = addr->mask;
 		if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6 &&
 				(addr->flags & DEVADDR_OFFLINK))
@@ -357,7 +357,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		route->flags |= DEVROUTE_MTU;
 	}
 
-	// Use source-based routing
+	/* Use source-based routing */
 	if ((cur = tb[ROUTE_SOURCE]) != NULL) {
 		char *saveptr, *source = alloca(blobmsg_data_len(cur));
 		memcpy(source, blobmsg_data(cur), blobmsg_data_len(cur));
@@ -393,7 +393,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	if ((cur = tb[ROUTE_VALID]) != NULL) {
 		int64_t valid = blobmsg_get_u32(cur);
 		int64_t valid_until = valid + (int64_t)system_get_rtime();
-		if (valid_until <= LONG_MAX && valid != 0xffffffffLL) // Catch overflow
+		if (valid_until <= LONG_MAX && valid != 0xffffffffLL) /* Catch overflow */
 			route->valid_until = valid_until;
 	}
 
@@ -572,10 +572,12 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 	if (node_old) {
 		if (a_old->enabled && !keep) {
-			//This is needed for source routing to work correctly. If a device
-			//has two connections to a network using the same subnet, adding
-			//only the network-rule will cause packets to be routed through the
-			//first matching network (source IP matches both masks).
+			/*
+			 * This is needed for source routing to work correctly. If a device
+			 * has two connections to a network using the same subnet, adding
+			 * only the network-rule will cause packets to be routed through the
+			 * first matching network (source IP matches both masks)
+			 */
 			if (a_old->policy_table)
 				interface_add_addr_rules(a_old, false);
 
@@ -908,7 +910,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	struct device_prefix_assignment *c;
 	struct interface *iface;
 
-	// Delete all assignments
+	/* Delete all assignments */
 	while (!list_empty(&prefix->assignments)) {
 		c = list_first_entry(&prefix->assignments,
 				struct device_prefix_assignment, head);
@@ -921,7 +923,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	if (!setup)
 		return;
 
-	// End-of-assignment sentinel
+	/* End-of-assignment sentinel */
 	c = malloc(sizeof(*c) + 1);
 	if (!c)
 		return;
@@ -932,7 +934,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	c->addr = in6addr_any;
 	list_add(&c->head, &prefix->assignments);
 
-	// Excluded prefix
+	/* Excluded prefix */
 	if (prefix->excl_length > 0) {
 		const char name[] = "!excluded";
 		c = malloc(sizeof(*c) + sizeof(name));
@@ -959,7 +961,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 				iface->assignment_length > 64)
 			continue;
 
-		// Test whether there is a matching class
+		/* Test whether there is a matching class */
 		if (!list_empty(&iface->assignment_classes)) {
 			bool found = false;
 
@@ -987,7 +989,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 		c->enabled = false;
 		memcpy(c->name, iface->name, namelen);
 
-		// First process all custom assignments, put all others in later-list
+		/* First process all custom assignments, put all others in later-list */
 		if (c->assigned == -1 || !interface_prefix_assign(&prefix->assignments, c)) {
 			if (c->assigned != -1) {
 				c->assigned = -1;
@@ -1077,7 +1079,7 @@ interface_update_prefix(struct vlist_tree *tree,
 	struct interface *iface;
 
 	if (node_old && node_new) {
-		// Move assignments and refresh addresses to update valid times
+		/* Move assignments and refresh addresses to update valid times */
 		list_splice(&prefix_old->assignments, &prefix_new->assignments);
 
 		list_for_each_entry(c, &prefix_new->assignments, head)
@@ -1088,13 +1090,13 @@ interface_update_prefix(struct vlist_tree *tree,
 				prefix_new->valid_until != prefix_old->valid_until)
 			ip->iface->updated |= IUF_PREFIX;
 	} else if (node_new) {
-		// Set null-route to avoid routing loops
+		/* Set null-route to avoid routing loops */
 		system_add_route(NULL, &route);
 
 		if (!prefix_new->iface || !prefix_new->iface->proto_ip.no_delegation)
 			interface_update_prefix_assignments(prefix_new, true);
 	} else if (node_old) {
-		// Remove null-route
+		/* Remove null-route */
 		interface_update_prefix_assignments(prefix_old, false);
 		system_del_route(NULL, &route);
 	}

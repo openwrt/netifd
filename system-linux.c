@@ -105,12 +105,12 @@ handler_nl_event(struct uloop_fd *u, unsigned int events)
 
 	switch(err) {
 	case ENOBUFS:
-		// Increase rx buffer size on netlink socket
+		/* Increase rx buffer size on netlink socket */
 		ev->bufsize *= 2;
 		if (nl_socket_set_buffer_size(ev->sock, ev->bufsize, 0))
 			goto abort;
 
-		// Request full dump since some info got dropped
+		/* Request full dump since some info got dropped */
 		struct rtgenmsg msg = { .rtgen_family = AF_UNSPEC };
 		nl_send_simple(ev->sock, RTM_GETLINK, NLM_F_DUMP, &msg, sizeof(msg));
 		break;
@@ -167,13 +167,13 @@ create_event_socket(struct event_socket *ev, int protocol,
 	if (!create_raw_event_socket(ev, protocol, 0, handler_nl_event, ULOOP_ERROR_CB))
 		return false;
 
-	// Install the valid custom callback handler
+	/* Install the valid custom callback handler */
 	nl_socket_modify_cb(ev->sock, NL_CB_VALID, NL_CB_CUSTOM, cb, NULL);
 
-	// Disable sequence number checking on event sockets
+	/* Disable sequence number checking on event sockets */
 	nl_socket_disable_seq_check(ev->sock);
 
-	// Increase rx buffer size to 65K on event sockets
+	/* Increase rx buffer size to 65K on event sockets */
 	ev->bufsize = 65535;
 	if (nl_socket_set_buffer_size(ev->sock, ev->bufsize, 0))
 		return false;
@@ -241,7 +241,7 @@ int system_init(void)
 	sock_ioctl = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	system_fd_set_cloexec(sock_ioctl);
 
-	// Prepare socket for routing / address control
+	/* Prepare socket for routing / address control */
 	sock_rtnl = create_socket(NETLINK_ROUTE, 0);
 	if (!sock_rtnl)
 		return -1;
@@ -253,7 +253,7 @@ int system_init(void)
 					handle_hotplug_event, 0))
 		return -1;
 
-	// Receive network link events form kernel
+	/* Receive network link events form kernel */
 	nl_socket_add_membership(rtnl_event.sock, RTNLGRP_LINK);
 
 	return 0;
@@ -518,7 +518,7 @@ static int system_get_sendredirects(struct device *dev, char *buf, const size_t 
 			dev->ifname, buf, buf_sz);
 }
 
-// Evaluate netlink messages
+/* Evaluate netlink messages */
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
@@ -1899,7 +1899,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 	if (cmd == RTM_NEWROUTE) {
 		flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
-		if (!dev) { // Add null-route
+		if (!dev) { /* Add null-route */
 			rtm.rtm_scope = RT_SCOPE_UNIVERSE;
 			rtm.rtm_type = RTN_UNREACHABLE;
 		}

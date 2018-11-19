@@ -98,7 +98,7 @@ struct device_route {
 
 	/* must be last */
 	enum device_addr_flags flags;
-	int metric; // there can be multiple routes to the same target
+	int metric; /* there can be multiple routes to the same target */
 	unsigned int table;
 	unsigned int mask;
 	unsigned int sourcemask;
