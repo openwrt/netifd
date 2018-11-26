@@ -922,11 +922,9 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 		iface = vlist_find(&interfaces, name, iface, node);
 		free(name);
 
-		if (!iface)
-			return false;
-
 		/* Don't delete dynamic interface on reload */
-		iface->node.version = -1;
+		if (iface)
+			iface->node.version = -1;
 	}
 
 	return true;
