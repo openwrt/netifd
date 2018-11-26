@@ -120,7 +120,8 @@ config_parse_interface(struct uci_section *s, bool alias)
 		if (!interface_add_alias(iface, config))
 			goto error_free_config;
 	} else {
-		interface_add(iface, config);
+		if (!interface_add(iface, config))
+			goto error_free_config;
 	}
 	return;
 
