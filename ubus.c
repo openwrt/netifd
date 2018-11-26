@@ -143,16 +143,17 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 
 	config = blob_memdup(msg);
 	if (!config)
-		goto error_free;
+		goto error;
 
 	if (!interface_add(iface, config))
-		goto error;
+		goto error_free_config;
 
 	return UBUS_STATUS_OK;
 
-error_free:
-	free(iface);
+error_free_config:
+	free(config);
 error:
+	free(iface);
 	return UBUS_STATUS_UNKNOWN_ERROR;
 }
 
