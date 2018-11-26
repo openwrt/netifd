@@ -892,7 +892,7 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 {
 	struct blob_attr *tb[IFACE_ATTR_MAX];
 	struct blob_attr *cur;
-	char *name = iface->dynamic ? strdup(iface->name) : NULL;
+	char *name = NULL;
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
@@ -906,6 +906,13 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 	} else {
 		if ((cur = tb[IFACE_ATTR_IFNAME]))
 			iface->ifname = blobmsg_data(cur);
+	}
+
+	if (iface->dynamic) {
+		name = strdup(iface->name);
+
+		if (!name)
+			return false;
 	}
 
 	iface->config = config;
