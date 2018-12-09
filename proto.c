@@ -131,11 +131,7 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask,
 	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask))
 		goto error;
 
-	if (!v6) {
-		if (IN_EXPERIMENTAL(ntohl(addr->addr.in.s_addr)))
-			goto error;
-
-	} else if (IN6_IS_ADDR_MULTICAST(&addr->addr.in6))
+	if (!v6 && IN6_IS_ADDR_MULTICAST(&addr->addr.in6))
 		goto error;
 
 	if (broadcast)
