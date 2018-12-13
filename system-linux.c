@@ -403,6 +403,36 @@ static void system_bridge_set_startup_query_interval(struct device *dev, const c
 			      dev->ifname, val);
 }
 
+static void system_bridge_set_stp_state(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/stp_state", dev->ifname, val);
+}
+
+static void system_bridge_set_forward_delay(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/forward_delay", dev->ifname, val);
+}
+
+static void system_bridge_set_priority(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/priority", dev->ifname, val);
+}
+
+static void system_bridge_set_ageing_time(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/ageing_time", dev->ifname, val);
+}
+
+static void system_bridge_set_hello_time(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/hello_time", dev->ifname, val);
+}
+
+static void system_bridge_set_max_age(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/max_age", dev->ifname, val);
+}
+
 static void system_bridge_set_learning(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("/sys/class/net/%s/brport/learning", dev->ifname, val);
@@ -1061,41 +1091,33 @@ static void system_bridge_conf_multicast(struct device *bridge,
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
 	char buf[64];
-	unsigned long args[4] = {};
 
 	if (ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname) < 0)
 		return -1;
 
-	args[0] = BRCTL_SET_BRIDGE_STP_STATE;
-	args[1] = !!cfg->stp;
-	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+	system_bridge_set_stp_state(bridge, cfg->stp ? "1" : "0");
 
-	args[0] = BRCTL_SET_BRIDGE_FORWARD_DELAY;
-	args[1] = sec_to_jiffies(cfg->forward_delay);
-	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+	snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->forward_delay));
+	system_bridge_set_forward_delay(bridge, buf);
 
 	system_bridge_conf_multicast(bridge, cfg, buf, sizeof(buf));
 
-	args[0] = BRCTL_SET_BRIDGE_PRIORITY;
-	args[1] = cfg->priority;
-	system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+	snprintf(buf, sizeof(buf), "%d", cfg->priority);
+	system_bridge_set_priority(bridge, buf);
 
 	if (cfg->flags & BRIDGE_OPT_AGEING_TIME) {
-		args[0] = BRCTL_SET_AGEING_TIME;
-		args[1] = sec_to_jiffies(cfg->ageing_time);
-		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+		snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->ageing_time));
+		system_bridge_set_ageing_time(bridge, buf);
 	}
 
 	if (cfg->flags & BRIDGE_OPT_HELLO_TIME) {
-		args[0] = BRCTL_SET_BRIDGE_HELLO_TIME;
-		args[1] = sec_to_jiffies(cfg->hello_time);
-		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+		snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->hello_time));
+		system_bridge_set_hello_time(bridge, buf);
 	}
 
 	if (cfg->flags & BRIDGE_OPT_MAX_AGE) {
-		args[0] = BRCTL_SET_BRIDGE_MAX_AGE;
-		args[1] = sec_to_jiffies(cfg->max_age);
-		system_bridge_if(bridge->ifname, NULL, SIOCDEVPRIVATE, &args);
+		snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->max_age));
+		system_bridge_set_max_age(bridge, buf);
 	}
 
 	return 0;
