@@ -182,6 +182,21 @@ create_event_socket(struct event_socket *ev, int protocol,
 }
 
 static bool
+create_hotplug_event_socket(struct event_socket *ev, int protocol,
+			    void (*cb)(struct uloop_fd *u, unsigned int events))
+{
+	if (!create_raw_event_socket(ev, protocol, 1, cb, ULOOP_ERROR_CB))
+		return false;
+
+	/* Increase rx buffer size to 65K on event sockets */
+	ev->bufsize = 65535;
+	if (nl_socket_set_buffer_size(ev->sock, ev->bufsize, 0))
+		return false;
+
+	return true;
+}
+
+static bool
 system_rtn_aton(const char *src, unsigned int *dst)
 {
 	char *e;
@@ -249,8 +264,8 @@ int system_init(void)
 	if (!create_event_socket(&rtnl_event, NETLINK_ROUTE, cb_rtnl_event))
 		return -1;
 
-	if (!create_raw_event_socket(&hotplug_event, NETLINK_KOBJECT_UEVENT, 1,
-					handle_hotplug_event, 0))
+	if (!create_hotplug_event_socket(&hotplug_event, NETLINK_KOBJECT_UEVENT,
+					 handle_hotplug_event))
 		return -1;
 
 	// Receive network link events form kernel
@@ -630,13 +645,39 @@ handle_hotplug_event(struct uloop_fd *u, unsigned int events)
 	struct sockaddr_nl nla;
 	unsigned char *buf = NULL;
 	int size;
+	int err;
+	socklen_t errlen = sizeof(err);
 
-	while ((size = nl_recv(ev->sock, &nla, &buf, NULL)) > 0) {
-		if (nla.nl_pid == 0)
-			handle_hotplug_msg((char *) buf, size);
+	if (!u->error) {
+		while ((size = nl_recv(ev->sock, &nla, &buf, NULL)) > 0) {
+			if (nla.nl_pid == 0)
+				handle_hotplug_msg((char *) buf, size);
 
-		free(buf);
+			free(buf);
+		}
+		return;
 	}
+
+	if (getsockopt(u->fd, SOL_SOCKET, SO_ERROR, (void *)&err, &errlen))
+		goto abort;
+
+	switch(err) {
+	case ENOBUFS:
+		/* Increase rx buffer size on netlink socket */
+		ev->bufsize *= 2;
+		if (nl_socket_set_buffer_size(ev->sock, ev->bufsize, 0))
+			goto abort;
+		break;
+
+	default:
+		goto abort;
+	}
+	u->error = false;
+	return;
+
+abort:
+	uloop_fd_delete(&ev->uloop);
+	return;
 }
 
 static int system_rtnl_call(struct nl_msg *msg)
