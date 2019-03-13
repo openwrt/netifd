@@ -1197,7 +1197,7 @@ static void
 interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
-	bool reload = false, reload_ip = false;
+	bool reload = false, reload_ip = false, update_prefix_delegation = false;
 
 #define FIELD_CHANGED_STR(field)					\
 		((!!if_old->field != !!if_new->field) ||		\
@@ -1247,6 +1247,11 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->force_link = if_new->force_link;
 	if_old->dns_metric = if_new->dns_metric;
 
+	if (if_old->proto_ip.no_delegation != if_new->proto_ip.no_delegation) {
+		if_old->proto_ip.no_delegation = if_new->proto_ip.no_delegation;
+		update_prefix_delegation = true;
+	}
+
 	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
 
@@ -1275,6 +1280,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_ip_set_enabled(&if_old->proto_ip, proto_ip_enabled);
 		interface_ip_set_enabled(&if_old->config_ip, config_ip_enabled);
 	}
+
+	if (update_prefix_delegation)
+		interface_update_prefix_delegation(&if_old->proto_ip);
 
 	interface_write_resolv_conf();
 	if (if_old->main_dev.dev)

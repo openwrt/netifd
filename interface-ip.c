@@ -1053,6 +1053,20 @@ void interface_refresh_assignments(bool hint)
 	refresh = hint;
 }
 
+void interface_update_prefix_delegation(struct interface_ip_settings *ip)
+{
+	struct device_prefix *prefix;
+
+	vlist_for_each_element(&ip->prefix, prefix, node) {
+		interface_update_prefix_assignments(prefix, !ip->no_delegation);
+
+		if (ip->no_delegation) {
+			if (prefix->head.next)
+				list_del(&prefix->head);
+		} else
+			list_add(&prefix->head, &prefixes);
+	}
+}
 
 static void
 interface_update_prefix(struct vlist_tree *tree,
