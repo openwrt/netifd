@@ -342,11 +342,11 @@ interface_check_state(struct interface *iface)
 	case IFS_UP:
 	case IFS_SETUP:
 		if (!iface->enabled || !link_state) {
-			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
+			iface->state = IFS_TEARDOWN;
 			if (iface->dynamic)
 				__set_config_state(iface, IFC_REMOVE);
 
-			mark_interface_down(iface);
+			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
 		}
 		break;
 	case IFS_DOWN:
