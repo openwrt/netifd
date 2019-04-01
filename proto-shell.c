@@ -181,11 +181,6 @@ proto_shell_handler(struct interface_proto_state *proto,
 			state->sm = S_SETUP;
 			break;
 
-		case S_SETUP_ABORT:
-		case S_TEARDOWN:
-		case S_SETUP:
-			return 0;
-
 		default:
 			return -1;
 		}
