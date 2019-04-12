@@ -269,6 +269,7 @@ mark_interface_down(struct interface *iface)
 	iface->state = IFS_DOWN;
 	switch (state) {
 	case IFS_UP:
+	case IFS_TEARDOWN:
 		interface_event(iface, IFEV_DOWN);
 		break;
 	case IFS_SETUP:
