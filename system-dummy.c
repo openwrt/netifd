@@ -181,6 +181,26 @@ static int system_route_msg(struct device *dev, struct device_route *route, cons
 	return 0;
 }
 
+static int system_neighbor_msg(struct device *dev, struct device_neighbor *neighbor, const char *type)
+{
+	char addr[64];
+	int af = system_get_addr_family(neighbor->flags);
+	inet_ntop(af, &neighbor->addr.in , addr, sizeof(addr));
+
+	D(SYSTEM, "neigh %s %s%s%s %s\n", type, addr, neighbor->proxy ? "proxy " : "",
+		(neighbor->flags & DEVNEIGH_MAC) ? format_macaddr(neighbor->macaddr) : "",
+		neighbor->router ? "router": "");
+}
+int system_add_neighbor(struct device *dev, struct device_neighbor *neighbor)
+{
+	return system_neighbor_msg(dev, neighbor, "add");
+}
+
+int system_del_neighbor(struct device *dev, struct device_neighbor *neighbor)
+{
+	return system_neighbor_msg(dev, neighbor, "del");
+}
+
 int system_add_route(struct device *dev, struct device_route *route)
 {
 	return system_route_msg(dev, route, "add");

@@ -31,6 +31,7 @@
 #include <netinet/in.h>
 
 #include <linux/rtnetlink.h>
+#include <linux/neighbour.h>
 #include <linux/sockios.h>
 #include <linux/ip.h>
 #include <linux/if_addr.h>
@@ -1023,8 +1024,8 @@ void system_if_clear_state(struct device *dev)
 {
 	static char buf[256];
 	char *bridge;
-
 	device_set_ifindex(dev, system_if_resolve(dev));
+
 	if (dev->external || !dev->ifindex)
 		return;
 
@@ -1046,6 +1047,8 @@ void system_if_clear_state(struct device *dev)
 	system_if_clear_entries(dev, RTM_GETADDR, AF_INET);
 	system_if_clear_entries(dev, RTM_GETROUTE, AF_INET6);
 	system_if_clear_entries(dev, RTM_GETADDR, AF_INET6);
+	system_if_clear_entries(dev, RTM_GETNEIGH, AF_INET);
+	system_if_clear_entries(dev, RTM_GETNEIGH, AF_INET6);
 	system_set_disable_ipv6(dev, "0");
 }
 
@@ -1928,6 +1931,51 @@ int system_add_address(struct device *dev, struct device_addr *addr)
 int system_del_address(struct device *dev, struct device_addr *addr)
 {
 	return system_addr(dev, addr, RTM_DELADDR);
+}
+
+static int system_neigh(struct device *dev, struct device_neighbor *neighbor, int cmd)
+{
+	int alen = ((neighbor->flags & DEVADDR_FAMILY) == DEVADDR_INET4) ? 4 : 16;
+	unsigned int flags = 0;
+	struct ndmsg ndm = {
+		.ndm_family = (alen == 4) ? AF_INET : AF_INET6,
+		.ndm_ifindex = dev->ifindex,
+		.ndm_state = NUD_PERMANENT,
+		.ndm_flags = (neighbor->proxy ? NTF_PROXY : 0) | (neighbor->router ? NTF_ROUTER : 0),
+	};
+	struct nl_msg *msg;
+
+	if (!dev)
+		return 1;
+
+	if (cmd == RTM_NEWNEIGH)
+		flags |= NLM_F_CREATE | NLM_F_REPLACE;
+
+	msg = nlmsg_alloc_simple(cmd, flags);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &ndm, sizeof(ndm), 0);
+
+	nla_put(msg, NDA_DST, alen, &neighbor->addr);
+	if (neighbor->flags & DEVNEIGH_MAC)
+		nla_put(msg, NDA_LLADDR, sizeof(neighbor->macaddr), &neighbor->macaddr);
+
+
+	return system_rtnl_call(msg);
+}
+
+int system_add_neighbor(struct device *dev, struct device_neighbor *neighbor)
+{
+	return system_neigh(dev, neighbor, RTM_NEWNEIGH);
+}
+
+int system_del_neighbor(struct device *dev, struct device_neighbor *neighbor)
+{
+	int rval = system_neigh(dev, neighbor, RTM_DELNEIGH);
+	netifd_log_message(L_NOTICE,"return delete %d", rval);
+	return rval;
 }
 
 static int system_rt(struct device *dev, struct device_route *route, int cmd)

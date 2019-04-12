@@ -459,6 +459,43 @@ interface_ip_dump_address_list(struct interface_ip_settings *ip, bool v6, bool e
 }
 
 static void
+interface_ip_dump_neighbor_list(struct interface_ip_settings *ip, bool enabled)
+{
+	struct device_neighbor *neighbor;
+	int buflen = 128;
+	char *buf;
+	void *r;
+	int af;
+
+	vlist_for_each_element(&ip->neighbor, neighbor, node) {
+		if (neighbor->enabled != enabled)
+			continue;
+
+		if ((neighbor->flags & DEVADDR_FAMILY) == DEVADDR_INET4)
+			af = AF_INET;
+		else
+			af = AF_INET6;
+
+		r = blobmsg_open_table(&b, NULL);
+
+		if (neighbor->flags & DEVNEIGH_MAC)
+			blobmsg_add_string(&b, "mac", format_macaddr(neighbor->macaddr));
+
+		buf = blobmsg_alloc_string_buffer(&b , "address", buflen);
+		inet_ntop(af, &neighbor->addr, buf, buflen);
+		blobmsg_add_string_buffer(&b);
+
+		if (neighbor->proxy)
+			blobmsg_add_u32(&b, "proxy", neighbor->proxy);
+
+		if (neighbor->router)
+			blobmsg_add_u32(&b, "router", neighbor->router);
+
+		blobmsg_close_table(&b, r);
+	}
+}
+
+static void
 interface_ip_dump_route_list(struct interface_ip_settings *ip, bool enabled)
 {
 	struct device_route *route;
@@ -737,6 +774,10 @@ netifd_dump_status(struct interface *iface)
 		interface_ip_dump_dns_search_list(&iface->config_ip, true);
 		interface_ip_dump_dns_search_list(&iface->proto_ip, true);
 		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "neighbors");
+		interface_ip_dump_neighbor_list(&iface->config_ip, true);
+		interface_ip_dump_neighbor_list(&iface->proto_ip, true);
+		blobmsg_close_array(&b, a);
 
 		inactive = blobmsg_open_table(&b, "inactive");
 		a = blobmsg_open_array(&b, "ipv4-address");
@@ -758,6 +799,10 @@ netifd_dump_status(struct interface *iface)
 		a = blobmsg_open_array(&b, "dns-search");
 		interface_ip_dump_dns_search_list(&iface->config_ip, false);
 		interface_ip_dump_dns_search_list(&iface->proto_ip, false);
+		blobmsg_close_array(&b, a);
+		a = blobmsg_open_array(&b, "neighbors");
+		interface_ip_dump_neighbor_list(&iface->config_ip, false);
+		interface_ip_dump_neighbor_list(&iface->proto_ip, false);
 		blobmsg_close_array(&b, a);
 		blobmsg_close_table(&b, inactive);
 	}

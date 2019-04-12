@@ -213,6 +213,9 @@ int system_add_route(struct device *dev, struct device_route *route);
 int system_del_route(struct device *dev, struct device_route *route);
 int system_flush_routes(void);
 
+int system_add_neighbor(struct device *dev, struct device_neighbor * neighbor);
+int system_del_neighbor(struct device *dev, struct device_neighbor * neighbor);
+
 bool system_resolve_rt_type(const char *type, unsigned int *id);
 bool system_resolve_rt_proto(const char *type, unsigned int *id);
 bool system_resolve_rt_table(const char *name, unsigned int *id);

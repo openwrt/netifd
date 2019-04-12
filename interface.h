@@ -82,6 +82,7 @@ struct interface_ip_settings {
 	struct vlist_tree addr;
 	struct vlist_tree route;
 	struct vlist_tree prefix;
+	struct vlist_tree neighbor;
 
 	struct vlist_simple_tree dns_servers;
 	struct vlist_simple_tree dns_search;
@@ -146,6 +147,7 @@ struct interface {
 	struct interface_ip_settings proto_ip;
 	struct interface_ip_settings config_ip;
 	struct vlist_tree host_routes;
+	struct vlist_tree host_neighbors;
 
 	int metric;
 	int dns_metric;

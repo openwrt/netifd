@@ -48,6 +48,9 @@ enum device_addr_flags {
 
 	/* route overrides the default route type */
 	DEVROUTE_TYPE		= (1 << 10),
+
+	/* neighbor mac address */
+	DEVNEIGH_MAC		= (1 << 11),
 };
 
 union if_addr {
@@ -106,6 +109,20 @@ struct device_route {
 	union if_addr source;
 };
 
+struct device_neighbor {
+	struct vlist_node node;
+
+	bool failed;
+	bool proxy;
+	bool keep;
+	bool enabled;
+	bool router;
+
+	uint8_t macaddr[6];
+	enum device_addr_flags flags;
+	union if_addr addr;
+};
+
 struct device_addr {
 	struct vlist_node node;
 	bool enabled;
@@ -150,6 +167,7 @@ struct dns_search_domain {
 };
 
 extern const struct uci_blob_param_list route_attr_list;
+extern const struct uci_blob_param_list neighbor_attr_list;
 extern struct list_head prefixes;
 
 void interface_ip_init(struct interface *iface);
@@ -158,7 +176,7 @@ void interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob
 void interface_write_resolv_conf(void);
 
 void interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6);
-
+void interface_ip_add_neighbor(struct interface *iface, struct blob_attr *attr, bool v6);
 void interface_ip_update_start(struct interface_ip_settings *ip);
 void interface_ip_update_complete(struct interface_ip_settings *ip);
 void interface_ip_flush(struct interface_ip_settings *ip);

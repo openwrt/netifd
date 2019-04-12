@@ -414,6 +414,23 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 }
 
 static void
+proto_shell_parse_neighbor_list(struct interface *iface, struct blob_attr *attr,
+				bool v6)
+{
+	struct blob_attr *cur;
+	int rem;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
+			DPRINTF("Ignore wrong neighbor type: %d\n", blobmsg_type(cur));
+			continue;
+		}
+
+		interface_ip_add_neighbor(iface, cur, v6);
+	}
+}
+
+static void
 proto_shell_parse_data(struct interface *iface, struct blob_attr *attr)
 {
 	struct blob_attr *cur;
@@ -456,6 +473,8 @@ enum {
 	NOTIFY_HOST,
 	NOTIFY_DNS,
 	NOTIFY_DNS_SEARCH,
+	NOTIFY_NEIGHBORS,
+	NOTIFY_NEIGHBORS6,
 	__NOTIFY_LAST
 };
 
@@ -477,6 +496,8 @@ static const struct blobmsg_policy notify_attr[__NOTIFY_LAST] = {
 	[NOTIFY_HOST] = { .name = "host", .type = BLOBMSG_TYPE_STRING },
 	[NOTIFY_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
 	[NOTIFY_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
+	[NOTIFY_NEIGHBORS]= {.name = "neighbor", .type = BLOBMSG_TYPE_ARRAY},
+	[NOTIFY_NEIGHBORS6]= {.name = "neighbor6", .type = BLOBMSG_TYPE_ARRAY},
 };
 
 static int
@@ -545,6 +566,12 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 
 	if ((cur = tb[NOTIFY_ROUTES6]) != NULL)
 		proto_shell_parse_route_list(state->proto.iface, cur, true);
+
+	if ((cur = tb[NOTIFY_NEIGHBORS]) != NULL)
+		proto_shell_parse_neighbor_list(state->proto.iface, cur, false);
+
+	if ((cur = tb[NOTIFY_NEIGHBORS6]) != NULL)
+		proto_shell_parse_neighbor_list(state->proto.iface, cur, true);
 
 	if ((cur = tb[NOTIFY_DNS]))
 		interface_add_dns_server_list(&iface->proto_ip, cur);

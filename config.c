@@ -144,6 +144,17 @@ config_parse_route(struct uci_section *s, bool v6)
 }
 
 static void
+config_parse_neighbor(struct uci_section *s, bool v6)
+{
+	void *neighbor;
+	blob_buf_init(&b,0);
+	neighbor = blobmsg_open_array(&b, "neighbor");
+	uci_to_blob(&b,s, &neighbor_attr_list);
+	blobmsg_close_array(&b, neighbor);
+	interface_ip_add_neighbor(NULL, blob_data(b.head), v6);
+}
+
+static void
 config_parse_rule(struct uci_section *s, bool v6)
 {
 	void *rule;
@@ -251,7 +262,7 @@ config_init_interfaces(void)
 }
 
 static void
-config_init_routes(void)
+config_init_ip(void)
 {
 	struct interface *iface;
 	struct uci_element *e;
@@ -266,6 +277,10 @@ config_init_routes(void)
 			config_parse_route(s, false);
 		else if (!strcmp(s->type, "route6"))
 			config_parse_route(s, true);
+		if (!strcmp(s->type, "neighbor"))
+			config_parse_neighbor(s, false);
+		else if (!strcmp(s->type, "neighbor6"))
+			config_parse_neighbor(s, true);
 	}
 
 	vlist_for_each_element(&interfaces, iface, node)
@@ -417,7 +432,7 @@ config_init_all(void)
 	device_reset_config();
 	config_init_devices();
 	config_init_interfaces();
-	config_init_routes();
+	config_init_ip();
 	config_init_rules();
 	config_init_globals();
 	config_init_wireless();
