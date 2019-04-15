@@ -1973,9 +1973,7 @@ int system_add_neighbor(struct device *dev, struct device_neighbor *neighbor)
 
 int system_del_neighbor(struct device *dev, struct device_neighbor *neighbor)
 {
-	int rval = system_neigh(dev, neighbor, RTM_DELNEIGH);
-	netifd_log_message(L_NOTICE,"return delete %d", rval);
-	return rval;
+	return system_neigh(dev, neighbor, RTM_DELNEIGH);
 }
 
 static int system_rt(struct device *dev, struct device_route *route, int cmd)
