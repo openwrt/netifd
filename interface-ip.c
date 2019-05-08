@@ -982,7 +982,7 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			int mtu_old = system_update_ipv6_mtu(l3_downlink, 0);
 
 			if (mtu > 0 && mtu_old != mtu) {
-				if (system_update_ipv6_mtu(l3_downlink, mtu) < 0)
+				if (system_update_ipv6_mtu(l3_downlink, mtu) < 0 && mtu < mtu_old)
 					netifd_log_message(L_WARNING, "Failed to set IPv6 mtu to %d "
 							"on interface '%s'\n", mtu, iface->name);
 			}
