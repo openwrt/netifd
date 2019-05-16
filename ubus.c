@@ -243,7 +243,7 @@ netifd_handle_alias(struct ubus_context *ctx, struct ubus_object *obj,
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
 			goto error;
 
-		if (!blobmsg_check_attr(cur, NULL))
+		if (!blobmsg_check_attr(cur, false))
 			goto error;
 
 		alias_notify_device(blobmsg_data(cur), dev);

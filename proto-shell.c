@@ -606,7 +606,7 @@ fill_string_list(struct blob_attr *attr, char **argv, int max)
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
 			return false;
 
-		if (!blobmsg_check_attr(cur, NULL))
+		if (!blobmsg_check_attr(cur, false))
 			return false;
 
 		argv[argc++] = blobmsg_data(cur);
@@ -683,7 +683,7 @@ proto_shell_notify_error(struct proto_shell_state *state, struct blob_attr **tb)
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
 			goto error;
 
-		if (!blobmsg_check_attr(cur, NULL))
+		if (!blobmsg_check_attr(cur, false))
 			goto error;
 
 		data[n_data++] = blobmsg_data(cur);

@@ -497,7 +497,7 @@ interface_add_assignment_classes(struct interface *iface, struct blob_attr *list
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
 			continue;
 
-		if (!blobmsg_check_attr(cur, NULL))
+		if (!blobmsg_check_attr(cur, false))
 			continue;
 
 		struct interface_assignment_class *c = malloc(sizeof(*c) + blobmsg_data_len(cur));

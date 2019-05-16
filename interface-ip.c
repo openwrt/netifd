@@ -1358,7 +1358,7 @@ interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
 			continue;
 
-		if (!blobmsg_check_attr(cur, NULL))
+		if (!blobmsg_check_attr(cur, false))
 			continue;
 
 		interface_add_dns_server(ip, blobmsg_data(cur));
@@ -1390,7 +1390,7 @@ interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
 			continue;
 
-		if (!blobmsg_check_attr(cur, NULL))
+		if (!blobmsg_check_attr(cur, false))
 			continue;
 
 		interface_add_dns_search_domain(ip, blobmsg_data(cur));
