@@ -196,6 +196,10 @@ __find_ip_addr_target(struct interface_ip_settings *ip, union if_addr *a, bool v
 		if (v6 != ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
 			continue;
 
+		if (((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET4) &&
+				addr->point_to_point && a->in.s_addr == addr->point_to_point)
+			return true;
+
 		/* Handle offlink addresses correctly */
 		unsigned int mask = addr->mask;
 		if ((addr->flags & DEVADDR_FAMILY) == DEVADDR_INET6 &&
