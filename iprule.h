@@ -69,15 +69,6 @@ struct iprule {
 	struct vlist_node node;
 	unsigned int order;
 
-	/* everything below is used as avl tree key */
-	enum iprule_flags flags;
-
-	bool invert;
-
-	/* uci interface name */
-	char *in_iface;
-	char *out_iface;
-
 	/* to receive interface events */
 	struct interface_user in_iface_user;
 	struct interface_user out_iface_user;
@@ -85,6 +76,17 @@ struct iprule {
 	/* device name */
 	char in_dev[IFNAMSIZ + 1];
 	char out_dev[IFNAMSIZ + 1];
+
+	/* everything below is used as avl tree key */
+	/* don't change the order                   */
+
+	/* uci interface name */
+	char *in_iface;
+	char *out_iface;
+
+	enum iprule_flags flags;
+
+	bool invert;
 
 	unsigned int src_mask;
 	union if_addr src_addr;

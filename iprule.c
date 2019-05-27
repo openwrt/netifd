@@ -290,7 +290,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 		rule->flags |= IPRULE_GOTO;
 	}
 
-	vlist_add(&iprules, &rule->node, &rule->flags);
+	vlist_add(&iprules, &rule->node, rule);
 	return;
 
 error:
@@ -320,7 +320,32 @@ iprule_update_complete(void)
 static int
 rule_cmp(const void *k1, const void *k2, void *ptr)
 {
-	return memcmp(k1, k2, sizeof(struct iprule)-offsetof(struct iprule, flags));
+	const struct iprule *r1 = k1, *r2 = k2;
+	int ret;
+
+	/* First compare the interface names */
+	if (r1->flags & IPRULE_IN || r2->flags & IPRULE_IN) {
+		char *str1 = r1->flags & IPRULE_IN ? r1->in_iface : "";
+		char *str2 = r2->flags & IPRULE_IN ? r2->in_iface : "";
+
+		ret = strcmp(str1, str2);
+		if (ret)
+			return ret;
+	}
+
+	if (r1->flags & IPRULE_OUT || r2->flags & IPRULE_OUT) {
+		char *str1 = r1->flags & IPRULE_OUT ? r1->out_iface : "";
+		char *str2 = r2->flags & IPRULE_OUT ? r2->out_iface : "";
+
+		ret = strcmp(str1, str2);
+		if (ret)
+			return ret;
+	}
+
+	/* Next compare everything after the flags field */
+	return memcmp(k1 + offsetof(struct iprule, flags),
+		      k2 + offsetof(struct iprule, flags),
+		      sizeof(struct iprule) - offsetof(struct iprule, flags));
 }
 
 static void deregister_interfaces(struct iprule *rule)
