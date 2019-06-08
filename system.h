@@ -63,6 +63,11 @@ enum vti_data {
 	__VTI_DATA_ATTR_MAX
 };
 
+enum xfrm_data {
+	XFRM_DATA_IF_ID,
+	__XFRM_DATA_ATTR_MAX
+};
+
 enum sixrd_data {
 	SIXRD_DATA_PREFIX,
 	SIXRD_DATA_RELAY_PREFIX,
@@ -86,6 +91,7 @@ enum fmr_data {
 extern const struct uci_blob_param_list vxlan_data_attr_list;
 extern const struct uci_blob_param_list gre_data_attr_list;
 extern const struct uci_blob_param_list vti_data_attr_list;
+extern const struct uci_blob_param_list xfrm_data_attr_list;
 extern const struct uci_blob_param_list sixrd_data_attr_list;
 extern const struct uci_blob_param_list ipip6_data_attr_list;
 extern const struct uci_blob_param_list fmr_data_attr_list;

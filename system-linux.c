@@ -2877,6 +2877,63 @@ failure:
 }
 #endif
 
+#ifdef IFLA_XFRM_MAX
+static int system_add_xfrm_tunnel(const char *name, const char *kind,
+				 const unsigned int link, struct blob_attr **tb)
+{
+	struct nl_msg *nlm;
+	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
+	struct blob_attr *cur;
+	int ret = 0;
+
+	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL);
+	if (!nlm)
+		return -1;
+
+	nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
+	nla_put_string(nlm, IFLA_IFNAME, name);
+
+	struct nlattr *linkinfo = nla_nest_start(nlm, IFLA_LINKINFO);
+	if (!linkinfo) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	nla_put_string(nlm, IFLA_INFO_KIND, kind);
+	struct nlattr *infodata = nla_nest_start(nlm, IFLA_INFO_DATA);
+	if (!infodata) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	if (link)
+		nla_put_u32(nlm, IFLA_XFRM_LINK, link);
+
+	if ((cur = tb[TUNNEL_ATTR_DATA])) {
+		struct blob_attr *tb_data[__XFRM_DATA_ATTR_MAX];
+		uint32_t if_id = 0;
+
+		blobmsg_parse(xfrm_data_attr_list.params, __XFRM_DATA_ATTR_MAX, tb_data,
+			blobmsg_data(cur), blobmsg_len(cur));
+
+		if ((cur = tb_data[XFRM_DATA_IF_ID])) {
+			if ((if_id = blobmsg_get_u32(cur)))
+				nla_put_u32(nlm, IFLA_XFRM_IF_ID, if_id);
+		}
+
+	}
+
+	nla_nest_end(nlm, infodata);
+	nla_nest_end(nlm, linkinfo);
+
+	return system_rtnl_call(nlm);
+
+failure:
+	nlmsg_free(nlm);
+	return ret;
+}
+#endif
+
 #ifdef IFLA_VXLAN_MAX
 static int system_add_vxlan(const char *name, const unsigned int link, struct blob_attr **tb, bool v6)
 {
@@ -3258,6 +3315,10 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 		return system_add_vti_tunnel(name, "vti", link, tb, false);
 	} else if (!strcmp(str, "vtiip6")) {
 		return system_add_vti_tunnel(name, "vti6", link, tb, true);
+#endif
+#ifdef IFLA_XFRM_MAX
+	} else if (!strcmp(str, "xfrm")) {
+		return system_add_xfrm_tunnel(name, "xfrm", link, tb);
 #endif
 #ifdef IFLA_VXLAN_MAX
 	} else if(!strcmp(str, "vxlan")) {

@@ -70,6 +70,15 @@ const struct uci_blob_param_list vti_data_attr_list = {
 	.params = vti_data_attrs,
 };
 
+static const struct blobmsg_policy xfrm_data_attrs[__XFRM_DATA_ATTR_MAX] = {
+	[XFRM_DATA_IF_ID] = { .name = "ifid", .type = BLOBMSG_TYPE_INT32 },
+};
+
+const struct uci_blob_param_list xfrm_data_attr_list = {
+	.n_params = __XFRM_DATA_ATTR_MAX,
+	.params = xfrm_data_attrs,
+};
+
 static const struct blobmsg_policy sixrd_data_attrs[__SIXRD_DATA_ATTR_MAX] = {
 	[SIXRD_DATA_PREFIX] = { .name = "prefix", .type = BLOBMSG_TYPE_STRING },
 	[SIXRD_DATA_RELAY_PREFIX] = { .name = "relay-prefix", .type = BLOBMSG_TYPE_STRING },
