@@ -353,10 +353,10 @@ interface_ip_add_neighbor(struct interface *iface, struct blob_attr *attr, bool 
 		ip = &iface->proto_ip;
 
 	neighbor = calloc(1,sizeof(*neighbor));
-	neighbor->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
-
 	if (!neighbor)
 		return;
+
+	neighbor->flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
 
 	if ((cur = tb[NEIGHBOR_ADDRESS]) != NULL){
 		if (!inet_pton(af, blobmsg_data(cur), &neighbor->addr))
