@@ -1945,9 +1945,6 @@ static int system_neigh(struct device *dev, struct device_neighbor *neighbor, in
 	};
 	struct nl_msg *msg;
 
-	if (!dev)
-		return 1;
-
 	if (cmd == RTM_NEWNEIGH)
 		flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
