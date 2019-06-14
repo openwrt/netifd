@@ -2883,7 +2883,7 @@ static int system_add_xfrm_tunnel(const char *name, const char *kind,
 	struct blob_attr *cur;
 	int ret = 0;
 
-	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL);
+	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
 	if (!nlm)
 		return -1;
 
@@ -3216,7 +3216,8 @@ static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb)
 	if (!strcmp(str, "greip") || !strcmp(str, "gretapip") ||
 	    !strcmp(str, "greip6") || !strcmp(str, "gretapip6") ||
 	    !strcmp(str, "vtiip") || !strcmp(str, "vtiip6") ||
-	    !strcmp(str, "vxlan") || !strcmp(str, "vxlan6"))
+	    !strcmp(str, "vxlan") || !strcmp(str, "vxlan6") ||
+	    !strcmp(str, "xfrm"))
 		return system_link_del(name);
 	else
 		return tunnel_ioctl(name, SIOCDELTUNNEL, NULL);
