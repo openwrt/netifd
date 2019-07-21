@@ -139,8 +139,10 @@ create_socket(int protocol, int groups)
 	if (groups)
 		nl_join_groups(sock, groups);
 
-	if (nl_connect(sock, protocol))
+	if (nl_connect(sock, protocol)) {
+		nl_socket_free(sock);
 		return NULL;
+	}
 
 	return sock;
 }
@@ -904,7 +906,7 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 	struct clear_data *clr = arg;
 	struct nlmsghdr *hdr = nlmsg_hdr(msg);
 	bool (*cb)(struct nlmsghdr *, int ifindex);
-	int type;
+	int type, ret;
 
 	switch(clr->type) {
 	case RTM_GETADDR:
@@ -941,13 +943,23 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 		D(SYSTEM, "Remove %s from device %s\n",
 		  type == RTM_DELADDR ? "an address" : "a route",
 		  clr->dev->ifname);
+
 	memcpy(nlmsg_hdr(clr->msg), hdr, hdr->nlmsg_len);
 	hdr = nlmsg_hdr(clr->msg);
 	hdr->nlmsg_type = type;
 	hdr->nlmsg_flags = NLM_F_REQUEST;
 
 	nl_socket_disable_auto_ack(sock_rtnl);
-	nl_send_auto_complete(sock_rtnl, clr->msg);
+	ret = nl_send_auto_complete(sock_rtnl, clr->msg);
+	if (ret < 0) {
+		if (type == RTM_DELRULE)
+			D(SYSTEM, "Error deleting a rule: %d\n", ret);
+		else
+			D(SYSTEM, "Error deleting %s from device '%s': %d\n",
+				type == RTM_DELADDR ? "an address" : "a route",
+				clr->dev->ifname, ret);
+	}
+
 	nl_socket_enable_auto_ack(sock_rtnl);
 
 	return NL_SKIP;
@@ -981,6 +993,9 @@ system_if_clear_entries(struct device *dev, int type, int af)
 	int flags = NLM_F_DUMP;
 	int pending = 1;
 
+	if (!cb)
+		return;
+
 	clr.af = af;
 	clr.dev = dev;
 	clr.type = type;
@@ -996,9 +1011,6 @@ system_if_clear_entries(struct device *dev, int type, int af)
 		return;
 	}
 
-	if (!cb)
-		return;
-
 	clr.msg = nlmsg_alloc_simple(type, flags);
 	if (!clr.msg)
 		goto out;
@@ -1008,10 +1020,13 @@ system_if_clear_entries(struct device *dev, int type, int af)
 	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, cb_finish_event, &pending);
 	nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &pending);
 
-	nl_send_auto_complete(sock_rtnl, clr.msg);
+	if (nl_send_auto_complete(sock_rtnl, clr.msg) < 0)
+		goto free;
+
 	while (pending > 0)
 		nl_recvmsgs(sock_rtnl, cb);
 
+free:
 	nlmsg_free(clr.msg);
 out:
 	nl_cb_put(cb);
@@ -1656,7 +1671,10 @@ int system_if_check(struct device *dev)
 	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_if_check_ack, &chk);
 	nl_cb_err(cb, NL_CB_CUSTOM, cb_if_check_error, &chk);
 
-	nl_send_auto_complete(sock_rtnl, msg);
+	ret = nl_send_auto_complete(sock_rtnl, msg);
+	if (ret < 0)
+		goto free;
+
 	while (chk.pending > 0)
 		nl_recvmsgs(sock_rtnl, cb);
 
