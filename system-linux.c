@@ -985,16 +985,13 @@ static void
 system_if_clear_entries(struct device *dev, int type, int af)
 {
 	struct clear_data clr;
-	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct nl_cb *cb;
 	struct rtmsg rtm = {
 		.rtm_family = af,
 		.rtm_flags = RTM_F_CLONED,
 	};
 	int flags = NLM_F_DUMP;
 	int pending = 1;
-
-	if (!cb)
-		return;
 
 	clr.af = af;
 	clr.dev = dev;
@@ -1010,6 +1007,10 @@ system_if_clear_entries(struct device *dev, int type, int af)
 	default:
 		return;
 	}
+
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!cb)
+		return;
 
 	clr.msg = nlmsg_alloc_simple(type, flags);
 	if (!clr.msg)
