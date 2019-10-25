@@ -15,6 +15,7 @@
 #define __NETIFD_WIRELESS_H
 
 #include <libubox/utils.h>
+#include <libubox/list.h>
 #include "interface.h"
 
 extern struct vlist_tree wireless_devices;
@@ -34,6 +35,11 @@ struct wireless_driver {
 
 struct wireless_device {
 	struct vlist_node node;
+
+	struct list_head handler;
+	bool handler_action;
+	bool handler_pending;
+	bool serialize;
 
 	struct wireless_driver *drv;
 	struct vlist_tree interfaces;
@@ -59,6 +65,7 @@ struct wireless_device {
 
 	enum interface_state state;
 	enum interface_config_state config_state;
+	bool reconf;
 	bool cancel;
 	int retry;
 
