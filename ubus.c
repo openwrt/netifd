@@ -1082,6 +1082,28 @@ get_wdev(struct blob_attr *msg, int *ret)
 }
 
 static int
+netifd_handle_wdev_reconf(struct ubus_context *ctx, struct ubus_object *obj,
+		          struct ubus_request_data *req, const char *method,
+		          struct blob_attr *msg)
+{
+	struct wireless_device *wdev;
+	int ret;
+
+	wdev = get_wdev(msg, &ret);
+	if (ret == UBUS_STATUS_NOT_FOUND)
+		return ret;
+
+	if (wdev) {
+		wireless_device_reconf(wdev);
+	} else {
+		vlist_for_each_element(&wireless_devices, wdev, node)
+			wireless_device_reconf(wdev);
+	}
+
+	return 0;
+}
+
+static int
 netifd_handle_wdev_up(struct ubus_context *ctx, struct ubus_object *obj,
 		      struct ubus_request_data *req, const char *method,
 		      struct blob_attr *msg)
@@ -1189,6 +1211,7 @@ netifd_handle_wdev_notify(struct ubus_context *ctx, struct ubus_object *obj,
 static struct ubus_method wireless_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_wdev_up },
 	{ .name = "down", .handler = netifd_handle_wdev_down },
+	{ .name = "reconf", .handler = netifd_handle_wdev_reconf },
 	{ .name = "status", .handler = netifd_handle_wdev_status },
 	{ .name = "notify", .handler = netifd_handle_wdev_notify },
 	{ .name = "get_validate", .handler = netifd_handle_wdev_get_validate },

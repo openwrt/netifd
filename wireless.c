@@ -282,7 +282,7 @@ wireless_device_run_handler(struct wireless_device *wdev, bool up)
 }
 
 static void
-__wireless_device_set_up(struct wireless_device *wdev)
+__wireless_device_set_up(struct wireless_device *wdev, int force)
 {
 	if (wdev->disabled)
 		return;
@@ -293,7 +293,7 @@ __wireless_device_set_up(struct wireless_device *wdev)
 	if (!wdev->autostart)
 		return;
 
-	if (wdev->state != IFS_DOWN || config_init)
+	if (!force && (wdev->state != IFS_DOWN || config_init))
 		return;
 
 	free(wdev->prev_config);
@@ -320,7 +320,7 @@ wdev_handle_config_change(struct wireless_device *wdev)
 	switch(state) {
 	case IFC_NORMAL:
 	case IFC_RELOAD:
-		__wireless_device_set_up(wdev);
+		__wireless_device_set_up(wdev, 0);
 
 		wdev->config_state = IFC_NORMAL;
 		break;
@@ -363,7 +363,15 @@ wireless_device_set_up(struct wireless_device *wdev)
 {
 	wdev->retry = WIRELESS_SETUP_RETRY;
 	wdev->autostart = true;
-	__wireless_device_set_up(wdev);
+	__wireless_device_set_up(wdev, 0);
+}
+
+void
+wireless_device_reconf(struct wireless_device *wdev)
+{
+	wdev->retry = WIRELESS_SETUP_RETRY;
+	wdev->autostart = true;
+	__wireless_device_set_up(wdev, 1);
 }
 
 static void
@@ -1001,5 +1009,5 @@ wireless_start_pending(void)
 	struct wireless_device *wdev;
 
 	vlist_for_each_element(&wireless_devices, wdev, node)
-		__wireless_device_set_up(wdev);
+		__wireless_device_set_up(wdev, 0);
 }
