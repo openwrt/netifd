@@ -863,9 +863,15 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	}
 
 	iface->assignment_hint = -1;
-	if ((cur = tb[IFACE_ATTR_IP6HINT]))
-		iface->assignment_hint = strtol(blobmsg_get_string(cur), NULL, 16) &
-				~((1 << (64 - iface->assignment_length)) - 1);
+	if ((cur = tb[IFACE_ATTR_IP6HINT])) {
+		int32_t assignment_hint = strtol(blobmsg_get_string(cur), NULL, 16);
+
+		iface->assignment_hint = assignment_hint & ~((1 << (64 - iface->assignment_length)) - 1);
+
+		if (iface->assignment_hint != assignment_hint)
+			netifd_log_message(L_WARNING, "Using truncated assignment hint %d (0x%x) for interface '%s'\n",
+					   iface->assignment_hint, iface->assignment_hint, iface->name);
+	}
 
 	if ((cur = tb[IFACE_ATTR_IP6CLASS]))
 		interface_add_assignment_classes(iface, cur);
