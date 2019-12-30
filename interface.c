@@ -14,6 +14,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "netifd.h"
 #include "device.h"
@@ -31,6 +33,7 @@ enum {
 	IFACE_ATTR_IFNAME,
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
+	IFACE_ATTR_JAIL,
 	IFACE_ATTR_DEFAULTROUTE,
 	IFACE_ATTR_PEERDNS,
 	IFACE_ATTR_DNS,
@@ -54,6 +57,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_JAIL] = { .name = "jail", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_DEFAULTROUTE] = { .name = "defaultroute", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_PEERDNS] = { .name = "peerdns", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
@@ -760,7 +764,7 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 		return;
 	}
 
-	interface_write_resolv_conf();
+	interface_write_resolv_conf(iface->jail);
 }
 
 void interface_set_proto_state(struct interface *iface, struct interface_proto_state *state)
@@ -886,6 +890,13 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	iface->proto_ip.no_delegation = !blobmsg_get_bool_default(tb[IFACE_ATTR_DELEGATE], true);
 
 	iface->config_autostart = iface->autostart;
+	iface->jail = NULL;
+
+	if ((cur = tb[IFACE_ATTR_JAIL])) {
+		iface->jail = blobmsg_get_string(cur);
+		iface->autostart = false;
+	}
+
 	return iface;
 }
 
@@ -1133,6 +1144,79 @@ interface_start_pending(void)
 	}
 }
 
+void
+interface_start_jail(const char *jail, const pid_t netns_pid)
+{
+	struct interface *iface;
+	int netns_fd;
+	int wstatus;
+	pid_t pr = 0;
+
+	netns_fd = system_netns_open(netns_pid);
+	if (netns_fd < 0)
+		return;
+
+	vlist_for_each_element(&interfaces, iface, node) {
+		if (!iface->jail || strcmp(iface->jail, jail))
+			continue;
+
+		system_link_netns_move(iface->ifname, netns_fd);
+	}
+
+	pr = fork();
+	if (pr) {
+		waitpid(pr, &wstatus, WUNTRACED | WCONTINUED);
+		close(netns_fd);
+		return;
+	}
+
+	system_netns_set(netns_fd);
+	system_init();
+	vlist_for_each_element(&interfaces, iface, node) {
+		if (!iface->jail || strcmp(iface->jail, jail))
+			continue;
+
+		interface_set_up(iface);
+	}
+	_exit(0);
+}
+
+void
+interface_stop_jail(const char *jail, const pid_t netns_pid)
+{
+	struct interface *iface;
+	int netns_fd, root_netns;
+	int wstatus;
+	pid_t pr = 0;
+
+	netns_fd = system_netns_open(netns_pid);
+	if (netns_fd < 0)
+		return;
+
+	root_netns = system_netns_open(getpid());
+	if (root_netns < 0)
+		return;
+
+	pr = fork();
+	if (pr) {
+		waitpid(pr, &wstatus, WUNTRACED | WCONTINUED);
+		close(netns_fd);
+		close(root_netns);
+		return;
+	}
+
+	system_netns_set(netns_fd);
+	system_init();
+	vlist_for_each_element(&interfaces, iface, node) {
+		if (!iface->jail || strcmp(iface->jail, jail))
+			continue;
+
+		interface_set_down(iface);
+		system_link_netns_move(iface->ifname, root_netns);
+	}
+	_exit(0);
+}
+
 static void
 set_config_state(struct interface *iface, enum interface_config_state s)
 {
@@ -1241,6 +1325,10 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	if_old->device_config = if_new->device_config;
 	if_old->config_autostart = if_new->config_autostart;
+	if_old->jail = if_new->jail;
+	if (if_old->jail)
+		if_old->autostart = false;
+
 	if_old->ifname = if_new->ifname;
 	if_old->parent_ifname = if_new->parent_ifname;
 	if_old->dynamic = if_new->dynamic;
@@ -1285,7 +1373,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if (update_prefix_delegation)
 		interface_update_prefix_delegation(&if_old->proto_ip);
 
-	interface_write_resolv_conf();
+	interface_write_resolv_conf(if_old->jail);
 	if (if_old->main_dev.dev)
 		interface_check_state(if_old);
 

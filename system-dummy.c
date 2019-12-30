@@ -54,6 +54,24 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return 0;
 }
 
+int system_link_netns_move(const char *ifname, int netns_fd)
+{
+	D(SYSTEM, "ip link %s netns %d\n", ifname, netns_fd);
+	return 0;
+}
+
+int system_netns_open(const pid_t target_ns)
+{
+	D(SYSTEM, "open netns of pid %d\n", target_ns);
+	return 1;
+}
+
+int system_netns_set(int netns_fd)
+{
+	D(SYSTEM, "set netns %d\n", netns_fd);
+	return 0;
+}
+
 int system_vlan_add(struct device *dev, int id)
 {
 	D(SYSTEM, "vconfig add %s %d\n", dev->ifname, id);

@@ -157,12 +157,52 @@ error:
 	return UBUS_STATUS_UNKNOWN_ERROR;
 }
 
+enum {
+	NETNS_UPDOWN_JAIL,
+	NETNS_UPDOWN_PID,
+	NETNS_UPDOWN_START,
+	__NETNS_UPDOWN_MAX
+};
+
+static const struct blobmsg_policy netns_updown_policy[__NETNS_UPDOWN_MAX] = {
+	[NETNS_UPDOWN_JAIL] = { .name = "jail", .type = BLOBMSG_TYPE_STRING },
+	[NETNS_UPDOWN_PID] = { .name = "pid", .type = BLOBMSG_TYPE_INT32 },
+	[NETNS_UPDOWN_START] = { .name = "start", .type = BLOBMSG_TYPE_BOOL },
+};
+
+static int
+netifd_netns_updown(struct ubus_context *ctx, struct ubus_object *obj,
+		  struct ubus_request_data *req, const char *method,
+		  struct blob_attr *msg)
+{
+	struct blob_attr *tb[__NETNS_UPDOWN_MAX];
+	char *jail;
+	pid_t netns_pid;
+	bool start;
+
+	blobmsg_parse(netns_updown_policy, __NETNS_UPDOWN_MAX, tb, blob_data(msg), blob_len(msg));
+	if (!tb[NETNS_UPDOWN_JAIL] || !tb[NETNS_UPDOWN_PID])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	start = tb[NETNS_UPDOWN_START] && blobmsg_get_bool(tb[NETNS_UPDOWN_START]);
+	jail = blobmsg_get_string(tb[NETNS_UPDOWN_JAIL]);
+	netns_pid = blobmsg_get_u32(tb[NETNS_UPDOWN_PID]);
+
+	if (start)
+		interface_start_jail(jail, netns_pid);
+	else
+		interface_stop_jail(jail, netns_pid);
+
+	return UBUS_STATUS_OK;
+}
+
 static struct ubus_method main_object_methods[] = {
 	{ .name = "restart", .handler = netifd_handle_restart },
 	{ .name = "reload", .handler = netifd_handle_reload },
 	UBUS_METHOD("add_host_route", netifd_add_host_route, route_policy),
 	{ .name = "get_proto_handlers", .handler = netifd_get_proto_handlers },
 	UBUS_METHOD("add_dynamic", netifd_add_dynamic, dynamic_policy),
+	UBUS_METHOD("netns_updown", netifd_netns_updown, netns_updown_policy),
 };
 
 static struct ubus_object_type main_object_type =
@@ -721,6 +761,9 @@ netifd_dump_status(struct interface *iface)
 	if (dev && !dev->hidden && iface->proto_handler &&
 	    !(iface->proto_handler->flags & PROTO_FLAG_NODEV))
 		blobmsg_add_string(&b, "device", dev->ifname);
+
+	if (iface->jail)
+		blobmsg_add_string(&b, "jail", iface->jail);
 
 	if (iface->state == IFS_UP) {
 		if (iface->updated) {

@@ -15,6 +15,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <libgen.h>
+#include <sys/stat.h>
 
 #include <limits.h>
 #include <arpa/inet.h>
@@ -1443,7 +1445,7 @@ static int resolv_conf_iface_cmp(const void *k1, const void *k2, void *ptr)
 }
 
 static void
-__interface_write_dns_entries(FILE *f)
+__interface_write_dns_entries(FILE *f, const char *jail)
 {
 	struct interface *iface;
 	struct {
@@ -1455,6 +1457,9 @@ __interface_write_dns_entries(FILE *f)
 
 	vlist_for_each_element(&interfaces, iface, node) {
 		if (iface->state != IFS_UP)
+			continue;
+
+		if (jail && (!iface->jail || strcmp(jail, iface->jail)))
 			continue;
 
 		if (vlist_simple_empty(&iface->proto_ip.dns_search) &&
@@ -1488,21 +1493,33 @@ __interface_write_dns_entries(FILE *f)
 }
 
 void
-interface_write_resolv_conf(void)
+interface_write_resolv_conf(const char *jail)
 {
-	char *path = alloca(strlen(resolv_conf) + 5);
+	size_t plen = (jail ? strlen(jail) + 1 : 0 ) + strlen(resolv_conf) + 1;
+	char *path = alloca(plen);
+	char *dpath = alloca(plen);
+	char *tmppath = alloca(plen + 4);
 	FILE *f;
 	uint32_t crcold, crcnew;
 
-	sprintf(path, "%s.tmp", resolv_conf);
-	unlink(path);
-	f = fopen(path, "w+");
+	if (jail) {
+		sprintf(path, "/tmp/resolv.conf-%s.d/resolv.conf.auto", jail);
+		strcpy(dpath, path);
+		dpath = dirname(dpath);
+		mkdir(dpath, 0755);
+	} else {
+		strcpy(path, resolv_conf);
+	}
+
+	sprintf(tmppath, "%s.tmp", path);
+	unlink(tmppath);
+	f = fopen(tmppath, "w+");
 	if (!f) {
 		D(INTERFACE, "Failed to open %s for writing\n", path);
 		return;
 	}
 
-	__interface_write_dns_entries(f);
+	__interface_write_dns_entries(f, jail);
 
 	fflush(f);
 	rewind(f);
@@ -1510,17 +1527,17 @@ interface_write_resolv_conf(void)
 	fclose(f);
 
 	crcold = crcnew + 1;
-	f = fopen(resolv_conf, "r");
+	f = fopen(path, "r");
 	if (f) {
 		crcold = crc32_file(f);
 		fclose(f);
 	}
 
 	if (crcold == crcnew) {
-		unlink(path);
-	} else if (rename(path, resolv_conf) < 0) {
-		D(INTERFACE, "Failed to replace %s\n", resolv_conf);
-		unlink(path);
+		unlink(tmppath);
+	} else if (rename(tmppath, path) < 0) {
+		D(INTERFACE, "Failed to replace %s\n", path);
+		unlink(tmppath);
 	}
 }
 
@@ -1640,7 +1657,7 @@ interface_ip_update_complete(struct interface_ip_settings *ip)
 	vlist_flush(&ip->addr);
 	vlist_flush(&ip->prefix);
 	vlist_flush(&ip->neighbor);
-	interface_write_resolv_conf();
+	interface_write_resolv_conf(ip->iface->jail);
 }
 
 void

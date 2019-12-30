@@ -45,6 +45,8 @@
 #include <linux/veth.h>
 #include <linux/version.h>
 
+#include <sched.h>
+
 #ifndef RTN_FAILED_POLICY
 #define RTN_FAILED_POLICY 12
 #endif
@@ -1243,6 +1245,25 @@ nla_put_failure:
 	return -ENOMEM;
 }
 
+int system_link_netns_move(const char *ifname, int netns_fd)
+{
+	struct nl_msg *msg;
+	struct ifinfomsg iim = {
+		.ifi_family = AF_UNSPEC,
+		.ifi_index = 0,
+	};
+
+	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+	nla_put_string(msg, IFLA_IFNAME, ifname);
+	nla_put_u32(msg, IFLA_NET_NS_FD, netns_fd);
+	return system_rtnl_call(msg);
+}
+
 static int system_link_del(const char *ifname)
 {
 	struct nl_msg *msg;
@@ -1264,6 +1285,20 @@ static int system_link_del(const char *ifname)
 int system_macvlan_del(struct device *macvlan)
 {
 	return system_link_del(macvlan->ifname);
+}
+
+int system_netns_open(const pid_t target_ns)
+{
+	char pid_net_path[PATH_MAX];
+
+	snprintf(pid_net_path, sizeof(pid_net_path), "/proc/%u/ns/net", target_ns);
+
+	return open(pid_net_path, O_RDONLY);
+}
+
+int system_netns_set(int netns_fd)
+{
+	return setns(netns_fd, CLONE_NEWNET);
 }
 
 int system_veth_add(struct device *veth, struct veth_config *cfg)

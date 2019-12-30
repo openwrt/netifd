@@ -108,6 +108,8 @@ struct interface {
 
 	const char *name;
 	const char *ifname;
+	const char *jail;
+	int netns_fd;
 
 	bool available;
 	bool autostart;
@@ -205,5 +207,7 @@ void interface_update_start(struct interface *iface, const bool keep_old);
 void interface_update_complete(struct interface *iface);
 
 void interface_start_pending(void);
+void interface_start_jail(const char *jail, const pid_t netns_pid);
+void interface_stop_jail(const char *jail, const pid_t netns_pid);
 
 #endif
