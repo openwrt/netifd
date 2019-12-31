@@ -37,7 +37,7 @@
 #define DEFAULT_MAIN_PATH	"/lib/netifd"
 #define DEFAULT_CONFIG_PATH	NULL /* use the default set in libuci */
 #define DEFAULT_HOTPLUG_PATH	"/sbin/hotplug-call"
-#define DEFAULT_RESOLV_CONF	"/tmp/resolv.conf.auto"
+#define DEFAULT_RESOLV_CONF	"/tmp/resolv.conf.d/resolv.conf.auto"
 #endif
 
 extern const char *resolv_conf;
