@@ -913,7 +913,7 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 
 	addr.addr.in6 = assignment->addr;
 	addr.mask = assignment->length;
-	addr.flags = DEVADDR_INET6 | DEVADDR_OFFLINK;
+	addr.flags = DEVADDR_INET6;
 	addr.preferred_until = prefix->preferred_until;
 	addr.valid_until = prefix->valid_until;
 
@@ -960,6 +960,7 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			route.addr = addr.addr;
 		}
 
+		addr.flags |= DEVADDR_OFFLINK;
 		if (system_add_address(l3_downlink, &addr))
 			return;
 
