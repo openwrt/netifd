@@ -592,6 +592,9 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (!system_get_dev_sysctl("/sys/class/net/%s/carrier", dev->ifname, buf, sizeof(buf)))
 		link_state = strtoul(buf, NULL, 0);
 
+	if (dev->type == &simple_device_type && !system_if_force_external(dev->ifname))
+		device_set_present(dev, true);
+
 	device_set_link(dev, link_state ? true : false);
 
 out:
@@ -654,12 +657,14 @@ handle_hotplug_msg(char *data, int size)
 move:
 	dev = device_find(interface_old);
 	if (!dev)
-		goto found;
+		return;
 
 	if (dev->type != &simple_device_type)
 		goto found;
 
 	device_set_present(dev, false);
+
+	return;
 
 found:
 	dev = device_find(interface);
