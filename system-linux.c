@@ -2421,7 +2421,7 @@ time_t system_get_rtime(void)
 	struct timespec ts;
 	struct timeval tv;
 
-	if (syscall(__NR_clock_gettime, CLOCK_MONOTONIC, &ts) == 0)
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
 		return ts.tv_sec;
 
 	if (gettimeofday(&tv, NULL) == 0)
