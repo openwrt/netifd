@@ -26,6 +26,7 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 
+#include <limits.h>
 #include <arpa/inet.h>
 #include <netinet/ether.h>
 #include <netinet/in.h>
