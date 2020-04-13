@@ -109,6 +109,7 @@ struct interface {
 	const char *name;
 	const char *ifname;
 	char *jail;
+	char *jail_ifname;
 	int netns_fd;
 
 	bool available;

@@ -765,6 +765,9 @@ netifd_dump_status(struct interface *iface)
 	if (iface->jail)
 		blobmsg_add_string(&b, "jail", iface->jail);
 
+	if (iface->jail_ifname)
+		blobmsg_add_string(&b, "jail_ifname", iface->jail_ifname);
+
 	if (iface->state == IFS_UP) {
 		if (iface->updated) {
 			a = blobmsg_open_array(&b, "updated");

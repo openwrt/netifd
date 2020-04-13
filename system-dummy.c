@@ -54,9 +54,9 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return 0;
 }
 
-int system_link_netns_move(const char *ifname, int netns_fd)
+int system_link_netns_move(const char *ifname, int netns_fd, const char *target_ifname)
 {
-	D(SYSTEM, "ip link %s netns %d\n", ifname, netns_fd);
+	D(SYSTEM, "ip link dev %s name %s netns %d\n", ifname, target_ifname, netns_fd);
 	return 0;
 }
 

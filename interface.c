@@ -34,6 +34,7 @@ enum {
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
 	IFACE_ATTR_JAIL,
+	IFACE_ATTR_JAIL_IFNAME,
 	IFACE_ATTR_DEFAULTROUTE,
 	IFACE_ATTR_PEERDNS,
 	IFACE_ATTR_DNS,
@@ -58,6 +59,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_JAIL] = { .name = "jail", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_JAIL_IFNAME] = { .name = "jail_ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_DEFAULTROUTE] = { .name = "defaultroute", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_PEERDNS] = { .name = "peerdns", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
@@ -686,6 +688,8 @@ interface_do_free(struct interface *iface)
 	avl_delete(&interfaces.avl, &iface->node.avl);
 	if (iface->jail)
 		free(iface->jail);
+	if (iface->jail_ifname)
+		free(iface->jail_ifname);
 
 	free(iface);
 }
@@ -899,6 +903,10 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 		iface->jail = strdup(blobmsg_get_string(cur));
 		iface->autostart = false;
 	}
+
+	iface->jail_ifname = NULL;
+	if ((cur = tb[IFACE_ATTR_JAIL_IFNAME]))
+		iface->jail_ifname = strdup(blobmsg_get_string(cur));
 
 	return iface;
 }
@@ -1163,15 +1171,21 @@ interface_start_jail(const char *jail, const pid_t netns_pid)
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
-		system_link_netns_move(iface->ifname, netns_fd);
+		system_link_netns_move(iface->ifname, netns_fd, iface->jail_ifname);
 	}
+
+	close(netns_fd);
 
 	pr = fork();
 	if (pr) {
 		waitpid(pr, &wstatus, WUNTRACED | WCONTINUED);
-		close(netns_fd);
 		return;
 	}
+
+	/* child process */
+	netns_fd = system_netns_open(netns_pid);
+	if (netns_fd < 0)
+		return;
 
 	system_netns_set(netns_fd);
 	system_init();
@@ -1179,8 +1193,19 @@ interface_start_jail(const char *jail, const pid_t netns_pid)
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
+		/*
+		 * The interface has already been renamed and is inside target
+		 * namespace, hence overwrite ifname with jail_ifname for
+		 * interface_set_up().
+		 * We are inside a fork which got it's own copy of the interfaces
+		 * list, so we can mess with it :)
+		 */
+		iface->ifname = iface->jail_ifname;
+		interface_do_reload(iface);
 		interface_set_up(iface);
 	}
+
+	close(netns_fd);
 	_exit(0);
 }
 
@@ -1190,23 +1215,23 @@ interface_stop_jail(const char *jail, const pid_t netns_pid)
 	struct interface *iface;
 	int netns_fd, root_netns;
 	int wstatus;
+	pid_t parent_pid = getpid();
 	pid_t pr = 0;
-
-	netns_fd = system_netns_open(netns_pid);
-	if (netns_fd < 0)
-		return;
-
-	root_netns = system_netns_open(getpid());
-	if (root_netns < 0)
-		return;
 
 	pr = fork();
 	if (pr) {
 		waitpid(pr, &wstatus, WUNTRACED | WCONTINUED);
-		close(netns_fd);
-		close(root_netns);
 		return;
 	}
+
+	/* child process */
+	root_netns = system_netns_open(parent_pid);
+	if (root_netns < 0)
+		return;
+
+	netns_fd = system_netns_open(netns_pid);
+	if (netns_fd < 0)
+		return;
 
 	system_netns_set(netns_fd);
 	system_init();
@@ -1215,8 +1240,11 @@ interface_stop_jail(const char *jail, const pid_t netns_pid)
 			continue;
 
 		interface_set_down(iface);
-		system_link_netns_move(iface->ifname, root_netns);
+		system_link_netns_move(iface->jail_ifname, root_netns, iface->ifname);
 	}
+
+	close(root_netns);
+	close(netns_fd);
 	_exit(0);
 }
 
@@ -1334,6 +1362,11 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->jail = if_new->jail;
 	if (if_old->jail)
 		if_old->autostart = false;
+
+	if (if_old->jail_ifname)
+		free(if_old->jail_ifname);
+
+	if_old->jail_ifname = if_new->jail_ifname;
 
 	if_old->ifname = if_new->ifname;
 	if_old->parent_ifname = if_new->parent_ifname;
