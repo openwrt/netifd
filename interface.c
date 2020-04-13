@@ -684,6 +684,9 @@ interface_do_free(struct interface *iface)
 	free(iface->config);
 	netifd_ubus_remove_interface(iface);
 	avl_delete(&interfaces.avl, &iface->node.avl);
+	if (iface->jail)
+		free(iface->jail);
+
 	free(iface);
 }
 
@@ -893,7 +896,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	iface->jail = NULL;
 
 	if ((cur = tb[IFACE_ATTR_JAIL])) {
-		iface->jail = blobmsg_get_string(cur);
+		iface->jail = strdup(blobmsg_get_string(cur));
 		iface->autostart = false;
 	}
 
@@ -1325,6 +1328,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	if_old->device_config = if_new->device_config;
 	if_old->config_autostart = if_new->config_autostart;
+	if (if_old->jail)
+		free(if_old->jail);
+
 	if_old->jail = if_new->jail;
 	if (if_old->jail)
 		if_old->autostart = false;
