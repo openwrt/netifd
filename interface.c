@@ -1200,7 +1200,9 @@ interface_start_jail(const char *jail, const pid_t netns_pid)
 		 * We are inside a fork which got it's own copy of the interfaces
 		 * list, so we can mess with it :)
 		 */
-		iface->ifname = iface->jail_ifname;
+		if (iface->jail_ifname)
+			iface->ifname = iface->jail_ifname;
+
 		interface_do_reload(iface);
 		interface_set_up(iface);
 	}
@@ -1217,6 +1219,7 @@ interface_stop_jail(const char *jail, const pid_t netns_pid)
 	int wstatus;
 	pid_t parent_pid = getpid();
 	pid_t pr = 0;
+	const char *orig_ifname;
 
 	pr = fork();
 	if (pr) {
@@ -1239,8 +1242,13 @@ interface_stop_jail(const char *jail, const pid_t netns_pid)
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
+		orig_ifname = iface->ifname;
+		if (iface->jail_ifname)
+			iface->ifname = iface->jail_ifname;
+
+		interface_do_reload(iface);
 		interface_set_down(iface);
-		system_link_netns_move(iface->jail_ifname, root_netns, iface->ifname);
+		system_link_netns_move(iface->ifname, root_netns, orig_ifname);
 	}
 
 	close(root_netns);
