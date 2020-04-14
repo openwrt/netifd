@@ -1171,7 +1171,7 @@ interface_start_jail(const char *jail, const pid_t netns_pid)
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
-		system_link_netns_move(iface->ifname, netns_fd, iface->jail_ifname);
+		system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_ifname);
 	}
 
 	close(netns_fd);
@@ -1248,7 +1248,7 @@ interface_stop_jail(const char *jail, const pid_t netns_pid)
 
 		interface_do_reload(iface);
 		interface_set_down(iface);
-		system_link_netns_move(iface->ifname, root_netns, orig_ifname);
+		system_link_netns_move(iface->main_dev.dev, root_netns, orig_ifname);
 	}
 
 	close(root_netns);

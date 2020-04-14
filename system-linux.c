@@ -843,19 +843,14 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
-static int system_ifname_resolve(const char *ifname)
+int system_if_resolve(struct device *dev)
 {
 	struct ifreq ifr;
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 	if (!ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
 		return ifr.ifr_ifindex;
 	else
 		return 0;
-}
-
-int system_if_resolve(struct device *dev)
-{
-	return system_ifname_resolve(dev->ifname);
 }
 
 static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
@@ -1251,14 +1246,17 @@ nla_put_failure:
 	return -ENOMEM;
 }
 
-int system_link_netns_move(const char *ifname, int netns_fd, const char *target_ifname)
+int system_link_netns_move(struct device *dev, int netns_fd, const char *target_ifname)
 {
 	struct nl_msg *msg;
 	struct ifinfomsg iim = {
 		.ifi_family = AF_UNSPEC,
 	};
 
-	iim.ifi_index = system_ifname_resolve(ifname);
+	if (!dev)
+		return -1;
+
+	iim.ifi_index = system_if_resolve(dev);
 	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST);
 
 	if (!msg)
