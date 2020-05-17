@@ -13,21 +13,27 @@
  */
 
 #include <string.h>
+#include <inttypes.h>
 
 #include "netifd.h"
 #include "device.h"
 #include "interface.h"
 #include "system.h"
+#include "utils.h"
 
 enum {
 	VLANDEV_ATTR_IFNAME,
 	VLANDEV_ATTR_VID,
+	VLANDEV_ATTR_INGRESS_QOS_MAPPING,
+	VLANDEV_ATTR_EGRESS_QOS_MAPPING,
 	__VLANDEV_ATTR_MAX
 };
 
 static const struct blobmsg_policy vlandev_attrs[__VLANDEV_ATTR_MAX] = {
 	[VLANDEV_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_STRING },
 	[VLANDEV_ATTR_VID] = { "vid", BLOBMSG_TYPE_INT32 },
+	[VLANDEV_ATTR_INGRESS_QOS_MAPPING] = { "ingress_qos_mapping", BLOBMSG_TYPE_ARRAY },
+	[VLANDEV_ATTR_EGRESS_QOS_MAPPING] = { "egress_qos_mapping", BLOBMSG_TYPE_ARRAY },
 };
 
 static const struct uci_blob_param_list vlandev_attr_list = {
@@ -126,7 +132,28 @@ vlandev_free(struct device *dev)
 	mvdev = container_of(dev, struct vlandev_device, dev);
 	device_remove_user(&mvdev->parent);
 	free(mvdev->config_data);
+	vlist_simple_flush_all(&mvdev->config.ingress_qos_mapping_list);
+	vlist_simple_flush_all(&mvdev->config.egress_qos_mapping_list);
 	free(mvdev);
+}
+
+static void vlandev_qos_mapping_dump(struct blob_buf *b, const char *name, const struct vlist_simple_tree *qos_mapping_li)
+{
+	const struct vlan_qos_mapping *elem;
+	void *a, *t;
+
+	a = blobmsg_open_array(b, name);
+
+	vlist_simple_for_each_element(qos_mapping_li, elem, node) {
+		t = blobmsg_open_table(b, NULL);
+
+		blobmsg_add_u32(b, "from", elem->from);
+		blobmsg_add_u32(b, "to", elem->to);
+
+		blobmsg_close_table(b, t);
+	}
+
+	blobmsg_close_array(b, a);
 }
 
 static void
@@ -137,6 +164,8 @@ vlandev_dump_info(struct device *dev, struct blob_buf *b)
 	mvdev = container_of(dev, struct vlandev_device, dev);
 	blobmsg_add_string(b, "parent", mvdev->parent.dev->ifname);
 	system_if_dump_info(dev, b);
+	vlandev_qos_mapping_dump(b, "ingress_qos_mapping", &mvdev->config.ingress_qos_mapping_list);
+	vlandev_qos_mapping_dump(b, "egress_qos_mapping", &mvdev->config.egress_qos_mapping_list);
 }
 
 static void
@@ -152,6 +181,32 @@ vlandev_config_init(struct device *dev)
 	device_add_user(&mvdev->parent, basedev);
 }
 
+static void vlandev_qos_mapping_list_apply(struct vlist_simple_tree *qos_mapping_li, struct blob_attr *list)
+{
+	struct blob_attr *cur;
+	struct vlan_qos_mapping *qos_mapping;
+	int rem, rc;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			continue;
+
+		if (!blobmsg_check_attr(cur, false))
+			continue;
+
+		qos_mapping = calloc(1, sizeof(*qos_mapping));
+		if (!qos_mapping)
+			continue;
+
+		rc = sscanf(blobmsg_data(cur), "%" PRIu32 ":%" PRIu32, &qos_mapping->from, &qos_mapping->to);
+		if (rc != 2) {
+			free(qos_mapping);
+			continue;
+		}
+		vlist_simple_add(qos_mapping_li, &qos_mapping->node);
+	}
+}
+
 static void
 vlandev_apply_settings(struct vlandev_device *mvdev, struct blob_attr **tb)
 {
@@ -162,8 +217,20 @@ vlandev_apply_settings(struct vlandev_device *mvdev, struct blob_attr **tb)
 		VLAN_PROTO_8021Q : VLAN_PROTO_8021AD;
 	cfg->vid = 1;
 
+	vlist_simple_update(&cfg->ingress_qos_mapping_list);
+	vlist_simple_update(&cfg->egress_qos_mapping_list);
+
 	if ((cur = tb[VLANDEV_ATTR_VID]))
 		cfg->vid = (uint16_t) blobmsg_get_u32(cur);
+
+	if ((cur = tb[VLANDEV_ATTR_INGRESS_QOS_MAPPING]))
+		vlandev_qos_mapping_list_apply(&cfg->ingress_qos_mapping_list, cur);
+
+	if ((cur = tb[VLANDEV_ATTR_EGRESS_QOS_MAPPING]))
+		vlandev_qos_mapping_list_apply(&cfg->egress_qos_mapping_list, cur);
+
+	vlist_simple_flush(&cfg->ingress_qos_mapping_list);
+	vlist_simple_flush(&cfg->egress_qos_mapping_list);
 }
 
 static enum dev_change_type
@@ -220,6 +287,11 @@ vlandev_create(const char *name, struct device_type *devtype,
 	mvdev = calloc(1, sizeof(*mvdev));
 	if (!mvdev)
 		return NULL;
+
+	vlist_simple_init(&mvdev->config.ingress_qos_mapping_list,
+			  struct vlan_qos_mapping, node);
+	vlist_simple_init(&mvdev->config.egress_qos_mapping_list,
+			  struct vlan_qos_mapping, node);
 
 	dev = &mvdev->dev;
 

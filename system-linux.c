@@ -74,6 +74,7 @@
 #include "netifd.h"
 #include "device.h"
 #include "system.h"
+#include "utils.h"
 
 struct event_socket {
 	struct uloop_fd uloop;
@@ -1401,8 +1402,10 @@ int system_vlan_del(struct device *dev)
 int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlandev_config *cfg)
 {
 	struct nl_msg *msg;
-	struct nlattr *linkinfo, *data;
+	struct nlattr *linkinfo, *data, *qos;
 	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC };
+	struct vlan_qos_mapping *elem;
+	struct ifla_vlan_qos_mapping nl_qos_map;
 	int rv;
 
 	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
@@ -1430,6 +1433,26 @@ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlande
 	if(cfg->proto == VLAN_PROTO_8021AD)
 		netifd_log_message(L_WARNING, "%s Your kernel is older than linux 3.10.0, 802.1ad is not supported defaulting to 802.1q", vlandev->type->name);
 #endif
+
+	if (!(qos = nla_nest_start(msg, IFLA_VLAN_INGRESS_QOS)))
+		goto nla_put_failure;
+
+	vlist_simple_for_each_element(&cfg->ingress_qos_mapping_list, elem, node) {
+		nl_qos_map.from = elem->from;
+		nl_qos_map.to = elem->to;
+		nla_put(msg, IFLA_VLAN_QOS_MAPPING, sizeof(nl_qos_map), &nl_qos_map);
+	}
+	nla_nest_end(msg, qos);
+
+	if (!(qos = nla_nest_start(msg, IFLA_VLAN_EGRESS_QOS)))
+		goto nla_put_failure;
+
+	vlist_simple_for_each_element(&cfg->egress_qos_mapping_list, elem, node) {
+		nl_qos_map.from = elem->from;
+		nl_qos_map.to = elem->to;
+		nla_put(msg, IFLA_VLAN_QOS_MAPPING, sizeof(nl_qos_map), &nl_qos_map);
+	}
+	nla_nest_end(msg, qos);
 
 	nla_nest_end(msg, data);
 	nla_nest_end(msg, linkinfo);
