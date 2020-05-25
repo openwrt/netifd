@@ -365,6 +365,19 @@ config_parse_wireless_vlan(struct wireless_device *wdev, char *vif, struct uci_s
 }
 
 static void
+config_parse_wireless_station(struct wireless_device *wdev, char *vif, struct uci_section *s)
+{
+	char *name;
+
+	name = alloca(strlen(s->type) + 16);
+	sprintf(name, "@%s[%d]", s->type, config_section_idx(s));
+
+	blob_buf_init(&b, 0);
+	uci_to_blob(&b, s, wdev->drv->station.config);
+	wireless_station_create(wdev, vif, b.head, s->anonymous ? name : s->e.name);
+}
+
+static void
 config_init_wireless(void)
 {
 	struct wireless_device *wdev;
@@ -393,6 +406,8 @@ config_init_wireless(void)
 		vlist_update(&wdev->interfaces);
 		wdev->vlan_idx = 0;
 		vlist_update(&wdev->vlans);
+		wdev->sta_idx = 0;
+		vlist_update(&wdev->stations);
 	}
 
 	uci_foreach_element(&uci_wireless->sections, e) {
@@ -429,11 +444,25 @@ config_init_wireless(void)
 				continue;
 			config_parse_wireless_vlan(wdev, vif->name, s);
 		}
+
+		uci_foreach_element(&uci_wireless->sections, f) {
+			struct uci_section *s = uci_to_section(f);
+			const char *vif_name;
+
+			if (strcmp(s->type, "wifi-station") != 0)
+				continue;
+
+			vif_name = uci_lookup_option_string(uci_ctx, s, "iface");
+			if (vif_name && strcmp(e->name, vif_name))
+				continue;
+			config_parse_wireless_station(wdev, vif->name, s);
+		}
 	}
 
 	vlist_for_each_element(&wireless_devices, wdev, node) {
 		vlist_flush(&wdev->interfaces);
 		vlist_flush(&wdev->vlans);
+		vlist_flush(&wdev->stations);
 	}
 }
 

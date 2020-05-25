@@ -333,6 +333,21 @@ for_each_vlan() {
 	json_select ..
 }
 
+for_each_station() {
+	local _w_stas _w_sta
+
+	json_get_keys _w_stas stas
+	json_select stas
+	for _w_sta in $_w_stas; do
+		json_select "$_w_sta"
+		json_select config
+		"$@" "$_w_sta"
+		json_select ..
+		json_select ..
+	done
+	json_select ..
+}
+
 _wdev_common_device_config() {
 	config_add_string channel hwmode htmode noscan
 }
@@ -343,6 +358,10 @@ _wdev_common_iface_config() {
 
 _wdev_common_vlan_config() {
 	config_add_string name vid iface
+}
+
+_wdev_common_station_config() {
+	config_add_string mac key vid iface
 }
 
 init_wireless_driver() {
@@ -370,6 +389,11 @@ init_wireless_driver() {
 				json_add_array vlan
 				_wdev_common_vlan_config
 				eval "drv_$1_init_vlan_config"
+				json_close_array
+
+				json_add_array station
+				_wdev_common_station_config
+				eval "drv_$1_init_station_config"
 				json_close_array
 
 				json_dump
