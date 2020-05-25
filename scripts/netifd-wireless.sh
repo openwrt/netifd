@@ -108,12 +108,13 @@ _wdev_wrapper() {
 
 _wdev_notify_init() {
 	local command="$1"
-	local interface="$2"
+	local name="$2"
+	local value="$3"
 
 	json_init
 	json_add_int "command" "$command"
 	json_add_string "device" "$__netifd_device"
-	[ -n "$interface" ] && json_add_string "interface" "$interface"
+	[ -n "$name" -a -n "$value" ] && json_add_string "$name" "$value"
 	json_add_object "data"
 }
 
@@ -139,7 +140,17 @@ _wireless_add_vif() {
 	local name="$1"; shift
 	local ifname="$1"; shift
 
-	_wdev_notify_init $CMD_SET_DATA "$name"
+	_wdev_notify_init $CMD_SET_DATA "interface" "$name"
+	json_add_string "ifname" "$ifname"
+	_wdev_add_variables "$@"
+	_wdev_notify
+}
+
+_wireless_add_vlan() {
+	local name="$1"; shift
+	local ifname="$1"; shift
+
+	_wdev_notify_init $CMD_SET_DATA "vlan" "$name"
 	json_add_string "ifname" "$ifname"
 	_wdev_add_variables "$@"
 	_wdev_notify
@@ -182,6 +193,7 @@ _wireless_set_retry() {
 
 _wdev_wrapper \
 	wireless_add_vif \
+	wireless_add_vlan \
 	wireless_set_up \
 	wireless_set_data \
 	wireless_add_process \
@@ -306,12 +318,31 @@ for_each_interface() {
 	json_select ..
 }
 
+for_each_vlan() {
+	local _w_vlans _w_vlan
+
+	json_get_keys _w_vlans vlans
+	json_select vlans
+	for _w_vlan in $_w_vlans; do
+		json_select "$_w_vlan"
+		json_select config
+		"$@" "$_w_vlan"
+		json_select ..
+		json_select ..
+	done
+	json_select ..
+}
+
 _wdev_common_device_config() {
 	config_add_string channel hwmode htmode noscan
 }
 
 _wdev_common_iface_config() {
 	config_add_string mode ssid encryption 'key:wpakey'
+}
+
+_wdev_common_vlan_config() {
+	config_add_string name vid iface
 }
 
 init_wireless_driver() {
@@ -334,6 +365,11 @@ init_wireless_driver() {
 				json_add_array iface
 				_wdev_common_iface_config
 				eval "drv_$1_init_iface_config"
+				json_close_array
+
+				json_add_array vlan
+				_wdev_common_vlan_config
+				eval "drv_$1_init_vlan_config"
 				json_close_array
 
 				json_dump

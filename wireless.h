@@ -30,7 +30,7 @@ struct wireless_driver {
 	struct {
 		char *buf;
 		struct uci_blob_param_list *config;
-	} device, interface;
+	} device, interface, vlan;
 };
 
 struct wireless_device {
@@ -43,6 +43,7 @@ struct wireless_device {
 
 	struct wireless_driver *drv;
 	struct vlist_tree interfaces;
+	struct vlist_tree vlans;
 	char *name;
 
 	struct netifd_process script_task;
@@ -70,6 +71,7 @@ struct wireless_device {
 	int retry;
 
 	int vif_idx;
+	int vlan_idx;
 };
 
 struct wireless_interface {
@@ -88,6 +90,22 @@ struct wireless_interface {
 	bool ap_mode;
 };
 
+struct wireless_vlan {
+	struct vlist_node node;
+	const char *section;
+	char *name;
+
+	struct wireless_device *wdev;
+	char *vif;
+
+	struct blob_attr *config;
+	struct blob_attr *data;
+
+	const char *ifname;
+	struct blob_attr *network;
+	bool isolate;
+};
+
 struct wireless_process {
 	struct list_head list;
 
@@ -103,7 +121,8 @@ void wireless_device_set_down(struct wireless_device *wdev);
 void wireless_device_reconf(struct wireless_device *wdev);
 void wireless_device_status(struct wireless_device *wdev, struct blob_buf *b);
 void wireless_device_get_validate(struct wireless_device *wdev, struct blob_buf *b);
-void wireless_interface_create(struct wireless_device *wdev, struct blob_attr *data, const char *section);
+struct wireless_interface* wireless_interface_create(struct wireless_device *wdev, struct blob_attr *data, const char *section);
+void wireless_vlan_create(struct wireless_device *wdev, char *vif, struct blob_attr *data, const char *section);
 int wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 			   struct ubus_request_data *req);
 
