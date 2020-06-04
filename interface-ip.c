@@ -24,6 +24,8 @@
 
 #ifdef linux
 #include <netinet/ether.h>
+#else
+#include <net/ethernet.h>
 #endif
 
 #include "netifd.h"
