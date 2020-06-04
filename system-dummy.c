@@ -208,7 +208,9 @@ static int system_neighbor_msg(struct device *dev, struct device_neighbor *neigh
 	D(SYSTEM, "neigh %s %s%s%s %s\n", type, addr, neighbor->proxy ? "proxy " : "",
 		(neighbor->flags & DEVNEIGH_MAC) ? format_macaddr(neighbor->macaddr) : "",
 		neighbor->router ? "router": "");
+	return 0;
 }
+
 int system_add_neighbor(struct device *dev, struct device_neighbor *neighbor)
 {
 	return system_neighbor_msg(dev, neighbor, "add");
