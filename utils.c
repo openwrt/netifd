@@ -176,6 +176,8 @@ crc32_file(FILE *fp)
 
 bool check_pid_path(int pid, const char *exe)
 {
+	const char deleted[] = " (deleted)";
+	const int deleted_len = strlen(deleted);
 	int proc_exe_len;
 	int exe_len = strlen(exe);
 
@@ -191,10 +193,13 @@ bool check_pid_path(int pid, const char *exe)
 	proc_exe_len = readlink(proc_exe, proc_exe_buf, exe_len);
 #endif
 
-	if (proc_exe_len != exe_len)
+	if (proc_exe_len == exe_len)
+		return !memcmp(exe, proc_exe_buf, exe_len);
+	else if (proc_exe_len == exe_len + deleted_len)
+		return !memcmp(exe, proc_exe_buf, exe_len) &&
+			!memcmp(exe + exe_len, deleted, deleted_len);
+	else
 		return false;
-
-	return !memcmp(exe, proc_exe_buf, exe_len);
 }
 
 static const char * const uci_validate_name[__BLOBMSG_TYPE_LAST] = {
