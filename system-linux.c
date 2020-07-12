@@ -470,6 +470,11 @@ static void system_set_sendredirects(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects", dev->ifname, val);
 }
 
+static void system_bridge_set_vlan_filtering(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/vlan_filtering", dev->ifname, val);
+}
+
 static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
@@ -1170,6 +1175,7 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	system_bridge_set_forward_delay(bridge, buf);
 
 	system_bridge_conf_multicast(bridge, cfg, buf, sizeof(buf));
+	system_bridge_set_vlan_filtering(bridge, cfg->vlan_filtering ? "1" : "0");
 
 	snprintf(buf, sizeof(buf), "%d", cfg->priority);
 	system_bridge_set_priority(bridge, buf);

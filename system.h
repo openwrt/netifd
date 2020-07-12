@@ -127,6 +127,8 @@ struct bridge_config {
 	int hello_time;
 	int max_age;
 	int hash_max;
+
+	bool vlan_filtering;
 };
 
 enum macvlan_opt {

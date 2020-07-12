@@ -32,7 +32,8 @@ int system_init(void)
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
-	D(SYSTEM, "brctl addbr %s\n", bridge->ifname);
+	D(SYSTEM, "brctl addbr %s vlan_filtering=%d\n",
+	  bridge->ifname, cfg->vlan_filtering);
 	return 0;
 }
 
