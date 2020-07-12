@@ -854,6 +854,53 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
+int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags)
+{
+	struct ifinfomsg ifi = { .ifi_family = PF_BRIDGE, };
+	struct bridge_vlan_info vinfo = { .vid = vid, };
+	unsigned short flags = 0;
+	struct nlattr *afspec;
+	struct nl_msg *nlm;
+	int ret = 0;
+
+	ifi.ifi_index = if_nametoindex(iface);
+	if (!ifi.ifi_index)
+		return -1;
+
+	nlm = nlmsg_alloc_simple(add ? RTM_SETLINK : RTM_DELLINK, NLM_F_REQUEST);
+	if (!nlm)
+		return -1;
+
+	nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
+
+	if (vflags & BRVLAN_F_SELF)
+		flags |= BRIDGE_FLAGS_SELF;
+
+	if (vflags & BRVLAN_F_PVID)
+		vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
+
+	if (vflags & BRVLAN_F_UNTAGGED)
+		vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+
+	afspec = nla_nest_start(nlm, IFLA_AF_SPEC);
+	if (!afspec) {
+		ret = -ENOMEM;
+		goto failure;
+	}
+
+	if (flags)
+		nla_put_u16(nlm, IFLA_BRIDGE_FLAGS, flags);
+
+	nla_put(nlm, IFLA_BRIDGE_VLAN_INFO, sizeof(vinfo), &vinfo);
+	nla_nest_end(nlm, afspec);
+
+	return system_rtnl_call(nlm);
+
+failure:
+	nlmsg_free(nlm);
+	return ret;
+}
+
 int system_if_resolve(struct device *dev)
 {
 	struct ifreq ifr;

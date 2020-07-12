@@ -228,6 +228,12 @@ struct device_hotplug_ops {
 	int (*del)(struct device *main, struct device *member);
 };
 
+enum bridge_vlan_flags {
+	BRVLAN_F_SELF =		(1 << 0),
+	BRVLAN_F_PVID =		(1 << 1),
+	BRVLAN_F_UNTAGGED =	(1 << 2),
+};
+
 extern const struct uci_blob_param_list device_attr_list;
 extern struct device_type simple_device_type;
 extern struct device_type tunnel_device_type;

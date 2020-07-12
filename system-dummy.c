@@ -55,6 +55,17 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return 0;
 }
 
+int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags)
+{
+	D(SYSTEM, "brctl vlan %s %s %s vid=%d pvid=%d untag=%d\n",
+	  add ? "add" : "remove",
+	  (vflags & BRVLAN_F_SELF) ? "self" : "master",
+	  iface, vid,
+	  !!(vflags & BRVLAN_F_PVID),
+	  !!(vflags & BRVLAN_F_UNTAGGED));
+	return 0;
+}
+
 int system_link_netns_move(struct device *dev, int netns_fd, const char *target_ifname)
 {
 	D(SYSTEM, "ip link set %s name %s netns %d\n", dev->ifname, target_ifname, netns_fd);
