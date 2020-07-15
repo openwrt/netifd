@@ -212,6 +212,127 @@ config_init_devices(void)
 	}
 }
 
+static void
+config_parse_vlan(struct device *dev, struct uci_section *s)
+{
+	enum {
+		BRVLAN_ATTR_VID,
+		BRVLAN_ATTR_LOCAL,
+		BRVLAN_ATTR_PORTS,
+		__BRVLAN_ATTR_MAX,
+	};
+	static const struct blobmsg_policy vlan_attrs[__BRVLAN_ATTR_MAX] = {
+		[BRVLAN_ATTR_VID] = { "vlan", BLOBMSG_TYPE_INT32 },
+		[BRVLAN_ATTR_LOCAL] = { "local", BLOBMSG_TYPE_BOOL },
+		[BRVLAN_ATTR_PORTS] = { "ports", BLOBMSG_TYPE_ARRAY },
+	};
+	static const struct uci_blob_param_info vlan_attr_info[__BRVLAN_ATTR_MAX] = {
+		[BRVLAN_ATTR_PORTS] = { .type = BLOBMSG_TYPE_STRING },
+	};
+	static const struct uci_blob_param_list vlan_attr_list = {
+		.n_params = __BRVLAN_ATTR_MAX,
+		.params = vlan_attrs,
+		.info = vlan_attr_info,
+	};
+	struct blob_attr *tb[__BRVLAN_ATTR_MAX];
+	struct blob_attr *cur;
+	struct bridge_vlan_port *port;
+	struct bridge_vlan *vlan;
+	unsigned int vid;
+	const char *val;
+	char *name_buf;
+	int name_len = 0;
+	int n_ports = 0;
+	int rem;
+
+	val = uci_lookup_option_string(uci_ctx, s, "vlan");
+	if (!val)
+		return;
+
+	blob_buf_init(&b, 0);
+	uci_to_blob(&b, s, &vlan_attr_list);
+	blobmsg_parse(vlan_attrs, __BRVLAN_ATTR_MAX, tb, blob_data(b.head), blob_len(b.head));
+
+	if (!tb[BRVLAN_ATTR_VID])
+		return;
+
+	vid = blobmsg_get_u32(tb[BRVLAN_ATTR_VID]);
+	if (!vid || vid > 4095)
+		return;
+
+	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
+		name_len += strlen(blobmsg_get_string(cur)) + 1;
+		n_ports++;
+	}
+
+	vlan = calloc(1, sizeof(*vlan) + n_ports * sizeof(*port) + name_len);
+	if (!vlan)
+		return;
+
+	vlan->vid = vid;
+	vlan->local = true;
+	if (tb[BRVLAN_ATTR_LOCAL])
+		vlan->local = blobmsg_get_bool(tb[BRVLAN_ATTR_LOCAL]);
+
+	vlan->n_ports = n_ports;
+	vlan->ports = port = (struct bridge_vlan_port *)&vlan[1];
+	name_buf = (char *)&port[n_ports];
+
+	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
+		char *sep;
+
+		port->ifname = name_buf;
+		port->flags = BRVLAN_F_UNTAGGED;
+		strcpy(name_buf, blobmsg_get_string(cur));
+
+		sep = strchr(name_buf, ':');
+		if (sep) {
+			for (*sep = 0, sep++; *sep; sep++)
+				switch (*sep) {
+				case '*':
+					port->flags |= BRVLAN_F_PVID;
+					break;
+				case 't':
+					port->flags &= ~BRVLAN_F_UNTAGGED;
+					break;
+				}
+		}
+
+		name_buf += strlen(name_buf) + 1;
+		port++;
+	}
+
+	vlist_add(&dev->vlans, &vlan->node, &vlan->vid);
+}
+
+
+static void
+config_init_vlans(void)
+{
+	struct uci_element *e;
+	struct device *dev;
+
+	device_vlan_update(false);
+	uci_foreach_element(&uci_network->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+		const char *name;
+
+		if (strcmp(s->type, "bridge-vlan") != 0)
+			continue;
+
+		name = uci_lookup_option_string(uci_ctx, s, "device");
+		if (!name)
+			continue;
+
+		dev = device_get(name, 0);
+		if (!dev || !dev->vlans.update)
+			continue;
+
+		config_parse_vlan(dev, s);
+	}
+	device_vlan_update(true);
+}
+
 static struct uci_package *
 config_init_package(const char *config)
 {
@@ -495,6 +616,7 @@ config_init_all(void)
 	device_reset_config();
 	config_init_devices();
 	config_init_interfaces();
+	config_init_vlans();
 	config_init_ip();
 	config_init_rules();
 	config_init_globals();

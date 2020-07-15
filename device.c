@@ -109,6 +109,21 @@ void device_unlock(void)
 		device_free_unused(NULL);
 }
 
+void device_vlan_update(bool done)
+{
+	struct device *dev;
+
+	avl_for_each_element(&devices, dev, avl) {
+		if (!dev->vlans.update)
+			continue;
+
+		if (!done)
+			vlist_update(&dev->vlans);
+		else
+			vlist_flush(&dev->vlans);
+	}
+}
+
 static int set_device_state(struct device *dev, bool state)
 {
 	if (state) {

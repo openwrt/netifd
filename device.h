@@ -22,6 +22,7 @@ struct device;
 struct device_type;
 struct device_user;
 struct device_hotplug_ops;
+struct bridge_vlan;
 struct interface;
 
 typedef int (*device_state_cb)(struct device *, bool up);
@@ -184,6 +185,8 @@ struct device {
 	struct safe_list users;
 	struct safe_list aliases;
 
+	struct vlist_tree vlans;
+
 	char ifname[IFNAMSIZ + 1];
 	int ifindex;
 
@@ -234,12 +237,29 @@ enum bridge_vlan_flags {
 	BRVLAN_F_UNTAGGED =	(1 << 2),
 };
 
+struct bridge_vlan_port {
+	const char *ifname;
+	uint16_t flags;
+};
+
+struct bridge_vlan {
+	struct vlist_node node;
+
+	struct bridge_vlan_port *ports;
+	int n_ports;
+
+	uint16_t vid;
+	bool local;
+};
+
 extern const struct uci_blob_param_list device_attr_list;
 extern struct device_type simple_device_type;
 extern struct device_type tunnel_device_type;
 
 void device_lock(void);
 void device_unlock(void);
+
+void device_vlan_update(bool done);
 
 int device_type_add(struct device_type *devtype);
 struct device_type *device_type_get(const char *tname);
