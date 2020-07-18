@@ -52,6 +52,49 @@ config_section_idx(struct uci_section *s)
 	return -1;
 }
 
+static bool
+config_bridge_has_vlans(const char *br_name)
+{
+	struct uci_element *e;
+
+	uci_foreach_element(&uci_network->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+		const char *name;
+
+		if (strcmp(s->type, "bridge-vlan") != 0)
+			continue;
+
+		name = uci_lookup_option_string(uci_ctx, s, "device");
+		if (!name)
+			continue;
+
+		if (!strcmp(name, br_name))
+			return true;
+	}
+
+	return false;
+}
+
+static void
+config_fixup_bridge_vlan_filtering(struct uci_section *s, const char *name)
+{
+	struct uci_ptr ptr = {
+		.p = s->package,
+		.s = s,
+		.option = "vlan_filtering",
+		.value = "1",
+	};
+
+	if (!config_bridge_has_vlans(name))
+		return;
+
+	uci_lookup_ptr(uci_ctx, &ptr, NULL, false);
+	if (ptr.o)
+		return;
+
+	uci_set(uci_ctx, &ptr);
+}
+
 static int
 config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype)
 {
@@ -61,6 +104,7 @@ config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype
 	sprintf(name, "%s-%s", devtype->name_prefix, s->e.name);
 	blobmsg_add_string(&b, "name", name);
 
+	config_fixup_bridge_vlan_filtering(s, name);
 	uci_to_blob(&b, s, devtype->config_params);
 	if (!device_create(name, devtype, b.head)) {
 		D(INTERFACE, "Failed to create '%s' device for interface '%s'\n",
@@ -193,6 +237,9 @@ config_init_devices(void)
 			params = devtype->config_params;
 		if (!params)
 			params = simple_device_type.config_params;
+
+		if (devtype && devtype->bridge_capability)
+			config_fixup_bridge_vlan_filtering(s, name);
 
 		blob_buf_init(&b, 0);
 		uci_to_blob(&b, s, params);
