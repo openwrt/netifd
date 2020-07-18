@@ -107,11 +107,11 @@ void system_if_get_settings(struct device *dev, struct device_settings *s)
 
 void system_if_clear_state(struct device *dev)
 {
+	device_set_ifindex(dev, system_if_resolve(dev));
 }
 
 int system_if_check(struct device *dev)
 {
-	dev->ifindex = 0;
 	device_set_present(dev, true);
 	device_set_link(dev, true);
 
@@ -120,7 +120,7 @@ int system_if_check(struct device *dev)
 
 int system_if_resolve(struct device *dev)
 {
-	return 0;
+	return 1;
 }
 
 struct device *
