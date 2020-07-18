@@ -61,19 +61,9 @@ static int vlan_set_device_state(struct device *dev, bool up)
 	return ret;
 }
 
-static int vlan_dev_set_name(struct vlan_device *vldev, struct device *dev)
-{
-	char *name;
-
-	name = alloca(strlen(dev->ifname) + sizeof(".2147483647\0"));
-	vldev->dev.hidden = dev->hidden;
-	sprintf(name, "%s.%d", dev->ifname, vldev->id);
-
-	return device_set_ifname(&vldev->dev, name);
-}
-
 static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 {
+	char name[IFNAMSIZ + 1];
 	struct vlan_device *vldev;
 
 	vldev = container_of(dep, struct vlan_device, dep);
@@ -85,7 +75,10 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		device_set_present(&vldev->dev, false);
 		break;
 	case DEV_EVENT_UPDATE_IFNAME:
-		if (vlan_dev_set_name(vldev, dep->dev) < 0)
+		vldev->dev.hidden = dep->dev->hidden;
+		if (snprintf(name, sizeof(name), "%s.%d", dep->dev->ifname,
+			     vldev->id) >= sizeof(name) - 1 ||
+		    device_set_ifname(&vldev->dev, name))
 			free_vlan_if(&vldev->dev);
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
@@ -106,6 +99,7 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	};
 	struct vlan_device *vldev;
 	struct device_user *dep;
+	char name[IFNAMSIZ + 1];
 
 	/* look for an existing interface before creating a new one */
 	list_for_each_entry(dep, &dev->users.list, list.list) {
@@ -122,18 +116,20 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	if (!create)
 		return NULL;
 
-	D(DEVICE, "Create vlan device '%s.%d'\n", dev->ifname, id);
+	if (snprintf(name, sizeof(name), "%s.%d", dev->ifname, id) >= sizeof(name) - 1)
+		return NULL;
+
+	D(DEVICE, "Create vlan device '%s'\n", name);
 
 	vldev = calloc(1, sizeof(*vldev));
 	if (!vldev)
 		return NULL;
 
 	vldev->id = id;
+	vldev->dev.hidden = dev->hidden;
+	strcpy(vldev->dev.ifname, name);
 
 	if (device_init(&vldev->dev, &vlan_type, NULL) < 0)
-		goto error;
-
-	if (vlan_dev_set_name(vldev, dev) < 0)
 		goto error;
 
 	vldev->dev.default_config = true;
