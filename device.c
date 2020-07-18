@@ -509,7 +509,6 @@ int device_init(struct device *dev, struct device_type *type, const char *ifname
 		return ret;
 
 	system_if_clear_state(dev);
-	device_check_state(dev);
 
 	return 0;
 }
@@ -539,6 +538,9 @@ device_create_default(const char *name, bool external)
 	dev->default_config = true;
 	if (external)
 		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
+
+	device_check_state(dev);
+
 	return dev;
 }
 
@@ -794,6 +796,7 @@ device_init_pending(void)
 
 		dev->type->config_init(dev);
 		dev->config_pending = false;
+		device_check_state(dev);
 	}
 }
 
@@ -955,6 +958,8 @@ device_create(const char *name, struct device_type *type,
 		type->config_init(dev);
 		dev->config_pending = false;
 	}
+
+	device_check_state(dev);
 
 	return dev;
 }
