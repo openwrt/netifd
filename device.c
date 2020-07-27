@@ -572,13 +572,14 @@ device_get(const char *name, int create)
 {
 	struct device *dev;
 
-	if (strchr(name, '.'))
+	dev = avl_find_element(&devices, name, dev, avl);
+
+	if (!dev && strchr(name, '.'))
 		return get_vlan_device_chain(name, create);
 
 	if (name[0] == '@')
 		return device_alias_get(name + 1);
 
-	dev = avl_find_element(&devices, name, dev, avl);
 	if (dev) {
 		if (create > 1 && !dev->external) {
 			system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
