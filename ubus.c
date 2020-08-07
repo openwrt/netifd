@@ -903,12 +903,14 @@ netifd_handle_dump(struct ubus_context *ctx, struct ubus_object *obj,
 enum {
 	DEV_LINK_NAME,
 	DEV_LINK_EXT,
+	DEV_LINK_VLAN,
 	__DEV_LINK_MAX,
 };
 
 static const struct blobmsg_policy dev_link_policy[__DEV_LINK_MAX] = {
 	[DEV_LINK_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
 	[DEV_LINK_EXT] = { .name = "link-ext", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_LINK_VLAN] = { .name = "vlan", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 static int
@@ -933,7 +935,8 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 	if (cur)
 		link_ext = blobmsg_get_bool(cur);
 
-	return interface_handle_link(iface, blobmsg_data(tb[DEV_LINK_NAME]), add, link_ext);
+	return interface_handle_link(iface, blobmsg_data(tb[DEV_LINK_NAME]),
+				     tb[DEV_LINK_VLAN], add, link_ext);
 }
 
 

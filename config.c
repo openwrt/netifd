@@ -323,6 +323,7 @@ config_parse_vlan(struct device *dev, struct uci_section *s)
 
 	vlan->n_ports = n_ports;
 	vlan->ports = port = (struct bridge_vlan_port *)&vlan[1];
+	INIT_LIST_HEAD(&vlan->hotplug_ports);
 	name_buf = (char *)&port[n_ports];
 
 	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {

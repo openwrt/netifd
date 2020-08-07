@@ -319,7 +319,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, bool 
 		if (!iface)
 			continue;
 
-		interface_handle_link(iface, vif->ifname, up, true);
+		interface_handle_link(iface, vif->ifname, NULL, up, true);
 	}
 }
 
@@ -349,7 +349,7 @@ static void wireless_vlan_handle_link(struct wireless_vlan *vlan, bool up)
 		if (!iface)
 			continue;
 
-		interface_handle_link(iface, vlan->ifname, up, true);
+		interface_handle_link(iface, vlan->ifname, NULL, up, true);
 	}
 }
 

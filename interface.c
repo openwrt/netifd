@@ -1038,7 +1038,8 @@ interface_remove_link(struct interface *iface, struct device *dev)
 }
 
 static int
-interface_add_link(struct interface *iface, struct device *dev, bool link_ext)
+interface_add_link(struct interface *iface, struct device *dev,
+		   struct blob_attr *vlan, bool link_ext)
 {
 	struct device *mdev = iface->main_dev.dev;
 
@@ -1050,7 +1051,7 @@ interface_add_link(struct interface *iface, struct device *dev, bool link_ext)
 
 	if (mdev) {
 		if (mdev->hotplug_ops)
-			return mdev->hotplug_ops->add(mdev, dev);
+			return mdev->hotplug_ops->add(mdev, dev, vlan);
 		else
 			return UBUS_STATUS_NOT_SUPPORTED;
 	}
@@ -1064,7 +1065,8 @@ interface_add_link(struct interface *iface, struct device *dev, bool link_ext)
 }
 
 int
-interface_handle_link(struct interface *iface, const char *name, bool add, bool link_ext)
+interface_handle_link(struct interface *iface, const char *name,
+		      struct blob_attr *vlan, bool add, bool link_ext)
 {
 	struct device *dev;
 	int ret;
@@ -1081,7 +1083,7 @@ interface_handle_link(struct interface *iface, const char *name, bool add, bool 
 		interface_set_device_config(iface, dev);
 		device_set_present(dev, true);
 
-		ret = interface_add_link(iface, dev, link_ext);
+		ret = interface_add_link(iface, dev, vlan, link_ext);
 	} else {
 		ret = interface_remove_link(iface, dev);
 	}

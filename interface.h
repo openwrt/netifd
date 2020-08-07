@@ -196,7 +196,7 @@ void interface_set_l3_dev(struct interface *iface, struct device *dev);
 void interface_add_user(struct interface_user *dep, struct interface *iface);
 void interface_remove_user(struct interface_user *dep);
 
-int interface_handle_link(struct interface *iface, const char *name, bool add, bool link_ext);
+int interface_handle_link(struct interface *iface, const char *name, struct blob_attr *vlan, bool add, bool link_ext);
 
 void interface_add_error(struct interface *iface, const char *subsystem,
 			 const char *code, const char **data, int n_data);

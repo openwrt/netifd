@@ -227,7 +227,7 @@ struct device {
 
 struct device_hotplug_ops {
 	int (*prepare)(struct device *dev);
-	int (*add)(struct device *main, struct device *member);
+	int (*add)(struct device *main, struct device *member, struct blob_attr *vlan);
 	int (*del)(struct device *main, struct device *member);
 };
 
@@ -247,6 +247,8 @@ struct bridge_vlan {
 
 	struct bridge_vlan_port *ports;
 	int n_ports;
+
+	struct list_head hotplug_ports;
 
 	uint16_t vid;
 	bool local;
