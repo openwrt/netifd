@@ -45,6 +45,7 @@ static const struct uci_blob_param_list vlandev_attr_list = {
 };
 
 static struct device_type vlan8021q_device_type;
+static struct blob_buf b;
 
 struct vlandev_device {
 	struct device dev;
@@ -57,6 +58,67 @@ struct vlandev_device {
 	struct vlandev_config config;
 };
 
+static int
+vlandev_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
+{
+	struct vlandev_device *mvdev = container_of(dev, struct vlandev_device, dev);
+	void *a;
+
+	dev = mvdev->parent.dev;
+	if (!dev || !dev->hotplug_ops)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	blob_buf_init(&b, 0);
+	a = blobmsg_open_array(&b, "vlans");
+	blobmsg_printf(&b, NULL, "%d", mvdev->config.vid);
+	blobmsg_close_array(&b, a);
+
+	return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+}
+
+static int
+vlandev_hotplug_del(struct device *dev, struct device *member)
+{
+	struct vlandev_device *mvdev = container_of(dev, struct vlandev_device, dev);
+
+	dev = mvdev->parent.dev;
+	if (!dev || !dev->hotplug_ops)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	return dev->hotplug_ops->del(dev, member);
+}
+
+static int
+vlandev_hotplug_prepare(struct device *dev)
+{
+	struct vlandev_device *mvdev = container_of(dev, struct vlandev_device, dev);
+
+	dev = mvdev->parent.dev;
+	if (!dev || !dev->hotplug_ops)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	return dev->hotplug_ops->prepare(dev);
+}
+
+static void vlandev_hotplug_check(struct vlandev_device *mvdev)
+{
+	static const struct device_hotplug_ops hotplug_ops = {
+		.prepare = vlandev_hotplug_prepare,
+		.add = vlandev_hotplug_add,
+		.del = vlandev_hotplug_del
+	};
+	struct device *dev = mvdev->parent.dev;
+
+	if (!dev || !dev->hotplug_ops || avl_is_empty(&dev->vlans.avl) ||
+		dev->type != &vlan8021q_device_type) {
+		mvdev->dev.hotplug_ops = NULL;
+		return;
+	}
+
+	mvdev->dev.hotplug_ops = &hotplug_ops;
+}
+
+
 static void
 vlandev_base_cb(struct device_user *dev, enum device_event ev)
 {
@@ -68,6 +130,9 @@ vlandev_base_cb(struct device_user *dev, enum device_event ev)
 		break;
 	case DEV_EVENT_REMOVE:
 		device_set_present(&mvdev->dev, false);
+		break;
+	case DEV_EVENT_UPDATE_IFNAME:
+		vlandev_hotplug_check(mvdev);
 		break;
 	default:
 		return;
@@ -179,6 +244,7 @@ vlandev_config_init(struct device *dev)
 		basedev = device_get(blobmsg_data(mvdev->ifname), true);
 
 	device_add_user(&mvdev->parent, basedev);
+	vlandev_hotplug_check(mvdev);
 }
 
 static void vlandev_qos_mapping_list_apply(struct vlist_simple_tree *qos_mapping_li, struct blob_attr *list)
