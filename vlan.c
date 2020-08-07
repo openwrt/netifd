@@ -18,6 +18,8 @@
 #include "netifd.h"
 #include "system.h"
 
+static struct blob_buf b;
+
 struct vlan_device {
 	struct device dev;
 	struct device_user dep;
@@ -35,6 +37,65 @@ static void free_vlan_if(struct device *iface)
 	device_cleanup(&vldev->dev);
 	free(vldev);
 }
+
+static int
+vlan_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
+{
+	struct vlan_device *vldev = container_of(dev, struct vlan_device, dev);
+	void *a;
+
+	dev = vldev->dep.dev;
+	if (!dev || !dev->hotplug_ops)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	blob_buf_init(&b, 0);
+	a = blobmsg_open_array(&b, "vlans");
+	blobmsg_printf(&b, NULL, "%d", vldev->id);
+	blobmsg_close_array(&b, a);
+
+	return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+}
+
+static int
+vlan_hotplug_del(struct device *dev, struct device *member)
+{
+	struct vlan_device *vldev = container_of(dev, struct vlan_device, dev);
+
+	dev = vldev->dep.dev;
+	if (!dev || !dev->hotplug_ops)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	return dev->hotplug_ops->del(dev, member);
+}
+
+static int
+vlan_hotplug_prepare(struct device *dev)
+{
+	struct vlan_device *vldev = container_of(dev, struct vlan_device, dev);
+
+	dev = vldev->dep.dev;
+	if (!dev || !dev->hotplug_ops)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	return dev->hotplug_ops->prepare(dev);
+}
+
+static void vlan_hotplug_check(struct vlan_device *vldev, struct device *dev)
+{
+	static const struct device_hotplug_ops hotplug_ops = {
+		.prepare = vlan_hotplug_prepare,
+		.add = vlan_hotplug_add,
+		.del = vlan_hotplug_del
+	};
+
+	if (!dev || !dev->hotplug_ops || avl_is_empty(&dev->vlans.avl)) {
+		vldev->dev.hotplug_ops = NULL;
+		return;
+	}
+
+	vldev->dev.hotplug_ops = &hotplug_ops;
+}
+
 
 static int vlan_set_device_state(struct device *dev, bool up)
 {
@@ -75,6 +136,7 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		device_set_present(&vldev->dev, false);
 		break;
 	case DEV_EVENT_UPDATE_IFNAME:
+		vlan_hotplug_check(vldev, dep->dev);
 		vldev->dev.hidden = dep->dev->hidden;
 		if (snprintf(name, sizeof(name), "%s.%d", dep->dev->ifname,
 			     vldev->id) >= sizeof(name) - 1 ||
@@ -90,11 +152,21 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 	}
 }
 
+static void
+vlan_config_init(struct device *dev)
+{
+	struct vlan_device *vldev;
+
+	vldev = container_of(dev, struct vlan_device, dev);
+	vlan_hotplug_check(vldev, vldev->dep.dev);
+}
+
 static struct device *get_vlan_device(struct device *dev, int id, bool create)
 {
 	static struct device_type vlan_type = {
 		.name = "VLAN",
 		.config_params = &device_attr_list,
+		.config_init = vlan_config_init,
 		.free = free_vlan_if,
 	};
 	struct vlan_device *vldev;
@@ -133,11 +205,13 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 		goto error;
 
 	vldev->dev.default_config = true;
+	vldev->dev.config_pending = true;
 
 	vldev->set_state = vldev->dev.set_state;
 	vldev->dev.set_state = vlan_set_device_state;
 
 	vldev->dep.cb = vlan_dev_cb;
+	vlan_hotplug_check(vldev, vldev->dep.dev);
 	device_add_user(&vldev->dep, dev);
 
 	return &vldev->dev;
