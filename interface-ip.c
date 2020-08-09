@@ -1270,6 +1270,8 @@ interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 		uint8_t length, time_t valid_until, time_t preferred_until,
 		struct in6_addr *excl_addr, uint8_t excl_length, const char *pclass)
 {
+	union if_addr a = { .in6 = *addr };
+
 	if (!pclass)
 		pclass = (iface) ? iface->name : "local";
 
@@ -1277,8 +1279,10 @@ interface_ip_add_device_prefix(struct interface *iface, struct in6_addr *addr,
 	if (!prefix)
 		return NULL;
 
+	clear_if_addr(&a, length);
+
 	prefix->length = length;
-	prefix->addr = *addr;
+	prefix->addr = a.in6;
 	prefix->preferred_until = preferred_until;
 	prefix->valid_until = valid_until;
 	prefix->iface = iface;
