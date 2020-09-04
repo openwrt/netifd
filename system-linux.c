@@ -3235,6 +3235,16 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_L3MISS , VXLAN_DATA_ATTR_L3MISS, false);
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_GBP , VXLAN_DATA_ATTR_GBP, false);
 
+	if ((cur = tb_data[VXLAN_DATA_ATTR_AGEING])) {
+		uint32_t ageing = blobmsg_get_u32(cur);
+		nla_put_u32(msg, IFLA_VXLAN_AGEING, ageing);
+	}
+
+	if ((cur = tb_data[VXLAN_DATA_ATTR_LIMIT])) {
+		uint32_t maxaddress = blobmsg_get_u32(cur);
+		nla_put_u32(msg, IFLA_VXLAN_LIMIT, maxaddress);
+	}
+
 	if ((cur = tb[TUNNEL_ATTR_TOS])) {
 		char *str = blobmsg_get_string(cur);
 		unsigned tos = 1;
