@@ -3184,6 +3184,32 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 	}
 	nla_put_u16(msg, IFLA_VXLAN_PORT, htons(port));
 
+	if ((cur = tb_data[VXLAN_DATA_ATTR_SRCPORTMIN])) {
+		struct ifla_vxlan_port_range srcports = {0,0};
+
+		uint32_t low = blobmsg_get_u32(cur);
+		if (low < 1 || low > 65535 - 1) {
+			ret = -EINVAL;
+			goto failure;
+		}
+
+		srcports.low = htons((uint16_t) low);
+		srcports.high = htons((uint16_t) (low+1));
+
+		if ((cur = tb_data[VXLAN_DATA_ATTR_SRCPORTMAX])) {
+			uint32_t high = blobmsg_get_u32(cur);
+			if (high < 1 || high > 65535) {
+				ret = -EINVAL;
+				goto failure;
+			}
+
+			if (high > low)
+				srcports.high = htons((uint16_t) high);
+		}
+
+		nla_put(msg, IFLA_VXLAN_PORT_RANGE, sizeof(srcports), &srcports);
+	}
+
 	if ((cur = tb_data[VXLAN_DATA_ATTR_RXCSUM])) {
 		bool rxcsum = blobmsg_get_bool(cur);
 		nla_put_u8(msg, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, !rxcsum);
