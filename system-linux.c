@@ -3073,6 +3073,17 @@ failure:
 #endif
 
 #ifdef IFLA_VXLAN_MAX
+static void system_vxlan_map_bool_attr(struct nl_msg *msg, struct blob_attr **tb_data, int attrtype, int vxlandatatype, bool invert) {
+	struct blob_attr *cur;
+	if ((cur = tb_data[vxlandatatype])) {
+		bool val = blobmsg_get_bool(cur);
+		if (invert) {
+			val = !val;
+		}
+		nla_put_u8(msg, attrtype, val);
+	}
+}
+
 static int system_add_vxlan(const char *name, const unsigned int link, struct blob_attr **tb, bool v6)
 {
 	struct blob_attr *tb_data[__VXLAN_DATA_ATTR_MAX];
@@ -3210,16 +3221,9 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 		nla_put(msg, IFLA_VXLAN_PORT_RANGE, sizeof(srcports), &srcports);
 	}
 
-	if ((cur = tb_data[VXLAN_DATA_ATTR_RXCSUM])) {
-		bool rxcsum = blobmsg_get_bool(cur);
-		nla_put_u8(msg, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, !rxcsum);
-	}
-
-	if ((cur = tb_data[VXLAN_DATA_ATTR_TXCSUM])) {
-		bool txcsum = blobmsg_get_bool(cur);
-		nla_put_u8(msg, IFLA_VXLAN_UDP_CSUM, txcsum);
-		nla_put_u8(msg, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, !txcsum);
-	}
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_UDP_CSUM, VXLAN_DATA_ATTR_TXCSUM, false);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, VXLAN_DATA_ATTR_RXCSUM, true);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, VXLAN_DATA_ATTR_TXCSUM, true);
 
 	if ((cur = tb[TUNNEL_ATTR_TOS])) {
 		char *str = blobmsg_get_string(cur);
