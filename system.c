@@ -40,6 +40,12 @@ static const struct blobmsg_policy vxlan_data_attrs[__VXLAN_DATA_ATTR_MAX] = {
 	[VXLAN_DATA_ATTR_TXCSUM] = { .name = "txcsum", .type = BLOBMSG_TYPE_BOOL },
 	[VXLAN_DATA_ATTR_SRCPORTMIN] = { .name = "srcportmin", .type = BLOBMSG_TYPE_INT32 },
 	[VXLAN_DATA_ATTR_SRCPORTMAX] = { .name = "srcportmax", .type = BLOBMSG_TYPE_INT32 },
+	[VXLAN_DATA_ATTR_LEARNING] = { .name = "learning", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_RSC] = { .name = "rsc", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_PROXY] = { .name = "proxy", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_L2MISS] = { .name = "l2miss", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_L3MISS] = { .name = "l3miss", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_GBP] = { .name = "gbp", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list vxlan_data_attr_list = {

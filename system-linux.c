@@ -3077,10 +3077,14 @@ static void system_vxlan_map_bool_attr(struct nl_msg *msg, struct blob_attr **tb
 	struct blob_attr *cur;
 	if ((cur = tb_data[vxlandatatype])) {
 		bool val = blobmsg_get_bool(cur);
-		if (invert) {
+		if (invert)
 			val = !val;
-		}
-		nla_put_u8(msg, attrtype, val);
+
+		if ((attrtype == IFLA_VXLAN_GBP) && val)
+			nla_put_flag(msg, attrtype);
+		else 
+			nla_put_u8(msg, attrtype, val);
+
 	}
 }
 
@@ -3224,6 +3228,12 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_UDP_CSUM, VXLAN_DATA_ATTR_TXCSUM, false);
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, VXLAN_DATA_ATTR_RXCSUM, true);
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, VXLAN_DATA_ATTR_TXCSUM, true);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_LEARNING, VXLAN_DATA_ATTR_LEARNING, false);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_RSC , VXLAN_DATA_ATTR_RSC, false);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_PROXY , VXLAN_DATA_ATTR_PROXY, false);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_L2MISS , VXLAN_DATA_ATTR_L2MISS, false);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_L3MISS , VXLAN_DATA_ATTR_L3MISS, false);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_GBP , VXLAN_DATA_ATTR_GBP, false);
 
 	if ((cur = tb[TUNNEL_ATTR_TOS])) {
 		char *str = blobmsg_get_string(cur);
