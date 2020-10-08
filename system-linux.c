@@ -904,6 +904,8 @@ failure:
 int system_if_resolve(struct device *dev)
 {
 	struct ifreq ifr;
+
+	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 	if (!ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
 		return ifr.ifr_ifindex;
