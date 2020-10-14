@@ -27,8 +27,12 @@ SET(LIBS
 	ubox ubus uci json-c blobmsg_json)
 
 IF (NOT DEFINED LIBNL_LIBS)
-  FIND_LIBRARY(libnl NAMES libnl-3 libnl nl-3 nl)
-  SET(LIBNL_LIBS ${libnl})
+	include(FindPkgConfig)
+	pkg_search_module(LIBNL libnl-3.0 libnl-3 libnl nl-3 nl)
+	IF (LIBNL_FOUND)
+		include_directories(${LIBNL_INCLUDE_DIRS})
+		SET(LIBNL_LIBS ${LIBNL_LIBRARIES})
+	ENDIF()
 ENDIF()
 
 IF("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" AND NOT DUMMY_MODE)
