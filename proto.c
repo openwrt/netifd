@@ -116,16 +116,16 @@ alloc_device_addr(bool v6, bool ext)
 	return addr;
 }
 
-static bool
-parse_addr(struct interface *iface, const char *str, bool v6, int mask,
-	   bool ext, uint32_t broadcast, uint32_t ptp, bool deprecated)
+static struct device_addr *
+parse_addr(const char *str, bool v6, int mask, bool ext, uint32_t broadcast,
+		uint32_t ptp, bool deprecated)
 {
 	struct device_addr *addr;
 	int af = v6 ? AF_INET6 : AF_INET;
 
 	addr = alloc_device_addr(v6, ext);
 	if (!addr)
-		return false;
+		return NULL;
 
 	addr->mask = mask;
 	if (!parse_ip_and_netmask(af, str, &addr->addr, &addr->mask))
@@ -143,14 +143,12 @@ parse_addr(struct interface *iface, const char *str, bool v6, int mask,
 	if (deprecated)
 		addr->preferred_until = system_get_rtime();
 
-	vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
-	return true;
+	return addr;
 
 error:
-	interface_add_error(iface, "proto", "INVALID_ADDRESS", &str, 1);
 	free(addr);
 
-	return false;
+	return NULL;
 }
 
 static int
@@ -159,6 +157,8 @@ parse_static_address_option(struct interface *iface, struct blob_attr *attr,
 			    uint32_t ptp, bool deprecated)
 {
 	struct blob_attr *cur;
+	struct device_addr *addr;
+	const char *str;
 	int n_addr = 0;
 	int rem;
 
@@ -166,10 +166,14 @@ parse_static_address_option(struct interface *iface, struct blob_attr *attr,
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
 			return -1;
 
-		n_addr++;
-		if (!parse_addr(iface, blobmsg_data(cur), v6, netmask, ext,
-				broadcast, ptp, deprecated))
+		str = blobmsg_data(cur);
+		addr = parse_addr(str, v6, netmask, ext, broadcast, ptp, deprecated);
+		if (addr == NULL) {
+			interface_add_error(iface, "proto", "INVALID_ADDRESS", &str, 1);
 			return -1;
+		}
+		n_addr++;
+		vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
 	}
 
 	return n_addr;
