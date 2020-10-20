@@ -174,7 +174,7 @@ parse_static_address_option(struct interface *iface, struct blob_attr *attr,
 		}
 		addr->index = n_addr;
 		n_addr++;
-		vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
+		vlist_add(&iface->proto_ip.addr, &addr->node, addr);
 	}
 
 	return n_addr;
@@ -275,7 +275,7 @@ parse_address_list(struct interface *iface, struct blob_attr *attr, bool v6,
 
 		addr->index = n_addr;
 		n_addr++;
-		vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
+		vlist_add(&iface->proto_ip.addr, &addr->node, addr);
 	}
 
 	return n_addr;

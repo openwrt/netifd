@@ -516,8 +516,14 @@ error:
 static int
 addr_cmp(const void *k1, const void *k2, void *ptr)
 {
-	return memcmp(k1, k2, sizeof(struct device_addr) -
-		      offsetof(struct device_addr, flags));
+	const struct device_addr *a1 = k1;
+	const struct device_addr *a2 = k2;
+	const int cmp_offset = offsetof(struct device_addr, flags);
+	const int cmp_size = sizeof(struct device_addr) - cmp_offset;
+
+	if (a1->index != a2->index)
+		return a1->index - a2->index;
+	return memcmp(k1+cmp_offset, k2+cmp_offset, cmp_size);
 }
 
 static int
