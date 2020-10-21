@@ -172,6 +172,7 @@ parse_static_address_option(struct interface *iface, struct blob_attr *attr,
 			interface_add_error(iface, "proto", "INVALID_ADDRESS", &str, 1);
 			return -1;
 		}
+		addr->index = n_addr;
 		n_addr++;
 		vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
 	}
@@ -272,6 +273,7 @@ parse_address_list(struct interface *iface, struct blob_attr *attr, bool v6,
 		if (!addr)
 			return -1;
 
+		addr->index = n_addr;
 		n_addr++;
 		vlist_add(&iface->proto_ip.addr, &addr->node, &addr->flags);
 	}

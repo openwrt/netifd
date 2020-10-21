@@ -127,6 +127,7 @@ struct device_addr {
 	struct vlist_node node;
 	bool enabled;
 	bool failed;
+	int index;
 	unsigned int policy_table;
 
 	struct device_route subnet;
