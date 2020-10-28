@@ -218,7 +218,7 @@ bridge_set_member_vlan(struct bridge_member *bm, struct bridge_vlan *vlan, bool 
 }
 
 static void
-brigde_set_local_vlan(struct bridge_state *bst, struct bridge_vlan *vlan, bool add)
+bridge_set_local_vlan(struct bridge_state *bst, struct bridge_vlan *vlan, bool add)
 {
 	if (!vlan->local && add)
 		return;
@@ -232,7 +232,7 @@ bridge_set_local_vlans(struct bridge_state *bst, bool add)
 	struct bridge_vlan *vlan;
 
 	vlist_for_each_element(&bst->dev.vlans, vlan, node)
-		brigde_set_local_vlan(bst, vlan, add);
+		bridge_set_local_vlan(bst, vlan, add);
 }
 
 static struct bridge_vlan *
@@ -264,7 +264,7 @@ bridge_set_vlan_state(struct bridge_state *bst, struct bridge_vlan *vlan, bool a
 	struct bridge_member *bm;
 	struct bridge_vlan *vlan2;
 
-	brigde_set_local_vlan(bst, vlan, add);
+	bridge_set_local_vlan(bst, vlan, add);
 
 	vlist_for_each_element(&bst->members, bm, node) {
 		struct bridge_vlan_port *port;
@@ -755,10 +755,48 @@ bridge_free(struct device *dev)
 }
 
 static void
+bridge_dump_port(struct blob_buf *b, struct bridge_vlan_port *port)
+{
+	bool tagged = !(port->flags & BRVLAN_F_UNTAGGED);
+	bool pvid = (port->flags & BRVLAN_F_PVID);
+
+	blobmsg_printf(b, "%s%s%s%s\n", port->ifname,
+		tagged || pvid ? ":" : "",
+		tagged ? "t" : "",
+		pvid ? "*" : "");
+}
+
+static void
+bridge_dump_vlan(struct blob_buf *b, struct bridge_vlan *vlan)
+{
+	struct bridge_vlan_hotplug_port *port;
+	void *c, *p;
+	int i;
+
+	c = blobmsg_open_table(b, NULL);
+
+	blobmsg_add_u32(b, "id", vlan->vid);
+	blobmsg_add_u8(b, "local", vlan->local);
+
+	p = blobmsg_open_array(b, "ports");
+
+	for (i = 0; i < vlan->n_ports; i++)
+	    bridge_dump_port(b, &vlan->ports[i]);
+
+	list_for_each_entry(port, &vlan->hotplug_ports, list)
+		bridge_dump_port(b, &port->port);
+
+	blobmsg_close_array(b, p);
+
+	blobmsg_close_table(b, c);
+}
+
+static void
 bridge_dump_info(struct device *dev, struct blob_buf *b)
 {
 	struct bridge_state *bst;
 	struct bridge_member *bm;
+	struct bridge_vlan *vlan;
 	void *list;
 
 	bst = container_of(dev, struct bridge_state, dev);
@@ -772,6 +810,16 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 
 		blobmsg_add_string(b, NULL, bm->dev.dev->ifname);
 	}
+
+	blobmsg_close_array(b, list);
+
+	if (avl_is_empty(&dev->vlans.avl))
+		return;
+
+	list = blobmsg_open_array(b, "bridge-vlans");
+
+	vlist_for_each_element(&bst->dev.vlans, vlan, node)
+		bridge_dump_vlan(b, vlan);
 
 	blobmsg_close_array(b, list);
 }
