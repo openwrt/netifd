@@ -1060,8 +1060,10 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	if (node_new)
 		vlan_new = container_of(node_new, struct bridge_vlan, node);
 
-	if (node_new && node_old && bridge_vlan_equal(vlan_old, vlan_new))
+	if (node_new && node_old && bridge_vlan_equal(vlan_old, vlan_new)) {
+		list_splice_init(&vlan_old->hotplug_ports, &vlan_new->hotplug_ports);
 		goto out;
+	}
 
 	if (node_old)
 		bridge_set_vlan_state(bst, vlan_old, false);
