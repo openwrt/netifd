@@ -447,6 +447,8 @@ bridge_free_member(struct bridge_member *bm)
 		}
 	}
 
+	device_lock();
+
 	device_remove_user(&bm->dev);
 
 	/*
@@ -460,6 +462,8 @@ bridge_free_member(struct bridge_member *bm)
 		device_set_present(dev, false);
 		device_set_present(dev, true);
 	}
+
+	device_unlock();
 
 	free(bm);
 }
