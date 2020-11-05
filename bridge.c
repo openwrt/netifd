@@ -39,6 +39,7 @@ enum {
 	BRIDGE_ATTR_QUERY_RESPONSE_INTERVAL,
 	BRIDGE_ATTR_LAST_MEMBER_INTERVAL,
 	BRIDGE_ATTR_VLAN_FILTERING,
+	BRIDGE_ATTR_HAS_VLANS,
 	__BRIDGE_ATTR_MAX
 };
 
@@ -59,6 +60,7 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_QUERY_RESPONSE_INTERVAL] = { "query_response_interval", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_LAST_MEMBER_INTERVAL] = { "last_member_interval", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_VLAN_FILTERING] = { "vlan_filtering", BLOBMSG_TYPE_BOOL },
+	[BRIDGE_ATTR_HAS_VLANS] = { "__has_vlans", BLOBMSG_TYPE_BOOL }, /* internal */
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -105,6 +107,7 @@ struct bridge_state {
 	struct blob_attr *ifnames;
 	bool active;
 	bool force_active;
+	bool has_vlans;
 
 	struct uloop_timeout retry;
 	struct bridge_member *primary_port;
@@ -327,7 +330,7 @@ bridge_enable_interface(struct bridge_state *bst)
 	if (ret < 0)
 		return ret;
 
-	if (bst->config.vlan_filtering) {
+	if (bst->has_vlans) {
 		/* delete default VLAN 1 */
 		system_bridge_vlan(bst->dev.ifname, 1, false, BRVLAN_F_SELF);
 
@@ -378,7 +381,7 @@ bridge_enable_member(struct bridge_member *bm)
 		goto error;
 	}
 
-	if (bst->config.vlan_filtering) {
+	if (bst->has_vlans) {
 		/* delete default VLAN 1 */
 		system_bridge_vlan(bm->dev.dev->ifname, 1, false, 0);
 
@@ -539,6 +542,7 @@ bridge_set_up(struct bridge_state *bst)
 	struct bridge_member *bm;
 	int ret;
 
+	bst->has_vlans = !avl_is_empty(&bst->dev.vlans.avl);
 	if (!bst->n_present) {
 		if (!bst->force_active)
 			return -ENOENT;
@@ -1056,7 +1060,7 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	struct bridge_state *bst = container_of(tree, struct bridge_state, dev.vlans);
 	struct bridge_vlan *vlan_new = NULL, *vlan_old = NULL;
 
-	if (!bst->config.vlan_filtering || !bst->active)
+	if (!bst->has_vlans || !bst->active)
 		goto out;
 
 	if (node_old)

@@ -76,23 +76,33 @@ config_bridge_has_vlans(const char *br_name)
 }
 
 static void
-config_fixup_bridge_vlan_filtering(struct uci_section *s, const char *name)
+config_fixup_bridge_var(struct uci_section *s, const char *name, const char *val)
 {
 	struct uci_ptr ptr = {
 		.p = s->package,
 		.s = s,
-		.option = "vlan_filtering",
-		.value = "1",
+		.option = name,
+		.value = val,
 	};
-
-	if (!config_bridge_has_vlans(name))
-		return;
 
 	uci_lookup_ptr(uci_ctx, &ptr, NULL, false);
 	if (ptr.o)
 		return;
 
 	uci_set(uci_ctx, &ptr);
+}
+
+static void
+config_fixup_bridge_vlan_filtering(struct uci_section *s, const char *name)
+{
+	bool has_vlans = config_bridge_has_vlans(name);
+
+	config_fixup_bridge_var(s, "__has_vlans", has_vlans ? "1" : "0");
+
+	if (!has_vlans)
+		return;
+
+	config_fixup_bridge_var(s, "vlan_filtering", "1");
 }
 
 static int
