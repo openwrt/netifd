@@ -124,7 +124,9 @@ void system_if_clear_state(struct device *dev)
 
 int system_if_check(struct device *dev)
 {
-	device_set_present(dev, true);
+	if (dev->type == &simple_device_type)
+		device_set_present(dev, true);
+
 	device_set_link(dev, true);
 
 	return 0;
