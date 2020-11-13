@@ -1743,7 +1743,8 @@ static int cb_if_check_valid(struct nl_msg *msg, void *arg)
 	if (nh->nlmsg_type != RTM_NEWLINK)
 		return NL_SKIP;
 
-	device_set_present(chk->dev, ifi->ifi_index > 0 ? true : false);
+	if (chk->dev->type == &simple_device_type)
+		device_set_present(chk->dev, ifi->ifi_index > 0 ? true : false);
 	device_set_link(chk->dev, ifi->ifi_flags & IFF_LOWER_UP ? true : false);
 
 	return NL_OK;
@@ -1760,7 +1761,8 @@ static int cb_if_check_error(struct sockaddr_nl *nla, struct nlmsgerr *err, void
 {
 	struct if_check_data *chk = (struct if_check_data *)arg;
 
-	device_set_present(chk->dev, false);
+	if (chk->dev->type == &simple_device_type)
+		device_set_present(chk->dev, false);
 	device_set_link(chk->dev, false);
 	chk->pending = err->error;
 
