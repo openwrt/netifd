@@ -986,19 +986,27 @@ netifd_handle_iface_prepare(struct ubus_context *ctx, struct ubus_object *obj,
 			    struct blob_attr *msg)
 {
 	struct interface *iface;
-	struct device *dev;
+	struct device *dev, *bridge_dev = NULL;
 	const struct device_hotplug_ops *ops;
 
 	iface = container_of(obj, struct interface, ubus);
 	dev = iface->main_dev.dev;
 	if (!dev)
-		return 0;
+		goto out;
 
 	ops = dev->hotplug_ops;
 	if (!ops)
-		return 0;
+		goto out;
 
-	return ops->prepare(dev);
+	ops->prepare(dev, &bridge_dev);
+
+out:
+	blob_buf_init(&b, 0);
+	if (bridge_dev)
+		blobmsg_add_string(&b, "bridge", bridge_dev->ifname);
+	ubus_send_reply(ctx, req, b.head);
+
+	return 0;
 }
 
 static int

@@ -136,7 +136,7 @@ vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool pre
 		if (!dev)
 			return;
 
-		if (!dev->type->bridge_capability)
+		if (!dev->hotplug_ops)
 			return;
 	}
 
@@ -144,7 +144,10 @@ vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool pre
 		return;
 
 	if (dev->hotplug_ops && dev->hotplug_ops->prepare)
-		dev->hotplug_ops->prepare(dev);
+		dev->hotplug_ops->prepare(dev, &dev);
+
+	if (!dev || !dev->type->bridge_capability)
+		return;
 
 	blobmsg_add_string(buf, "bridge", dev->ifname);
 

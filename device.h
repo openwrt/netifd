@@ -226,7 +226,7 @@ struct device {
 };
 
 struct device_hotplug_ops {
-	int (*prepare)(struct device *dev);
+	int (*prepare)(struct device *dev, struct device **bridge_dev);
 	int (*add)(struct device *main, struct device *member, struct blob_attr *vlan);
 	int (*del)(struct device *main, struct device *member);
 };

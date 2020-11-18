@@ -89,7 +89,7 @@ vlandev_hotplug_del(struct device *dev, struct device *member)
 }
 
 static int
-vlandev_hotplug_prepare(struct device *dev)
+vlandev_hotplug_prepare(struct device *dev, struct device **bridge_dev)
 {
 	struct vlandev_device *mvdev = container_of(dev, struct vlandev_device, dev);
 
@@ -97,7 +97,7 @@ vlandev_hotplug_prepare(struct device *dev)
 	if (!dev || !dev->hotplug_ops)
 		return UBUS_STATUS_NOT_SUPPORTED;
 
-	return dev->hotplug_ops->prepare(dev);
+	return dev->hotplug_ops->prepare(dev, bridge_dev);
 }
 
 static void vlandev_hotplug_check(struct vlandev_device *mvdev)

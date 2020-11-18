@@ -69,7 +69,7 @@ vlan_hotplug_del(struct device *dev, struct device *member)
 }
 
 static int
-vlan_hotplug_prepare(struct device *dev)
+vlan_hotplug_prepare(struct device *dev, struct device **bridge_dev)
 {
 	struct vlan_device *vldev = container_of(dev, struct vlan_device, dev);
 
@@ -77,7 +77,7 @@ vlan_hotplug_prepare(struct device *dev)
 	if (!dev || !dev->hotplug_ops)
 		return UBUS_STATUS_NOT_SUPPORTED;
 
-	return dev->hotplug_ops->prepare(dev);
+	return dev->hotplug_ops->prepare(dev, bridge_dev);
 }
 
 static void vlan_hotplug_check(struct vlan_device *vldev, struct device *dev)

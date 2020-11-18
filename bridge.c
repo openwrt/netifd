@@ -733,9 +733,12 @@ bridge_hotplug_del(struct device *dev, struct device *member)
 }
 
 static int
-bridge_hotplug_prepare(struct device *dev)
+bridge_hotplug_prepare(struct device *dev, struct device **bridge_dev)
 {
 	struct bridge_state *bst;
+
+	if (bridge_dev)
+		*bridge_dev = dev;
 
 	bst = container_of(dev, struct bridge_state, dev);
 	bst->force_active = true;
