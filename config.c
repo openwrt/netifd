@@ -221,7 +221,7 @@ config_parse_rule(struct uci_section *s, bool v6)
 }
 
 static void
-config_init_devices(void)
+config_init_devices(bool bridge)
 {
 	struct uci_element *e;
 
@@ -242,6 +242,9 @@ config_init_devices(void)
 		type = uci_lookup_option_string(uci_ctx, s, "type");
 		if (type)
 			devtype = device_type_get(type);
+
+		if (bridge != (devtype && devtype->bridge_capability))
+			continue;
 
 		if (devtype)
 			params = devtype->config_params;
@@ -672,9 +675,10 @@ config_init_all(void)
 	device_lock();
 
 	device_reset_config();
-	config_init_devices();
-	config_init_interfaces();
+	config_init_devices(true);
 	config_init_vlans();
+	config_init_devices(false);
+	config_init_interfaces();
 	config_init_ip();
 	config_init_rules();
 	config_init_globals();
