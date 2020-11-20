@@ -109,6 +109,11 @@ void device_unlock(void)
 		device_free_unused(NULL);
 }
 
+static int device_vlan_len(struct kvlist *kv, const void *data)
+{
+	return sizeof(unsigned int);
+}
+
 void device_vlan_update(bool done)
 {
 	struct device *dev;
@@ -117,10 +122,15 @@ void device_vlan_update(bool done)
 		if (!dev->vlans.update)
 			continue;
 
-		if (!done)
+		if (!done) {
+			if (dev->vlan_aliases.get_len)
+				kvlist_free(&dev->vlan_aliases);
+			else
+				kvlist_init(&dev->vlan_aliases, device_vlan_len);
 			vlist_update(&dev->vlans);
-		else
+		} else {
 			vlist_flush(&dev->vlans);
+		}
 	}
 }
 

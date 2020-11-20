@@ -16,6 +16,7 @@
 
 #include <libubox/avl.h>
 #include <libubox/safe_list.h>
+#include <libubox/kvlist.h>
 #include <netinet/in.h>
 
 struct device;
@@ -186,6 +187,7 @@ struct device {
 	struct safe_list aliases;
 
 	struct vlist_tree vlans;
+	struct kvlist vlan_aliases;
 
 	char ifname[IFNAMSIZ + 1];
 	int ifindex;

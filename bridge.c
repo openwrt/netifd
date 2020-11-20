@@ -761,6 +761,7 @@ bridge_free(struct device *dev)
 	bst = container_of(dev, struct bridge_state, dev);
 	vlist_flush_all(&bst->members);
 	vlist_flush_all(&dev->vlans);
+	kvlist_free(&dev->vlan_aliases);
 	free(bst->config_data);
 	free(bst);
 }

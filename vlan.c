@@ -161,7 +161,7 @@ vlan_config_init(struct device *dev)
 	vlan_hotplug_check(vldev, vldev->dep.dev);
 }
 
-static struct device *get_vlan_device(struct device *dev, int id, bool create)
+static struct device *get_vlan_device(struct device *dev, char *id_str, bool create)
 {
 	static struct device_type vlan_type = {
 		.name = "VLAN",
@@ -172,6 +172,17 @@ static struct device *get_vlan_device(struct device *dev, int id, bool create)
 	struct vlan_device *vldev;
 	struct device_user *dep;
 	char name[IFNAMSIZ + 1];
+	char *err = NULL;
+	int id, *alias_id;
+
+	id = strtoul(id_str, &err, 10);
+	if (err && *err) {
+		alias_id = kvlist_get(&dev->vlan_aliases, id_str);
+		if (!alias_id)
+			return NULL;
+
+		id = *alias_id;
+	}
 
 	/* look for an existing interface before creating a new one */
 	list_for_each_entry(dep, &dev->users.list, list.list) {
@@ -238,8 +249,7 @@ out:
 struct device *get_vlan_device_chain(const char *ifname, bool create)
 {
 	struct device *dev = NULL;
-	char *buf, *s, *next, *err = NULL;
-	int id;
+	char *buf, *s, *next;
 
 	buf = strdup(ifname);
 	if (!buf)
@@ -252,11 +262,7 @@ struct device *get_vlan_device_chain(const char *ifname, bool create)
 
 	do {
 		next = split_vlan(s);
-		id = strtoul(s, &err, 10);
-		if (err && *err)
-			goto error;
-
-		dev = get_vlan_device(dev, id, create);
+		dev = get_vlan_device(dev, s, create);
 		if (!dev)
 			goto error;
 

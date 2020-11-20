@@ -279,15 +279,18 @@ config_parse_vlan(struct device *dev, struct uci_section *s)
 		BRVLAN_ATTR_VID,
 		BRVLAN_ATTR_LOCAL,
 		BRVLAN_ATTR_PORTS,
+		BRVLAN_ATTR_ALIAS,
 		__BRVLAN_ATTR_MAX,
 	};
 	static const struct blobmsg_policy vlan_attrs[__BRVLAN_ATTR_MAX] = {
 		[BRVLAN_ATTR_VID] = { "vlan", BLOBMSG_TYPE_INT32 },
 		[BRVLAN_ATTR_LOCAL] = { "local", BLOBMSG_TYPE_BOOL },
 		[BRVLAN_ATTR_PORTS] = { "ports", BLOBMSG_TYPE_ARRAY },
+		[BRVLAN_ATTR_ALIAS] = { "alias", BLOBMSG_TYPE_ARRAY },
 	};
 	static const struct uci_blob_param_info vlan_attr_info[__BRVLAN_ATTR_MAX] = {
 		[BRVLAN_ATTR_PORTS] = { .type = BLOBMSG_TYPE_STRING },
+		[BRVLAN_ATTR_ALIAS] = { .type = BLOBMSG_TYPE_STRING },
 	};
 	static const struct uci_blob_param_list vlan_attr_list = {
 		.n_params = __BRVLAN_ATTR_MAX,
@@ -362,6 +365,9 @@ config_parse_vlan(struct device *dev, struct uci_section *s)
 		name_buf += strlen(name_buf) + 1;
 		port++;
 	}
+
+	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_ALIAS], rem)
+		kvlist_set(&dev->vlan_aliases, blobmsg_get_string(cur), &vid);
 
 	vlist_add(&dev->vlans, &vlan->node, &vlan->vid);
 }
