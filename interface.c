@@ -1081,7 +1081,8 @@ interface_handle_link(struct interface *iface, const char *name,
 
 	if (add) {
 		interface_set_device_config(iface, dev);
-		device_set_present(dev, true);
+		if (!link_ext)
+			device_set_present(dev, true);
 
 		ret = interface_add_link(iface, dev, vlan, link_ext);
 	} else {
