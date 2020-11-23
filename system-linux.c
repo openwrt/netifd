@@ -813,11 +813,20 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 {
 	char buf[64];
 	char *oldbr;
-	int ret = 0;
+	int tries = 0;
+	int ret;
 
+retry:
+	ret = 0;
 	oldbr = system_get_bridge(dev->ifname, dev_buf, sizeof(dev_buf));
-	if (!oldbr || strcmp(oldbr, bridge->ifname) != 0)
+	if (!oldbr || strcmp(oldbr, bridge->ifname) != 0) {
 		ret = system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
+		tries++;
+		D(SYSTEM, "Failed to add device '%s' to bridge '%s' (tries=%d): %s\n",
+		  dev->ifname, bridge->ifname, tries, strerror(errno));
+		if (tries <= 3)
+			goto retry;
+	}
 
 	if (dev->wireless)
 		system_bridge_set_wireless(bridge, dev);
