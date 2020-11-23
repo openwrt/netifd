@@ -597,7 +597,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (!system_get_dev_sysctl("/sys/class/net/%s/carrier", dev->ifname, buf, sizeof(buf)))
 		link_state = strtoul(buf, NULL, 0);
 
-	if (dev->type == &simple_device_type && !system_if_force_external(dev->ifname))
+	if (dev->type == &simple_device_type)
 		device_set_present(dev, true);
 
 	device_set_link(dev, link_state ? true : false);
@@ -677,9 +677,6 @@ found:
 		return;
 
 	if (dev->type != &simple_device_type)
-		return;
-
-	if (add && system_if_force_external(dev->ifname))
 		return;
 
 	device_set_present(dev, add);
