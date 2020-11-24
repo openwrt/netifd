@@ -43,6 +43,7 @@ enum {
 	ROUTE_ONLINK,
 	ROUTE_TYPE,
 	ROUTE_PROTO,
+	ROUTE_DISABLED,
 	__ROUTE_MAX
 };
 
@@ -59,6 +60,7 @@ static const struct blobmsg_policy route_attr[__ROUTE_MAX] = {
 	[ROUTE_ONLINK] = { .name = "onlink", .type = BLOBMSG_TYPE_BOOL },
 	[ROUTE_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
 	[ROUTE_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
+	[ROUTE_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list route_attr_list = {
@@ -393,6 +395,9 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	int af = v6 ? AF_INET6 : AF_INET;
 
 	blobmsg_parse(route_attr, __ROUTE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+
+	if ((cur = tb[ROUTE_DISABLED]) != NULL && blobmsg_get_bool(cur))
+		return;
 
 	if (!iface) {
 		if ((cur = tb[ROUTE_INTERFACE]) == NULL)
