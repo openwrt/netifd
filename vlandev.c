@@ -31,7 +31,7 @@ enum {
 
 static const struct blobmsg_policy vlandev_attrs[__VLANDEV_ATTR_MAX] = {
 	[VLANDEV_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_STRING },
-	[VLANDEV_ATTR_VID] = { "vid", BLOBMSG_TYPE_INT32 },
+	[VLANDEV_ATTR_VID] = { "vid", BLOBMSG_TYPE_STRING },
 	[VLANDEV_ATTR_INGRESS_QOS_MAPPING] = { "ingress_qos_mapping", BLOBMSG_TYPE_ARRAY },
 	[VLANDEV_ATTR_EGRESS_QOS_MAPPING] = { "egress_qos_mapping", BLOBMSG_TYPE_ARRAY },
 };
@@ -55,6 +55,8 @@ struct vlandev_device {
 
 	struct blob_attr *config_data;
 	struct blob_attr *ifname;
+	struct blob_attr *vid;
+
 	struct vlandev_config config;
 };
 
@@ -234,6 +236,28 @@ vlandev_dump_info(struct device *dev, struct blob_buf *b)
 	vlandev_qos_mapping_dump(b, "egress_qos_mapping", &mvdev->config.egress_qos_mapping_list);
 }
 
+static uint16_t
+vlandev_get_vid(struct device *dev, const char *id_str)
+{
+	unsigned long id;
+	uint16_t *alias_id;
+	char *err;
+
+	id = strtoul(id_str, &err, 10);
+	if (err && *err) {
+		if (!dev)
+			return 1;
+
+		alias_id = kvlist_get(&dev->vlan_aliases, id_str);
+		if (!alias_id)
+			return 1;
+
+		id = *alias_id;
+	}
+
+	return (uint16_t)id;
+}
+
 static void
 vlandev_config_init(struct device *dev)
 {
@@ -243,6 +267,11 @@ vlandev_config_init(struct device *dev)
 	mvdev = container_of(dev, struct vlandev_device, dev);
 	if (mvdev->ifname)
 		basedev = device_get(blobmsg_data(mvdev->ifname), true);
+
+	if (mvdev->vid)
+		mvdev->config.vid = vlandev_get_vid(basedev, blobmsg_get_string(mvdev->vid));
+	else
+		mvdev->config.vid = 1;
 
 	device_add_user(&mvdev->parent, basedev);
 	vlandev_hotplug_check(mvdev);
@@ -282,13 +311,9 @@ vlandev_apply_settings(struct vlandev_device *mvdev, struct blob_attr **tb)
 
 	cfg->proto = (mvdev->dev.type == &vlan8021q_device_type) ?
 		VLAN_PROTO_8021Q : VLAN_PROTO_8021AD;
-	cfg->vid = 1;
 
 	vlist_simple_update(&cfg->ingress_qos_mapping_list);
 	vlist_simple_update(&cfg->egress_qos_mapping_list);
-
-	if ((cur = tb[VLANDEV_ATTR_VID]))
-		cfg->vid = (uint16_t) blobmsg_get_u32(cur);
 
 	if ((cur = tb[VLANDEV_ATTR_INGRESS_QOS_MAPPING]))
 		vlandev_qos_mapping_list_apply(&cfg->ingress_qos_mapping_list, cur);
@@ -319,6 +344,7 @@ vlandev_reload(struct device *dev, struct blob_attr *attr)
 	device_init_settings(dev, tb_dev);
 	vlandev_apply_settings(mvdev, tb_mv);
 	mvdev->ifname = tb_mv[VLANDEV_ATTR_IFNAME];
+	mvdev->vid = tb_mv[VLANDEV_ATTR_VID];
 
 	if (mvdev->config_data) {
 		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
