@@ -229,6 +229,7 @@ vlandev_dump_info(struct device *dev, struct blob_buf *b)
 	mvdev = container_of(dev, struct vlandev_device, dev);
 	blobmsg_add_string(b, "parent", mvdev->parent.dev->ifname);
 	system_if_dump_info(dev, b);
+	blobmsg_add_u32(b, "vid", mvdev->config.vid);
 	vlandev_qos_mapping_dump(b, "ingress_qos_mapping", &mvdev->config.ingress_qos_mapping_list);
 	vlandev_qos_mapping_dump(b, "egress_qos_mapping", &mvdev->config.egress_qos_mapping_list);
 }
