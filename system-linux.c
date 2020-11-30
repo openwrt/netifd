@@ -1642,74 +1642,76 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	struct ifreq ifr;
 	char buf[12];
 
+	apply_mask &= s->flags;
+
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
-	if (s->flags & DEV_OPT_MTU & apply_mask) {
+	if (apply_mask & DEV_OPT_MTU) {
 		ifr.ifr_mtu = s->mtu;
 		if (ioctl(sock_ioctl, SIOCSIFMTU, &ifr) < 0)
 			s->flags &= ~DEV_OPT_MTU;
 	}
-	if (s->flags & DEV_OPT_MTU6 & apply_mask) {
+	if (apply_mask & DEV_OPT_MTU6) {
 		system_update_ipv6_mtu(dev, s->mtu6);
 	}
-	if (s->flags & DEV_OPT_TXQUEUELEN & apply_mask) {
+	if (apply_mask & DEV_OPT_TXQUEUELEN) {
 		ifr.ifr_qlen = s->txqueuelen;
 		if (ioctl(sock_ioctl, SIOCSIFTXQLEN, &ifr) < 0)
 			s->flags &= ~DEV_OPT_TXQUEUELEN;
 	}
-	if ((s->flags & DEV_OPT_MACADDR & apply_mask) && !dev->external) {
+	if ((apply_mask & DEV_OPT_MACADDR) && !dev->external) {
 		ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 		memcpy(&ifr.ifr_hwaddr.sa_data, s->macaddr, sizeof(s->macaddr));
 		if (ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr) < 0)
 			s->flags &= ~DEV_OPT_MACADDR;
 	}
-	if (s->flags & DEV_OPT_IPV6 & apply_mask)
+	if (apply_mask & DEV_OPT_IPV6)
 		system_set_disable_ipv6(dev, s->ipv6 ? "0" : "1");
-	if (s->flags & DEV_OPT_PROMISC & apply_mask) {
+	if (apply_mask & DEV_OPT_PROMISC) {
 		if (system_if_flags(dev->ifname, s->promisc ? IFF_PROMISC : 0,
 				    !s->promisc ? IFF_PROMISC : 0) < 0)
 			s->flags &= ~DEV_OPT_PROMISC;
 	}
-	if (s->flags & DEV_OPT_RPFILTER & apply_mask) {
+	if (apply_mask & DEV_OPT_RPFILTER) {
 		snprintf(buf, sizeof(buf), "%u", s->rpfilter);
 		system_set_rpfilter(dev, buf);
 	}
-	if (s->flags & DEV_OPT_ACCEPTLOCAL & apply_mask)
+	if (apply_mask & DEV_OPT_ACCEPTLOCAL)
 		system_set_acceptlocal(dev, s->acceptlocal ? "1" : "0");
-	if (s->flags & DEV_OPT_IGMPVERSION & apply_mask) {
+	if (apply_mask & DEV_OPT_IGMPVERSION) {
 		snprintf(buf, sizeof(buf), "%u", s->igmpversion);
 		system_set_igmpversion(dev, buf);
 	}
-	if (s->flags & DEV_OPT_MLDVERSION & apply_mask) {
+	if (apply_mask & DEV_OPT_MLDVERSION) {
 		snprintf(buf, sizeof(buf), "%u", s->mldversion);
 		system_set_mldversion(dev, buf);
 	}
-	if (s->flags & DEV_OPT_NEIGHREACHABLETIME & apply_mask) {
+	if (apply_mask & DEV_OPT_NEIGHREACHABLETIME) {
 		snprintf(buf, sizeof(buf), "%u", s->neigh4reachabletime);
 		system_set_neigh4reachabletime(dev, buf);
 		snprintf(buf, sizeof(buf), "%u", s->neigh6reachabletime);
 		system_set_neigh6reachabletime(dev, buf);
 	}
-	if (s->flags & DEV_OPT_NEIGHLOCKTIME & apply_mask) {
+	if (apply_mask & DEV_OPT_NEIGHLOCKTIME) {
 		snprintf(buf, sizeof(buf), "%d", s->neigh4locktime);
 		system_set_neigh4locktime(dev, buf);
 	}
-	if (s->flags & DEV_OPT_NEIGHGCSTALETIME & apply_mask) {
+	if (apply_mask & DEV_OPT_NEIGHGCSTALETIME) {
 		snprintf(buf, sizeof(buf), "%u", s->neigh4gcstaletime);
 		system_set_neigh4gcstaletime(dev, buf);
 		snprintf(buf, sizeof(buf), "%u", s->neigh6gcstaletime);
 		system_set_neigh6gcstaletime(dev, buf);
 	}
-	if (s->flags & DEV_OPT_DADTRANSMITS & apply_mask) {
+	if (apply_mask & DEV_OPT_DADTRANSMITS) {
 		snprintf(buf, sizeof(buf), "%u", s->dadtransmits);
 		system_set_dadtransmits(dev, buf);
 	}
-	if (s->flags & DEV_OPT_MULTICAST & apply_mask) {
+	if (apply_mask & DEV_OPT_MULTICAST) {
 		if (system_if_flags(dev->ifname, s->multicast ? IFF_MULTICAST : 0,
 				    !s->multicast ? IFF_MULTICAST : 0) < 0)
 			s->flags &= ~DEV_OPT_MULTICAST;
 	}
-	if (s->flags & DEV_OPT_SENDREDIRECTS & apply_mask)
+	if (apply_mask & DEV_OPT_SENDREDIRECTS)
 		system_set_sendredirects(dev, s->sendredirects ? "1" : "0");
 }
 
