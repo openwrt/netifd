@@ -18,6 +18,8 @@
 
 #include <uci.h>
 
+#include <libubox/blobmsg_json.h>
+
 #include "netifd.h"
 #include "interface.h"
 #include "interface-ip.h"
@@ -31,6 +33,7 @@ bool config_init = false;
 static struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
 static struct uci_package *uci_wireless;
+static struct blob_attr *board_netdevs;
 static struct blob_buf b;
 
 static int
@@ -654,6 +657,57 @@ config_init_wireless(void)
 	}
 }
 
+
+static struct blob_attr *
+config_find_blobmsg_attr(struct blob_attr *attr, const char *name, int type)
+{
+	struct blobmsg_policy policy = { .name = name, .type = type };
+	struct blob_attr *cur;
+
+	blobmsg_parse(&policy, 1, &cur, blobmsg_data(attr), blobmsg_len(attr));
+
+	return cur;
+}
+
+struct ether_addr *config_get_default_macaddr(const char *ifname)
+{
+	struct blob_attr *cur;
+
+	if (!board_netdevs)
+		return NULL;
+
+	cur = config_find_blobmsg_attr(board_netdevs, ifname, BLOBMSG_TYPE_TABLE);
+	if (!cur)
+		return NULL;
+
+	cur = config_find_blobmsg_attr(cur, "macaddr", BLOBMSG_TYPE_STRING);
+	if (!cur)
+		return NULL;
+
+	return ether_aton(blobmsg_get_string(cur));
+}
+
+static void
+config_init_board(void)
+{
+	struct blob_attr *cur;
+
+	blob_buf_init(&b, 0);
+
+	if (!blobmsg_add_json_from_file(&b, DEFAULT_BOARD_JSON))
+		return;
+
+	free(board_netdevs);
+	board_netdevs = NULL;
+
+	cur = config_find_blobmsg_attr(b.head, "network-device",
+				       BLOBMSG_TYPE_TABLE);
+	if (!cur)
+		return;
+
+	board_netdevs = blob_memdup(cur);
+}
+
 int
 config_init_all(void)
 {
@@ -675,6 +729,8 @@ config_init_all(void)
 		free(err);
 		ret = -1;
 	}
+
+	config_init_board();
 
 	vlist_update(&interfaces);
 	config_init = true;

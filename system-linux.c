@@ -28,8 +28,8 @@
 
 #include <limits.h>
 #include <arpa/inet.h>
-#include <netinet/ether.h>
 #include <netinet/in.h>
+#include <netinet/ether.h>
 
 #include <linux/rtnetlink.h>
 #include <linux/neighbour.h>
@@ -1659,7 +1659,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 		if (ioctl(sock_ioctl, SIOCSIFTXQLEN, &ifr) < 0)
 			s->flags &= ~DEV_OPT_TXQUEUELEN;
 	}
-	if ((apply_mask & DEV_OPT_MACADDR) && !dev->external) {
+	if ((apply_mask & (DEV_OPT_MACADDR | DEV_OPT_DEFAULT_MACADDR)) && !dev->external) {
 		ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 		memcpy(&ifr.ifr_hwaddr.sa_data, s->macaddr, sizeof(s->macaddr));
 		if (ioctl(sock_ioctl, SIOCSIFHWADDR, &ifr) < 0)

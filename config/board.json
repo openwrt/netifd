@@ -1,0 +1,52 @@
+{
+    "model": {
+        "id": "netgear,gs110tpp-v1",
+        "name": "Netgear GS110TPP"
+    },
+    "bridge": {
+        "name": "switch",
+        "macaddr": "bc:a5:11:16:76:d7"
+    },
+    "network": {
+        "wan": {
+            "ifname": " lan1 lan2 lan3 lan4 lan5 lan6 lan7 lan8",
+            "protocol": "dhcp",
+            "macaddr": "bc:a5:11:16:76:d7"
+        },
+        "lan": {
+            "ifname": "lan1",
+            "protocol": "static",
+            "vlan": "100",
+            "macaddr": "be:a5:11:16:76:d7"
+        }
+    },
+    "network-device": {
+        "eth0": {
+            "macaddr": "bc:a5:11:16:76:d7"
+        },
+        "lan1": {
+            "macaddr": "be:a5:11:16:76:d7"
+        },
+        "lan2": {
+            "macaddr": "be:a5:11:16:76:d8"
+        },
+        "lan3": {
+            "macaddr": "be:a5:11:16:76:d9"
+        },
+        "lan4": {
+            "macaddr": "be:a5:11:16:76:da"
+        },
+        "lan5": {
+            "macaddr": "be:a5:11:16:76:db"
+        },
+        "lan6": {
+            "macaddr": "be:a5:11:16:76:dc"
+        },
+        "lan7": {
+            "macaddr": "be:a5:11:16:76:dd"
+        },
+        "lan8": {
+            "macaddr": "be:a5:11:16:76:de"
+        }
+    }
+}

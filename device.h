@@ -93,7 +93,8 @@ enum {
 	DEV_OPT_IGMPVERSION		= (1 << 7),
 	DEV_OPT_MLDVERSION		= (1 << 8),
 	DEV_OPT_NEIGHREACHABLETIME	= (1 << 9),
-	/* 2 bit hole */
+	DEV_OPT_DEFAULT_MACADDR		= (1 << 10),
+	/* 1 bit hole */
 	DEV_OPT_MTU6			= (1 << 12),
 	DEV_OPT_DADTRANSMITS		= (1 << 13),
 	DEV_OPT_MULTICAST_TO_UNICAST	= (1 << 14),

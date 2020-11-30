@@ -20,5 +20,6 @@
 extern bool config_init;
 
 int config_init_all(void);
+struct ether_addr *config_get_default_macaddr(const char *ifname);
 
 #endif

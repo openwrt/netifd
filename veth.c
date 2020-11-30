@@ -18,11 +18,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <errno.h>
-#include <net/ethernet.h>
-
-#ifdef linux
-#include <netinet/ether.h>
-#endif
 
 #include "netifd.h"
 #include "device.h"

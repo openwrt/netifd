@@ -18,11 +18,6 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <net/ethernet.h>
-
-#ifdef linux
-#include <netinet/ether.h>
-#endif
 
 #include <libubox/list.h>
 
@@ -232,7 +227,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->txqueuelen = s->flags & DEV_OPT_TXQUEUELEN ?
 		s->txqueuelen : os->txqueuelen;
 	memcpy(n->macaddr,
-		(s->flags & DEV_OPT_MACADDR ? s->macaddr : os->macaddr),
+		(s->flags & (DEV_OPT_MACADDR|DEV_OPT_DEFAULT_MACADDR) ? s->macaddr : os->macaddr),
 		sizeof(n->macaddr));
 	n->ipv6 = s->flags & DEV_OPT_IPV6 ? s->ipv6 : os->ipv6;
 	n->promisc = s->flags & DEV_OPT_PROMISC ? s->promisc : os->promisc;
@@ -430,6 +425,21 @@ void device_broadcast_event(struct device *dev, enum device_event ev)
 	safe_list_for_each(&dev->users, device_broadcast_cb, &dev_ev);
 }
 
+static void
+device_fill_default_settings(struct device *dev)
+{
+	struct device_settings *s = &dev->settings;
+	struct ether_addr *ea;
+
+	if (!(s->flags & DEV_OPT_MACADDR)) {
+		ea = config_get_default_macaddr(dev->ifname);
+		if (ea) {
+			memcpy(s->macaddr, ea, 6);
+			s->flags |= DEV_OPT_DEFAULT_MACADDR;
+		}
+	}
+}
+
 int device_claim(struct device_user *dep)
 {
 	struct device *dev = dep->dev;
@@ -447,6 +457,7 @@ int device_claim(struct device_user *dep)
 		return 0;
 
 	device_broadcast_event(dev, DEV_EVENT_SETUP);
+	device_fill_default_settings(dev);
 	if (dev->external) {
 		/* Get ifindex for external claimed devices so a valid   */
 		/* ifindex is in place avoiding possible race conditions */

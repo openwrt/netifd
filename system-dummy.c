@@ -159,7 +159,9 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 void
 system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
 {
-	if ((s->flags & DEV_OPT_MACADDR & apply_mask) && !dev->external) {
+	apply_mask &= s->flags;
+
+	if ((apply_mask & (DEV_OPT_MACADDR | DEV_OPT_DEFAULT_MACADDR)) && !dev->external) {
 		D(SYSTEM, "ifconfig %s hw ether %s\n",
 		  dev->ifname, format_macaddr(s->macaddr));
 	}

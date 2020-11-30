@@ -26,6 +26,12 @@
 
 #include <libubus.h>
 
+#ifdef linux
+#include <netinet/ether.h>
+#else
+#include <net/ethernet.h>
+#endif
+
 #include "utils.h"
 
 #ifdef DUMMY_MODE
@@ -33,11 +39,13 @@
 #define DEFAULT_CONFIG_PATH	"./config"
 #define DEFAULT_HOTPLUG_PATH	"./examples/hotplug-cmd"
 #define DEFAULT_RESOLV_CONF	"./tmp/resolv.conf"
+#define DEFAULT_BOARD_JSON	"./config/board.json"
 #else
 #define DEFAULT_MAIN_PATH	"/lib/netifd"
 #define DEFAULT_CONFIG_PATH	NULL /* use the default set in libuci */
 #define DEFAULT_HOTPLUG_PATH	"/sbin/hotplug-call"
 #define DEFAULT_RESOLV_CONF	"/tmp/resolv.conf.d/resolv.conf.auto"
+#define DEFAULT_BOARD_JSON	"/etc/board.json"
 #endif
 
 extern const char *resolv_conf;

@@ -22,12 +22,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#ifdef linux
-#include <netinet/ether.h>
-#else
-#include <net/ethernet.h>
-#endif
-
 #include "netifd.h"
 #include "device.h"
 #include "interface.h"
