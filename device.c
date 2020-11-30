@@ -143,10 +143,17 @@ static int set_device_state(struct device *dev, bool state)
 		if (!dev->ifindex)
 			return -1;
 
+		system_if_get_settings(dev, &dev->orig_settings);
+		/* Only keep orig settings based on what needs to be set */
+		dev->orig_settings.valid_flags = dev->orig_settings.flags;
+		dev->orig_settings.flags &= dev->settings.flags;
+		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
+
 		system_if_up(dev);
-	}
-	else
+	} else {
 		system_if_down(dev);
+		system_if_apply_settings(dev, &dev->orig_settings, dev->orig_settings.flags);
+	}
 
 	return 0;
 }

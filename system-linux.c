@@ -1717,19 +1717,12 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 
 int system_if_up(struct device *dev)
 {
-	system_if_get_settings(dev, &dev->orig_settings);
-	/* Only keep orig settings based on what needs to be set */
-	dev->orig_settings.valid_flags = dev->orig_settings.flags;
-	dev->orig_settings.flags &= dev->settings.flags;
-	system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 	return system_if_flags(dev->ifname, IFF_UP, 0);
 }
 
 int system_if_down(struct device *dev)
 {
-	int ret = system_if_flags(dev->ifname, 0, IFF_UP);
-	system_if_apply_settings(dev, &dev->orig_settings, dev->orig_settings.flags);
-	return ret;
+	return system_if_flags(dev->ifname, 0, IFF_UP);
 }
 
 struct if_check_data {
