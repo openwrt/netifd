@@ -1286,6 +1286,13 @@ static struct ubus_object wireless_object = {
 };
 
 int
+netifd_extdev_invoke(uint32_t id, const char *method, struct blob_attr *msg,
+         ubus_data_handler_t data_cb, void *data)
+{
+	return ubus_invoke(ubus_ctx, id, method, msg, data_cb, data, 3000);
+}
+
+int
 netifd_ubus_init(const char *path)
 {
 	uloop_init();

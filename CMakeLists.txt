@@ -20,7 +20,8 @@ SET(SOURCES
 	interface.c interface-ip.c interface-event.c
 	iprule.c proto.c proto-static.c proto-shell.c
 	config.c device.c bridge.c veth.c vlan.c alias.c
-	macvlan.c ubus.c vlandev.c wireless.c)
+	macvlan.c ubus.c vlandev.c wireless.c
+	extdev.c)
 
 
 SET(LIBS
