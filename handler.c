@@ -79,6 +79,65 @@ netifd_init_script_handler(const char *script, json_object *obj, script_dump_cb 
 }
 
 static void
+netifd_init_extdev_handler(const char *config_file, json_object *obj,
+			   create_extdev_handler_cb cb)
+{
+	json_object *tmp, *cfg, *info, *stats;
+	const char *name, *ubus_name, *br_prefix = NULL;
+	bool bridge_support = true;
+	char *err_missing;
+
+	if (!json_check_type(obj, json_type_object))
+		return;
+
+	tmp = json_get_field(obj, "name", json_type_string);
+	if (!tmp) {
+		err_missing = "name";
+		goto field_missing;
+	}
+
+	name = json_object_get_string(tmp);
+
+	tmp = json_get_field(obj, "ubus_name", json_type_string);
+	if (!tmp) {
+		err_missing = "ubus_name";
+		goto field_missing;
+	}
+
+	ubus_name = json_object_get_string(tmp);
+
+	tmp = json_get_field(obj, "bridge", json_type_string);
+	if (!tmp || !strcmp(json_object_get_string(tmp), "0"))
+		bridge_support = false;
+
+	if (bridge_support) {
+		tmp = json_get_field(obj, "br-prefix", json_type_string);
+		if (!tmp)
+			br_prefix = name;
+		else
+			br_prefix = json_object_get_string(tmp);
+	}
+
+	tmp = json_get_field(obj, "config", json_type_array);
+	if (!tmp) {
+		err_missing = "config";
+		goto field_missing;
+	}
+
+	cfg = tmp;
+
+	info = json_get_field(obj, "info", json_type_array);
+	stats = json_get_field(obj, "stats", json_type_array);
+
+	cb(config_file, name, ubus_name, bridge_support, br_prefix, cfg, info, stats);
+	return;
+
+field_missing:
+	netifd_log_message(L_WARNING, "external device handler description '%s' is"
+			       "missing field '%s'\n", config_file, err_missing);
+}
+
+static void
 netifd_parse_script_handler(const char *name, script_dump_cb cb)
 {
 	struct json_tokener *tok = NULL;
@@ -125,6 +184,48 @@ netifd_parse_script_handler(const char *name, script_dump_cb cb)
 	pclose(f);
 }
 
+static void
+netifd_parse_extdev_handler(const char *path_to_file, create_extdev_handler_cb cb)
+{
+	struct json_tokener *tok = NULL;
+	json_object *obj;
+	FILE *file;
+	int len;
+	char buf[512], *start;
+
+	file = fopen(path_to_file, "r");
+	if (!file)
+		return;
+
+	do {
+		start = fgets(buf, sizeof(buf), file);
+		if (!start)
+			continue;
+
+		len = strlen(start);
+
+		if (!tok)
+			tok = json_tokener_new();
+
+		obj = json_tokener_parse_ex(tok, start, len);
+
+		if (obj) {
+			netifd_init_extdev_handler(path_to_file, obj, cb);
+			json_object_put(obj);
+			json_tokener_free(tok);
+			tok = NULL;
+		} else if (start[len - 1] == '\n') {
+			json_tokener_free(tok);
+			tok = NULL;
+		}
+	} while (!feof(file) && !ferror(file));
+
+	if (tok)
+		json_tokener_free(tok);
+
+	fclose(file);
+}
+
 void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 {
 	glob_t g;
@@ -141,6 +242,19 @@ void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 	netifd_dir_pop(prev_fd);
 
 	globfree(&g);
+}
+
+void
+netifd_init_extdev_handlers(int dir_fd, create_extdev_handler_cb cb)
+{
+	glob_t g;
+	int prev_fd;
+
+	prev_fd = netifd_dir_push(dir_fd);
+	glob("*.json", 0, NULL, &g);
+	for (int i = 0; i < g.gl_pathc; i++)
+		netifd_parse_extdev_handler(g.gl_pathv[i], cb);
+	netifd_dir_pop(prev_fd);
 }
 
 char *
