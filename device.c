@@ -78,9 +78,6 @@ int device_type_add(struct device_type *devtype)
 	return 0;
 }
 
-/* Retrieve the device type for the given name. If 'bridge' is true, the type
- * must have bridge capabilities
- */
 struct device_type *
 device_type_get(const char *tname)
 {
