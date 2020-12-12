@@ -359,6 +359,11 @@ static void system_set_dadtransmits(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits", dev->ifname, val);
 }
 
+static void system_set_sendredirects(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects", dev->ifname, val);
+}
+
 static void system_bridge_set_multicast_to_unicast(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("/sys/class/net/%s/brport/multicast_to_unicast", dev->ifname, val);
@@ -468,11 +473,6 @@ static void system_bridge_set_learning(struct device *dev, const char *val)
 static void system_bridge_set_unicast_flood(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("/sys/class/net/%s/brport/unicast_flood", dev->ifname, val);
-}
-
-static void system_set_sendredirects(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects", dev->ifname, val);
 }
 
 static void system_bridge_set_vlan_filtering(struct device *dev, const char *val)
