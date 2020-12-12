@@ -54,6 +54,11 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_SENDREDIRECTS] = { .name = "sendredirects", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_NEIGHLOCKTIME] = { .name = "neighlocktime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_DROP_V4_UNICAST_IN_L2_MULTICAST] = { .name = "drop_v4_unicast_in_l2_multicast", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_DROP_V6_UNICAST_IN_L2_MULTICAST] = { .name = "drop_v6_unicast_in_l2_multicast", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_DROP_GRATUITOUS_ARP] = { .name = "drop_gratuitous_arp", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_DROP_UNSOLICITED_NA] = { .name = "drop_unsolicited_na", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_ARP_ACCEPT] = { .name = "arp_accept", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -255,6 +260,16 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->unicast_flood = s->unicast_flood;
 	n->sendredirects = s->flags & DEV_OPT_SENDREDIRECTS ?
 		s->sendredirects : os->sendredirects;
+	n->drop_v4_unicast_in_l2_multicast = s->flags & DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST ?
+		s->drop_v4_unicast_in_l2_multicast : os->drop_v4_unicast_in_l2_multicast;
+	n->drop_v6_unicast_in_l2_multicast = s->flags & DEV_OPT_DROP_V6_UNICAST_IN_L2_MULTICAST ?
+		s->drop_v6_unicast_in_l2_multicast : os->drop_v6_unicast_in_l2_multicast;
+	n->drop_gratuitous_arp = s->flags & DEV_OPT_DROP_GRATUITOUS_ARP ?
+		s->drop_gratuitous_arp : os->drop_gratuitous_arp;
+	n->drop_unsolicited_na = s->flags & DEV_OPT_DROP_UNSOLICITED_NA ?
+		s->drop_unsolicited_na : os->drop_unsolicited_na;
+	n->arp_accept = s->flags & DEV_OPT_ARP_ACCEPT ?
+		s->arp_accept : os->arp_accept;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -397,6 +412,31 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_ISOLATE])) {
 		s->isolate = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_ISOLATE;
+	}
+
+	if ((cur = tb[DEV_ATTR_DROP_V4_UNICAST_IN_L2_MULTICAST])) {
+		s->drop_v4_unicast_in_l2_multicast = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST;
+	}
+
+	if ((cur = tb[DEV_ATTR_DROP_V6_UNICAST_IN_L2_MULTICAST])) {
+		s->drop_v6_unicast_in_l2_multicast = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_DROP_V6_UNICAST_IN_L2_MULTICAST;
+	}
+
+	if ((cur = tb[DEV_ATTR_DROP_GRATUITOUS_ARP])) {
+		s->drop_gratuitous_arp = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_DROP_GRATUITOUS_ARP;
+	}
+
+	if ((cur = tb[DEV_ATTR_DROP_UNSOLICITED_NA])) {
+		s->drop_unsolicited_na = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_DROP_UNSOLICITED_NA;
+	}
+
+	if ((cur = tb[DEV_ATTR_ARP_ACCEPT])) {
+		s->arp_accept = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_ARP_ACCEPT;
 	}
 
 	device_set_disabled(dev, disabled);
@@ -1107,6 +1147,16 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "unicast_flood", st.unicast_flood);
 		if (st.flags & DEV_OPT_SENDREDIRECTS)
 			blobmsg_add_u8(b, "sendredirects", st.sendredirects);
+		if (st.flags & DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST)
+			blobmsg_add_u8(b, "drop_v4_unicast_in_l2_multicast", st.drop_v4_unicast_in_l2_multicast);
+		if (st.flags & DEV_OPT_DROP_V6_UNICAST_IN_L2_MULTICAST)
+			blobmsg_add_u8(b, "drop_v6_unicast_in_l2_multicast", st.drop_v6_unicast_in_l2_multicast);
+		if (st.flags & DEV_OPT_DROP_GRATUITOUS_ARP)
+			blobmsg_add_u8(b, "drop_gratuitous_arp", st.drop_gratuitous_arp);
+		if (st.flags & DEV_OPT_DROP_UNSOLICITED_NA)
+			blobmsg_add_u8(b, "drop_unsolicited_na", st.drop_unsolicited_na);
+		if (st.flags & DEV_OPT_ARP_ACCEPT)
+			blobmsg_add_u8(b, "arp_accept", st.arp_accept);
 	}
 
 	s = blobmsg_open_table(b, "statistics");

@@ -364,6 +364,31 @@ static void system_set_sendredirects(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects", dev->ifname, val);
 }
 
+static void system_set_drop_v4_unicast_in_l2_multicast(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_unicast_in_l2_multicast", dev->ifname, val);
+}
+
+static void system_set_drop_v6_unicast_in_l2_multicast(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unicast_in_l2_multicast", dev->ifname, val);
+}
+
+static void system_set_drop_gratuitous_arp(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_gratuitous_arp", dev->ifname, val);
+}
+
+static void system_set_drop_unsolicited_na(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unsolicited_na", dev->ifname, val);
+}
+
+static void system_set_arp_accept(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/arp_accept", dev->ifname, val);
+}
+
 static void system_bridge_set_multicast_to_unicast(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("/sys/class/net/%s/brport/multicast_to_unicast", dev->ifname, val);
@@ -583,6 +608,37 @@ static int system_get_dadtransmits(struct device *dev, char *buf, const size_t b
 static int system_get_sendredirects(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects",
+			dev->ifname, buf, buf_sz);
+}
+
+
+static int system_get_drop_v4_unicast_in_l2_multicast(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_unicast_in_l2_multicast",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_drop_v6_unicast_in_l2_multicast(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unicast_in_l2_multicast",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_drop_gratuitous_arp(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_gratuitous_arp",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_drop_unsolicited_na(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unsolicited_na",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_arp_accept(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/arp_accept",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -1650,6 +1706,31 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->sendredirects = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_SENDREDIRECTS;
 	}
+
+	if (!system_get_drop_v4_unicast_in_l2_multicast(dev, buf, sizeof(buf))) {
+		s->drop_v4_unicast_in_l2_multicast = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST;
+	}
+
+	if (!system_get_drop_v6_unicast_in_l2_multicast(dev, buf, sizeof(buf))) {
+		s->drop_v6_unicast_in_l2_multicast = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_DROP_V6_UNICAST_IN_L2_MULTICAST;
+	}
+
+	if (!system_get_drop_gratuitous_arp(dev, buf, sizeof(buf))) {
+		s->drop_gratuitous_arp = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_DROP_GRATUITOUS_ARP;
+	}
+
+	if (!system_get_drop_unsolicited_na(dev, buf, sizeof(buf))) {
+		s->drop_unsolicited_na = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_DROP_UNSOLICITED_NA;
+	}
+
+	if (!system_get_arp_accept(dev, buf, sizeof(buf))) {
+		s->arp_accept = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_ARP_ACCEPT;
+	}
 }
 
 void
@@ -1738,6 +1819,16 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	}
 	if (apply_mask & DEV_OPT_SENDREDIRECTS)
 		system_set_sendredirects(dev, s->sendredirects ? "1" : "0");
+	if (apply_mask & DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST)
+		system_set_drop_v4_unicast_in_l2_multicast(dev, s->drop_v4_unicast_in_l2_multicast ? "1" : "0");
+	if (apply_mask & DEV_OPT_DROP_V6_UNICAST_IN_L2_MULTICAST)
+		system_set_drop_v6_unicast_in_l2_multicast(dev, s->drop_v6_unicast_in_l2_multicast ? "1" : "0");
+	if (apply_mask & DEV_OPT_DROP_GRATUITOUS_ARP)
+		system_set_drop_gratuitous_arp(dev, s->drop_gratuitous_arp ? "1" : "0");
+	if (apply_mask & DEV_OPT_DROP_UNSOLICITED_NA)
+		system_set_drop_unsolicited_na(dev, s->drop_unsolicited_na ? "1" : "0");
+	if (apply_mask & DEV_OPT_ARP_ACCEPT)
+		system_set_arp_accept(dev, s->arp_accept ? "1" : "0");
 }
 
 int system_if_up(struct device *dev)

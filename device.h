@@ -54,6 +54,11 @@ enum {
 	DEV_ATTR_NEIGHLOCKTIME,
 	DEV_ATTR_ISOLATE,
 	DEV_ATTR_IP6SEGMENTROUTING,
+	DEV_ATTR_DROP_V4_UNICAST_IN_L2_MULTICAST,
+	DEV_ATTR_DROP_V6_UNICAST_IN_L2_MULTICAST,
+	DEV_ATTR_DROP_GRATUITOUS_ARP,
+	DEV_ATTR_DROP_UNSOLICITED_NA,
+	DEV_ATTR_ARP_ACCEPT,
 	__DEV_ATTR_MAX,
 };
 
@@ -109,6 +114,11 @@ enum {
 	DEV_OPT_NEIGHLOCKTIME		= (1 << 22),
 	DEV_OPT_ISOLATE			= (1 << 23),
 	DEV_OPT_IP6SEGMENTROUTING	= (1 << 24),
+	DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST = (1 << 25),
+	DEV_OPT_DROP_V6_UNICAST_IN_L2_MULTICAST = (1 << 26),
+	DEV_OPT_DROP_GRATUITOUS_ARP	= (1 << 27),
+	DEV_OPT_DROP_UNSOLICITED_NA	= (1 << 28),
+	DEV_OPT_ARP_ACCEPT		= (1 << 29),
 };
 
 /* events broadcasted to all users of a device */
@@ -177,6 +187,11 @@ struct device_settings {
 	bool sendredirects;
 	bool ip6segmentrouting;
 	bool isolate;
+	bool drop_v4_unicast_in_l2_multicast;
+	bool drop_v6_unicast_in_l2_multicast;
+	bool drop_gratuitous_arp;
+	bool drop_unsolicited_na;
+	bool arp_accept;
 };
 
 /*
