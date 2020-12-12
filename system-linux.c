@@ -304,6 +304,11 @@ static void system_set_disable_ipv6(struct device *dev, const char *val)
 	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname, val);
 }
 
+static void system_set_ip6segmentrouting(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/seg6_enabled", dev->ifname, val);
+}
+
 static void system_set_rpfilter(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/rp_filter", dev->ifname, val);
@@ -506,6 +511,12 @@ system_get_dev_sysctl(const char *path, const char *device, char *buf, const siz
 static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_ip6segmentrouting(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/seg6_enabled",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -1572,6 +1583,11 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->flags |= DEV_OPT_IPV6;
 	}
 
+	if (!system_get_ip6segmentrouting(dev, buf, sizeof(buf))) {
+		s->ip6segmentrouting = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_IP6SEGMENTROUTING;
+	}
+
 	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) == 0) {
 		s->promisc = ifr.ifr_flags & IFF_PROMISC;
 		s->flags |= DEV_OPT_PROMISC;
@@ -1667,6 +1683,15 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned
 	}
 	if (apply_mask & DEV_OPT_IPV6)
 		system_set_disable_ipv6(dev, s->ipv6 ? "0" : "1");
+	if (s->flags & DEV_OPT_IP6SEGMENTROUTING & apply_mask) {
+		struct device dummy = {
+			.ifname = "all",
+		};
+		bool ip6segmentrouting = device_check_ip6segmentrouting();
+
+		system_set_ip6segmentrouting(dev, s->ip6segmentrouting ? "1" : "0");
+		system_set_ip6segmentrouting(&dummy, ip6segmentrouting ? "1" : "0");
+	}
 	if (apply_mask & DEV_OPT_PROMISC) {
 		if (system_if_flags(dev->ifname, s->promisc ? IFF_PROMISC : 0,
 				    !s->promisc ? IFF_PROMISC : 0) < 0)

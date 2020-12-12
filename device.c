@@ -36,6 +36,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TXQUEUELEN] = { .name = "txqueuelen", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_ENABLED] = { .name = "enabled", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_IPV6] = { .name = "ipv6", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_IP6SEGMENTROUTING] = { .name = "ip6segmentrouting", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_PROMISC] = { .name = "promisc", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_RPFILTER] = { .name = "rpfilter", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_ACCEPTLOCAL] = { .name = "acceptlocal", .type = BLOBMSG_TYPE_BOOL },
@@ -230,6 +231,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		(s->flags & (DEV_OPT_MACADDR|DEV_OPT_DEFAULT_MACADDR) ? s->macaddr : os->macaddr),
 		sizeof(n->macaddr));
 	n->ipv6 = s->flags & DEV_OPT_IPV6 ? s->ipv6 : os->ipv6;
+	n->ip6segmentrouting = s->flags & DEV_OPT_IP6SEGMENTROUTING ? s->ip6segmentrouting : os->ip6segmentrouting;
 	n->promisc = s->flags & DEV_OPT_PROMISC ? s->promisc : os->promisc;
 	n->rpfilter = s->flags & DEV_OPT_RPFILTER ? s->rpfilter : os->rpfilter;
 	n->acceptlocal = s->flags & DEV_OPT_ACCEPTLOCAL ? s->acceptlocal : os->acceptlocal;
@@ -297,6 +299,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_IPV6])) {
 		s->ipv6 = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_IPV6;
+	}
+
+	if ((cur = tb[DEV_ATTR_IP6SEGMENTROUTING])) {
+		s->ip6segmentrouting = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_IP6SEGMENTROUTING;
 	}
 
 	if ((cur = tb[DEV_ATTR_PROMISC])) {
@@ -844,6 +851,18 @@ device_init_pending(void)
 	}
 }
 
+bool
+device_check_ip6segmentrouting(void)
+{
+	struct device *dev;
+	bool ip6segmentrouting = false;
+
+	avl_for_each_element(&devices, dev, avl)
+		ip6segmentrouting |= dev->settings.ip6segmentrouting;
+
+	return ip6segmentrouting;
+}
+
 static enum dev_change_type
 device_set_config(struct device *dev, struct device_type *type,
 		  struct blob_attr *attr)
@@ -1053,6 +1072,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "txqueuelen", st.txqueuelen);
 		if (st.flags & DEV_OPT_IPV6)
 			blobmsg_add_u8(b, "ipv6", st.ipv6);
+		if (st.flags & DEV_OPT_IP6SEGMENTROUTING)
+			blobmsg_add_u8(b, "ip6segmentrouting", st.ip6segmentrouting);
 		if (st.flags & DEV_OPT_PROMISC)
 			blobmsg_add_u8(b, "promisc", st.promisc);
 		if (st.flags & DEV_OPT_RPFILTER)
