@@ -127,6 +127,7 @@ struct wireless_process {
 	int pid;
 
 	bool required;
+	bool keep;
 };
 
 void wireless_device_create(struct wireless_driver *drv, const char *name, struct blob_attr *data);

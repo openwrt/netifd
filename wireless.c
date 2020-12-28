@@ -254,7 +254,7 @@ wireless_process_kill_all(struct wireless_device *wdev, int signal, bool free)
 	list_for_each_entry_safe(proc, tmp, &wdev->script_proc, list) {
 		bool check = wireless_process_check(proc);
 
-		if (check) {
+		if (check && !proc->keep) {
 			D(WIRELESS, "Wireless device '%s' kill pid %d\n", wdev->name, proc->pid);
 			kill(proc->pid, signal);
 		}
@@ -1250,12 +1250,14 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 		PROC_ATTR_PID,
 		PROC_ATTR_EXE,
 		PROC_ATTR_REQUIRED,
+		PROC_ATTR_KEEP,
 		__PROC_ATTR_MAX
 	};
 	static const struct blobmsg_policy proc_policy[__PROC_ATTR_MAX] = {
 		[PROC_ATTR_PID] = { .name = "pid", .type = BLOBMSG_TYPE_INT32 },
 		[PROC_ATTR_EXE] = { .name = "exe", .type = BLOBMSG_TYPE_STRING },
 		[PROC_ATTR_REQUIRED] = { .name = "required", .type = BLOBMSG_TYPE_BOOL },
+		[PROC_ATTR_KEEP] = { .name = "keep", .type = BLOBMSG_TYPE_BOOL },
 	};
 	struct blob_attr *tb[__PROC_ATTR_MAX];
 	struct wireless_process *proc;
@@ -1281,6 +1283,9 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 
 	if (tb[PROC_ATTR_REQUIRED])
 		proc->required = blobmsg_get_bool(tb[PROC_ATTR_REQUIRED]);
+
+	if (tb[PROC_ATTR_KEEP])
+		proc->keep = blobmsg_get_bool(tb[PROC_ATTR_KEEP]);
 
 	D(WIRELESS, "Wireless device '%s' add pid %d\n", wdev->name, proc->pid);
 	list_add(&proc->list, &wdev->script_proc);
