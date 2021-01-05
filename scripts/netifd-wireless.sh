@@ -208,7 +208,13 @@ wireless_vif_parse_encryption() {
 	auth_mode_open=1
 	auth_mode_shared=0
 	auth_type=none
-	wpa_cipher=CCMP
+
+	if [ "$hwmode" = "ad" ]; then
+		wpa_cipher="GCMP"
+	else
+		wpa_cipher="CCMP"
+	fi
+
 	case "$encryption" in
 		*tkip+aes|*tkip+ccmp|*aes+tkip|*ccmp+tkip) wpa_cipher="CCMP TKIP";;
 		*aes|*ccmp) wpa_cipher="CCMP";;
