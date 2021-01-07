@@ -11,6 +11,21 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+/* The wireless configuration is projected on the following objects
+ *
+ * 1. wireless device
+ * 2. wireless interface
+ * 3. wireless vlan
+ * 4. wireless station
+ *
+ * A wireless device is a phy or simplified a wireless card.
+ * A wireless interface is a SSID on a phy.
+ * A wireless vlan can be assigned to a wireless interface. A wireless interface can
+ *   have multiple vlans.
+ * A wireless station is a client connected to an wireless interface.
+ */
+
 #include <signal.h>
 #include "netifd.h"
 #include "wireless.h"
@@ -510,6 +525,7 @@ wireless_device_mark_down(struct wireless_device *wdev)
 	wdev_handle_config_change(wdev);
 }
 
+/* timeout callback to protect the tear down */
 static void
 wireless_device_setup_timeout(struct uloop_timeout *timeout)
 {
@@ -555,6 +571,7 @@ __wireless_device_set_down(struct wireless_device *wdev)
 	wireless_device_run_handler(wdev, false);
 }
 
+/* ubus callback network.wireless.notify, command = up */
 static void
 wireless_device_mark_up(struct wireless_device *wdev)
 {
@@ -667,6 +684,7 @@ wdev_create(struct wireless_device *wdev)
 	wdev->config = blob_memdup(wdev->config);
 }
 
+/* vlist update call for wireless device list */
 static void
 wdev_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	    struct vlist_node *node_old)
@@ -686,6 +704,7 @@ wdev_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	}
 }
 
+/* wireless netifd script handler */
 static void
 wireless_add_handler(const char *script, const char *name, json_object *obj)
 {
@@ -753,6 +772,7 @@ void wireless_init(void)
 	netifd_init_script_handlers(drv_fd, wireless_add_handler);
 }
 
+/* parse blob config into the wireless interface object */
 static void
 wireless_interface_init_config(struct wireless_interface *vif)
 {
@@ -774,6 +794,7 @@ wireless_interface_init_config(struct wireless_interface *vif)
 		vif->ap_mode = !strcmp(blobmsg_get_string(cur), "ap");
 }
 
+/* vlist update call for wireless interface list */
 static void
 vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	   struct vlist_node *node_old)
@@ -819,6 +840,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	wdev_set_config_state(wdev, IFC_RELOAD);
 }
 
+/* parse blob config into the vlan object */
 static void
 wireless_vlan_init_config(struct wireless_vlan *vlan)
 {
@@ -836,6 +858,7 @@ wireless_vlan_init_config(struct wireless_vlan *vlan)
 		vlan->isolate = blobmsg_get_bool(cur);
 }
 
+/* vlist update call for vlan list */
 static void
 vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	    struct vlist_node *node_old)
@@ -880,6 +903,7 @@ vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	wdev_set_config_state(wdev, IFC_RELOAD);
 }
 
+/* vlist update call for station list */
 static void
 station_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	       struct vlist_node *node_old)
@@ -946,6 +970,8 @@ done:
 	wireless_close_script_proc_fd(wdev);
 }
 
+/* watchdog and garbage collector for wireless processes.
+ * It cleans up terminated processes. If a process is a requirement for the wireless device, it retries the setup */
 static void
 wireless_device_check_script_tasks(struct uloop_timeout *timeout)
 {
@@ -970,6 +996,7 @@ wireless_device_check_script_tasks(struct uloop_timeout *timeout)
 		uloop_timeout_set(&wdev->script_check, 1000);
 }
 
+/* creates a wireless device object. Called by config */
 void
 wireless_device_create(struct wireless_driver *drv, const char *name, struct blob_attr *data)
 {
@@ -1021,6 +1048,7 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	vlist_add(&wireless_devices, &wdev->node, wdev->name);
 }
 
+/* creates a wireless station object. Called by config */
 void
 wireless_station_create(struct wireless_device *wdev, char *vif, struct blob_attr *data, const char *section)
 {
@@ -1050,6 +1078,7 @@ wireless_station_create(struct wireless_device *wdev, char *vif, struct blob_att
 	vlist_add(&wdev->stations, &sta->node, sta->name);
 }
 
+/* ubus callback network.wireless.status, runs for every interface, encode the station */
 static void
 wireless_station_status(struct wireless_station *sta, struct blob_buf *b)
 {
@@ -1062,6 +1091,7 @@ wireless_station_status(struct wireless_station *sta, struct blob_buf *b)
 	blobmsg_close_table(b, i);
 }
 
+/* create a vlan object. Called by config */
 void
 wireless_vlan_create(struct wireless_device *wdev, char *vif, struct blob_attr *data, const char *section)
 {
@@ -1092,6 +1122,7 @@ wireless_vlan_create(struct wireless_device *wdev, char *vif, struct blob_attr *
 	vlist_add(&wdev->vlans, &vlan->node, vlan->name);
 }
 
+/* ubus callback network.wireless.status, runs for every interface, encode the vlan informations */
 static void
 wireless_vlan_status(struct wireless_vlan *vlan, struct blob_buf *b)
 {
@@ -1106,6 +1137,7 @@ wireless_vlan_status(struct wireless_vlan *vlan, struct blob_buf *b)
 	blobmsg_close_table(b, i);
 }
 
+/* create a wireless interface object. Called by config */
 struct wireless_interface* wireless_interface_create(struct wireless_device *wdev, struct blob_attr *data, const char *section)
 {
 	struct wireless_interface *vif;
@@ -1135,6 +1167,7 @@ struct wireless_interface* wireless_interface_create(struct wireless_device *wde
 	return vlist_find(&wdev->interfaces, name, vif, node);
 }
 
+/* ubus callback network.wireless.status, runs for every interface */
 static void
 wireless_interface_status(struct wireless_interface *iface, struct blob_buf *b)
 {
@@ -1161,6 +1194,7 @@ wireless_interface_status(struct wireless_interface *iface, struct blob_buf *b)
 	blobmsg_close_table(b, i);
 }
 
+/* ubus callback network.wireless.status */
 void
 wireless_device_status(struct wireless_device *wdev, struct blob_buf *b)
 {
@@ -1182,6 +1216,7 @@ wireless_device_status(struct wireless_device *wdev, struct blob_buf *b)
 	blobmsg_close_table(b, c);
 }
 
+/* ubus callback network.wireless.get_validate */
 void
 wireless_device_get_validate(struct wireless_device *wdev, struct blob_buf *b)
 {
@@ -1206,6 +1241,7 @@ wireless_device_get_validate(struct wireless_device *wdev, struct blob_buf *b)
 	blobmsg_close_table(b, c);
 }
 
+/* ubus callback network.wireless.notify, command = set data, for vif */
 static void
 wireless_interface_set_data(struct wireless_interface *vif)
 {
@@ -1226,6 +1262,7 @@ wireless_interface_set_data(struct wireless_interface *vif)
 		vif->ifname = blobmsg_data(cur);
 }
 
+/* ubus callback network.wireless.notify, command = set data, for vlan */
 static void
 wireless_vlan_set_data(struct wireless_vlan *vlan)
 {
@@ -1246,6 +1283,7 @@ wireless_vlan_set_data(struct wireless_vlan *vlan)
 		vlan->ifname = blobmsg_data(cur);
 }
 
+/* ubus callback network.wireless.notify, command = process add */
 static int
 wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data)
 {
@@ -1297,6 +1335,7 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 	return 0;
 }
 
+/* ubus callback network.wireless.notify, command = process kill all */
 static int
 wireless_device_process_kill_all(struct wireless_device *wdev, struct blob_attr *data,
 				 struct ubus_request_data *req)
@@ -1337,6 +1376,7 @@ wireless_device_process_kill_all(struct wireless_device *wdev, struct blob_attr 
 	return 0;
 }
 
+/* ubus callback network.wireless.notify, command = set_retry */
 static int
 wireless_device_set_retry(struct wireless_device *wdev, struct blob_attr *data)
 {
@@ -1361,6 +1401,7 @@ enum {
 	NOTIFY_CMD_SET_RETRY = 4,
 };
 
+/* ubus callback network.wireless.notify */
 int
 wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 		       struct ubus_request_data *req)
@@ -1444,6 +1485,7 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 	return 0;
 }
 
+/* called on startup and by netifd reload() */
 void
 wireless_start_pending(void)
 {
