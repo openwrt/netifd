@@ -680,6 +680,22 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			if (!(a_old->flags & DEVADDR_EXTERNAL)) {
 				interface_handle_subnet_route(iface, a_old, false);
 				system_del_address(dev, a_old);
+
+				if ((a_old->flags & DEVADDR_OFFLINK) && (a_old->mask < (v6 ? 128 : 32))) {
+					struct device_route route;
+
+					memset(&route, 0, sizeof(route));
+					route.flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
+					route.metric = INT32_MAX;
+					route.mask = a_old->mask;
+					route.addr = a_old->addr;
+
+					clear_if_addr(&route.addr, route.mask);
+
+					/* Delete null-route */
+					system_del_route(NULL, &route);
+				}
+
 			}
 		}
 		free(a_old->pclass);
@@ -704,6 +720,26 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			}
 
 			if (!keep) {
+				if (!(a_new->flags & DEVADDR_EXTERNAL) &&
+				    (a_new->flags & DEVADDR_OFFLINK) &&
+				    (a_new->mask < (v6 ? 128 : 32))) {
+					struct device_route route;
+
+					memset(&route, 0, sizeof(route));
+					route.flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
+					route.metric = INT32_MAX;
+					route.mask = a_new->mask;
+					route.addr = a_new->addr;
+
+					clear_if_addr(&route.addr, route.mask);
+
+					/*
+					 * In case off link is specifed as address property
+					 * add null-route to avoid routing loops
+					 */
+					system_add_route(NULL, &route);
+				}
+
 				if (a_new->policy_table)
 					interface_add_addr_rules(a_new, true);
 			}
@@ -1554,11 +1590,44 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			if (iface->metric || addr->policy_table)
 				interface_handle_subnet_route(iface, addr, true);
 
+			if ((addr->flags & DEVADDR_OFFLINK) && (addr->mask < (v6 ? 128 : 32))) {
+				struct device_route route;
+
+				memset(&route, 0, sizeof(route));
+				route.flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
+				route.metric = INT32_MAX;
+				route.mask = addr->mask;
+				route.addr = addr->addr;
+
+				clear_if_addr(&route.addr, route.mask);
+
+				/*
+				 * In case off link is specifed as address property
+				 * add null-route to avoid routing loops
+				 */
+				system_add_route(NULL, &route);
+			}
+
 			if (addr->policy_table)
 				interface_add_addr_rules(addr, true);
 		} else {
 			interface_handle_subnet_route(iface, addr, false);
 			system_del_address(dev, addr);
+
+			if ((addr->flags & DEVADDR_OFFLINK) && (addr->mask < (v6 ? 128 : 32))) {
+				struct device_route route;
+
+				memset(&route, 0, sizeof(route));
+				route.flags = v6 ? DEVADDR_INET6 : DEVADDR_INET4;
+				route.metric = INT32_MAX;
+				route.mask = addr->mask;
+				route.addr = addr->addr;
+
+				clear_if_addr(&route.addr, route.mask);
+
+				/* Delete null-route */
+				system_del_route(NULL, &route);
+			}
 
 			if (addr->policy_table)
 				interface_add_addr_rules(addr, false);
