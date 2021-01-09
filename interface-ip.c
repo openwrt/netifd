@@ -694,7 +694,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 		a_new->enabled = true;
 
 		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
-				v6 = true;
+			v6 = true;
 
 		a_new->policy_table = (v6) ? iface->ip6table : iface->ip4table;
 
@@ -1608,6 +1608,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 				route->failed = true;
 		} else
 			system_del_route(dev, route);
+
 		route->enabled = _enabled;
 	}
 
