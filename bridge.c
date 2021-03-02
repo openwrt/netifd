@@ -877,6 +877,8 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->stp = false;
 	cfg->forward_delay = 2;
 	cfg->robustness = 2;
+	cfg->igmp_snoop = false;
+	cfg->multicast_querier = false;
 	cfg->query_interval = 12500;
 	cfg->query_response_interval = 1000;
 	cfg->last_member_interval = 100;
