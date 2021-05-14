@@ -95,6 +95,24 @@ config_fixup_bridge_var(struct uci_section *s, const char *name, const char *val
 	uci_set(uci_ctx, &ptr);
 }
 
+/**
+ * config_fixup_bridge_ports - translate deprecated configs
+ *
+ * Old configs used "ifname" option for specifying bridge ports. For backward
+ * compatibility translate it into the new "ports" option.
+ */
+static void config_fixup_bridge_ports(struct uci_section *s)
+{
+	const char *ifname;
+
+	if (uci_lookup_option(uci_ctx, s, "ports"))
+		return;
+
+	ifname = uci_lookup_option_string(uci_ctx, s, "ifname");
+	if (ifname)
+		config_fixup_bridge_var(s, "ports", ifname);
+}
+
 static void
 config_fixup_bridge_vlan_filtering(struct uci_section *s, const char *name)
 {
@@ -117,6 +135,7 @@ config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype
 	sprintf(name, "%s-%s", devtype->name_prefix, s->e.name);
 	blobmsg_add_string(&b, "name", name);
 
+	config_fixup_bridge_ports(s);
 	config_fixup_bridge_vlan_filtering(s, name);
 	uci_to_blob(&b, s, devtype->config_params);
 	if (!device_create(name, devtype, b.head)) {
@@ -254,8 +273,10 @@ config_init_devices(bool bridge)
 		if (!params)
 			params = simple_device_type.config_params;
 
-		if (devtype && devtype->bridge_capability)
+		if (devtype && devtype->bridge_capability) {
+			config_fixup_bridge_ports(s);
 			config_fixup_bridge_vlan_filtering(s, name);
+		}
 
 		blob_buf_init(&b, 0);
 		uci_to_blob(&b, s, params);

@@ -23,7 +23,7 @@
 #include "system.h"
 
 enum {
-	BRIDGE_ATTR_IFNAME,
+	BRIDGE_ATTR_PORTS,
 	BRIDGE_ATTR_STP,
 	BRIDGE_ATTR_FORWARD_DELAY,
 	BRIDGE_ATTR_PRIORITY,
@@ -44,7 +44,7 @@ enum {
 };
 
 static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
-	[BRIDGE_ATTR_IFNAME] = { "ifname", BLOBMSG_TYPE_ARRAY },
+	[BRIDGE_ATTR_PORTS] = { "ports", BLOBMSG_TYPE_ARRAY },
 	[BRIDGE_ATTR_STP] = { "stp", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_FORWARD_DELAY] = { "forward_delay", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_PRIORITY] = { "priority", BLOBMSG_TYPE_INT32 },
@@ -64,7 +64,7 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
-	[BRIDGE_ATTR_IFNAME] = { .type = BLOBMSG_TYPE_STRING },
+	[BRIDGE_ATTR_PORTS] = { .type = BLOBMSG_TYPE_STRING },
 };
 
 static const struct uci_blob_param_list bridge_attr_list = {
@@ -104,7 +104,7 @@ struct bridge_state {
 
 	struct blob_attr *config_data;
 	struct bridge_config config;
-	struct blob_attr *ifnames;
+	struct blob_attr *ports;
 	bool active;
 	bool force_active;
 	bool has_vlans;
@@ -877,8 +877,8 @@ bridge_config_init(struct device *dev)
 
 	bst->n_failed = 0;
 	vlist_update(&bst->members);
-	if (bst->ifnames) {
-		blobmsg_for_each_attr(cur, bst->ifnames, rem) {
+	if (bst->ports) {
+		blobmsg_for_each_attr(cur, bst->ports, rem) {
 			bridge_add_member(bst, blobmsg_data(cur));
 		}
 	}
@@ -994,7 +994,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 	if (tb_dev[DEV_ATTR_MACADDR])
 		bst->primary_port = NULL;
 
-	bst->ifnames = tb_br[BRIDGE_ATTR_IFNAME];
+	bst->ports = tb_br[BRIDGE_ATTR_PORTS];
 	device_init_settings(dev, tb_dev);
 	bridge_apply_settings(bst, tb_br);
 
@@ -1015,7 +1015,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 
 		diff = 0;
 		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, &diff);
-		if (diff & ~(1 << BRIDGE_ATTR_IFNAME))
+		if (diff & ~(1 << BRIDGE_ATTR_PORTS))
 		    ret = DEV_CONFIG_RESTART;
 
 		bridge_config_init(dev);
