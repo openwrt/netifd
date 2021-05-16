@@ -208,7 +208,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 				return 0;
 			}
 		/* if no script task is running */
-		/* fall through */
+		fallthrough;
 		case S_IDLE:
 			action = "teardown";
 			state->renew_pending = false;
@@ -292,7 +292,7 @@ proto_shell_task_finish(struct proto_shell_state *state,
 	case S_IDLE:
 		if (task == &state->proto_task)
 			state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
-		/* fall through */
+		fallthrough;
 	case S_SETUP:
 		if (task == &state->proto_task)
 			proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN,
@@ -764,7 +764,7 @@ proto_shell_setup_failed(struct proto_shell_state *state)
 	switch (state->sm) {
 	case S_IDLE:
 		state->proto.proto_event(&state->proto, IFPEV_LINK_LOST);
-		/* fall through */
+		fallthrough;
 	case S_SETUP:
 		proto_shell_handler(&state->proto, PROTO_CMD_TEARDOWN, false);
 		break;

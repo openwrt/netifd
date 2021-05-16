@@ -245,7 +245,7 @@ interface_event(struct interface *iface, enum interface_event ev)
 	case IFEV_UP:
 		interface_error_flush(iface);
 		adev = iface->l3_dev.dev;
-		/* fall through */
+		fallthrough;
 	case IFEV_DOWN:
 	case IFEV_UP_FAILED:
 		alias_notify_device(iface->name, adev);
@@ -319,6 +319,7 @@ __interface_set_down(struct interface *iface, bool force)
 	case IFS_DOWN:
 		if (iface->main_dev.dev)
 			device_release(&iface->main_dev);
+		break;
 	case IFS_TEARDOWN:
 	default:
 		break;
