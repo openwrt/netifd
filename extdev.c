@@ -135,13 +135,6 @@ netifd_extdev_create(struct extdev_device *edev, struct blob_attr *msg)
 }
 
 static inline int
-netifd_extdev_config_init(struct extdev_device *edev, struct blob_attr *msg)
-{
-	return netifd_extdev_invoke(edev->etype->peer_id, __extdev_methods[METHOD_CONFIG_INIT],
-				     msg, NULL, NULL);
-}
-
-static inline int
 netifd_extdev_reload(struct extdev_device *edev, struct blob_attr *msg)
 {
 	D(DEVICE, "reload %s '%s' at external device handler\n", edev->dev.type->name,
