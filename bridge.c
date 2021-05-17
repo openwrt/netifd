@@ -122,6 +122,7 @@ struct bridge_member {
 	struct device_user dev;
 	uint16_t pvid;
 	bool present;
+	bool active;
 	char name[];
 };
 
@@ -299,19 +300,21 @@ bridge_set_vlan_state(struct bridge_state *bst, struct bridge_vlan *vlan, bool a
 }
 
 static int
-bridge_disable_member(struct bridge_member *bm)
+bridge_disable_member(struct bridge_member *bm, bool keep_dev)
 {
 	struct bridge_state *bst = bm->bst;
 	struct bridge_vlan *vlan;
 
-	if (!bm->present)
+	if (!bm->present || !bm->active)
 		return 0;
 
+	bm->active = false;
 	vlist_for_each_element(&bst->dev.vlans, vlan, node)
 		bridge_set_member_vlan(bm, vlan, false);
 
 	system_bridge_delif(&bst->dev, bm->dev.dev);
-	device_release(&bm->dev);
+	if (!keep_dev)
+		device_release(&bm->dev);
 
 	device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
 
@@ -356,6 +359,7 @@ bridge_enable_member(struct bridge_member *bm)
 {
 	struct bridge_state *bst = bm->bst;
 	struct bridge_vlan *vlan;
+	struct device *dev;
 	int ret;
 
 	if (!bm->present)
@@ -375,12 +379,20 @@ bridge_enable_member(struct bridge_member *bm)
 	if (ret < 0)
 		goto error;
 
+	dev = bm->dev.dev;
+	if (dev->settings.auth && !dev->auth_status)
+		return -1;
+
+	if (bm->active)
+		return 0;
+
 	ret = system_bridge_addif(&bst->dev, bm->dev.dev);
 	if (ret < 0) {
 		D(DEVICE, "Bridge device %s could not be added\n", bm->dev.dev->ifname);
 		goto error;
 	}
 
+	bm->active = true;
 	if (bst->has_vlans) {
 		/* delete default VLAN 1 */
 		system_bridge_vlan(bm->dev.dev->ifname, 1, false, 0);
@@ -412,7 +424,7 @@ bridge_remove_member(struct bridge_member *bm)
 		return;
 
 	if (bst->dev.active)
-		bridge_disable_member(bm);
+		bridge_disable_member(bm, false);
 
 	bm->present = false;
 	bm->bst->n_present--;
@@ -481,10 +493,11 @@ bridge_check_retry(struct bridge_state *bst)
 }
 
 static void
-bridge_member_cb(struct device_user *dev, enum device_event ev)
+bridge_member_cb(struct device_user *dep, enum device_event ev)
 {
-	struct bridge_member *bm = container_of(dev, struct bridge_member, dev);
+	struct bridge_member *bm = container_of(dep, struct bridge_member, dev);
 	struct bridge_state *bst = bm->bst;
+	struct device *dev = dep->dev;
 
 	switch (ev) {
 	case DEV_EVENT_ADD:
@@ -495,19 +508,30 @@ bridge_member_cb(struct device_user *dev, enum device_event ev)
 
 		if (bst->n_present == 1)
 			device_set_present(&bst->dev, true);
-		if (bst->dev.active && !bridge_enable_member(bm)) {
-			/*
-			 * Adding a bridge member can overwrite the bridge mtu
-			 * in the kernel, apply the bridge settings in case the
-			 * bridge mtu is set
-			 */
-			system_if_apply_settings(&bst->dev, &bst->dev.settings,
-						 DEV_OPT_MTU | DEV_OPT_MTU6);
-		}
+		fallthrough;
+	case DEV_EVENT_AUTH_UP:
+		if (!bst->dev.active)
+			break;
 
+		if (bridge_enable_member(bm))
+			break;
+
+		/*
+		 * Adding a bridge member can overwrite the bridge mtu
+		 * in the kernel, apply the bridge settings in case the
+		 * bridge mtu is set
+		 */
+		system_if_apply_settings(&bst->dev, &bst->dev.settings,
+					 DEV_OPT_MTU | DEV_OPT_MTU6);
+		break;
+	case DEV_EVENT_LINK_DOWN:
+		if (!dev->settings.auth)
+			break;
+
+		bridge_disable_member(bm, true);
 		break;
 	case DEV_EVENT_REMOVE:
-		if (dev->hotplug) {
+		if (dep->hotplug) {
 			vlist_delete(&bst->members, &bm->node);
 			return;
 		}
@@ -529,7 +553,7 @@ bridge_set_down(struct bridge_state *bst)
 	bst->set_state(&bst->dev, false);
 
 	vlist_for_each_element(&bst->members, bm, node)
-		bridge_disable_member(bm);
+		bridge_disable_member(bm, false);
 
 	bridge_disable_interface(bst);
 

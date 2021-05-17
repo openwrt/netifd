@@ -99,6 +99,17 @@ interface_error_flush(struct interface *iface)
 	}
 }
 
+static bool
+interface_force_link(struct interface *iface)
+{
+	struct device *dev = iface->main_dev.dev;
+
+	if (dev && dev->settings.auth)
+		return false;
+
+	return iface->force_link;
+}
+
 static void
 interface_clear_errors(struct interface *iface)
 {
@@ -344,7 +355,7 @@ __interface_set_up(struct interface *iface)
 static void
 interface_check_state(struct interface *iface)
 {
-	bool link_state = iface->link_state || iface->force_link;
+	bool link_state = iface->link_state || interface_force_link(iface);
 
 	switch (iface->state) {
 	case IFS_UP:
@@ -390,7 +401,8 @@ interface_set_link_state(struct interface *iface, bool new_state)
 	iface->link_state = new_state;
 	interface_check_state(iface);
 
-	if (new_state && iface->force_link && iface->state == IFS_UP && !iface->link_up_event) {
+	if (new_state && interface_force_link(iface) &&
+	    iface->state == IFS_UP && !iface->link_up_event) {
 		interface_event(iface, IFEV_LINK_UP);
 		iface->link_up_event = true;
 	}
@@ -424,11 +436,10 @@ interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 	case DEV_EVENT_DOWN:
 		interface_set_enabled(iface, false);
 		break;
+	case DEV_EVENT_AUTH_UP:
 	case DEV_EVENT_LINK_UP:
-		interface_set_link_state(iface, true);
-		break;
 	case DEV_EVENT_LINK_DOWN:
-		interface_set_link_state(iface, false);
+		interface_set_link_state(iface, device_link_active(dep->dev));
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
 		interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);

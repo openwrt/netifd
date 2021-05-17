@@ -298,12 +298,14 @@ error:
 enum {
 	DEV_STATE_NAME,
 	DEV_STATE_DEFER,
+	DEV_STATE_AUTH_STATUS,
 	__DEV_STATE_MAX,
 };
 
 static const struct blobmsg_policy dev_state_policy[__DEV_STATE_MAX] = {
 	[DEV_STATE_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
 	[DEV_STATE_DEFER] = { .name = "defer", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_STATE_AUTH_STATUS] = { .name = "auth_status", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static int
@@ -328,6 +330,10 @@ netifd_handle_set_state(struct ubus_context *ctx, struct ubus_object *obj,
 	cur = tb[DEV_STATE_DEFER];
 	if (cur)
 		device_set_deferred(dev, !!blobmsg_get_u8(cur));
+
+	cur = tb[DEV_STATE_AUTH_STATUS];
+	if (cur)
+		device_set_auth_status(dev, !!blobmsg_get_u8(cur));
 
 	return 0;
 }

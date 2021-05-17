@@ -59,6 +59,7 @@ enum {
 	DEV_ATTR_DROP_GRATUITOUS_ARP,
 	DEV_ATTR_DROP_UNSOLICITED_NA,
 	DEV_ATTR_ARP_ACCEPT,
+	DEV_ATTR_AUTH,
 	__DEV_ATTR_MAX,
 };
 
@@ -100,7 +101,7 @@ enum {
 	DEV_OPT_MLDVERSION		= (1 << 8),
 	DEV_OPT_NEIGHREACHABLETIME	= (1 << 9),
 	DEV_OPT_DEFAULT_MACADDR		= (1 << 10),
-	/* 1 bit hole */
+	DEV_OPT_AUTH			= (1 << 11),
 	DEV_OPT_MTU6			= (1 << 12),
 	DEV_OPT_DADTRANSMITS		= (1 << 13),
 	DEV_OPT_MULTICAST_TO_UNICAST	= (1 << 14),
@@ -134,6 +135,7 @@ enum device_event {
 	DEV_EVENT_UP,
 	DEV_EVENT_DOWN,
 
+	DEV_EVENT_AUTH_UP,
 	DEV_EVENT_LINK_UP,
 	DEV_EVENT_LINK_DOWN,
 
@@ -192,6 +194,7 @@ struct device_settings {
 	bool drop_gratuitous_arp;
 	bool drop_unsolicited_na;
 	bool arp_accept;
+	bool auth;
 };
 
 /*
@@ -220,6 +223,7 @@ struct device {
 	int active;
 	/* DEV_EVENT_LINK_UP */
 	bool link_active;
+	bool auth_status;
 
 	bool external;
 	bool disabled;
@@ -324,6 +328,8 @@ struct device *get_vlan_device_chain(const char *ifname, bool create);
 void alias_notify_device(const char *name, struct device *dev);
 struct device *device_alias_get(const char *name);
 
+void device_set_auth_status(struct device *dev, bool value);
+
 static inline void
 device_set_deferred(struct device *dev, bool value)
 {
@@ -336,6 +342,15 @@ device_set_disabled(struct device *dev, bool value)
 {
 	dev->disabled = value;
 	device_refresh_present(dev);
+}
+
+static inline bool
+device_link_active(struct device *dev)
+{
+	if (dev->settings.auth && !dev->auth_status)
+		return false;
+
+	return dev->link_active;
 }
 
 bool device_check_ip6segmentrouting(void);

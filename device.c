@@ -59,6 +59,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_DROP_GRATUITOUS_ARP] = { .name = "drop_gratuitous_arp", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DROP_UNSOLICITED_NA] = { .name = "drop_unsolicited_na", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_ARP_ACCEPT] = { .name = "arp_accept", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_AUTH] = { .name = "auth", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -270,6 +271,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->drop_unsolicited_na : os->drop_unsolicited_na;
 	n->arp_accept = s->flags & DEV_OPT_ARP_ACCEPT ?
 		s->arp_accept : os->arp_accept;
+	n->auth = s->flags & DEV_OPT_AUTH ? s->auth : os->auth;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -437,6 +439,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_ARP_ACCEPT])) {
 		s->arp_accept = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_ARP_ACCEPT;
+	}
+
+	if ((cur = tb[DEV_ATTR_AUTH])) {
+		s->auth = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_AUTH;
 	}
 
 	device_set_disabled(dev, disabled);
@@ -716,6 +723,28 @@ device_refresh_present(struct device *dev)
 	__device_set_present(dev, state);
 }
 
+void
+device_set_auth_status(struct device *dev, bool value)
+{
+	if (dev->auth_status == value)
+		return;
+
+	dev->auth_status = value;
+	if (!dev->present)
+		return;
+
+	if (dev->auth_status) {
+		device_broadcast_event(dev, DEV_EVENT_AUTH_UP);
+		return;
+	}
+
+	device_broadcast_event(dev, DEV_EVENT_LINK_DOWN);
+	if (!dev->link_active)
+		return;
+
+	device_broadcast_event(dev, DEV_EVENT_LINK_UP);
+}
+
 void device_set_present(struct device *dev, bool state)
 {
 	if (dev->sys_present == state)
@@ -734,6 +763,8 @@ void device_set_link(struct device *dev, bool state)
 	netifd_log_message(L_NOTICE, "%s '%s' link is %s\n", dev->type->name, dev->ifname, state ? "up" : "down" );
 
 	dev->link_active = state;
+	if (!state)
+		dev->auth_status = false;
 	device_broadcast_event(dev, state ? DEV_EVENT_LINK_UP : DEV_EVENT_LINK_DOWN);
 }
 
@@ -1091,6 +1122,7 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 
 	blobmsg_add_u8(b, "up", !!dev->active);
 	blobmsg_add_u8(b, "carrier", !!dev->link_active);
+	blobmsg_add_u8(b, "auth_status", !!dev->auth_status);
 
 	if (dev->type->dump_info)
 		dev->type->dump_info(dev, b);
@@ -1157,6 +1189,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "drop_unsolicited_na", st.drop_unsolicited_na);
 		if (st.flags & DEV_OPT_ARP_ACCEPT)
 			blobmsg_add_u8(b, "arp_accept", st.arp_accept);
+		if (st.flags & DEV_OPT_AUTH)
+			blobmsg_add_u8(b, "auth", st.auth);
 	}
 
 	s = blobmsg_open_table(b, "statistics");
