@@ -1129,7 +1129,8 @@ struct wireless_interface* wireless_interface_create(struct wireless_device *wde
 	vif->isolate = false;
 
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
-	return vif;
+
+	return vlist_find(&wdev->interfaces, name, vif, node);
 }
 
 static void
