@@ -103,14 +103,21 @@ config_fixup_bridge_var(struct uci_section *s, const char *name, const char *val
  */
 static void config_fixup_bridge_ports(struct uci_section *s)
 {
-	const char *ifname;
+	struct uci_ptr ptr = {
+		.p = s->package,
+		.s = s,
+		.option = "ifname",
+	};
 
 	if (uci_lookup_option(uci_ctx, s, "ports"))
 		return;
 
-	ifname = uci_lookup_option_string(uci_ctx, s, "ifname");
-	if (ifname)
-		config_fixup_bridge_var(s, "ports", ifname);
+	uci_lookup_ptr(uci_ctx, &ptr, NULL, false);
+	if (!ptr.o)
+		return;
+
+	ptr.value = "ports";
+	uci_rename(uci_ctx, &ptr);
 }
 
 static void
