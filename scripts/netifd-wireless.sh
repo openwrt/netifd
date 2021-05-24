@@ -39,13 +39,12 @@ prepare_key_wep() {
 }
 
 _wdev_prepare_channel() {
-	json_get_vars channel hwmode
+	json_get_vars channel band hwmode
 
 	auto_channel=0
 	enable_ht=0
 	htmode=
 	hwmode="${hwmode##11}"
-	hwmode_n="${hwmode##n}"
 
 	case "$channel" in
 		""|0|auto)
@@ -58,17 +57,6 @@ _wdev_prepare_channel() {
 		;;
 	esac
 
-	[[ "$hwmode_n" = "$hwmode" ]] || {
-		enable_ht=1
-		hwmode="$hwmode_n"
-
-		json_get_vars htmode
-		case "$htmode" in
-			HT20|HT40+|HT40-);;
-			*) htmode= ;;
-		esac
-	}
-
 	case "$hwmode" in
 		a|b|g|ad) ;;
 		*)
@@ -77,6 +65,18 @@ _wdev_prepare_channel() {
 			else
 				hwmode=g
 			fi
+		;;
+	esac
+
+	case "$band" in
+		2g) hwmode=g;;
+		5g|6g|60g) hwmode=a;;
+		*)
+			case "$hwmode" in
+				*a) band=5g;;
+				*ad) band=60g;;
+				*b|*g) band=2g;;
+			esac
 		;;
 	esac
 }
@@ -362,7 +362,7 @@ for_each_station() {
 }
 
 _wdev_common_device_config() {
-	config_add_string channel hwmode htmode noscan
+	config_add_string channel hwmode band htmode noscan
 }
 
 _wdev_common_iface_config() {
