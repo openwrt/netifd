@@ -107,7 +107,7 @@ struct interface {
 	enum interface_event hotplug_ev;
 
 	const char *name;
-	const char *ifname;
+	const char *device;
 	char *jail;
 	char *jail_ifname;
 	int netns_fd;

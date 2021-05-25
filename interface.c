@@ -30,7 +30,8 @@ struct vlist_tree interfaces;
 static LIST_HEAD(iface_all_users);
 
 enum {
-	IFACE_ATTR_IFNAME,
+	IFACE_ATTR_DEVICE,
+	IFACE_ATTR_IFNAME, /* Backward compatibility */
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
 	IFACE_ATTR_JAIL,
@@ -55,6 +56,7 @@ enum {
 };
 
 static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
+	[IFACE_ATTR_DEVICE] = { .name = "device", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
@@ -641,9 +643,9 @@ interface_claim_device(struct interface *iface)
 		parent = vlist_find(&interfaces, iface->parent_ifname, parent, node);
 		iface->parent_iface.cb = interface_alias_cb;
 		interface_add_user(&iface->parent_iface, parent);
-	} else if (iface->ifname &&
+	} else if (iface->device &&
 		!(iface->proto_handler->flags & PROTO_FLAG_NODEV)) {
-		dev = device_get(iface->ifname, true);
+		dev = device_get(iface->device, true);
 		interface_set_device_config(iface, dev);
 	} else {
 		dev = iface->ext_dev.dev;
@@ -939,8 +941,11 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 		if (!iface->parent_ifname)
 			return false;
 	} else {
-		if ((cur = tb[IFACE_ATTR_IFNAME]))
-			iface->ifname = blobmsg_data(cur);
+		cur = tb[IFACE_ATTR_DEVICE];
+		if (!cur)
+			cur = tb[IFACE_ATTR_IFNAME];
+		if (cur)
+			iface->device = blobmsg_data(cur);
 	}
 
 	if (iface->dynamic) {
@@ -1216,7 +1221,7 @@ interface_start_jail(const char *jail, const pid_t netns_pid)
 		 * list, so we can mess with it :)
 		 */
 		if (iface->jail_ifname)
-			iface->ifname = iface->jail_ifname;
+			iface->device = iface->jail_ifname;
 
 		interface_do_reload(iface);
 		interface_set_up(iface);
@@ -1257,9 +1262,9 @@ interface_stop_jail(const char *jail, const pid_t netns_pid)
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
-		orig_ifname = iface->ifname;
+		orig_ifname = iface->device;
 		if (iface->jail_ifname)
-			iface->ifname = iface->jail_ifname;
+			iface->device = iface->jail_ifname;
 
 		interface_do_reload(iface);
 		interface_set_down(iface);
@@ -1352,7 +1357,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if (!reload && interface_device_config_changed(if_old, if_new))
 		reload = true;
 
-	if (FIELD_CHANGED_STR(ifname) ||
+	if (FIELD_CHANGED_STR(device) ||
 	    if_old->proto_handler != if_new->proto_handler)
 		reload = true;
 
@@ -1391,7 +1396,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	if_old->jail_ifname = if_new->jail_ifname;
 
-	if_old->ifname = if_new->ifname;
+	if_old->device = if_new->device;
 	if_old->parent_ifname = if_new->parent_ifname;
 	if_old->dynamic = if_new->dynamic;
 	if_old->proto_handler = if_new->proto_handler;
