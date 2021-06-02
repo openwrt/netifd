@@ -452,6 +452,7 @@ bridge_free_member(struct bridge_member *bm)
 
 	vlist_for_each_element(&bst->dev.vlans, vlan, node) {
 		struct bridge_vlan_hotplug_port *port, *tmp;
+		bool free_port = false;
 
 		list_for_each_entry_safe(port, tmp, &vlan->hotplug_ports, list) {
 			if (strcmp(port->port.ifname, ifname) != 0)
@@ -459,7 +460,14 @@ bridge_free_member(struct bridge_member *bm)
 
 			list_del(&port->list);
 			free(port);
+			free_port = true;
 		}
+
+		if (!free_port || !list_empty(&vlan->hotplug_ports) ||
+		    vlan->n_ports || vlan->node.version != -1)
+			continue;
+
+		vlist_delete(&bst->dev.vlans, &vlan->node);
 	}
 
 	device_lock();
@@ -677,6 +685,25 @@ bridge_add_member(struct bridge_state *bst, const char *name)
 	bridge_create_member(bst, name, dev, false);
 }
 
+static struct bridge_vlan *
+bridge_hotplug_get_vlan(struct bridge_state *bst, unsigned int vid)
+{
+	struct bridge_vlan *vlan;
+
+	vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
+	if (vlan)
+		return vlan;
+
+	vlan = calloc(1, sizeof(*vlan));
+	vlan->vid = vid;
+	vlan->local = true;
+	vlan->node.version = -1;
+	INIT_LIST_HEAD(&vlan->hotplug_ports);
+	vlist_add(&bst->dev.vlans, &vlan->node, &vlan->vid);
+
+	return vlan;
+}
+
 static void
 bridge_hotplug_create_member_vlans(struct bridge_state *bst, struct blob_attr *vlans, const char *ifname)
 {
@@ -701,7 +728,7 @@ bridge_hotplug_create_member_vlans(struct bridge_state *bst, struct blob_attr *v
 		if (!vid || vid > 4095)
 			continue;
 
-		vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
+		vlan = bridge_hotplug_get_vlan(bst, vid);
 		if (!vlan)
 			continue;
 
