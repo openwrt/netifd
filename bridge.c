@@ -450,6 +450,7 @@ bridge_free_member(struct bridge_member *bm)
 
 	bridge_remove_member(bm);
 
+restart:
 	vlist_for_each_element(&bst->dev.vlans, vlan, node) {
 		struct bridge_vlan_hotplug_port *port, *tmp;
 		bool free_port = false;
@@ -468,6 +469,7 @@ bridge_free_member(struct bridge_member *bm)
 			continue;
 
 		vlist_delete(&bst->dev.vlans, &vlan->node);
+		goto restart;
 	}
 
 	device_lock();
@@ -697,9 +699,9 @@ bridge_hotplug_get_vlan(struct bridge_state *bst, unsigned int vid)
 	vlan = calloc(1, sizeof(*vlan));
 	vlan->vid = vid;
 	vlan->local = true;
-	vlan->node.version = -1;
 	INIT_LIST_HEAD(&vlan->hotplug_ports);
 	vlist_add(&bst->dev.vlans, &vlan->node, &vlan->vid);
+	vlan->node.version = -1;
 
 	return vlan;
 }
