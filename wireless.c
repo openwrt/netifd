@@ -117,7 +117,7 @@ static void
 vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool prepare)
 {
 	struct interface *iface;
-	struct device *dev = NULL;
+	struct device *dev = NULL, *orig_dev;
 	struct blob_attr *cur;
 	const char *network;
 	int rem;
@@ -143,6 +143,7 @@ vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool pre
 	if (!dev)
 		return;
 
+	orig_dev = dev;
 	if (dev->hotplug_ops && dev->hotplug_ops->prepare)
 		dev->hotplug_ops->prepare(dev, &dev);
 
@@ -150,6 +151,7 @@ vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool pre
 		return;
 
 	blobmsg_add_string(buf, "bridge", dev->ifname);
+	blobmsg_add_string(buf, "bridge-ifname", orig_dev->ifname);
 
 	if (dev->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST)
 		blobmsg_add_u8(buf, "multicast_to_unicast",

@@ -314,6 +314,7 @@ for_each_interface() {
 		json_select "$_w_iface"
 		if [ -n "$_w_types" ]; then
 			json_get_var network_bridge bridge
+			json_get_var network_ifname bridge-ifname
 			json_get_var multicast_to_unicast multicast_to_unicast
 			json_select config
 			_wireless_set_brsnoop_isolation "$multicast_to_unicast"
