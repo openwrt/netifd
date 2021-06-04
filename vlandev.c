@@ -61,7 +61,7 @@ struct vlandev_device {
 };
 
 static int
-vlandev_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
+__vlandev_hotplug_op(struct device *dev, struct device *member, struct blob_attr *vlan, bool add)
 {
 	struct vlandev_device *mvdev = container_of(dev, struct vlandev_device, dev);
 	void *a;
@@ -75,19 +75,22 @@ vlandev_hotplug_add(struct device *dev, struct device *member, struct blob_attr 
 	blobmsg_printf(&b, NULL, "%d", mvdev->config.vid);
 	blobmsg_close_array(&b, a);
 
-	return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+	if (add)
+		return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+	else
+		return dev->hotplug_ops->del(dev, member, blobmsg_data(b.head));
 }
 
 static int
-vlandev_hotplug_del(struct device *dev, struct device *member)
+vlandev_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
 {
-	struct vlandev_device *mvdev = container_of(dev, struct vlandev_device, dev);
+	return __vlandev_hotplug_op(dev, member, vlan, true);
+}
 
-	dev = mvdev->parent.dev;
-	if (!dev || !dev->hotplug_ops)
-		return UBUS_STATUS_NOT_SUPPORTED;
-
-	return dev->hotplug_ops->del(dev, member);
+static int
+vlandev_hotplug_del(struct device *dev, struct device *member, struct blob_attr *vlan)
+{
+	return __vlandev_hotplug_op(dev, member, vlan, false);
 }
 
 static int

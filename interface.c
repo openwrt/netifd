@@ -1034,12 +1034,13 @@ interface_set_main_dev(struct interface *iface, struct device *dev)
 }
 
 static int
-interface_remove_link(struct interface *iface, struct device *dev)
+interface_remove_link(struct interface *iface, struct device *dev,
+		      struct blob_attr *vlan)
 {
 	struct device *mdev = iface->main_dev.dev;
 
 	if (mdev && mdev->hotplug_ops)
-		return mdev->hotplug_ops->del(mdev, dev);
+		return mdev->hotplug_ops->del(mdev, dev, vlan);
 
 	if (dev == iface->ext_dev.dev)
 		device_remove_user(&iface->ext_dev);
@@ -1103,7 +1104,7 @@ interface_handle_link(struct interface *iface, const char *name,
 
 		ret = interface_add_link(iface, dev, vlan, link_ext);
 	} else {
-		ret = interface_remove_link(iface, dev);
+		ret = interface_remove_link(iface, dev, vlan);
 	}
 
 out:

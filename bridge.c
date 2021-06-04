@@ -706,8 +706,21 @@ bridge_hotplug_get_vlan(struct bridge_state *bst, unsigned int vid)
 	return vlan;
 }
 
+static struct bridge_vlan_hotplug_port *
+bridge_hotplug_get_vlan_port(struct bridge_vlan *vlan, const char *ifname)
+{
+	struct bridge_vlan_hotplug_port *port;
+
+	list_for_each_entry(port, &vlan->hotplug_ports, list)
+		if (!strcmp(port->port.ifname, ifname))
+			return port;
+
+	return NULL;
+}
+
 static void
-bridge_hotplug_create_member_vlans(struct bridge_state *bst, struct blob_attr *vlans, const char *ifname)
+bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlans,
+				const char *ifname, struct bridge_member *bm, bool add)
 {
 	struct bridge_vlan *vlan;
 	struct blob_attr *cur;
@@ -750,6 +763,27 @@ bridge_hotplug_create_member_vlans(struct bridge_state *bst, struct blob_attr *v
 			}
 		}
 
+		port = bridge_hotplug_get_vlan_port(vlan, ifname);
+		if (!add) {
+			if (!port)
+				continue;
+
+			__bridge_set_member_vlan(bm, vlan, &port->port, false);
+			list_del(&port->list);
+			free(port);
+			continue;
+		}
+
+		if (port) {
+			if (port->port.flags == flags)
+				continue;
+
+			__bridge_set_member_vlan(bm, vlan, &port->port, false);
+			port->port.flags = flags;
+			__bridge_set_member_vlan(bm, vlan, &port->port, true);
+			continue;
+		}
+
 		port = calloc_a(sizeof(*port), &name_buf, strlen(ifname) + 1);
 		if (!port)
 			continue;
@@ -757,6 +791,11 @@ bridge_hotplug_create_member_vlans(struct bridge_state *bst, struct blob_attr *v
 		port->port.flags = flags;
 		port->port.ifname = strcpy(name_buf, ifname);
 		list_add_tail(&port->list, &vlan->hotplug_ports);
+
+		if (!bm)
+			continue;
+
+		__bridge_set_member_vlan(bm, vlan, &port->port, true);
 	}
 }
 
@@ -764,15 +803,18 @@ static int
 bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
 {
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
+	struct bridge_member *bm;
 
-	bridge_hotplug_create_member_vlans(bst, vlan, member->ifname);
-	bridge_create_member(bst, member->ifname, member, true);
+	bm = vlist_find(&bst->members, member->ifname, bm, node);
+	bridge_hotplug_set_member_vlans(bst, vlan, member->ifname, bm, true);
+	if (!bm)
+		bridge_create_member(bst, member->ifname, member, true);
 
 	return 0;
 }
 
 static int
-bridge_hotplug_del(struct device *dev, struct device *member)
+bridge_hotplug_del(struct device *dev, struct device *member, struct blob_attr *vlan)
 {
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
 	struct bridge_member *bm;
@@ -780,6 +822,10 @@ bridge_hotplug_del(struct device *dev, struct device *member)
 	bm = vlist_find(&bst->members, member->ifname, bm, node);
 	if (!bm)
 		return UBUS_STATUS_NOT_FOUND;
+
+	bridge_hotplug_set_member_vlans(bst, vlan, member->ifname, bm, false);
+	if (!bm->dev.hotplug)
+		return 0;
 
 	vlist_delete(&bst->members, &bm->node);
 	return 0;

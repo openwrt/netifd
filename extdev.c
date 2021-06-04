@@ -643,7 +643,7 @@ extdev_hotplug_add(struct device *ebr_dev, struct device *ebm_dev, struct blob_a
 }
 
 static int
-extdev_hotplug_remove(struct device *dev, struct device *member)
+extdev_hotplug_remove(struct device *dev, struct device *member, struct blob_attr *vlan)
 {
 	struct extdev_bridge *ebr;
 	struct extdev_bridge_member *ubm;

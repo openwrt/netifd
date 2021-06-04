@@ -39,7 +39,7 @@ static void free_vlan_if(struct device *iface)
 }
 
 static int
-vlan_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
+__vlan_hotplug_op(struct device *dev, struct device *member, struct blob_attr *vlan, bool add)
 {
 	struct vlan_device *vldev = container_of(dev, struct vlan_device, dev);
 	void *a;
@@ -53,19 +53,22 @@ vlan_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vl
 	blobmsg_printf(&b, NULL, "%d", vldev->id);
 	blobmsg_close_array(&b, a);
 
-	return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+	if (add)
+		return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+	else
+		return dev->hotplug_ops->del(dev, member, blobmsg_data(b.head));
 }
 
 static int
-vlan_hotplug_del(struct device *dev, struct device *member)
+vlan_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
 {
-	struct vlan_device *vldev = container_of(dev, struct vlan_device, dev);
+	return __vlan_hotplug_op(dev, member, vlan, true);
+}
 
-	dev = vldev->dep.dev;
-	if (!dev || !dev->hotplug_ops)
-		return UBUS_STATUS_NOT_SUPPORTED;
-
-	return dev->hotplug_ops->del(dev, member);
+static int
+vlan_hotplug_del(struct device *dev, struct device *member, struct blob_attr *vlan)
+{
+	return __vlan_hotplug_op(dev, member, vlan, false);
 }
 
 static int
