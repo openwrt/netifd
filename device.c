@@ -129,6 +129,9 @@ void device_vlan_update(bool done)
 			vlist_update(&dev->vlans);
 		} else {
 			vlist_flush(&dev->vlans);
+
+			if (dev->type->vlan_update)
+				dev->type->vlan_update(dev);
 		}
 	}
 }

@@ -79,6 +79,7 @@ static const struct uci_blob_param_list bridge_attr_list = {
 static struct device *bridge_create(const char *name, struct device_type *devtype,
 	struct blob_attr *attr);
 static void bridge_config_init(struct device *dev);
+static void bridge_dev_vlan_update(struct device *dev);
 static void bridge_free(struct device *dev);
 static void bridge_dump_info(struct device *dev, struct blob_buf *b);
 static enum dev_change_type
@@ -93,6 +94,7 @@ static struct device_type bridge_device_type = {
 
 	.create = bridge_create,
 	.config_init = bridge_config_init,
+	.vlan_update = bridge_dev_vlan_update,
 	.reload = bridge_reload,
 	.free = bridge_free,
 	.dump_info = bridge_dump_info,
@@ -1185,12 +1187,27 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		list_splice_init(&vlan_old->hotplug_ports, &vlan_new->hotplug_ports);
 
 	if (node_new)
-		bridge_set_vlan_state(bst, vlan_new, true);
+		vlan_new->pending = true;
 
 	bst->dev.config_pending = true;
 
 out:
 	bridge_vlan_free(vlan_old);
+}
+
+static void
+bridge_dev_vlan_update(struct device *dev)
+{
+	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
+	struct bridge_vlan *vlan;
+
+	vlist_for_each_element(&dev->vlans, vlan, node) {
+		if (!vlan->pending)
+			continue;
+
+		vlan->pending = false;
+		bridge_set_vlan_state(bst, vlan, true);
+	}
 }
 
 static struct device *

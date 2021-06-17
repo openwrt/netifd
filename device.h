@@ -83,6 +83,7 @@ struct device_type {
 		struct blob_attr *attr);
 	void (*config_init)(struct device *);
 	enum dev_change_type (*reload)(struct device *, struct blob_attr *);
+	void (*vlan_update)(struct device *);
 	void (*dump_info)(struct device *, struct blob_buf *buf);
 	void (*dump_stats)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
@@ -277,6 +278,7 @@ struct bridge_vlan {
 
 	uint16_t vid;
 	bool local;
+	bool pending;
 };
 
 extern const struct uci_blob_param_list device_attr_list;
