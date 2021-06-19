@@ -38,9 +38,10 @@ setup_vif() {
 	json_get_var ssid ssid
 	json_select ..
 
-	wireless_add_vif "$name" "dummy-$ssid"
+	wireless_add_vif "$name" "${radio}v$vifidx"
 	/bin/sleep 10 &
 	wireless_add_process "$!" /bin/sleep 1
+	vifidx=$((vifidx + 1))
 }
 
 drv_mac80211_cleanup() {
@@ -49,6 +50,8 @@ drv_mac80211_cleanup() {
 
 drv_mac80211_setup() {
 	echo "mac80211 setup: $1"
+	radio=$1
+	vifidx=0
 	json_dump
 	for_each_interface "sta ap adhoc" setup_vif
 	wireless_set_data phy=phy0
