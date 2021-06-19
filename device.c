@@ -1208,3 +1208,14 @@ static void __init simple_device_type_init(void)
 {
 	device_type_add(&simple_device_type);
 }
+
+void device_hotplug_event(const char *name, bool add)
+{
+	struct device *dev;
+
+	dev = device_find(name);
+	if (!dev || dev->type != &simple_device_type)
+		return;
+
+	device_set_present(dev, add);
+}

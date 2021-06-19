@@ -678,18 +678,13 @@ handle_hotplug_msg(char *data, int size)
 {
 	const char *subsystem = NULL, *interface = NULL, *interface_old = NULL;
 	char *cur, *end, *sep;
-	struct device *dev;
 	int skip;
-	bool add, move = false;
+	bool add;
 
-	if (!strncmp(data, "add@", 4))
+	if (!strncmp(data, "add@", 4) || !strncmp(data, "move@", 5))
 		add = true;
 	else if (!strncmp(data, "remove@", 7))
 		add = false;
-	else if (!strncmp(data, "move@", 5)) {
-		add = true;
-		move = true;
-	}
 	else
 		return;
 
@@ -717,36 +712,13 @@ handle_hotplug_msg(char *data, int size)
 		}
 	}
 
-	if (subsystem && interface) {
-		if (move && interface_old)
-			goto move;
-		else
-			goto found;
-	}
-
-	return;
-
-move:
-	dev = device_find(interface_old);
-	if (!dev)
+	if (!subsystem || !interface)
 		return;
 
-	if (dev->type != &simple_device_type)
-		goto found;
+	if (interface_old)
+		device_hotplug_event(interface_old, false);
 
-	device_set_present(dev, false);
-
-	return;
-
-found:
-	dev = device_find(interface);
-	if (!dev)
-		return;
-
-	if (dev->type != &simple_device_type)
-		return;
-
-	device_set_present(dev, add);
+	device_hotplug_event(interface, add);
 }
 
 static void

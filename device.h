@@ -356,5 +356,6 @@ device_link_active(struct device *dev)
 }
 
 bool device_check_ip6segmentrouting(void);
+void device_hotplug_event(const char *name, bool add);
 
 #endif
