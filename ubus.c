@@ -338,10 +338,46 @@ netifd_handle_set_state(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+#ifdef DUMMY_MODE
+enum {
+    DEV_HOTPLUG_ATTR_NAME,
+    DEV_HOTPLUG_ATTR_ADD,
+    __DEV_HOTPLUG_ATTR_MAX,
+};
+
+static const struct blobmsg_policy dev_hotplug_policy[__DEV_HOTPLUG_ATTR_MAX] = {
+    [DEV_HOTPLUG_ATTR_NAME] = { "name", BLOBMSG_TYPE_STRING },
+    [DEV_HOTPLUG_ATTR_ADD] = { "add", BLOBMSG_TYPE_BOOL },
+};
+
+static int
+netifd_handle_dev_hotplug(struct ubus_context *ctx, struct ubus_object *obj,
+			  struct ubus_request_data *req, const char *method,
+			  struct blob_attr *msg)
+{
+	struct blob_attr *tb[__DEV_HOTPLUG_ATTR_MAX];
+	const char *name;
+
+	blobmsg_parse(dev_hotplug_policy, __DEV_HOTPLUG_ATTR_MAX, tb,
+		      blob_data(msg), blob_len(msg));
+
+	if (!tb[DEV_HOTPLUG_ATTR_NAME] || !tb[DEV_HOTPLUG_ATTR_ADD])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	name = blobmsg_get_string(tb[DEV_HOTPLUG_ATTR_NAME]);
+	device_hotplug_event(name, blobmsg_get_bool(tb[DEV_HOTPLUG_ATTR_ADD]));
+
+	return 0;
+}
+#endif
+
 static struct ubus_method dev_object_methods[] = {
 	UBUS_METHOD("status", netifd_dev_status, dev_policy),
 	UBUS_METHOD("set_alias", netifd_handle_alias, alias_attrs),
 	UBUS_METHOD("set_state", netifd_handle_set_state, dev_state_policy),
+#ifdef DUMMY_MODE
+	UBUS_METHOD("hotplug_event", netifd_handle_dev_hotplug, dev_hotplug_policy),
+#endif
 };
 
 static struct ubus_object_type dev_object_type =
