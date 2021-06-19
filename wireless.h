@@ -144,5 +144,6 @@ int wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 
 void wireless_start_pending(void);
 void wireless_init(void);
+void wireless_device_hotplug_event(const char *name, bool add);
 
 #endif

@@ -24,6 +24,7 @@
 #include "netifd.h"
 #include "system.h"
 #include "config.h"
+#include "wireless.h"
 
 static struct list_head devtypes = LIST_HEAD_INIT(devtypes);
 static struct avl_tree devices;
@@ -1212,6 +1213,8 @@ static void __init simple_device_type_init(void)
 void device_hotplug_event(const char *name, bool add)
 {
 	struct device *dev;
+
+	wireless_device_hotplug_event(name, add);
 
 	dev = device_find(name);
 	if (!dev || dev->type != &simple_device_type)

@@ -313,7 +313,7 @@ wireless_device_free_state(struct wireless_device *wdev)
 	}
 }
 
-static void wireless_interface_handle_link(struct wireless_interface *vif, bool up)
+static void wireless_interface_handle_link(struct wireless_interface *vif, const char *ifname, bool up)
 {
 	struct interface *iface;
 	struct blob_attr *cur;
@@ -323,8 +323,11 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, bool 
 	if (!vif->network || !vif->ifname)
 		return;
 
+	if (!ifname)
+		ifname = vif->ifname;
+
 	if (up) {
-		struct device *dev = device_get(vif->ifname, 2);
+		struct device *dev = device_get(ifname, 2);
 		if (dev) {
 			dev->wireless_isolate = vif->isolate;
 			dev->wireless = true;
@@ -339,7 +342,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, bool 
 		if (!iface)
 			continue;
 
-		interface_handle_link(iface, vif->ifname, NULL, up, true);
+		interface_handle_link(iface, ifname, NULL, up, true);
 	}
 }
 
@@ -515,7 +518,7 @@ wireless_device_mark_down(struct wireless_device *wdev)
 		wireless_vlan_handle_link(vlan, false);
 
 	vlist_for_each_element(&wdev->interfaces, vif, node)
-		wireless_interface_handle_link(vif, false);
+		wireless_interface_handle_link(vif, NULL, false);
 
 	wireless_process_kill_all(wdev, SIGTERM, true);
 
@@ -587,7 +590,7 @@ wireless_device_mark_up(struct wireless_device *wdev)
 	D(WIRELESS, "Wireless device '%s' is now up\n", wdev->name);
 	wdev->state = IFS_UP;
 	vlist_for_each_element(&wdev->interfaces, vif, node)
-		wireless_interface_handle_link(vif, true);
+		wireless_interface_handle_link(vif, NULL, true);
 	vlist_for_each_element(&wdev->vlans, vlan, node)
 		wireless_vlan_handle_link(vlan, true);
 }
@@ -817,7 +820,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		}
 
 		D(WIRELESS, "Update wireless interface %s on device %s\n", vif_new->name, wdev->name);
-		wireless_interface_handle_link(vif_old, false);
+		wireless_interface_handle_link(vif_old, NULL, false);
 		free(vif_old->config);
 		vif_old->config = blob_memdup(vif_new->config);
 		vif_old->isolate = vif_new->isolate;
@@ -831,7 +834,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		wireless_interface_init_config(vif_new);
 	} else if (vif_old) {
 		D(WIRELESS, "Delete wireless interface %s on device %s\n", vif_old->name, wdev->name);
-		wireless_interface_handle_link(vif_old, false);
+		wireless_interface_handle_link(vif_old, NULL, false);
 		free((void *) vif_old->section);
 		free(vif_old->config);
 		free(vif_old);
@@ -1493,4 +1496,34 @@ wireless_start_pending(void)
 
 	vlist_for_each_element(&wireless_devices, wdev, node)
 		__wireless_device_set_up(wdev, 0);
+}
+
+void wireless_device_hotplug_event(const char *name, bool add)
+{
+	struct wireless_interface *vif;
+	struct wireless_device *wdev;
+	const char *s;
+	int len;
+
+	s = strstr(name, ".sta");
+	if (!s)
+		return;
+
+	if (strchr(s + 4, '.'))
+		return;
+
+	len = s - name;
+
+	vlist_for_each_element(&wireless_devices, wdev, node) {
+		vlist_for_each_element(&wdev->interfaces, vif, node) {
+			if (!vif->ifname)
+				continue;
+
+			if (strlen(vif->ifname) != len ||
+			    strncmp(vif->ifname, name, len) != 0)
+				continue;
+
+			wireless_interface_handle_link(vif, name, add);
+		}
+	}
 }
