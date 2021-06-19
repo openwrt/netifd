@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "netifd.h"
 #include "system.h"
@@ -238,18 +239,23 @@ error:
 
 static char *split_vlan(char *s)
 {
+retry:
 	s = strchr(s, '.');
 	if (!s)
-		goto out;
+		return NULL;
+
+	if (!isdigit(s[1])) {
+		s++;
+		goto retry;
+	}
 
 	*s = 0;
 	s++;
 
-out:
 	return s;
 }
 
-struct device *get_vlan_device_chain(const char *ifname, bool create)
+struct device *get_vlan_device_chain(const char *ifname, int create)
 {
 	struct device *dev = NULL;
 	char *buf, *s, *next;
@@ -259,23 +265,19 @@ struct device *get_vlan_device_chain(const char *ifname, bool create)
 		return NULL;
 
 	s = split_vlan(buf);
-	dev = device_get(buf, create);
+	dev = __device_get(buf, create, false);
 	if (!dev)
-		goto error;
+		goto out;
 
-	do {
+	while (s) {
 		next = split_vlan(s);
 		dev = get_vlan_device(dev, s, create);
 		if (!dev)
-			goto error;
+			break;
 
 		s = next;
-		if (!s)
-			goto out;
-	} while (1);
+	}
 
-error:
-	dev = NULL;
 out:
 	free(buf);
 	return dev;

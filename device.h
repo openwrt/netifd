@@ -309,7 +309,13 @@ int device_init_virtual(struct device *dev, struct device_type *type, const char
 int device_init(struct device *dev, struct device_type *type, const char *ifname);
 void device_cleanup(struct device *dev);
 struct device *device_find(const char *name);
-struct device *device_get(const char *name, int create);
+
+struct device *__device_get(const char *name, int create, bool check_vlan);
+static inline struct device *device_get(const char *name, int create)
+{
+	return __device_get(name, create, true);
+}
+
 void device_add_user(struct device_user *dep, struct device *dev);
 void device_remove_user(struct device_user *dep);
 void device_broadcast_event(struct device *dev, enum device_event ev);
@@ -326,7 +332,7 @@ void device_dump_status(struct blob_buf *b, struct device *dev);
 
 void device_free_unused(struct device *dev);
 
-struct device *get_vlan_device_chain(const char *ifname, bool create);
+struct device *get_vlan_device_chain(const char *ifname, int create);
 void alias_notify_device(const char *name, struct device *dev);
 struct device *device_alias_get(const char *name);
 

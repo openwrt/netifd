@@ -650,13 +650,13 @@ device_find(const char *name)
 }
 
 struct device *
-device_get(const char *name, int create)
+__device_get(const char *name, int create, bool check_vlan)
 {
 	struct device *dev;
 
 	dev = avl_find_element(&devices, name, dev, avl);
 
-	if (!dev && strchr(name, '.'))
+	if (!dev && check_vlan && strchr(name, '.'))
 		return get_vlan_device_chain(name, create);
 
 	if (name[0] == '@')
