@@ -704,6 +704,11 @@ bridge_hotplug_get_vlan(struct bridge_state *bst, unsigned int vid)
 	INIT_LIST_HEAD(&vlan->hotplug_ports);
 	vlist_add(&bst->dev.vlans, &vlan->node, &vlan->vid);
 	vlan->node.version = -1;
+	if (!vlan->pending)
+		return vlan;
+
+	vlan->pending = false;
+	bridge_set_vlan_state(bst, vlan, true);
 
 	return vlan;
 }
