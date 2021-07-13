@@ -690,7 +690,7 @@ bridge_add_member(struct bridge_state *bst, const char *name)
 }
 
 static struct bridge_vlan *
-bridge_hotplug_get_vlan(struct bridge_state *bst, unsigned int vid)
+bridge_hotplug_get_vlan(struct bridge_state *bst, uint16_t vid)
 {
 	struct bridge_vlan *vlan;
 
