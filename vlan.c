@@ -239,15 +239,9 @@ error:
 
 static char *split_vlan(char *s)
 {
-retry:
 	s = strchr(s, '.');
 	if (!s)
 		return NULL;
-
-	if (!isdigit(s[1])) {
-		s++;
-		goto retry;
-	}
 
 	*s = 0;
 	s++;
@@ -257,7 +251,7 @@ retry:
 
 struct device *get_vlan_device_chain(const char *ifname, int create)
 {
-	struct device *dev = NULL;
+	struct device *dev = NULL, *vldev;
 	char *buf, *s, *next;
 
 	buf = strdup(ifname);
@@ -266,8 +260,29 @@ struct device *get_vlan_device_chain(const char *ifname, int create)
 
 	s = split_vlan(buf);
 	dev = __device_get(buf, create, false);
-	if (!dev)
+	if (!dev || !s)
 		goto out;
+
+	/* for the first split, we need to check if we're using an alias or
+	 * if the . separator isn't being used as a vlan separator (e.g. for
+	 * AP WDS VLANs */
+	if (!isdigit(s[0])) {
+		next = split_vlan(s);
+		vldev = get_vlan_device(dev, s, create);
+		if (!vldev) {
+			s[-1] = '.';
+			dev = __device_get(buf, create, false);
+			if (!dev)
+				goto out;
+
+			if (next)
+				next[-1] = '.';
+		} else {
+			dev = vldev;
+			s = next;
+		}
+	}
+
 
 	while (s) {
 		next = split_vlan(s);
