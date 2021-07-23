@@ -1506,13 +1506,16 @@ void wireless_device_hotplug_event(const char *name, bool add)
 	int len;
 
 	s = strstr(name, ".sta");
-	if (!s)
-		return;
+	if (s) {
+		if (strchr(s + 4, '.'))
+			return;
 
-	if (strchr(s + 4, '.'))
+		len = s - name;
+	} else if (!device_find(name)) {
+		len = strlen(name);
+	} else {
 		return;
-
-	len = s - name;
+	}
 
 	vlist_for_each_element(&wireless_devices, wdev, node) {
 		vlist_for_each_element(&wdev->interfaces, vif, node) {
