@@ -66,6 +66,11 @@ int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int v
 	return 0;
 }
 
+int system_bridge_vlan_check(struct device *dev, char *ifname)
+{
+	return 0;
+}
+
 int system_link_netns_move(struct device *dev, int netns_fd, const char *target_ifname)
 {
 	D(SYSTEM, "ip link set %s name %s netns %d\n", dev->ifname, target_ifname, netns_fd);

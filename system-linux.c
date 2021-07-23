@@ -1858,6 +1858,197 @@ static int cb_if_check_error(struct sockaddr_nl *nla, struct nlmsgerr *err, void
 	return NL_STOP;
 }
 
+struct bridge_vlan_check_data {
+	struct device *check_dev;
+	int ifindex;
+	int ret;
+	bool pending;
+};
+
+static void bridge_vlan_check_port(struct bridge_vlan_check_data *data,
+				   struct bridge_vlan_port *port,
+				   struct bridge_vlan_info *vinfo)
+{
+	uint16_t flags = 0, diff, mask;
+
+	if (port->flags & BRVLAN_F_PVID)
+		flags |= BRIDGE_VLAN_INFO_PVID;
+	if (port->flags & BRVLAN_F_UNTAGGED)
+		flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+
+	diff = vinfo->flags ^ flags;
+	mask = BRVLAN_F_UNTAGGED | (flags & BRIDGE_VLAN_INFO_PVID);
+	if (diff & mask) {
+		data->ret = 1;
+		data->pending = false;
+	}
+
+	port->check = 1;
+}
+
+static void bridge_vlan_check_attr(struct bridge_vlan_check_data *data,
+				   struct rtattr *attr)
+{
+	struct bridge_vlan_hotplug_port *port;
+	struct bridge_vlan_info *vinfo;
+	struct bridge_vlan *vlan;
+	struct rtattr *cur;
+	int rem = RTA_PAYLOAD(attr);
+	int i;
+
+	for (cur = RTA_DATA(attr); RTA_OK(cur, rem); cur = RTA_NEXT(cur, rem)) {
+		if (cur->rta_type != IFLA_BRIDGE_VLAN_INFO)
+			continue;
+
+		vinfo = RTA_DATA(cur);
+		vlan = vlist_find(&data->check_dev->vlans, &vinfo->vid, vlan, node);
+		if (!vlan) {
+			data->ret = 1;
+			data->pending = false;
+			return;
+		}
+
+		for (i = 0; i < vlan->n_ports; i++)
+			if (!vlan->ports[i].check)
+				bridge_vlan_check_port(data, &vlan->ports[i], vinfo);
+
+		list_for_each_entry(port, &vlan->hotplug_ports, list)
+			if (!port->port.check)
+				bridge_vlan_check_port(data, &port->port, vinfo);
+	}
+}
+
+static int bridge_vlan_check_cb(struct nl_msg *msg, void *arg)
+{
+	struct bridge_vlan_check_data *data = arg;
+	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
+	struct rtattr *attr;
+	int rem;
+
+	if (nh->nlmsg_type != RTM_NEWLINK)
+		return NL_SKIP;
+
+	if (ifi->ifi_family != AF_BRIDGE)
+		return NL_SKIP;
+
+	if (ifi->ifi_index != data->ifindex)
+		return NL_SKIP;
+
+	attr = IFLA_RTA(ifi);
+	rem = nh->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+	while (RTA_OK(attr, rem)) {
+		if (attr->rta_type == IFLA_AF_SPEC)
+			bridge_vlan_check_attr(data, attr);
+
+		attr = RTA_NEXT(attr, rem);
+	}
+
+	return NL_SKIP;
+}
+
+static int bridge_vlan_ack_cb(struct nl_msg *msg, void *arg)
+{
+	struct bridge_vlan_check_data *data = arg;
+	data->pending = false;
+	return NL_STOP;
+}
+
+static int bridge_vlan_error_cb(struct sockaddr_nl *nla, struct nlmsgerr *err, void *arg)
+{
+	struct bridge_vlan_check_data *data = arg;
+	data->pending = false;
+	return NL_STOP;
+}
+
+int system_bridge_vlan_check(struct device *dev, char *ifname)
+{
+	struct bridge_vlan_check_data data = {
+		.check_dev = dev,
+		.ifindex = if_nametoindex(ifname),
+		.ret = -1,
+		.pending = true,
+	};
+	static struct ifinfomsg ifi = {
+		.ifi_family = AF_BRIDGE
+	};
+	static struct rtattr ext_req = {
+		.rta_type = IFLA_EXT_MASK,
+		.rta_len = RTA_LENGTH(sizeof(uint32_t)),
+	};
+	uint32_t filter = RTEXT_FILTER_BRVLAN;
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct bridge_vlan *vlan;
+	struct nl_msg *msg;
+	int i;
+
+	if (!data.ifindex)
+		return 0;
+
+	msg = nlmsg_alloc_simple(RTM_GETLINK, NLM_F_DUMP);
+
+	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
+		nlmsg_append(msg, &ext_req, sizeof(ext_req), NLMSG_ALIGNTO) ||
+		nlmsg_append(msg, &filter, sizeof(filter), 0))
+		goto free;
+
+	vlist_for_each_element(&dev->vlans, vlan, node) {
+		struct bridge_vlan_hotplug_port *port;
+
+		for (i = 0; i < vlan->n_ports; i++) {
+			if (!strcmp(vlan->ports[i].ifname, ifname))
+				vlan->ports[i].check = 0;
+			else
+				vlan->ports[i].check = -1;
+		}
+
+		list_for_each_entry(port, &vlan->hotplug_ports, list) {
+			if (!strcmp(port->port.ifname, ifname))
+				port->port.check = 0;
+			else
+				port->port.check = -1;
+		}
+	}
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, bridge_vlan_check_cb, &data);
+	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, bridge_vlan_ack_cb, &data);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, bridge_vlan_ack_cb, &data);
+	nl_cb_err(cb, NL_CB_CUSTOM, bridge_vlan_error_cb, &data);
+
+	if (nl_send_auto_complete(sock_rtnl, msg) < 0)
+		goto free;
+
+	data.ret = 0;
+	while (data.pending)
+		nl_recvmsgs(sock_rtnl, cb);
+
+	vlist_for_each_element(&dev->vlans, vlan, node) {
+		struct bridge_vlan_hotplug_port *port;
+
+		for (i = 0; i < vlan->n_ports; i++) {
+			if (!vlan->ports[i].check) {
+				data.ret = 1;
+				break;
+			}
+		}
+
+		list_for_each_entry(port, &vlan->hotplug_ports, list) {
+			if (!port->port.check) {
+				data.ret = 1;
+				break;
+			}
+		}
+	}
+
+	goto out;
+
+free:
+	nlmsg_free(msg);
+out:
+	nl_cb_put(cb);
+	return data.ret;
+}
+
 int system_if_check(struct device *dev)
 {
 	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);

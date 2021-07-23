@@ -266,6 +266,12 @@ enum bridge_vlan_flags {
 struct bridge_vlan_port {
 	const char *ifname;
 	uint16_t flags;
+	int8_t check;
+};
+
+struct bridge_vlan_hotplug_port {
+	struct list_head list;
+	struct bridge_vlan_port port;
 };
 
 struct bridge_vlan {

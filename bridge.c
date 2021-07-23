@@ -122,15 +122,11 @@ struct bridge_member {
 	struct vlist_node node;
 	struct bridge_state *bst;
 	struct device_user dev;
+	struct uloop_timeout check_timer;
 	uint16_t pvid;
 	bool present;
 	bool active;
 	char name[];
-};
-
-struct bridge_vlan_hotplug_port {
-	struct list_head list;
-	struct bridge_vlan_port port;
 };
 
 static void
@@ -477,6 +473,7 @@ restart:
 	device_lock();
 
 	device_remove_user(&bm->dev);
+	uloop_timeout_cancel(&bm->check_timer);
 
 	/*
 	 * When reloading the config and moving a device from one bridge to
@@ -505,6 +502,22 @@ bridge_check_retry(struct bridge_state *bst)
 }
 
 static void
+bridge_member_check_cb(struct uloop_timeout *t)
+{
+	struct bridge_member *bm;
+	struct bridge_state *bst;
+
+	bm = container_of(t, struct bridge_member, check_timer);
+	bst = bm->bst;
+
+	if (!system_bridge_vlan_check(&bst->dev, bm->dev.dev->ifname))
+		return;
+
+	bridge_disable_member(bm, true);
+	bridge_enable_member(bm);
+}
+
+static void
 bridge_member_cb(struct device_user *dep, enum device_event ev)
 {
 	struct bridge_member *bm = container_of(dep, struct bridge_member, dev);
@@ -521,6 +534,9 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		if (bst->n_present == 1)
 			device_set_present(&bst->dev, true);
 		fallthrough;
+	case DEV_EVENT_LINK_UP:
+		uloop_timeout_set(&bm->check_timer, 1000);
+		break;
 	case DEV_EVENT_AUTH_UP:
 		if (!bst->dev.active)
 			break;
@@ -634,6 +650,7 @@ bridge_create_member(struct bridge_state *bst, const char *name,
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
 	bm->dev.hotplug = hotplug;
+	bm->check_timer.cb = bridge_member_check_cb;
 	strcpy(bm->name, name);
 	bm->dev.dev = dev;
 	vlist_add(&bst->members, &bm->node, bm->name);
