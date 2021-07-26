@@ -510,7 +510,7 @@ bridge_member_check_cb(struct uloop_timeout *t)
 	bm = container_of(t, struct bridge_member, check_timer);
 	bst = bm->bst;
 
-	if (!system_bridge_vlan_check(&bst->dev, bm->dev.dev->ifname))
+	if (system_bridge_vlan_check(&bst->dev, bm->dev.dev->ifname) <= 0)
 		return;
 
 	bridge_disable_member(bm, true);
@@ -534,9 +534,6 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		if (bst->n_present == 1)
 			device_set_present(&bst->dev, true);
 		fallthrough;
-	case DEV_EVENT_LINK_UP:
-		uloop_timeout_set(&bm->check_timer, 1000);
-		break;
 	case DEV_EVENT_AUTH_UP:
 		if (!bst->dev.active)
 			break;
@@ -551,6 +548,10 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		 */
 		system_if_apply_settings(&bst->dev, &bst->dev.settings,
 					 DEV_OPT_MTU | DEV_OPT_MTU6);
+		break;
+	case DEV_EVENT_LINK_UP:
+		if (bst->has_vlans)
+			uloop_timeout_set(&bm->check_timer, 1000);
 		break;
 	case DEV_EVENT_LINK_DOWN:
 		if (!dev->settings.auth)
