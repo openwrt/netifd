@@ -162,7 +162,7 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 }
 
 void
-system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
+system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t apply_mask)
 {
 	apply_mask &= s->flags;
 

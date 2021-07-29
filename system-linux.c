@@ -1706,7 +1706,7 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 }
 
 void
-system_if_apply_settings(struct device *dev, struct device_settings *s, unsigned int apply_mask)
+system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t apply_mask)
 {
 	struct ifreq ifr;
 	char buf[12];
