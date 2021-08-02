@@ -1578,6 +1578,57 @@ int system_vlandev_del(struct device *vlandev)
 	return system_link_del(vlandev->ifname);
 }
 
+static void
+system_set_ethtool_settings(struct device *dev, struct device_settings *s)
+{
+	struct ethtool_cmd ecmd = {
+		.cmd = ETHTOOL_GSET,
+	};
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&ecmd,
+	};
+	static const struct {
+		int speed;
+		uint8_t bit_half;
+		uint8_t bit_full;
+	} speed_mask[] = {
+		{ 10, ETHTOOL_LINK_MODE_10baseT_Half_BIT, ETHTOOL_LINK_MODE_10baseT_Full_BIT },
+		{ 100, ETHTOOL_LINK_MODE_100baseT_Half_BIT, ETHTOOL_LINK_MODE_100baseT_Full_BIT },
+		{ 1000, ETHTOOL_LINK_MODE_1000baseT_Half_BIT, ETHTOOL_LINK_MODE_1000baseT_Full_BIT },
+	};
+	uint32_t adv;
+	int i;
+
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0)
+		return;
+
+	adv = ecmd.supported;
+	for (i = 0; i < ARRAY_SIZE(speed_mask); i++) {
+		if (s->flags & DEV_OPT_DUPLEX) {
+			int bit = s->duplex ? speed_mask[i].bit_half : speed_mask[i].bit_full;
+			adv &= ~(1 << bit);
+		}
+
+		if (!(s->flags & DEV_OPT_SPEED) ||
+		    s->speed == speed_mask[i].speed)
+			continue;
+
+		adv &= ~(1 << speed_mask[i].bit_full);
+		adv &= ~(1 << speed_mask[i].bit_half);
+	}
+
+
+	if (ecmd.autoneg && ecmd.advertising == adv)
+		return;
+
+	ecmd.autoneg = 1;
+	ecmd.advertising = adv;
+	ecmd.cmd = ETHTOOL_SSET;
+	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
+}
+
 void
 system_if_get_settings(struct device *dev, struct device_settings *s)
 {
@@ -1801,6 +1852,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 		system_set_drop_unsolicited_na(dev, s->drop_unsolicited_na ? "1" : "0");
 	if (apply_mask & DEV_OPT_ARP_ACCEPT)
 		system_set_arp_accept(dev, s->arp_accept ? "1" : "0");
+	system_set_ethtool_settings(dev, s);
 }
 
 int system_if_up(struct device *dev)

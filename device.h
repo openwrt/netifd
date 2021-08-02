@@ -60,6 +60,8 @@ enum {
 	DEV_ATTR_DROP_UNSOLICITED_NA,
 	DEV_ATTR_ARP_ACCEPT,
 	DEV_ATTR_AUTH,
+	DEV_ATTR_SPEED,
+	DEV_ATTR_DUPLEX,
 	__DEV_ATTR_MAX,
 };
 
@@ -121,6 +123,8 @@ enum {
 	DEV_OPT_DROP_GRATUITOUS_ARP	= (1ULL << 27),
 	DEV_OPT_DROP_UNSOLICITED_NA	= (1ULL << 28),
 	DEV_OPT_ARP_ACCEPT		= (1ULL << 29),
+	DEV_OPT_SPEED			= (1ULL << 30),
+	DEV_OPT_DUPLEX			= (1ULL << 31),
 };
 
 /* events broadcasted to all users of a device */
@@ -196,6 +200,8 @@ struct device_settings {
 	bool drop_unsolicited_na;
 	bool arp_accept;
 	bool auth;
+	unsigned int speed;
+	bool duplex;
 };
 
 /*

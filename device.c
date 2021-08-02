@@ -61,6 +61,8 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_DROP_UNSOLICITED_NA] = { .name = "drop_unsolicited_na", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_ARP_ACCEPT] = { .name = "arp_accept", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_AUTH] = { .name = "auth", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_SPEED] = { .name = "speed", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_DUPLEX] = { .name = "duplex", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -276,6 +278,8 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->arp_accept = s->flags & DEV_OPT_ARP_ACCEPT ?
 		s->arp_accept : os->arp_accept;
 	n->auth = s->flags & DEV_OPT_AUTH ? s->auth : os->auth;
+	n->speed = s->flags & DEV_OPT_SPEED ? s->speed : os->speed;
+	n->duplex = s->flags & DEV_OPT_DUPLEX ? s->duplex : os->duplex;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -448,6 +452,16 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_AUTH])) {
 		s->auth = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_AUTH;
+	}
+
+	if ((cur = tb[DEV_ATTR_SPEED])) {
+		s->speed = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_SPEED;
+	}
+
+	if ((cur = tb[DEV_ATTR_DUPLEX])) {
+		s->duplex = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_DUPLEX;
 	}
 
 	device_set_disabled(dev, disabled);
