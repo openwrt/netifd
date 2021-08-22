@@ -121,6 +121,8 @@ enum bridge_opt {
 struct bridge_config {
 	enum bridge_opt flags;
 	bool stp;
+	bool stp_kernel;
+	const char *stp_proto;
 
 	bool igmp_snoop;
 	bool multicast_querier;
@@ -208,6 +210,7 @@ int system_bridge_addif(struct device *bridge, struct device *dev);
 int system_bridge_delif(struct device *bridge, struct device *dev);
 int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags);
 int system_bridge_vlan_check(struct device *dev, char *ifname);
+void system_bridge_set_stp_state(struct device *dev, bool val);
 
 int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvlan_config *cfg);
 int system_macvlan_del(struct device *macvlan);

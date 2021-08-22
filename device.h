@@ -89,6 +89,7 @@ struct device_type {
 	void (*dump_info)(struct device *, struct blob_buf *buf);
 	void (*dump_stats)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
+	void (*stp_init)(struct device *);
 	void (*free)(struct device *);
 };
 
@@ -301,6 +302,7 @@ void device_lock(void);
 void device_unlock(void);
 
 void device_vlan_update(bool done);
+void device_stp_init(void);
 
 int device_type_add(struct device_type *devtype);
 struct device_type *device_type_get(const char *tname);

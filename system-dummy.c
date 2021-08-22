@@ -66,6 +66,10 @@ int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int v
 	return 0;
 }
 
+void system_bridge_set_stp_state(struct device *dev, bool val)
+{
+}
+
 int system_bridge_vlan_check(struct device *dev, char *ifname)
 {
 	return 0;

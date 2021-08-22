@@ -25,5 +25,6 @@ void netifd_ubus_add_interface(struct interface *iface);
 void netifd_ubus_remove_interface(struct interface *iface);
 void netifd_ubus_interface_event(struct interface *iface, bool up);
 void netifd_ubus_interface_notify(struct interface *iface, bool up);
+void netifd_ubus_device_notify(const char *event, struct blob_attr *data, int timeout);
 
 #endif

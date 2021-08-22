@@ -371,6 +371,16 @@ netifd_handle_dev_hotplug(struct ubus_context *ctx, struct ubus_object *obj,
 }
 #endif
 
+static int
+netifd_handle_stp_init(struct ubus_context *ctx, struct ubus_object *obj,
+		       struct ubus_request_data *req, const char *method,
+		       struct blob_attr *msg)
+{
+	device_stp_init();
+
+	return 0;
+}
+
 static struct ubus_method dev_object_methods[] = {
 	UBUS_METHOD("status", netifd_dev_status, dev_policy),
 	UBUS_METHOD("set_alias", netifd_handle_alias, alias_attrs),
@@ -378,6 +388,7 @@ static struct ubus_method dev_object_methods[] = {
 #ifdef DUMMY_MODE
 	UBUS_METHOD("hotplug_event", netifd_handle_dev_hotplug, dev_hotplug_policy),
 #endif
+	UBUS_METHOD_NOARG("stp_init", netifd_handle_stp_init)
 };
 
 static struct ubus_object_type dev_object_type =
@@ -395,6 +406,11 @@ netifd_ubus_add_fd(void)
 {
 	ubus_add_uloop(ubus_ctx);
 	system_fd_set_cloexec(ubus_ctx->sock.fd);
+}
+
+void netifd_ubus_device_notify(const char *event, struct blob_attr *data, int timeout)
+{
+	ubus_notify(ubus_ctx, &dev_object, event, data, timeout);
 }
 
 static void

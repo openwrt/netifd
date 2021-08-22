@@ -21,6 +21,7 @@
 #include "device.h"
 #include "interface.h"
 #include "system.h"
+#include "ubus.h"
 
 enum {
 	BRIDGE_ATTR_PORTS,
@@ -40,6 +41,8 @@ enum {
 	BRIDGE_ATTR_LAST_MEMBER_INTERVAL,
 	BRIDGE_ATTR_VLAN_FILTERING,
 	BRIDGE_ATTR_HAS_VLANS,
+	BRIDGE_ATTR_STP_KERNEL,
+	BRIDGE_ATTR_STP_PROTO,
 	__BRIDGE_ATTR_MAX
 };
 
@@ -61,6 +64,8 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_LAST_MEMBER_INTERVAL] = { "last_member_interval", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_VLAN_FILTERING] = { "vlan_filtering", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_HAS_VLANS] = { "__has_vlans", BLOBMSG_TYPE_BOOL }, /* internal */
+	[BRIDGE_ATTR_STP_KERNEL] = { "stp_kernel", BLOBMSG_TYPE_BOOL },
+	[BRIDGE_ATTR_STP_PROTO] = { "stp_proto", BLOBMSG_TYPE_STRING },
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -76,11 +81,13 @@ static const struct uci_blob_param_list bridge_attr_list = {
 	.next = { &device_attr_list },
 };
 
+static struct blob_buf b;
 static struct device *bridge_create(const char *name, struct device_type *devtype,
 	struct blob_attr *attr);
 static void bridge_config_init(struct device *dev);
 static void bridge_dev_vlan_update(struct device *dev);
 static void bridge_free(struct device *dev);
+static void bridge_stp_init(struct device *dev);
 static void bridge_dump_info(struct device *dev, struct blob_buf *b);
 static enum dev_change_type
 bridge_reload(struct device *dev, struct blob_attr *attr);
@@ -98,6 +105,7 @@ static struct device_type bridge_device_type = {
 	.reload = bridge_reload,
 	.free = bridge_free,
 	.dump_info = bridge_dump_info,
+	.stp_init = bridge_stp_init,
 };
 
 struct bridge_state {
@@ -319,6 +327,27 @@ bridge_disable_member(struct bridge_member *bm, bool keep_dev)
 	return 0;
 }
 
+static void bridge_stp_notify(struct bridge_state *bst)
+{
+	struct bridge_config *cfg = &bst->config;
+
+	if (!cfg->stp || cfg->stp_kernel)
+		return;
+
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "name", bst->dev.ifname);
+	if (cfg->stp_proto)
+		blobmsg_add_string(&b, "proto", cfg->stp_proto);
+	blobmsg_add_u32(&b, "forward_delay", cfg->forward_delay);
+	if (cfg->flags & BRIDGE_OPT_HELLO_TIME)
+		blobmsg_add_u32(&b, "hello_time", cfg->hello_time);
+	if (cfg->flags & BRIDGE_OPT_MAX_AGE)
+		blobmsg_add_u32(&b, "max_age", cfg->max_age);
+	if (cfg->flags & BRIDGE_OPT_AGEING_TIME)
+		blobmsg_add_u32(&b, "ageing_time", cfg->ageing_time);
+	netifd_ubus_device_notify("stp_init", b.head, 1000);
+}
+
 static int
 bridge_enable_interface(struct bridge_state *bst)
 {
@@ -327,6 +356,7 @@ bridge_enable_interface(struct bridge_state *bst)
 	if (bst->active)
 		return 0;
 
+	bridge_stp_notify(bst);
 	ret = system_bridge_addbr(&bst->dev, &bst->config);
 	if (ret < 0)
 		return ret;
@@ -340,6 +370,20 @@ bridge_enable_interface(struct bridge_state *bst)
 
 	bst->active = true;
 	return 0;
+}
+
+static void
+bridge_stp_init(struct device *dev)
+{
+	struct bridge_state *bst;
+
+	bst = container_of(dev, struct bridge_state, dev);
+	if (!bst->config.stp || !bst->active)
+		return;
+
+	bridge_stp_notify(bst);
+	system_bridge_set_stp_state(&bst->dev, false);
+	system_bridge_set_stp_state(&bst->dev, true);
 }
 
 static void
@@ -1000,6 +1044,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	/* defaults */
 	memset(cfg, 0, sizeof(*cfg));
 	cfg->stp = false;
+	cfg->stp_kernel = false;
 	cfg->forward_delay = 2;
 	cfg->robustness = 2;
 	cfg->igmp_snoop = false;
@@ -1014,6 +1059,12 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 
 	if ((cur = tb[BRIDGE_ATTR_STP]))
 		cfg->stp = blobmsg_get_bool(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_STP_KERNEL]))
+		cfg->stp = blobmsg_get_bool(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_STP_PROTO]))
+		cfg->stp_proto = blobmsg_get_string(cur);
 
 	if ((cur = tb[BRIDGE_ATTR_FORWARD_DELAY]))
 		cfg->forward_delay = blobmsg_get_u32(cur);

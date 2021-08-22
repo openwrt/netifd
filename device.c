@@ -139,6 +139,18 @@ void device_vlan_update(bool done)
 	}
 }
 
+void device_stp_init(void)
+{
+	struct device *dev;
+
+	avl_for_each_element(&devices, dev, avl) {
+		if (!dev->type->stp_init)
+			continue;
+
+		dev->type->stp_init(dev);
+	}
+}
+
 static int set_device_state(struct device *dev, bool state)
 {
 	if (state) {

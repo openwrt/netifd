@@ -460,9 +460,11 @@ static void system_bridge_set_startup_query_interval(struct device *dev, const c
 			      dev->ifname, val);
 }
 
-static void system_bridge_set_stp_state(struct device *dev, const char *val)
+void system_bridge_set_stp_state(struct device *dev, bool val)
 {
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/stp_state", dev->ifname, val);
+	const char *valstr = val ? "1" : "0";
+
+	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/stp_state", dev->ifname, valstr);
 }
 
 static void system_bridge_set_forward_delay(struct device *dev, const char *val)
@@ -1263,7 +1265,7 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	if (ioctl(sock_ioctl, SIOCBRADDBR, bridge->ifname) < 0)
 		return -1;
 
-	system_bridge_set_stp_state(bridge, cfg->stp ? "1" : "0");
+	system_bridge_set_stp_state(bridge, cfg->stp);
 
 	snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->forward_delay));
 	system_bridge_set_forward_delay(bridge, buf);
