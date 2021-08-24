@@ -108,14 +108,12 @@ extern const struct uci_blob_param_list ipip6_data_attr_list;
 extern const struct uci_blob_param_list fmr_data_attr_list;
 
 enum bridge_opt {
-	/* stp and forward delay always set */
+	/* stp, forward delay, max age and hello time are always set */
 	BRIDGE_OPT_AGEING_TIME		    = (1 << 0),
-	BRIDGE_OPT_HELLO_TIME		    = (1 << 1),
-	BRIDGE_OPT_MAX_AGE		    = (1 << 2),
-	BRIDGE_OPT_ROBUSTNESS		    = (1 << 3),
-	BRIDGE_OPT_QUERY_INTERVAL	    = (1 << 4),
-	BRIDGE_OPT_QUERY_RESPONSE_INTERVAL  = (1 << 5),
-	BRIDGE_OPT_LAST_MEMBER_INTERVAL	    = (1 << 6),
+	BRIDGE_OPT_ROBUSTNESS		    = (1 << 1),
+	BRIDGE_OPT_QUERY_INTERVAL	    = (1 << 2),
+	BRIDGE_OPT_QUERY_RESPONSE_INTERVAL  = (1 << 3),
+	BRIDGE_OPT_LAST_MEMBER_INTERVAL	    = (1 << 4),
 };
 
 struct bridge_config {

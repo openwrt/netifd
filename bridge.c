@@ -339,10 +339,8 @@ static void bridge_stp_notify(struct bridge_state *bst)
 	if (cfg->stp_proto)
 		blobmsg_add_string(&b, "proto", cfg->stp_proto);
 	blobmsg_add_u32(&b, "forward_delay", cfg->forward_delay);
-	if (cfg->flags & BRIDGE_OPT_HELLO_TIME)
-		blobmsg_add_u32(&b, "hello_time", cfg->hello_time);
-	if (cfg->flags & BRIDGE_OPT_MAX_AGE)
-		blobmsg_add_u32(&b, "max_age", cfg->max_age);
+	blobmsg_add_u32(&b, "hello_time", cfg->hello_time);
+	blobmsg_add_u32(&b, "max_age", cfg->max_age);
 	if (cfg->flags & BRIDGE_OPT_AGEING_TIME)
 		blobmsg_add_u32(&b, "ageing_time", cfg->ageing_time);
 	netifd_ubus_device_notify("stp_init", b.head, 1000);
@@ -1045,7 +1043,6 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	memset(cfg, 0, sizeof(*cfg));
 	cfg->stp = false;
 	cfg->stp_kernel = false;
-	cfg->forward_delay = 2;
 	cfg->robustness = 2;
 	cfg->igmp_snoop = false;
 	cfg->multicast_querier = false;
@@ -1056,6 +1053,10 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->bridge_empty = false;
 	cfg->priority = 0x7FFF;
 	cfg->vlan_filtering = false;
+
+	cfg->forward_delay = 8;
+	cfg->max_age = 10;
+	cfg->hello_time = 1;
 
 	if ((cur = tb[BRIDGE_ATTR_STP]))
 		cfg->stp = blobmsg_get_bool(cur);
@@ -1106,15 +1107,11 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 		cfg->flags |= BRIDGE_OPT_AGEING_TIME;
 	}
 
-	if ((cur = tb[BRIDGE_ATTR_HELLO_TIME])) {
+	if ((cur = tb[BRIDGE_ATTR_HELLO_TIME]))
 		cfg->hello_time = blobmsg_get_u32(cur);
-		cfg->flags |= BRIDGE_OPT_HELLO_TIME;
-	}
 
-	if ((cur = tb[BRIDGE_ATTR_MAX_AGE])) {
+	if ((cur = tb[BRIDGE_ATTR_MAX_AGE]))
 		cfg->max_age = blobmsg_get_u32(cur);
-		cfg->flags |= BRIDGE_OPT_MAX_AGE;
-	}
 
 	if ((cur = tb[BRIDGE_ATTR_BRIDGE_EMPTY]))
 		cfg->bridge_empty = blobmsg_get_bool(cur);

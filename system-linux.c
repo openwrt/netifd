@@ -1276,19 +1276,15 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	snprintf(buf, sizeof(buf), "%d", cfg->priority);
 	system_bridge_set_priority(bridge, buf);
 
+	snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->hello_time));
+	system_bridge_set_hello_time(bridge, buf);
+
+	snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->max_age));
+	system_bridge_set_max_age(bridge, buf);
+
 	if (cfg->flags & BRIDGE_OPT_AGEING_TIME) {
 		snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->ageing_time));
 		system_bridge_set_ageing_time(bridge, buf);
-	}
-
-	if (cfg->flags & BRIDGE_OPT_HELLO_TIME) {
-		snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->hello_time));
-		system_bridge_set_hello_time(bridge, buf);
-	}
-
-	if (cfg->flags & BRIDGE_OPT_MAX_AGE) {
-		snprintf(buf, sizeof(buf), "%lu", sec_to_jiffies(cfg->max_age));
-		system_bridge_set_max_age(bridge, buf);
 	}
 
 	return 0;
