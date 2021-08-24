@@ -998,6 +998,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	struct blob_attr *cur;
 
 	/* defaults */
+	memset(cfg, 0, sizeof(*cfg));
 	cfg->stp = false;
 	cfg->forward_delay = 2;
 	cfg->robustness = 2;
