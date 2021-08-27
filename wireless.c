@@ -332,6 +332,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 			dev->wireless_isolate = vif->isolate;
 			dev->wireless = true;
 			dev->wireless_ap = vif->ap_mode;
+			dev->bpdu_filter = dev->wireless_ap && ifname == vif->ifname;
 		}
 	}
 
@@ -362,6 +363,7 @@ static void wireless_vlan_handle_link(struct wireless_vlan *vlan, bool up)
 			dev->wireless_isolate = vlan->isolate;
 			dev->wireless = true;
 			dev->wireless_ap = true;
+			dev->bpdu_filter = true;
 		}
 	}
 

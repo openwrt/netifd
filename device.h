@@ -244,6 +244,7 @@ struct device {
 	bool wireless;
 	bool wireless_ap;
 	bool wireless_isolate;
+	bool bpdu_filter;
 
 	struct interface *config_iface;
 
