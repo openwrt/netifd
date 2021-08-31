@@ -92,6 +92,8 @@ static int system_add_proto_tunnel(const char *name, const uint8_t proto,
 static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb);
 
 static char dev_buf[256];
+static const char *proc_path = "/proc";
+static const char *sysfs_path = "/sys";
 
 static void
 handler_nl_event(struct uloop_fd *u, unsigned int events)
@@ -281,7 +283,7 @@ int system_init(void)
 	return 0;
 }
 
-static void system_set_sysctl(const char *path, const char *val)
+static void write_file(const char *path, const char *val)
 {
 	int fd;
 
@@ -293,226 +295,7 @@ static void system_set_sysctl(const char *path, const char *val)
 	close(fd);
 }
 
-static void system_set_dev_sysctl(const char *path, const char *device, const char *val)
-{
-	snprintf(dev_buf, sizeof(dev_buf), path, device);
-	system_set_sysctl(dev_buf, val);
-}
-
-static void system_set_disable_ipv6(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6", dev->ifname, val);
-}
-
-static void system_set_ip6segmentrouting(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/seg6_enabled", dev->ifname, val);
-}
-
-static void system_set_rpfilter(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/rp_filter", dev->ifname, val);
-}
-
-static void system_set_acceptlocal(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/accept_local", dev->ifname, val);
-}
-
-static void system_set_igmpversion(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/force_igmp_version", dev->ifname, val);
-}
-
-static void system_set_mldversion(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/force_mld_version", dev->ifname, val);
-}
-
-static void system_set_neigh4reachabletime(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/base_reachable_time_ms", dev->ifname, val);
-}
-
-static void system_set_neigh6reachabletime(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms", dev->ifname, val);
-}
-
-static void system_set_neigh4gcstaletime(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/gc_stale_time", dev->ifname, val);
-}
-
-static void system_set_neigh6gcstaletime(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/gc_stale_time", dev->ifname, val);
-}
-
-static void system_set_neigh4locktime(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/locktime", dev->ifname, val);
-}
-
-static void system_set_dadtransmits(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits", dev->ifname, val);
-}
-
-static void system_set_sendredirects(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects", dev->ifname, val);
-}
-
-static void system_set_drop_v4_unicast_in_l2_multicast(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_unicast_in_l2_multicast", dev->ifname, val);
-}
-
-static void system_set_drop_v6_unicast_in_l2_multicast(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unicast_in_l2_multicast", dev->ifname, val);
-}
-
-static void system_set_drop_gratuitous_arp(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_gratuitous_arp", dev->ifname, val);
-}
-
-static void system_set_drop_unsolicited_na(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unsolicited_na", dev->ifname, val);
-}
-
-static void system_set_arp_accept(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/proc/sys/net/ipv4/conf/%s/arp_accept", dev->ifname, val);
-}
-
-static void system_bridge_set_multicast_to_unicast(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/class/net/%s/brport/multicast_to_unicast", dev->ifname, val);
-}
-
-static void system_bridge_set_multicast_fast_leave(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/class/net/%s/brport/multicast_fast_leave", dev->ifname, val);
-}
-
-static void system_bridge_set_hairpin_mode(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/class/net/%s/brport/hairpin_mode", dev->ifname, val);
-}
-
-static void system_bridge_set_bpdu_filter(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/class/net/%s/brport/bpdu_filter", dev->ifname, val);
-}
-
-static void system_bridge_set_isolated(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/class/net/%s/brport/isolated", dev->ifname, val);
-}
-
-static void system_bridge_set_multicast_router(struct device *dev, const char *val, bool bridge)
-{
-	system_set_dev_sysctl(bridge ? "/sys/class/net/%s/bridge/multicast_router" :
-				       "/sys/class/net/%s/brport/multicast_router",
-			      dev->ifname, val);
-}
-
-static void system_bridge_set_robustness(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_startup_query_count",
-			      dev->ifname, val);
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_last_member_count",
-			      dev->ifname, val);
-}
-
-static void system_bridge_set_query_interval(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_query_interval",
-			      dev->ifname, val);
-}
-
-static void system_bridge_set_query_response_interval(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_query_response_interval",
-			      dev->ifname, val);
-}
-
-static void system_bridge_set_last_member_interval(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_last_member_interval",
-			      dev->ifname, val);
-}
-
-static void system_bridge_set_membership_interval(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_membership_interval",
-			      dev->ifname, val);
-}
-
-static void system_bridge_set_other_querier_timeout(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier_interval",
-			      dev->ifname, val);
-}
-
-static void system_bridge_set_startup_query_interval(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_startup_query_interval",
-			      dev->ifname, val);
-}
-
-void system_bridge_set_stp_state(struct device *dev, bool val)
-{
-	const char *valstr = val ? "1" : "0";
-
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/stp_state", dev->ifname, valstr);
-}
-
-static void system_bridge_set_forward_delay(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/forward_delay", dev->ifname, val);
-}
-
-static void system_bridge_set_priority(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/priority", dev->ifname, val);
-}
-
-static void system_bridge_set_ageing_time(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/ageing_time", dev->ifname, val);
-}
-
-static void system_bridge_set_hello_time(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/hello_time", dev->ifname, val);
-}
-
-static void system_bridge_set_max_age(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/max_age", dev->ifname, val);
-}
-
-static void system_bridge_set_learning(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/class/net/%s/brport/learning", dev->ifname, val);
-}
-
-static void system_bridge_set_unicast_flood(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/class/net/%s/brport/unicast_flood", dev->ifname, val);
-}
-
-static void system_bridge_set_vlan_filtering(struct device *dev, const char *val)
-{
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/vlan_filtering", dev->ifname, val);
-}
-
-static int system_get_sysctl(const char *path, char *buf, const size_t buf_sz)
+static int read_file(const char *path, char *buf, const size_t buf_sz)
 {
 	int fd = -1, ret = -1;
 
@@ -533,119 +316,368 @@ out:
 	return ret;
 }
 
-static int
-system_get_dev_sysctl(const char *path, const char *device, char *buf, const size_t buf_sz)
+
+static const char *
+dev_sysctl_path(const char *prefix, const char *ifname, const char *file)
 {
-	snprintf(dev_buf, sizeof(dev_buf), path, device);
-	return system_get_sysctl(dev_buf, buf, buf_sz);
+	snprintf(dev_buf, sizeof(dev_buf), "%s/sys/net/%s/%s/%s", proc_path, prefix, ifname, file);
+
+	return dev_buf;
+}
+
+static const char *
+dev_sysfs_path(const char *ifname, const char *file)
+{
+	snprintf(dev_buf, sizeof(dev_buf), "%s/class/net/%s/%s", sysfs_path, ifname, file);
+
+	return dev_buf;
+}
+
+static void
+system_set_dev_sysctl(const char *prefix, const char *file, const char *ifname,
+		      const char *val)
+{
+	write_file(dev_sysctl_path(prefix, ifname, file), val);
+}
+
+static int
+system_get_dev_sysctl(const char *prefix, const char *file, const char *ifname,
+		      char *buf, size_t buf_sz)
+{
+	return read_file(dev_sysctl_path(prefix, ifname, file), buf, buf_sz);
+}
+
+static void
+system_set_dev_sysfs(const char *file, const char *ifname, const char *val)
+{
+	write_file(dev_sysfs_path(ifname, file), val);
+}
+
+static int
+system_get_dev_sysfs(const char *file, const char *ifname, char *buf, size_t buf_sz)
+{
+	return read_file(dev_sysfs_path(ifname, file), buf, buf_sz);
+}
+
+static void system_set_disable_ipv6(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "disable_ipv6", dev->ifname, val);
+}
+
+static void system_set_ip6segmentrouting(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "seg6_enabled", dev->ifname, val);
+}
+
+static void system_set_rpfilter(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "rp_filter", dev->ifname, val);
+}
+
+static void system_set_acceptlocal(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "accept_local", dev->ifname, val);
+}
+
+static void system_set_igmpversion(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "force_igmp_version", dev->ifname, val);
+}
+
+static void system_set_mldversion(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "force_mld_version", dev->ifname, val);
+}
+
+static void system_set_neigh4reachabletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/neigh", "base_reachable_time_ms", dev->ifname, val);
+}
+
+static void system_set_neigh6reachabletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/neigh", "base_reachable_time_ms", dev->ifname, val);
+}
+
+static void system_set_neigh4gcstaletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/neigh", "gc_stale_time", dev->ifname, val);
+}
+
+static void system_set_neigh6gcstaletime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/neigh", "gc_stale_time", dev->ifname, val);
+}
+
+static void system_set_neigh4locktime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/neigh", "locktime", dev->ifname, val);
+}
+
+static void system_set_dadtransmits(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "dad_transmits", dev->ifname, val);
+}
+
+static void system_set_sendredirects(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "send_redirects", dev->ifname, val);
+}
+
+static void system_set_drop_v4_unicast_in_l2_multicast(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "drop_unicast_in_l2_multicast", dev->ifname, val);
+}
+
+static void system_set_drop_v6_unicast_in_l2_multicast(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "drop_unicast_in_l2_multicast", dev->ifname, val);
+}
+
+static void system_set_drop_gratuitous_arp(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "drop_gratuitous_arp", dev->ifname, val);
+}
+
+static void system_set_drop_unsolicited_na(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "drop_unsolicited_na", dev->ifname, val);
+}
+
+static void system_set_arp_accept(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "arp_accept", dev->ifname, val);
+}
+
+static void system_bridge_set_multicast_to_unicast(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/multicast_to_unicast", dev->ifname, val);
+}
+
+static void system_bridge_set_multicast_fast_leave(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/multicast_fast_leave", dev->ifname, val);
+}
+
+static void system_bridge_set_hairpin_mode(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/hairpin_mode", dev->ifname, val);
+}
+
+static void system_bridge_set_bpdu_filter(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/bpdu_filter", dev->ifname, val);
+}
+
+static void system_bridge_set_isolated(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/isolated", dev->ifname, val);
+}
+
+static void system_bridge_set_multicast_router(struct device *dev, const char *val, bool bridge)
+{
+	system_set_dev_sysfs(bridge ? "bridge/multicast_router" :
+				      "brport/multicast_router",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_robustness(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/multicast_startup_query_count",
+			      dev->ifname, val);
+	system_set_dev_sysfs("bridge/multicast_last_member_count",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_query_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/multicast_query_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_query_response_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/multicast_query_response_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_last_member_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/multicast_last_member_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_membership_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/multicast_membership_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_other_querier_timeout(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/multicast_querier_interval",
+			      dev->ifname, val);
+}
+
+static void system_bridge_set_startup_query_interval(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/multicast_startup_query_interval",
+			      dev->ifname, val);
+}
+
+void system_bridge_set_stp_state(struct device *dev, bool val)
+{
+	const char *valstr = val ? "1" : "0";
+
+	system_set_dev_sysfs("bridge/stp_state", dev->ifname, valstr);
+}
+
+static void system_bridge_set_forward_delay(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/forward_delay", dev->ifname, val);
+}
+
+static void system_bridge_set_priority(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/priority", dev->ifname, val);
+}
+
+static void system_bridge_set_ageing_time(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/ageing_time", dev->ifname, val);
+}
+
+static void system_bridge_set_hello_time(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/hello_time", dev->ifname, val);
+}
+
+static void system_bridge_set_max_age(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/max_age", dev->ifname, val);
+}
+
+static void system_bridge_set_learning(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/learning", dev->ifname, val);
+}
+
+static void system_bridge_set_unicast_flood(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/unicast_flood", dev->ifname, val);
+}
+
+static void system_bridge_set_vlan_filtering(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("bridge/vlan_filtering", dev->ifname, val);
 }
 
 static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/disable_ipv6",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv6/conf", "disable_ipv6",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_ip6segmentrouting(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/seg6_enabled",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv6/conf", "seg6_enabled",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_rpfilter(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/rp_filter",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv4/conf", "rp_filter",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_acceptlocal(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/accept_local",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv4/conf", "accept_local",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_igmpversion(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/force_igmp_version",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv4/conf", "force_igmp_version",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_mldversion(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/force_mld_version",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv6/conf", "force_mld_version",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh4reachabletime(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/base_reachable_time_ms",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv4/neigh", "base_reachable_time_ms",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh6reachabletime(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/base_reachable_time_ms",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv6/neigh", "base_reachable_time_ms",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh4gcstaletime(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/gc_stale_time",
-			dev->ifname, buf, buf_sz);
+	return system_get_dev_sysctl("ipv4/neigh", "gc_stale_time",
+				     dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh6gcstaletime(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/neigh/%s/gc_stale_time",
+	return system_get_dev_sysctl("ipv6/neigh", "gc_stale_time",
 			dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh4locktime(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/neigh/%s/locktime",
+	return system_get_dev_sysctl("ipv4/neigh", "locktime",
 			dev->ifname, buf, buf_sz);
 }
 
 static int system_get_dadtransmits(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/dad_transmits",
+	return system_get_dev_sysctl("ipv6/conf", "dad_transmits",
 			dev->ifname, buf, buf_sz);
 }
 
 static int system_get_sendredirects(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/send_redirects",
+	return system_get_dev_sysctl("ipv4/conf", "send_redirects",
 			dev->ifname, buf, buf_sz);
 }
 
 
 static int system_get_drop_v4_unicast_in_l2_multicast(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_unicast_in_l2_multicast",
+	return system_get_dev_sysctl("ipv4/conf", "drop_unicast_in_l2_multicast",
 			dev->ifname, buf, buf_sz);
 }
 
 static int system_get_drop_v6_unicast_in_l2_multicast(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unicast_in_l2_multicast",
+	return system_get_dev_sysctl("ipv6/conf", "drop_unicast_in_l2_multicast",
 			dev->ifname, buf, buf_sz);
 }
 
 static int system_get_drop_gratuitous_arp(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/drop_gratuitous_arp",
+	return system_get_dev_sysctl("ipv4/conf", "drop_gratuitous_arp",
 			dev->ifname, buf, buf_sz);
 }
 
 static int system_get_drop_unsolicited_na(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv6/conf/%s/drop_unsolicited_na",
+	return system_get_dev_sysctl("ipv6/conf", "drop_unsolicited_na",
 			dev->ifname, buf, buf_sz);
 }
 
 static int system_get_arp_accept(struct device *dev, char *buf, const size_t buf_sz)
 {
-	return system_get_dev_sysctl("/proc/sys/net/ipv4/conf/%s/arp_accept",
+	return system_get_dev_sysctl("ipv4/conf", "arp_accept",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -668,7 +700,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (!dev)
 		goto out;
 
-	if (!system_get_dev_sysctl("/sys/class/net/%s/carrier", dev->ifname, buf, sizeof(buf)))
+	if (!system_get_dev_sysfs("carrier", dev->ifname, buf, sizeof(buf)))
 		link_state = strtoul(buf, NULL, 0);
 
 	if (dev->type == &simple_device_type)
@@ -801,15 +833,11 @@ static int system_bridge_if(const char *bridge, struct device *dev, int cmd, voi
 	return ioctl(sock_ioctl, cmd, &ifr);
 }
 
-static bool system_is_bridge(const char *name, char *buf, int buflen)
+static bool system_is_bridge(const char *name)
 {
 	struct stat st;
 
-	snprintf(buf, buflen, "/sys/devices/virtual/net/%s/bridge", name);
-	if (stat(buf, &st) < 0)
-		return false;
-
-	return true;
+	return stat(dev_sysfs_path(name, "bridge"), &st) >= 0;
 }
 
 static char *system_get_bridge(const char *name, char *buf, int buflen)
@@ -818,7 +846,7 @@ static char *system_get_bridge(const char *name, char *buf, int buflen)
 	ssize_t len = -1;
 	glob_t gl;
 
-	snprintf(buf, buflen, "/sys/devices/virtual/net/*/brif/%s/bridge", name);
+	snprintf(buf, buflen, "%s/devices/virtual/net/*/brif/%s/bridge", sysfs_path, name);
 	if (glob(buf, GLOB_NOSORT, NULL, &gl) < 0)
 		return NULL;
 
@@ -1165,7 +1193,7 @@ void system_if_clear_state(struct device *dev)
 
 	system_if_flags(dev->ifname, 0, IFF_UP);
 
-	if (system_is_bridge(dev->ifname, buf, sizeof(buf))) {
+	if (system_is_bridge(dev->ifname)) {
 		D(SYSTEM, "Delete existing bridge named '%s'\n", dev->ifname);
 		system_bridge_delbr(dev);
 		return;
@@ -1228,14 +1256,14 @@ static void system_bridge_conf_multicast(struct device *bridge,
 					 char *buf,
 					 int buf_len)
 {
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_snooping",
+	system_set_dev_sysfs("bridge/multicast_snooping",
 		bridge->ifname, cfg->igmp_snoop ? "1" : "0");
 
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/multicast_querier",
+	system_set_dev_sysfs("bridge/multicast_querier",
 		bridge->ifname, cfg->multicast_querier ? "1" : "0");
 
 	snprintf(buf, buf_len, "%i", cfg->hash_max);
-	system_set_dev_sysctl("/sys/devices/virtual/net/%s/bridge/hash_max",
+	system_set_dev_sysfs("/bridge/hash_max",
 		bridge->ifname, buf);
 
 	if (bridge->settings.flags & DEV_OPT_MULTICAST_ROUTER) {
@@ -2156,21 +2184,11 @@ struct device *
 system_if_get_parent(struct device *dev)
 {
 	char buf[64], *devname;
-	int ifindex, iflink, len;
-	FILE *f;
+	int ifindex, iflink;
 
-	snprintf(buf, sizeof(buf), "/sys/class/net/%s/iflink", dev->ifname);
-	f = fopen(buf, "r");
-	if (!f)
+	if (system_get_dev_sysfs("iflink", dev->ifname, buf, sizeof(buf)) < 0)
 		return NULL;
 
-	len = fread(buf, 1, sizeof(buf) - 1, f);
-	fclose(f);
-
-	if (len <= 0)
-		return NULL;
-
-	buf[len] = 0;
 	iflink = strtoul(buf, NULL, 0);
 	ifindex = system_if_resolve(dev);
 	if (!iflink || iflink == ifindex)
@@ -2269,11 +2287,9 @@ static void system_add_link_modes(struct blob_buf *b, __u32 mask)
 bool
 system_if_force_external(const char *ifname)
 {
-	char buf[64];
 	struct stat s;
 
-	snprintf(buf, sizeof(buf), "/sys/class/net/%s/phy80211", ifname);
-	return stat(buf, &s) == 0;
+	return stat(dev_sysfs_path(ifname, "phy80211"), &s) == 0;
 }
 
 int
@@ -2327,13 +2343,11 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 		"rx_errors",      "tx_bytes",          "tx_window_errors",
 		"rx_fifo_errors", "tx_carrier_errors",
 	};
-	char buf[64];
 	int stats_dir;
 	int i;
 	uint64_t val = 0;
 
-	snprintf(buf, sizeof(buf), "/sys/class/net/%s/statistics", dev->ifname);
-	stats_dir = open(buf, O_DIRECTORY);
+	stats_dir = open(dev_sysfs_path(dev->ifname, "statistics"), O_DIRECTORY);
 	if (stats_dir < 0)
 		return -1;
 
@@ -2575,14 +2589,12 @@ int system_del_route(struct device *dev, struct device_route *route)
 
 int system_flush_routes(void)
 {
-	const char *names[] = {
-		"/proc/sys/net/ipv4/route/flush",
-		"/proc/sys/net/ipv6/route/flush"
-	};
+	const char *names[] = { "ipv4", "ipv6" };
 	int fd, i;
 
 	for (i = 0; i < ARRAY_SIZE(names); i++) {
-		fd = open(names[i], O_WRONLY);
+		snprintf(dev_buf, sizeof(dev_buf), "%s/sys/net/%s/route/flush", proc_path, names[i]);
+		fd = open(dev_buf, O_WRONLY);
 		if (fd < 0)
 			continue;
 
@@ -3772,10 +3784,7 @@ int system_update_ipv6_mtu(struct device *dev, int mtu)
 	char buf[64];
 	int fd;
 
-	snprintf(buf, sizeof(buf), "/proc/sys/net/ipv6/conf/%s/mtu",
-			dev->ifname);
-
-	fd = open(buf, O_RDWR);
+	fd = open(dev_sysctl_path("ipv6/conf", dev->ifname, "mtu"), O_RDWR);
 	if (fd < 0)
 		return ret;
 
