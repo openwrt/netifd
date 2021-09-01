@@ -243,6 +243,7 @@ struct device {
 	bool default_config;
 	bool wireless;
 	bool wireless_ap;
+	bool wireless_proxyarp;
 	bool wireless_isolate;
 	bool bpdu_filter;
 

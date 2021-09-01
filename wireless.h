@@ -88,6 +88,7 @@ struct wireless_interface {
 
 	const char *ifname;
 	struct blob_attr *network;
+	bool proxyarp;
 	bool isolate;
 	bool ap_mode;
 };

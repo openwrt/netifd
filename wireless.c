@@ -64,6 +64,7 @@ enum {
 	VIF_ATTR_NETWORK,
 	VIF_ATTR_ISOLATE,
 	VIF_ATTR_MODE,
+	VIF_ATTR_PROXYARP,
 	__VIF_ATTR_MAX,
 };
 
@@ -72,6 +73,7 @@ static const struct blobmsg_policy vif_policy[__VIF_ATTR_MAX] = {
 	[VIF_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_ARRAY },
 	[VIF_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
 	[VIF_ATTR_MODE] = { .name = "mode", .type = BLOBMSG_TYPE_STRING },
+	[VIF_ATTR_PROXYARP] = { .name = "proxy_arp", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_list vif_param = {
@@ -330,6 +332,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 		struct device *dev = device_get(ifname, 2);
 		if (dev) {
 			dev->wireless_isolate = vif->isolate;
+			dev->wireless_proxyarp = vif->proxyarp;
 			dev->wireless = true;
 			dev->wireless_ap = vif->ap_mode;
 			dev->bpdu_filter = dev->wireless_ap && ifname == vif->ifname;
@@ -793,6 +796,10 @@ wireless_interface_init_config(struct wireless_interface *vif)
 	cur = tb[VIF_ATTR_ISOLATE];
 	if (cur)
 		vif->isolate = blobmsg_get_bool(cur);
+
+	cur = tb[VIF_ATTR_PROXYARP];
+	if (cur)
+		vif->proxyarp = blobmsg_get_bool(cur);
 
 	cur = tb[VIF_ATTR_MODE];
 	if (cur)

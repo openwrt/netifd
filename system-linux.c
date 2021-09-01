@@ -464,6 +464,11 @@ static void system_bridge_set_hairpin_mode(struct device *dev, const char *val)
 	system_set_dev_sysfs("brport/hairpin_mode", dev->ifname, val);
 }
 
+static void system_bridge_set_proxyarp_wifi(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/proxyarp_wifi", dev->ifname, val);
+}
+
 static void system_bridge_set_bpdu_filter(struct device *dev, const char *val)
 {
 	system_set_dev_sysfs("brport/bpdu_filter", dev->ifname, val);
@@ -870,17 +875,19 @@ static void
 system_bridge_set_wireless(struct device *bridge, struct device *dev)
 {
 	bool mcast_to_ucast = dev->wireless_ap;
-	bool hairpin = true;
+	bool hairpin;
 
 	if (bridge->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST &&
 	    !bridge->settings.multicast_to_unicast)
 		mcast_to_ucast = false;
 
-	if (!mcast_to_ucast || dev->wireless_isolate)
+	hairpin = mcast_to_ucast || dev->wireless_proxyarp;
+	if (dev->wireless_isolate)
 		hairpin = false;
 
 	system_bridge_set_multicast_to_unicast(dev, mcast_to_ucast ? "1" : "0");
 	system_bridge_set_hairpin_mode(dev, hairpin ? "1" : "0");
+	system_bridge_set_proxyarp_wifi(dev, dev->wireless_proxyarp ? "1" : "0");
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
