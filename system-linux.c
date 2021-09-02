@@ -350,7 +350,19 @@ system_get_dev_sysctl(const char *prefix, const char *file, const char *ifname,
 static void
 system_set_dev_sysfs(const char *file, const char *ifname, const char *val)
 {
+	if (!val)
+		return;
+
 	write_file(dev_sysfs_path(ifname, file), val);
+}
+
+static void
+system_set_dev_sysfs_int(const char *file, const char *ifname, int val)
+{
+	char buf[16];
+
+	snprintf(buf, sizeof(buf), "%d", val);
+	system_set_dev_sysfs(file, ifname, buf);
 }
 
 static int
@@ -989,6 +1001,91 @@ int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int v
 failure:
 	nlmsg_free(nlm);
 	return ret;
+}
+
+int system_bonding_set_device(struct device *dev, struct bonding_config *cfg)
+{
+	const char *ifname = dev->ifname;
+	struct blob_attr *cur;
+	char op = cfg ? '+' : '-';
+	char buf[64];
+	int rem;
+
+	snprintf(dev_buf, sizeof(dev_buf), "%s/class/net/bonding_masters", sysfs_path);
+	snprintf(buf, sizeof(buf), "%c%s", op, ifname);
+	write_file(dev_buf, buf);
+
+	if (!cfg)
+		return 0;
+
+	system_set_dev_sysfs("bonding/mode", ifname, bonding_policy_str[cfg->policy]);
+
+	system_set_dev_sysfs_int("bonding/all_ports_active", ifname, cfg->all_ports_active);
+
+	if (cfg->policy == BONDING_MODE_BALANCE_XOR ||
+	    cfg->policy == BONDING_MODE_BALANCE_TLB ||
+	    cfg->policy == BONDING_MODE_8023AD)
+		system_set_dev_sysfs("bonding/xmit_hash_policy", ifname, cfg->xmit_hash_policy);
+
+	if (cfg->policy == BONDING_MODE_8023AD) {
+		system_set_dev_sysfs("bonding/ad_actor_system", ifname, cfg->ad_actor_system);
+		system_set_dev_sysfs_int("bonding/ad_actor_sys_prio", ifname, cfg->ad_actor_sys_prio);
+		system_set_dev_sysfs("bonding/ad_select", ifname, cfg->ad_select);
+		system_set_dev_sysfs("bonding/lacp_rate", ifname, cfg->lacp_rate);
+		system_set_dev_sysfs_int("bonding/min_links", ifname, cfg->min_links);
+	}
+
+	if (cfg->policy == BONDING_MODE_BALANCE_RR)
+		system_set_dev_sysfs_int("bonding/packets_per_slave", ifname, cfg->packets_per_port);
+
+	if (cfg->policy == BONDING_MODE_BALANCE_TLB ||
+	    cfg->policy == BONDING_MODE_BALANCE_ALB)
+		system_set_dev_sysfs_int("bonding/lp_interval", ifname, cfg->lp_interval);
+
+	if (cfg->policy == BONDING_MODE_BALANCE_TLB)
+		system_set_dev_sysfs_int("bonding/tlb_dynamic_lb", ifname, cfg->dynamic_lb);
+	system_set_dev_sysfs_int("bonding/resend_igmp", ifname, cfg->resend_igmp);
+	system_set_dev_sysfs_int("bonding/num_grat_arp", ifname, cfg->num_peer_notif);
+	system_set_dev_sysfs("bonding/primary_reselect", ifname, cfg->primary_reselect);
+	system_set_dev_sysfs("bonding/fail_over_mac", ifname, cfg->failover_mac);
+
+	system_set_dev_sysfs_int((cfg->monitor_arp ?
+				  "bonding/arp_interval" :
+				  "bonding/miimon"), ifname, cfg->monitor_interval);
+
+	blobmsg_for_each_attr(cur, cfg->arp_target, rem) {
+		snprintf(buf, sizeof(buf), "+%s", blobmsg_get_string(cur));
+		system_set_dev_sysfs("bonding/arp_ip_target", ifname, buf);
+	}
+
+	system_set_dev_sysfs_int("bonding/arp_all_targets", ifname, cfg->arp_all_targets);
+	if (cfg->policy < BONDING_MODE_8023AD)
+		system_set_dev_sysfs("bonding/arp_validate", ifname, cfg->arp_validate);
+	system_set_dev_sysfs_int("bonding/use_carrier", ifname, cfg->use_carrier);
+	if (!cfg->monitor_arp && cfg->monitor_interval) {
+		system_set_dev_sysfs_int("bonding/updelay", ifname, cfg->updelay);
+		system_set_dev_sysfs_int("bonding/downdelay", ifname, cfg->downdelay);
+	}
+
+	return 0;
+}
+
+int system_bonding_set_port(struct device *dev, struct device *port, bool add, bool primary)
+{
+	const char *port_name = port->ifname;
+	const char op_ch = add ? '+' : '-';
+	char buf[IFNAMSIZ + 2];
+
+	snprintf(buf, sizeof(buf), "%c%s", op_ch, port_name);
+	system_if_down(port);
+	system_set_dev_sysfs("bonding/slaves", dev->ifname, buf);
+	system_if_up(port);
+
+	if (primary)
+		system_set_dev_sysfs("bonding/primary", dev->ifname,
+				     add ? port_name : "");
+
+	return 0;
 }
 
 int system_if_resolve(struct device *dev)

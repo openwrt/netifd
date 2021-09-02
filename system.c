@@ -121,6 +121,16 @@ const struct uci_blob_param_list fmr_data_attr_list = {
 	.params = fmr_data_attrs,
 };
 
+const char * const bonding_policy_str[__BONDING_MODE_MAX] = {
+	[BONDING_MODE_BALANCE_RR] = "balance-rr",
+	[BONDING_MODE_ACTIVE_BACKUP] = "active-backup",
+	[BONDING_MODE_BALANCE_XOR] = "balance-xor",
+	[BONDING_MODE_BROADCAST] = "broadcast",
+	[BONDING_MODE_8023AD] = "802.3ad",
+	[BONDING_MODE_BALANCE_TLB] = "balance-tlb",
+	[BONDING_MODE_BALANCE_ALB] = "balance-alb",
+};
+
 void system_fd_set_cloexec(int fd)
 {
 #ifdef FD_CLOEXEC

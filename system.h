@@ -184,6 +184,44 @@ struct vlandev_config {
 	struct vlist_simple_tree egress_qos_mapping_list;  /* list of struct vlan_qos_mapping */
 };
 
+enum bonding_mode {
+	BONDING_MODE_BALANCE_RR,
+	BONDING_MODE_ACTIVE_BACKUP,
+	BONDING_MODE_BALANCE_XOR,
+	BONDING_MODE_BROADCAST,
+	BONDING_MODE_8023AD,
+	BONDING_MODE_BALANCE_TLB,
+	BONDING_MODE_BALANCE_ALB,
+	__BONDING_MODE_MAX,
+};
+
+struct bonding_config {
+	enum bonding_mode policy;
+	const char *xmit_hash_policy;
+	bool all_ports_active;
+	int min_links;
+	const char *ad_actor_system;
+	int ad_actor_sys_prio;
+	const char *ad_select;
+	const char *lacp_rate;
+	int packets_per_port;
+	int lp_interval;
+	bool dynamic_lb;
+	int resend_igmp;
+	int num_peer_notif;
+	const char *primary;
+	const char *primary_reselect;
+	const char *failover_mac;
+	bool monitor_arp;
+	int monitor_interval;
+	struct blob_attr *arp_target;
+	bool arp_all_targets;
+	const char *arp_validate;
+	bool use_carrier;
+	int updelay;
+	int downdelay;
+};
+
 static inline int system_get_addr_family(unsigned int flags)
 {
 	if ((flags & DEVADDR_FAMILY) == DEVADDR_INET6)
@@ -200,6 +238,8 @@ static inline int system_get_addr_len(unsigned int flags)
 		return sizeof(struct in6_addr);
 }
 
+extern const char * const bonding_policy_str[__BONDING_MODE_MAX];
+
 int system_init(void);
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg);
@@ -209,6 +249,9 @@ int system_bridge_delif(struct device *bridge, struct device *dev);
 int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags);
 int system_bridge_vlan_check(struct device *dev, char *ifname);
 void system_bridge_set_stp_state(struct device *dev, bool val);
+
+int system_bonding_set_device(struct device *dev, struct bonding_config *cfg);
+int system_bonding_set_port(struct device *dev, struct device *port, bool add, bool primary);
 
 int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvlan_config *cfg);
 int system_macvlan_del(struct device *macvlan);

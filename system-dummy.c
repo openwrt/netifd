@@ -75,6 +75,16 @@ int system_bridge_vlan_check(struct device *dev, char *ifname)
 	return 0;
 }
 
+int system_bonding_set_device(struct device *dev, struct bonding_config *cfg)
+{
+	return 0;
+}
+
+int system_bonding_set_port(struct device *dev, struct device *port, bool add, bool primary)
+{
+	return 0;
+}
+
 int system_link_netns_move(struct device *dev, int netns_fd, const char *target_ifname)
 {
 	D(SYSTEM, "ip link set %s name %s netns %d\n", dev->ifname, target_ifname, netns_fd);

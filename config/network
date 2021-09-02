@@ -11,10 +11,17 @@ config device
 	option type	bridge
 	list ifname	eth0.1
 	list ifname	eth0.2
+	list ifname	bond0
 	option mtu	1500
 
 config device
 	option name		dummy
+
+config device
+	option name	bond0
+	option type bonding
+	list ports eth0.123
+	list ports eth0.124
 
 config interface lan
 	option ifname	'br-lan'
