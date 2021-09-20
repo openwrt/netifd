@@ -328,14 +328,14 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 	if (!ifname)
 		ifname = vif->ifname;
 
-	if (up) {
+	if (up && ifname != vif->ifname) {
 		struct device *dev = device_get(ifname, 2);
 		if (dev) {
 			dev->wireless_isolate = vif->isolate;
 			dev->wireless_proxyarp = vif->proxyarp;
 			dev->wireless = true;
 			dev->wireless_ap = vif->ap_mode;
-			dev->bpdu_filter = dev->wireless_ap && ifname == vif->ifname;
+			dev->bpdu_filter = dev->wireless_ap;
 		}
 	}
 
