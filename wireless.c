@@ -793,6 +793,13 @@ wireless_interface_init_config(struct wireless_interface *vif)
 	if ((cur = tb[VIF_ATTR_NETWORK]))
 		vif->network = cur;
 
+	cur = tb[VIF_ATTR_MODE];
+	if (cur)
+		vif->ap_mode = !strcmp(blobmsg_get_string(cur), "ap");
+
+	if (!vif->ap_mode)
+		return;
+
 	cur = tb[VIF_ATTR_ISOLATE];
 	if (cur)
 		vif->isolate = blobmsg_get_bool(cur);
@@ -801,9 +808,6 @@ wireless_interface_init_config(struct wireless_interface *vif)
 	if (cur)
 		vif->proxyarp = blobmsg_get_bool(cur);
 
-	cur = tb[VIF_ATTR_MODE];
-	if (cur)
-		vif->ap_mode = !strcmp(blobmsg_get_string(cur), "ap");
 }
 
 /* vlist update call for wireless interface list */
