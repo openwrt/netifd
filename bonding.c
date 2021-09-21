@@ -221,10 +221,6 @@ bonding_enable_port(struct bonding_port *bp)
 	if (!bp->present)
 		return 0;
 
-	ret = bonding_set_active(bdev, true);
-	if (ret)
-		goto error;
-
 	/* Disable IPv6 for bonding ports */
 	if (!(bp->dev.dev->settings.flags & DEV_OPT_IPV6)) {
 		bp->dev.dev->settings.ipv6 = 0;
@@ -233,7 +229,11 @@ bonding_enable_port(struct bonding_port *bp)
 
 	ret = device_claim(&bp->dev);
 	if (ret < 0)
-		goto error;
+		return ret;
+
+	ret = bonding_set_active(bdev, true);
+	if (ret)
+		goto release;
 
 	dev = bp->dev.dev;
 	if (dev->settings.auth && !dev->auth_status)
@@ -257,6 +257,7 @@ error:
 	bdev->n_failed++;
 	bp->present = false;
 	bdev->n_present--;
+release:
 	device_release(&bp->dev);
 
 	return ret;
