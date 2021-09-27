@@ -637,8 +637,6 @@ interface_claim_device(struct interface *iface)
 	if (iface->parent_iface.iface)
 		interface_remove_user(&iface->parent_iface);
 
-	device_lock();
-
 	if (iface->parent_ifname) {
 		parent = vlist_find(&interfaces, iface->parent_ifname, parent, node);
 		iface->parent_iface.cb = interface_alias_cb;
@@ -653,8 +651,6 @@ interface_claim_device(struct interface *iface)
 
 	if (dev)
 		interface_set_main_dev(iface, dev);
-
-	device_unlock();
 
 	if (iface->proto_handler->flags & PROTO_FLAG_INIT_AVAILABLE)
 		interface_set_available(iface, true);
@@ -1087,30 +1083,19 @@ interface_handle_link(struct interface *iface, const char *name,
 		      struct blob_attr *vlan, bool add, bool link_ext)
 {
 	struct device *dev;
-	int ret;
-
-	device_lock();
 
 	dev = device_get(name, add ? (link_ext ? 2 : 1) : 0);
-	if (!dev) {
-		ret = UBUS_STATUS_NOT_FOUND;
-		goto out;
-	}
+	if (!dev)
+		return UBUS_STATUS_NOT_FOUND;
 
-	if (add) {
-		interface_set_device_config(iface, dev);
-		if (!link_ext)
-			device_set_present(dev, true);
+	if (!add)
+		return interface_remove_link(iface, dev, vlan);
 
-		ret = interface_add_link(iface, dev, vlan, link_ext);
-	} else {
-		ret = interface_remove_link(iface, dev, vlan);
-	}
+	interface_set_device_config(iface, dev);
+	if (!link_ext)
+		device_set_present(dev, true);
 
-out:
-	device_unlock();
-
-	return ret;
+	return interface_add_link(iface, dev, vlan, link_ext);
 }
 
 void

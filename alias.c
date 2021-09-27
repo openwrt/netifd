@@ -178,13 +178,9 @@ alias_notify_device(const char *name, struct device *dev)
 {
 	struct alias_device *alias;
 
-	device_lock();
-
 	alias = avl_find_element(&aliases, name, alias, avl);
 	if (alias)
 		alias_set_device(alias, dev);
-
-	device_unlock();
 }
 
 struct device *

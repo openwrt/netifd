@@ -300,9 +300,6 @@ extern const struct uci_blob_param_list device_attr_list;
 extern struct device_type simple_device_type;
 extern struct device_type tunnel_device_type;
 
-void device_lock(void);
-void device_unlock(void);
-
 void device_vlan_update(bool done);
 void device_stp_init(void);
 
@@ -346,7 +343,7 @@ void device_release(struct device_user *dep);
 int device_check_state(struct device *dev);
 void device_dump_status(struct blob_buf *b, struct device *dev);
 
-void device_free_unused(struct device *dev);
+void device_free_unused(void);
 
 struct device *get_vlan_device_chain(const char *ifname, int create);
 void alias_notify_device(const char *name, struct device *dev);

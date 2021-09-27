@@ -566,8 +566,6 @@ bonding_free_port(struct bonding_port *bp)
 
 	bonding_remove_port(bp);
 
-	device_lock();
-
 	device_remove_user(&bp->dev);
 
 	/*
@@ -581,8 +579,6 @@ bonding_free_port(struct bonding_port *bp)
 		device_set_present(dev, false);
 		device_set_present(dev, true);
 	}
-
-	device_unlock();
 
 	free(bp);
 }

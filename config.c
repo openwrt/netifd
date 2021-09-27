@@ -762,7 +762,6 @@ config_init_all(void)
 
 	vlist_update(&interfaces);
 	config_init = true;
-	device_lock();
 
 	device_reset_config();
 	config_init_devices(true);
@@ -775,12 +774,10 @@ config_init_all(void)
 	config_init_wireless();
 
 	config_init = false;
-	device_unlock();
 
 	device_reset_old();
 	device_init_pending();
 	vlist_flush(&interfaces);
-	device_free_unused(NULL);
 	interface_refresh_assignments(false);
 	interface_start_pending();
 	wireless_start_pending();

@@ -512,8 +512,6 @@ restart:
 		goto restart;
 	}
 
-	device_lock();
-
 	device_remove_user(&bm->dev);
 	uloop_timeout_cancel(&bm->check_timer);
 
@@ -528,8 +526,6 @@ restart:
 		device_set_present(dev, false);
 		device_set_present(dev, true);
 	}
-
-	device_unlock();
 
 	free(bm);
 }

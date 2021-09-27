@@ -942,11 +942,9 @@ __create(const char *name, struct device_type *type, struct blob_attr *config)
 inv_error:
 	extdev_invocation_error(ret, __extdev_methods[METHOD_CREATE], name);
 error:
-	device_lock();
 	free(edev->dev.config);
 	device_cleanup(&edev->dev);
 	free(edev);
-	device_unlock();
 	netifd_log_message(L_WARNING, "Failed to create %s %s\n", type->name, name);
 	return NULL;
 }

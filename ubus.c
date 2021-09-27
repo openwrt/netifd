@@ -291,7 +291,7 @@ netifd_handle_alias(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 
 error:
-	device_free_unused(dev);
+	device_free_unused();
 	return UBUS_STATUS_INVALID_ARGUMENT;
 }
 

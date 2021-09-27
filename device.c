@@ -99,18 +99,6 @@ device_type_get(const char *tname)
 	return NULL;
 }
 
-void device_lock(void)
-{
-	__devlock++;
-}
-
-void device_unlock(void)
-{
-	__devlock--;
-	if (!__devlock)
-		device_free_unused(NULL);
-}
-
 static int device_vlan_len(struct kvlist *kv, const void *data)
 {
 	return sizeof(unsigned int);
@@ -895,14 +883,27 @@ device_free(struct device *dev)
 }
 
 static void
-__device_free_unused(struct device *dev)
+__device_free_unused(struct uloop_timeout *timeout)
 {
-	if (!safe_list_empty(&dev->users) ||
-		!safe_list_empty(&dev->aliases) ||
-	    dev->current_config || __devlock)
-		return;
+	struct device *dev, *tmp;
 
-	device_free(dev);
+	avl_for_each_element_safe(&devices, dev, avl, tmp) {
+		if (!safe_list_empty(&dev->users) ||
+			!safe_list_empty(&dev->aliases) ||
+			dev->current_config)
+			continue;
+
+		device_free(dev);
+	}
+}
+
+void device_free_unused(void)
+{
+	static struct uloop_timeout free_timer = {
+		.cb = __device_free_unused,
+	};
+
+	uloop_timeout_set(&free_timer, 1);
 }
 
 void device_remove_user(struct device_user *dep)
@@ -919,19 +920,7 @@ void device_remove_user(struct device_user *dep)
 	safe_list_del(&dep->list);
 	dep->dev = NULL;
 	D(DEVICE, "Remove user for device '%s', refcount=%d\n", dev->ifname, device_refcount(dev));
-	__device_free_unused(dev);
-}
-
-void
-device_free_unused(struct device *dev)
-{
-	struct device *tmp;
-
-	if (dev)
-		return __device_free_unused(dev);
-
-	avl_for_each_element_safe(&devices, dev, avl, tmp)
-		__device_free_unused(dev);
+	device_free_unused();
 }
 
 void
