@@ -502,8 +502,11 @@ wdev_handle_config_change(struct wireless_device *wdev)
 	enum interface_config_state state = wdev->config_state;
 
 	switch(state) {
-	case IFC_NORMAL:
 	case IFC_RELOAD:
+		wdev->retry = WIRELESS_SETUP_RETRY;
+		wdev->retry_setup_failed = false;
+		fallthrough;
+	case IFC_NORMAL:
 		__wireless_device_set_up(wdev, 0);
 
 		wdev->config_state = IFC_NORMAL;
@@ -687,7 +690,6 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 	free(wdev->config);
 	wdev->config = blob_memdup(new_config);
 	wdev->disabled = disabled;
-	wdev->retry_setup_failed = false;
 	wdev_set_config_state(wdev, IFC_RELOAD);
 }
 
