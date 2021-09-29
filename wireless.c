@@ -431,6 +431,9 @@ wireless_device_run_handler(struct wireless_device *wdev, bool up)
 	argv[i] = NULL;
 
 	if (up && pipe(fds) == 0) {
+		if (wdev->script_proc_fd.fd >= 0)
+			wireless_close_script_proc_fd(wdev);
+
 		wdev->script_proc_fd.fd = fds[0];
 		uloop_fd_add(&wdev->script_proc_fd,
 			     ULOOP_READ | ULOOP_EDGE_TRIGGER);
