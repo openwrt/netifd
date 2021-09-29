@@ -1089,7 +1089,7 @@ wireless_station_create(struct wireless_device *wdev, char *vif, struct blob_att
 	if (cur && blobmsg_get_bool(cur))
 		return;
 
-	sprintf(name, "%d", wdev->vlan_idx++);
+	sprintf(name, "%d", wdev->sta_idx++);
 
 	sta = calloc_a(sizeof(*sta),
 		       &name_buf, strlen(name) + 1,
