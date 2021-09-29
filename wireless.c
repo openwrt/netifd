@@ -517,7 +517,7 @@ wireless_device_mark_down(struct wireless_device *wdev)
 	struct wireless_interface *vif;
 	struct wireless_vlan *vlan;
 
-	D(WIRELESS, "Wireless device '%s' is now down\n", wdev->name);
+	netifd_log_message(L_NOTICE, "Wireless device '%s' is now down\n", wdev->name);
 
 	vlist_for_each_element(&wdev->vlans, vlan, node)
 		wireless_vlan_handle_link(vlan, false);
@@ -592,7 +592,7 @@ wireless_device_mark_up(struct wireless_device *wdev)
 		return;
 	}
 
-	D(WIRELESS, "Wireless device '%s' is now up\n", wdev->name);
+	netifd_log_message(L_NOTICE, "Wireless device '%s' is now up\n", wdev->name);
 	wdev->state = IFS_UP;
 	vlist_for_each_element(&wdev->interfaces, vif, node)
 		wireless_interface_handle_link(vif, NULL, true);
@@ -606,6 +606,9 @@ wireless_device_retry_setup(struct wireless_device *wdev)
 	if (wdev->state == IFS_TEARDOWN || wdev->state == IFS_DOWN || wdev->cancel)
 		return;
 
+	netifd_log_message(wdev->retry ? L_WARNING : L_CRIT,
+			   "Wireless device '%s' setup failed, retry=%d\n",
+			   wdev->name, wdev->retry);
 	if (--wdev->retry < 0)
 		wdev->retry_setup_failed = true;
 
@@ -1406,6 +1409,7 @@ wireless_device_set_retry(struct wireless_device *wdev, struct blob_attr *data)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
 	wdev->retry = blobmsg_get_u32(val);
+	netifd_log_message(L_NOTICE, "Wireless device '%s' set retry=%d\n", wdev->name, wdev->retry);
 	return 0;
 }
 
