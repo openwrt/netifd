@@ -599,6 +599,7 @@ wireless_device_mark_up(struct wireless_device *wdev)
 	}
 
 	netifd_log_message(L_NOTICE, "Wireless device '%s' is now up\n", wdev->name);
+	wdev->retry = WIRELESS_SETUP_RETRY;
 	wdev->state = IFS_UP;
 	vlist_for_each_element(&wdev->interfaces, vif, node)
 		wireless_interface_handle_link(vif, NULL, true);
