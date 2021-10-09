@@ -89,7 +89,6 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
 static int system_add_proto_tunnel(const char *name, const uint8_t proto,
 					const unsigned int link, struct blob_attr **tb);
-static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb);
 
 static char dev_buf[256];
 static const char *proc_path = "/proc";
@@ -3791,7 +3790,7 @@ static int system_add_sit_tunnel(const char *name, const unsigned int link, stru
 	return ret;
 
 failure:
-	__system_del_ip_tunnel(name, tb);
+	system_link_del(name);
 	return ret;
 }
 
@@ -3853,33 +3852,9 @@ static int system_add_proto_tunnel(const char *name, const uint8_t proto, const 
 	return -1;
 }
 
-static int __system_del_ip_tunnel(const char *name, struct blob_attr **tb)
+int system_del_ip_tunnel(const struct device *dev)
 {
-	struct blob_attr *cur;
-	const char *str;
-
-	if (!(cur = tb[TUNNEL_ATTR_TYPE]))
-		return -EINVAL;
-	str = blobmsg_data(cur);
-
-	if (!strcmp(str, "greip") || !strcmp(str, "gretapip") ||
-	    !strcmp(str, "greip6") || !strcmp(str, "gretapip6") ||
-	    !strcmp(str, "vtiip") || !strcmp(str, "vtiip6") ||
-	    !strcmp(str, "vxlan") || !strcmp(str, "vxlan6") ||
-	    !strcmp(str, "xfrm"))
-		return system_link_del(name);
-	else
-		return tunnel_ioctl(name, SIOCDELTUNNEL, NULL);
-}
-
-int system_del_ip_tunnel(const char *name, struct blob_attr *attr)
-{
-	struct blob_attr *tb[__TUNNEL_ATTR_MAX];
-
-	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
-		blob_data(attr), blob_len(attr));
-
-	return __system_del_ip_tunnel(name, tb);
+	return system_link_del(dev->ifname);
 }
 
 int system_update_ipv6_mtu(struct device *dev, int mtu)
@@ -3909,7 +3884,7 @@ out:
 	return ret;
 }
 
-int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
+int system_add_ip_tunnel(const struct device *dev, struct blob_attr *attr)
 {
 	struct blob_attr *tb[__TUNNEL_ATTR_MAX];
 	struct blob_attr *cur;
@@ -3918,7 +3893,7 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
 		blob_data(attr), blob_len(attr));
 
-	__system_del_ip_tunnel(name, tb);
+	system_link_del(dev->ifname);
 
 	if (!(cur = tb[TUNNEL_ATTR_TYPE]))
 		return -EINVAL;
@@ -3942,37 +3917,37 @@ int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
 	}
 
 	if (!strcmp(str, "sit"))
-		return system_add_sit_tunnel(name, link, tb);
+		return system_add_sit_tunnel(dev->ifname, link, tb);
 #ifdef IFLA_IPTUN_MAX
 	else if (!strcmp(str, "ipip6")) {
-		return system_add_ip6_tunnel(name, link, tb);
+		return system_add_ip6_tunnel(dev->ifname, link, tb);
 	} else if (!strcmp(str, "greip")) {
-		return system_add_gre_tunnel(name, "gre", link, tb, false);
+		return system_add_gre_tunnel(dev->ifname, "gre", link, tb, false);
 	} else if (!strcmp(str, "gretapip"))  {
-		return system_add_gre_tunnel(name, "gretap", link, tb, false);
+		return system_add_gre_tunnel(dev->ifname, "gretap", link, tb, false);
 	} else if (!strcmp(str, "greip6")) {
-		return system_add_gre_tunnel(name, "ip6gre", link, tb, true);
+		return system_add_gre_tunnel(dev->ifname, "ip6gre", link, tb, true);
 	} else if (!strcmp(str, "gretapip6")) {
-		return system_add_gre_tunnel(name, "ip6gretap", link, tb, true);
+		return system_add_gre_tunnel(dev->ifname, "ip6gretap", link, tb, true);
 #ifdef IFLA_VTI_MAX
 	} else if (!strcmp(str, "vtiip")) {
-		return system_add_vti_tunnel(name, "vti", link, tb, false);
+		return system_add_vti_tunnel(dev->ifname, "vti", link, tb, false);
 	} else if (!strcmp(str, "vtiip6")) {
-		return system_add_vti_tunnel(name, "vti6", link, tb, true);
+		return system_add_vti_tunnel(dev->ifname, "vti6", link, tb, true);
 #endif
 #ifdef IFLA_XFRM_MAX
 	} else if (!strcmp(str, "xfrm")) {
-		return system_add_xfrm_tunnel(name, "xfrm", link, tb);
+		return system_add_xfrm_tunnel(dev->ifname, "xfrm", link, tb);
 #endif
 #ifdef IFLA_VXLAN_MAX
 	} else if(!strcmp(str, "vxlan")) {
-		return system_add_vxlan(name, link, tb, false);
+		return system_add_vxlan(dev->ifname, link, tb, false);
 	} else if(!strcmp(str, "vxlan6")) {
-		return system_add_vxlan(name, link, tb, true);
+		return system_add_vxlan(dev->ifname, link, tb, true);
 #endif
 #endif
 	} else if (!strcmp(str, "ipip")) {
-		return system_add_proto_tunnel(name, IPPROTO_IPIP, link, tb);
+		return system_add_proto_tunnel(dev->ifname, IPPROTO_IPIP, link, tb);
 	}
 	else
 		return -EINVAL;

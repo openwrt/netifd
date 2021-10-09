@@ -28,14 +28,14 @@ tunnel_set_state(struct device *dev, bool up)
 	int ret;
 
 	if (up) {
-		ret = system_add_ip_tunnel(dev->ifname, dev->config);
+		ret = system_add_ip_tunnel(dev, dev->config);
 		if (ret != 0)
 			return ret;
 	}
 
 	ret = tun->set_state(dev, up);
 	if (ret || !up)
-		system_del_ip_tunnel(dev->ifname, dev->config);
+		system_del_ip_tunnel(dev);
 
 	return ret;
 }

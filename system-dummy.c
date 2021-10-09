@@ -335,12 +335,12 @@ time_t system_get_rtime(void)
 	return 0;
 }
 
-int system_del_ip_tunnel(const char *name, struct blob_attr *attr)
+int system_del_ip_tunnel(const struct device *dev)
 {
 	return 0;
 }
 
-int system_add_ip_tunnel(const char *name, struct blob_attr *attr)
+int system_add_ip_tunnel(const struct device *dev, struct blob_attr *attr)
 {
 	return 0;
 }
