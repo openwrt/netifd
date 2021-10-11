@@ -35,7 +35,9 @@ enum {
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
 	IFACE_ATTR_JAIL,
+	IFACE_ATTR_JAIL_DEVICE,
 	IFACE_ATTR_JAIL_IFNAME,
+	IFACE_ATTR_HOST_DEVICE,
 	IFACE_ATTR_DEFAULTROUTE,
 	IFACE_ATTR_PEERDNS,
 	IFACE_ATTR_DNS,
@@ -61,7 +63,9 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_JAIL] = { .name = "jail", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_JAIL_DEVICE] = { .name = "jail_device", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_JAIL_IFNAME] = { .name = "jail_ifname", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_HOST_DEVICE] = { .name = "host_device", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_DEFAULTROUTE] = { .name = "defaultroute", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_PEERDNS] = { .name = "peerdns", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
@@ -698,8 +702,10 @@ interface_do_free(struct interface *iface)
 	avl_delete(&interfaces.avl, &iface->node.avl);
 	if (iface->jail)
 		free(iface->jail);
-	if (iface->jail_ifname)
-		free(iface->jail_ifname);
+	if (iface->jail_device)
+		free(iface->jail_device);
+	if (iface->host_device)
+		free(iface->host_device);
 
 	free(iface);
 }
@@ -914,9 +920,15 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 		iface->autostart = false;
 	}
 
-	iface->jail_ifname = NULL;
-	if ((cur = tb[IFACE_ATTR_JAIL_IFNAME]))
-		iface->jail_ifname = strdup(blobmsg_get_string(cur));
+	iface->jail_device = NULL;
+	if ((cur = tb[IFACE_ATTR_JAIL_DEVICE]))
+		iface->jail_device = strdup(blobmsg_get_string(cur));
+	else if ((cur = tb[IFACE_ATTR_JAIL_IFNAME]))
+		iface->jail_device = strdup(blobmsg_get_string(cur));
+
+	iface->host_device = NULL;
+	if ((cur = tb[IFACE_ATTR_HOST_DEVICE]))
+		iface->host_device = strdup(blobmsg_get_string(cur));
 
 	return iface;
 }
@@ -1162,70 +1174,29 @@ interface_start_pending(void)
 }
 
 void
-interface_start_jail(const char *jail, const pid_t netns_pid)
+interface_start_jail(int netns_fd, const char *jail)
 {
 	struct interface *iface;
-	int netns_fd;
-	int wstatus;
-	pid_t pr = 0;
-
-	netns_fd = system_netns_open(netns_pid);
-	if (netns_fd < 0)
-		return;
 
 	vlist_for_each_element(&interfaces, iface, node) {
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
-		system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_ifname);
+		system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_device);
 	}
-
-	close(netns_fd);
 }
 
 void
-interface_stop_jail(const char *jail, const pid_t netns_pid)
+interface_stop_jail(int netns_fd)
 {
 	struct interface *iface;
-	int netns_fd, root_netns;
-	int wstatus;
-	pid_t parent_pid = getpid();
-	pid_t pr = 0;
-	const char *orig_ifname;
+	char *orig_ifname;
 
-	pr = fork();
-	if (pr) {
-		waitpid(pr, &wstatus, WUNTRACED | WCONTINUED);
-		return;
-	}
-
-	/* child process */
-	root_netns = system_netns_open(parent_pid);
-	if (root_netns < 0)
-		return;
-
-	netns_fd = system_netns_open(netns_pid);
-	if (netns_fd < 0)
-		return;
-
-	system_netns_set(netns_fd);
-	system_init();
 	vlist_for_each_element(&interfaces, iface, node) {
-		if (!iface->jail || strcmp(iface->jail, jail))
-			continue;
-
-		orig_ifname = iface->device;
-		if (iface->jail_ifname)
-			iface->device = iface->jail_ifname;
-
-		interface_do_reload(iface);
+		orig_ifname = iface->host_device;
 		interface_set_down(iface);
-		system_link_netns_move(iface->main_dev.dev, root_netns, orig_ifname);
+		system_link_netns_move(iface->main_dev.dev, netns_fd, orig_ifname);
 	}
-
-	close(root_netns);
-	close(netns_fd);
-	_exit(0);
 }
 
 static void
@@ -1343,10 +1314,15 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if (if_old->jail)
 		if_old->autostart = false;
 
-	if (if_old->jail_ifname)
-		free(if_old->jail_ifname);
+	if (if_old->jail_device)
+		free(if_old->jail_device);
 
-	if_old->jail_ifname = if_new->jail_ifname;
+	if_old->jail_device = if_new->jail_device;
+
+	if (if_old->host_device)
+		free(if_old->host_device);
+
+	if_old->host_device = if_new->host_device;
 
 	if_old->device = if_new->device;
 	if_old->parent_ifname = if_new->parent_ifname;

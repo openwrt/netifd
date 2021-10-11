@@ -109,7 +109,8 @@ struct interface {
 	const char *name;
 	const char *device;
 	char *jail;
-	char *jail_ifname;
+	char *jail_device;
+	char *host_device;
 	int netns_fd;
 
 	bool available;
@@ -208,7 +209,7 @@ void interface_update_start(struct interface *iface, const bool keep_old);
 void interface_update_complete(struct interface *iface);
 
 void interface_start_pending(void);
-void interface_start_jail(const char *jail, const pid_t netns_pid);
-void interface_stop_jail(const char *jail, const pid_t netns_pid);
+void interface_start_jail(int netns_fd, const char *jail);
+void interface_stop_jail(int netns_fd);
 
 #endif
