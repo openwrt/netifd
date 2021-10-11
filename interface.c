@@ -1181,40 +1181,6 @@ interface_start_jail(const char *jail, const pid_t netns_pid)
 	}
 
 	close(netns_fd);
-
-	pr = fork();
-	if (pr) {
-		waitpid(pr, &wstatus, WUNTRACED | WCONTINUED);
-		return;
-	}
-
-	/* child process */
-	netns_fd = system_netns_open(netns_pid);
-	if (netns_fd < 0)
-		return;
-
-	system_netns_set(netns_fd);
-	system_init();
-	vlist_for_each_element(&interfaces, iface, node) {
-		if (!iface->jail || strcmp(iface->jail, jail))
-			continue;
-
-		/*
-		 * The interface has already been renamed and is inside target
-		 * namespace, hence overwrite ifname with jail_ifname for
-		 * interface_set_up().
-		 * We are inside a fork which got it's own copy of the interfaces
-		 * list, so we can mess with it :)
-		 */
-		if (iface->jail_ifname)
-			iface->device = iface->jail_ifname;
-
-		interface_do_reload(iface);
-		interface_set_up(iface);
-	}
-
-	close(netns_fd);
-	_exit(0);
 }
 
 void
