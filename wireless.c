@@ -328,9 +328,10 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 	if (!ifname)
 		ifname = vif->ifname;
 
-	if (up && !strcmp(ifname, vif->ifname)) {
-		struct device *dev = device_get(ifname, 2);
-		if (dev) {
+	if (up) {
+		struct device *dev = __device_get(ifname, 2, false);
+
+		if (dev && !strcmp(ifname, vif->ifname)) {
 			dev->wireless_isolate = vif->isolate;
 			dev->wireless_proxyarp = vif->proxyarp;
 			dev->wireless = true;
