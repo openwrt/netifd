@@ -804,20 +804,13 @@ wireless_interface_init_config(struct wireless_interface *vif)
 		vif->network = cur;
 
 	cur = tb[VIF_ATTR_MODE];
-	if (cur)
-		vif->ap_mode = !strcmp(blobmsg_get_string(cur), "ap");
-
-	if (!vif->ap_mode)
-		return;
+	vif->ap_mode = cur && !strcmp(blobmsg_get_string(cur), "ap");
 
 	cur = tb[VIF_ATTR_ISOLATE];
-	if (cur)
-		vif->isolate = blobmsg_get_bool(cur);
+	vif->isolate = vif->ap_mode && cur && blobmsg_get_bool(cur);
 
 	cur = tb[VIF_ATTR_PROXYARP];
-	if (cur)
-		vif->proxyarp = blobmsg_get_bool(cur);
-
+	vif->proxyarp = vif->ap_mode && cur && blobmsg_get_bool(cur);
 }
 
 /* vlist update call for wireless interface list */
@@ -846,8 +839,6 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		wireless_interface_handle_link(vif_old, NULL, false);
 		free(vif_old->config);
 		vif_old->config = blob_memdup(vif_new->config);
-		vif_old->isolate = vif_new->isolate;
-		vif_old->ap_mode = vif_new->ap_mode;
 		wireless_interface_init_config(vif_old);
 		free(vif_new);
 	} else if (vif_new) {
