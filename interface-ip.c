@@ -969,9 +969,16 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	if (!add && assignment->enabled) {
 		time_t now = system_get_rtime();
 
-		addr.preferred_until = now;
-		if (!addr.valid_until || addr.valid_until - now > 7200)
-			addr.valid_until = now + 7200;
+		if (addr.valid_until && addr.valid_until - 1 <= now) {
+			addr.valid_until = 0;
+			addr.preferred_until = 0;
+		} else {
+			/* Address is still valid; pass its ownership to kernel (see L-14 RFC 7084). */
+			addr.preferred_until = now;
+
+			if (!addr.valid_until || addr.valid_until > now + 7200)
+				addr.valid_until = now + 7200;
+		}
 
 		if (iface->ip6table)
 			set_ip_source_policy(false, true, IPRULE_PRIORITY_ADDR_MASK, &addr.addr,
@@ -990,7 +997,10 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		interface_set_route_info(iface, &route);
 
 		system_del_route(l3_downlink, &route);
-		system_add_address(l3_downlink, &addr);
+		if (addr.valid_until)
+			system_add_address(l3_downlink, &addr);
+		else
+			system_del_address(l3_downlink, &addr);
 
 		assignment->addr = in6addr_any;
 		assignment->enabled = false;
@@ -1229,8 +1239,13 @@ void interface_refresh_assignments(bool hint)
 	static bool refresh = false;
 	if (!hint && refresh) {
 		struct device_prefix *p;
-		list_for_each_entry(p, &prefixes, head)
-			interface_update_prefix_assignments(p, true);
+		time_t now = system_get_rtime();
+
+		list_for_each_entry(p, &prefixes, head) {
+			bool valid = !(p->valid_until && p->valid_until - 1 <= now);
+
+			interface_update_prefix_assignments(p, valid);
+		}
 	}
 	refresh = hint;
 }
@@ -1238,9 +1253,12 @@ void interface_refresh_assignments(bool hint)
 void interface_update_prefix_delegation(struct interface_ip_settings *ip)
 {
 	struct device_prefix *prefix;
+	time_t now = system_get_rtime();
 
 	vlist_for_each_element(&ip->prefix, prefix, node) {
-		interface_update_prefix_assignments(prefix, !ip->no_delegation);
+		bool valid = !(prefix->valid_until && prefix->valid_until - 1 <= now);
+
+		interface_update_prefix_assignments(prefix, !ip->no_delegation && valid);
 
 		if (ip->no_delegation) {
 			if (prefix->head.next)
@@ -1270,9 +1288,9 @@ interface_update_prefix(struct vlist_tree *tree,
 	route.mask = (node_new) ? prefix_new->length : prefix_old->length;
 	route.addr.in6 = (node_new) ? prefix_new->addr : prefix_old->addr;
 
-
 	struct device_prefix_assignment *c;
 	struct interface *iface;
+	bool new_valid = node_new && !(prefix_new->valid_until && prefix_new->valid_until - 1 <= system_get_rtime());
 
 	if (node_old && node_new) {
 		/* Move assignments and refresh addresses to update valid times */
@@ -1280,7 +1298,7 @@ interface_update_prefix(struct vlist_tree *tree,
 
 		list_for_each_entry(c, &prefix_new->assignments, head)
 			if ((iface = vlist_find(&interfaces, c->name, iface, node)))
-				interface_set_prefix_address(c, prefix_new, iface, true);
+				interface_set_prefix_address(c, prefix_new, iface, new_valid);
 
 		if (prefix_new->preferred_until != prefix_old->preferred_until ||
 				prefix_new->valid_until != prefix_old->valid_until)
@@ -1290,7 +1308,7 @@ interface_update_prefix(struct vlist_tree *tree,
 		system_add_route(NULL, &route);
 
 		if (!prefix_new->iface || !prefix_new->iface->proto_ip.no_delegation)
-			interface_update_prefix_assignments(prefix_new, true);
+			interface_update_prefix_assignments(prefix_new, new_valid);
 	} else if (node_old) {
 		/* Remove null-route */
 		interface_update_prefix_assignments(prefix_old, false);
