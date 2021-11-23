@@ -234,7 +234,9 @@ __find_ip_route_target(struct interface_ip_settings *ip, union if_addr *a,
 		if (route->flags & DEVROUTE_TABLE)
 			continue;
 
-		if (!*res || route->mask > (*res)->mask)
+		if (!*res || route->mask > (*res)->mask ||
+	            ((route->mask == (*res)->mask) && (route->flags & DEVROUTE_METRIC)
+		     && (route->metric < (*res)->metric)))
 			*res = route;
 	}
 }
