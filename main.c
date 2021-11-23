@@ -233,10 +233,10 @@ static int usage(const char *progname)
 		" -p <path>:		Path to netifd addons (default: %s)\n"
 		" -c <path>:		Path to UCI configuration\n"
 		" -h <path>:		Path to the hotplug script\n"
+		"			(default: "DEFAULT_HOTPLUG_PATH")\n"
 		" -r <path>:		Path to resolv.conf\n"
 		" -l <level>:		Log output level (default: %d)\n"
 		" -S:			Use stderr instead of syslog for log messages\n"
-		"			(default: "DEFAULT_HOTPLUG_PATH")\n"
 		"\n", progname, main_path, DEFAULT_LOG_LEVEL);
 
 	return 1;
