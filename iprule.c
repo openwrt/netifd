@@ -44,6 +44,7 @@ enum {
 	RULE_ACTION,
 	RULE_GOTO,
 	RULE_SUP_PREFIXLEN,
+	RULE_DISABLED,
 	__RULE_MAX
 };
 
@@ -60,6 +61,7 @@ static const struct blobmsg_policy rule_attr[__RULE_MAX] = {
 	[RULE_SUP_PREFIXLEN] = { .name = "suppress_prefixlength", .type = BLOBMSG_TYPE_INT32 },
 	[RULE_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_STRING },
 	[RULE_GOTO]   = { .name = "goto", .type = BLOBMSG_TYPE_INT32 },
+	[RULE_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list rule_attr_list = {
@@ -202,6 +204,9 @@ iprule_add(struct blob_attr *attr, bool v6)
 	int af = v6 ? AF_INET6 : AF_INET;
 
 	blobmsg_parse(rule_attr, __RULE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+
+	if ((cur = tb[RULE_DISABLED]) != NULL && blobmsg_get_bool(cur))
+		return;
 
 	rule = calloc(1, sizeof(*rule));
 	if (!rule)
