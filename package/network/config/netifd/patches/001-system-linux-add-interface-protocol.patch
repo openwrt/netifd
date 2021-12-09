@@ -1,0 +1,107 @@
+--- a/system-linux.c
++++ b/system-linux.c
+@@ -2395,6 +2395,50 @@ system_if_force_external(const char *ifn
+ 	return stat(dev_sysfs_path(ifname, "phy80211"), &s) == 0;
+ }
+ 
++static inline unsigned short
++system_netdevtype_to_pos(unsigned short dev_type)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(netdev_type_number); i++)
++		if (netdev_type_number[i] == dev_type)
++			return i;
++	/* the last key is used by default */
++	return ARRAY_SIZE(netdev_type_number) - 1;
++}
++
++static void
++system_add_devtype(struct blob_buf *b, const char *ifname)
++{
++	char buf[100];
++	bool found = false;
++
++	if (!system_get_dev_sysfs("uevent", ifname, buf, sizeof(buf))) {
++		const char *info = "DEVTYPE=";
++		char* context = NULL;
++		const char *line = strtok_r(buf, "\r\n", &context);
++		while( line != NULL ) {
++			char *index = strstr(line, info);
++			if(index != NULL) {
++				blobmsg_add_string(b, "devtype", index + strlen(info));
++				found = true;
++				break;
++			}
++			line = strtok_r(NULL, "\r\n", &context);
++		}
++	}
++
++	if (!found) {
++		int i;
++		unsigned short number = 0;
++		if (!system_get_dev_sysfs("type", ifname, buf, sizeof(buf))) {
++			number = strtoul(buf, NULL, 0);
++			i = system_netdevtype_to_pos(number);
++			blobmsg_add_string(b, "devtype", netdev_type_name[i]);
++		}
++	}
++}
++
+ int
+ system_if_dump_info(struct device *dev, struct blob_buf *b)
+ {
+@@ -2430,6 +2474,8 @@ system_if_dump_info(struct device *dev,
+ 		blobmsg_add_u8(b, "autoneg", !!ecmd.autoneg);
+ 	}
+ 
++	system_add_devtype(b, dev->ifname);
++
+ 	return 0;
+ }
+ 
+--- a/system.h
++++ b/system.h
+@@ -23,6 +23,42 @@
+ #include "iprule.h"
+ #include "utils.h"
+ 
++static const unsigned short netdev_type_number[] = {
++	ARPHRD_NETROM, ARPHRD_ETHER, ARPHRD_EETHER, ARPHRD_AX25,
++	ARPHRD_PRONET, ARPHRD_CHAOS, ARPHRD_IEEE802, ARPHRD_ARCNET,
++	ARPHRD_APPLETLK, ARPHRD_DLCI, ARPHRD_ATM, ARPHRD_METRICOM,
++	ARPHRD_IEEE1394, ARPHRD_EUI64, ARPHRD_INFINIBAND, ARPHRD_SLIP,
++	ARPHRD_CSLIP, ARPHRD_SLIP6, ARPHRD_CSLIP6, ARPHRD_RSRVD,
++	ARPHRD_ADAPT, ARPHRD_ROSE, ARPHRD_X25, ARPHRD_HWX25,
++	ARPHRD_PPP, ARPHRD_CISCO, ARPHRD_LAPB, ARPHRD_DDCMP,
++	ARPHRD_RAWHDLC, ARPHRD_TUNNEL, ARPHRD_TUNNEL6, ARPHRD_FRAD,
++	ARPHRD_SKIP, ARPHRD_LOOPBACK, ARPHRD_LOCALTLK, ARPHRD_FDDI,
++	ARPHRD_BIF, ARPHRD_SIT, ARPHRD_IPDDP, ARPHRD_IPGRE,
++	ARPHRD_PIMREG, ARPHRD_HIPPI, ARPHRD_ASH, ARPHRD_ECONET,
++	ARPHRD_IRDA, ARPHRD_FCPP, ARPHRD_FCAL, ARPHRD_FCPL,
++	ARPHRD_FCFABRIC, ARPHRD_IEEE80211, ARPHRD_IEEE80211_PRISM,
++	ARPHRD_IEEE80211_RADIOTAP, ARPHRD_PHONET, ARPHRD_PHONET_PIPE,
++	ARPHRD_IEEE802154, ARPHRD_VOID, ARPHRD_NONE
++};
++
++static const char *const netdev_type_name[] = {
++	"netrom", "ethernet", "eethernet", "ax25",
++	"pronet", "chaos", "ieee802", "arcnet",
++	"appletlk", "dlci", "atm", "metricom",
++	"ieee1394", "eui64", "infiniband", "slip",
++	"cslip", "slip6", "cslip6", "rsrvd",
++	"adapt", "rose", "x25", "hwx25",
++	"ppp", "cisco", "lapb", "ddcmp",
++	"rawhdlc", "tunnel", "tunnel6", "frad",
++	"skip", "loopback", "localtlk", "fddi",
++	"bif", "sit", "ipddp", "ipgre",
++	"pimreg", "hippi", "ash", "econet",
++	"irda", "fcpp", "fcal", "fcpl",
++	"fcfabric", "ieee80211", "ie80211-prism",
++	"ieee80211-radiotap", "phonet", "phonet-pipe",
++	"ieee802154", "void", "none"
++};
++
+ enum tunnel_param {
+ 	TUNNEL_ATTR_TYPE,
+ 	TUNNEL_ATTR_REMOTE,
