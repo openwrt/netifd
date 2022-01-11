@@ -2395,6 +2395,58 @@ system_if_force_external(const char *ifname)
 	return stat(dev_sysfs_path(ifname, "phy80211"), &s) == 0;
 }
 
+static const char *
+system_netdevtype_name(unsigned short dev_type)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(netdev_types); i++) {
+		if (netdev_types[i].id == dev_type)
+			return netdev_types[i].name;
+	}
+
+	/* the last key is used by default */
+	i = ARRAY_SIZE(netdev_types) - 1;
+
+	return netdev_types[i].name;
+}
+
+static void
+system_add_devtype(struct blob_buf *b, const char *ifname)
+{
+	char buf[100];
+	bool found = false;
+
+	if (!system_get_dev_sysfs("uevent", ifname, buf, sizeof(buf))) {
+		const char *info = "DEVTYPE=";
+		char *context = NULL;
+		const char *line = strtok_r(buf, "\r\n", &context);
+
+		while (line != NULL) {
+			char *index = strstr(line, info);
+
+			if (index != NULL) {
+				blobmsg_add_string(b, "devtype", index + strlen(info));
+				found = true;
+				break;
+			}
+
+			line = strtok_r(NULL, "\r\n", &context);
+		}
+	}
+
+	if (!found) {
+		unsigned short number = 0;
+		const char *name = NULL;
+
+		if (!system_get_dev_sysfs("type", ifname, buf, sizeof(buf))) {
+			number = strtoul(buf, NULL, 0);
+			name = system_netdevtype_name(number);
+			blobmsg_add_string(b, "devtype", name);
+		}
+	}
+}
+
 int
 system_if_dump_info(struct device *dev, struct blob_buf *b)
 {
@@ -2429,6 +2481,8 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 
 		blobmsg_add_u8(b, "autoneg", !!ecmd.autoneg);
 	}
+
+	system_add_devtype(b, dev->ifname);
 
 	return 0;
 }
