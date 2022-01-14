@@ -81,8 +81,12 @@ static const struct netdev_type netdev_types[] = {
 	{ARPHRD_IEEE80211, "ieee80211"},
 	{ARPHRD_IEEE80211_PRISM, "ie80211-prism"},
 	{ARPHRD_IEEE80211_RADIOTAP, "ieee80211-radiotap"},
+#ifdef ARPHRD_PHONET
 	{ARPHRD_PHONET, "phonet"},
+#endif
+#ifdef ARPHRD_PHONET_PIPE
 	{ARPHRD_PHONET_PIPE, "phonet-pipe"},
+#endif
 	{ARPHRD_IEEE802154, "ieee802154"},
 	{ARPHRD_VOID, "void"},
 	{ARPHRD_NONE, "none"}
