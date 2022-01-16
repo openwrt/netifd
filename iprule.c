@@ -44,6 +44,7 @@ enum {
 	RULE_ACTION,
 	RULE_GOTO,
 	RULE_SUP_PREFIXLEN,
+	RULE_UIDRANGE,
 	RULE_DISABLED,
 	__RULE_MAX
 };
@@ -59,6 +60,7 @@ static const struct blobmsg_policy rule_attr[__RULE_MAX] = {
 	[RULE_FWMARK] = { .name = "mark", .type = BLOBMSG_TYPE_STRING },
 	[RULE_LOOKUP] = { .name = "lookup", .type = BLOBMSG_TYPE_STRING },
 	[RULE_SUP_PREFIXLEN] = { .name = "suppress_prefixlength", .type = BLOBMSG_TYPE_INT32 },
+	[RULE_UIDRANGE] = { .name = "uidrange", .type = BLOBMSG_TYPE_STRING },
 	[RULE_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_STRING },
 	[RULE_GOTO]   = { .name = "goto", .type = BLOBMSG_TYPE_INT32 },
 	[RULE_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
@@ -280,6 +282,18 @@ iprule_add(struct blob_attr *attr, bool v6)
 	if ((cur = tb[RULE_SUP_PREFIXLEN]) != NULL) {
 		rule->sup_prefixlen = blobmsg_get_u32(cur);
 		rule->flags |= IPRULE_SUP_PREFIXLEN;
+	}
+
+	if ((cur = tb[RULE_UIDRANGE]) != NULL) {
+		int ret = sscanf(blobmsg_get_string(cur), "%u-%u", &rule->uidrange_start, &rule->uidrange_end);
+
+		if (ret == 1)
+			rule->uidrange_end = rule->uidrange_start;
+		else if (ret != 2) {
+			DPRINTF("Failed to parse UID range: %s\n", (char *) blobmsg_data(cur));
+			goto error;
+		}
+		rule->flags |= IPRULE_UIDRANGE;
 	}
 
 	if ((cur = tb[RULE_ACTION]) != NULL) {

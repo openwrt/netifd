@@ -63,6 +63,9 @@ enum iprule_flags {
 
 	/* rule suppresses results by prefix length */
 	IPRULE_SUP_PREFIXLEN	= (1 << 13),
+
+	/* rule specifies uidrange */
+	IPRULE_UIDRANGE		= (1 << 14),
 };
 
 struct iprule {
@@ -102,6 +105,8 @@ struct iprule {
 
 	unsigned int lookup;
 	unsigned int sup_prefixlen;
+	unsigned int uidrange_start;
+	unsigned int uidrange_end;
 	unsigned int action;
 	unsigned int gotoid;
 };
