@@ -755,21 +755,38 @@ static int system_rtnl_call(struct nl_msg *msg)
 	return nl_wait_for_ack(sock_rtnl);
 }
 
-static int system_link_del(const char *ifname)
+static struct nl_msg *__system_ifinfo_msg(int af, int index, const char *ifname, uint16_t type, uint16_t flags)
 {
 	struct nl_msg *msg;
 	struct ifinfomsg iim = {
-		.ifi_family = AF_UNSPEC,
-		.ifi_index = 0,
+		.ifi_family = af,
+		.ifi_index = index,
 	};
 
-	msg = nlmsg_alloc_simple(RTM_DELLINK, NLM_F_REQUEST);
+	msg = nlmsg_alloc_simple(type, flags | NLM_F_REQUEST);
+	if (!msg)
+		return NULL;
 
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+	if (ifname)
+		nla_put_string(msg, IFLA_IFNAME, ifname);
+
+	return msg;
+}
+
+static struct nl_msg *system_ifinfo_msg(const char *ifname, uint16_t type, uint16_t flags)
+{
+	return __system_ifinfo_msg(AF_UNSPEC, 0, ifname, type, flags);
+}
+
+static int system_link_del(const char *ifname)
+{
+	struct nl_msg *msg;
+
+	msg = system_ifinfo_msg(ifname, RTM_DELLINK, 0);
 	if (!msg)
 		return -1;
 
-	nlmsg_append(msg, &iim, sizeof(iim), 0);
-	nla_put_string(msg, IFLA_IFNAME, ifname);
 	return system_rtnl_call(msg);
 }
 
@@ -899,22 +916,20 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 
 int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags)
 {
-	struct ifinfomsg ifi = { .ifi_family = PF_BRIDGE, };
 	struct bridge_vlan_info vinfo = { .vid = vid, };
 	unsigned short flags = 0;
 	struct nlattr *afspec;
 	struct nl_msg *nlm;
+	int index;
 	int ret = 0;
 
-	ifi.ifi_index = if_nametoindex(iface);
-	if (!ifi.ifi_index)
+	index = if_nametoindex(iface);
+	if (!index)
 		return -1;
 
-	nlm = nlmsg_alloc_simple(add ? RTM_SETLINK : RTM_DELLINK, NLM_F_REQUEST);
+	nlm = __system_ifinfo_msg(PF_BRIDGE, index, NULL, add ? RTM_SETLINK : RTM_DELLINK, 0);
 	if (!nlm)
 		return -1;
-
-	nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
 
 	if (vflags & BRVLAN_F_SELF)
 		flags |= BRIDGE_FLAGS_SELF;
@@ -1267,19 +1282,14 @@ sec_to_jiffies(int val)
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
-	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC, };
 	struct nlattr *linkinfo, *data;
 	struct nl_msg *msg;
 	uint64_t val;
 	int rv;
 
-	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
+	msg = system_ifinfo_msg(bridge->ifname, RTM_NEWLINK, NLM_F_CREATE | NLM_F_EXCL);
 	if (!msg)
 		return -1;
-
-	nlmsg_append(msg, &iim, sizeof(iim), 0);
-
-	nla_put_string(msg, IFLA_IFNAME, bridge->ifname);
 
 	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
 		goto nla_put_failure;
@@ -1357,7 +1367,6 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 {
 	struct nl_msg *msg;
 	struct nlattr *linkinfo, *data;
-	struct ifinfomsg iim = { .ifi_family = AF_UNSPEC, };
 	int i, rv;
 	static const struct {
 		const char *name;
@@ -1369,16 +1378,12 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 		{ "passthru", MACVLAN_MODE_PASSTHRU },
 	};
 
-	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL);
-
+	msg = system_ifinfo_msg(macvlan->ifname, RTM_NEWLINK, NLM_F_CREATE | NLM_F_EXCL);
 	if (!msg)
 		return -1;
 
-	nlmsg_append(msg, &iim, sizeof(iim), 0);
-
 	if (cfg->flags & MACVLAN_OPT_MACADDR)
 		nla_put(msg, IFLA_ADDRESS, sizeof(cfg->macaddr), cfg->macaddr);
-	nla_put_string(msg, IFLA_IFNAME, macvlan->ifname);
 	nla_put_u32(msg, IFLA_LINK, dev->ifindex);
 
 	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
@@ -1416,22 +1421,15 @@ nla_put_failure:
 int system_link_netns_move(struct device *dev, int netns_fd, const char *target_ifname)
 {
 	struct nl_msg *msg;
-	struct ifinfomsg iim = {
-		.ifi_family = AF_UNSPEC,
-	};
+	int index;
 
 	if (!dev)
 		return -1;
 
-	iim.ifi_index = system_if_resolve(dev);
-	msg = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST);
-
+	index = system_if_resolve(dev);
+	msg = __system_ifinfo_msg(AF_UNSPEC, index, target_ifname, RTM_NEWLINK, 0);
 	if (!msg)
 		return -1;
-
-	nlmsg_append(msg, &iim, sizeof(iim), 0);
-	if (target_ifname)
-		nla_put_string(msg, IFLA_IFNAME, target_ifname);
 
 	nla_put_u32(msg, IFLA_NET_NS_FD, netns_fd);
 	return system_rtnl_call(msg);
