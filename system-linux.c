@@ -755,9 +755,27 @@ static int system_rtnl_call(struct nl_msg *msg)
 	return nl_wait_for_ack(sock_rtnl);
 }
 
+static int system_link_del(const char *ifname)
+{
+	struct nl_msg *msg;
+	struct ifinfomsg iim = {
+		.ifi_family = AF_UNSPEC,
+		.ifi_index = 0,
+	};
+
+	msg = nlmsg_alloc_simple(RTM_DELLINK, NLM_F_REQUEST);
+
+	if (!msg)
+		return -1;
+
+	nlmsg_append(msg, &iim, sizeof(iim), 0);
+	nla_put_string(msg, IFLA_IFNAME, ifname);
+	return system_rtnl_call(msg);
+}
+
 int system_bridge_delbr(struct device *bridge)
 {
-	return ioctl(sock_ioctl, SIOCBRDELBR, bridge->ifname);
+	return system_link_del(bridge->ifname);
 }
 
 static int system_bridge_if(const char *bridge, struct device *dev, int cmd, void *data)
@@ -1416,24 +1434,6 @@ int system_link_netns_move(struct device *dev, int netns_fd, const char *target_
 		nla_put_string(msg, IFLA_IFNAME, target_ifname);
 
 	nla_put_u32(msg, IFLA_NET_NS_FD, netns_fd);
-	return system_rtnl_call(msg);
-}
-
-static int system_link_del(const char *ifname)
-{
-	struct nl_msg *msg;
-	struct ifinfomsg iim = {
-		.ifi_family = AF_UNSPEC,
-		.ifi_index = 0,
-	};
-
-	msg = nlmsg_alloc_simple(RTM_DELLINK, NLM_F_REQUEST);
-
-	if (!msg)
-		return -1;
-
-	nlmsg_append(msg, &iim, sizeof(iim), 0);
-	nla_put_string(msg, IFLA_IFNAME, ifname);
 	return system_rtnl_call(msg);
 }
 
