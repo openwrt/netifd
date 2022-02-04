@@ -2351,6 +2351,119 @@ system_add_devtype(struct blob_buf *b, const char *ifname)
 	}
 }
 
+#define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
+
+static int32_t
+ethtool_feature_count(const char *ifname)
+{
+	struct {
+		struct ethtool_sset_info hdr;
+		uint32_t buf;
+	} req = {
+		.hdr = {
+			.cmd = ETHTOOL_GSSET_INFO,
+			.sset_mask = 1 << ETH_SS_FEATURES
+		}
+	};
+
+	struct ifreq ifr = {
+		.ifr_data = (void *)&req
+	};
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0)
+		return -1;
+
+	if (!req.hdr.sset_mask)
+		return 0;
+
+	return req.buf;
+}
+
+static int32_t
+ethtool_feature_index(const char *ifname, const char *keyname)
+{
+	struct ethtool_gstrings *feature_names;
+	struct ifreq ifr = { 0 };
+	int32_t n_features, i;
+
+	n_features = ethtool_feature_count(ifname);
+
+	if (n_features <= 0)
+		return -1;
+
+	feature_names = calloc(1, sizeof(*feature_names) + n_features * ETH_GSTRING_LEN);
+
+	if (!feature_names)
+		return -1;
+
+	feature_names->cmd = ETHTOOL_GSTRINGS;
+	feature_names->string_set = ETH_SS_FEATURES;
+	feature_names->len = n_features;
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)feature_names;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0) {
+		free(feature_names);
+
+		return -1;
+	}
+
+	for (i = 0; i < feature_names->len; i++)
+		if (!strcmp((char *)&feature_names->data[i * ETH_GSTRING_LEN], keyname))
+			break;
+
+	if (i >= feature_names->len)
+		i = -1;
+
+	free(feature_names);
+
+	return i;
+}
+
+static bool
+ethtool_feature_value(const char *ifname, const char *keyname)
+{
+	struct ethtool_get_features_block *feature_block;
+	struct ethtool_gfeatures *feature_values;
+	struct ifreq ifr = { 0 };
+	int32_t feature_idx;
+	bool active;
+
+	feature_idx = ethtool_feature_index(ifname, keyname);
+
+	if (feature_idx < 0)
+		return false;
+
+	feature_values = calloc(1,
+		sizeof(*feature_values) +
+		sizeof(feature_values->features[0]) * DIV_ROUND_UP(feature_idx, 32));
+
+	if (!feature_values)
+		return false;
+
+	feature_values->cmd = ETHTOOL_GFEATURES;
+	feature_values->size = DIV_ROUND_UP(feature_idx, 32);
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)feature_values;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0) {
+		free(feature_values);
+
+		return false;
+	}
+
+	feature_block = &feature_values->features[feature_idx / 32];
+	active = feature_block->active & (1U << feature_idx % 32);
+
+	free(feature_values);
+
+	return active;
+}
+
 int
 system_if_dump_info(struct device *dev, struct blob_buf *b)
 {
@@ -2385,6 +2498,9 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 
 		blobmsg_add_u8(b, "autoneg", !!ecmd.autoneg);
 	}
+
+	blobmsg_add_u8(b, "hw-tc-offload",
+		ethtool_feature_value(dev->ifname, "hw-tc-offload"));
 
 	system_add_devtype(b, dev->ifname);
 
