@@ -24,8 +24,16 @@ SET(SOURCES
 	extdev.c bonding.c)
 
 
-SET(LIBS
-	ubox ubus uci json-c blobmsg_json)
+FIND_LIBRARY(uci NAMES uci)
+FIND_LIBRARY(ubox NAMES ubox)
+FIND_LIBRARY(ubus NAMES ubus)
+FIND_LIBRARY(json NAMES json-c json)
+FIND_LIBRARY(blobmsg_json NAMES blobmsg_json)
+
+SET(LIBS ${ubox} ${ubus} ${uci} ${json} ${blobmsg_json})
+
+FIND_PATH(ubox_include_dir libubox/usock.h)
+INCLUDE_DIRECTORIES(${ubox_include_dir})
 
 IF (NOT DEFINED LIBNL_LIBS)
 	include(FindPkgConfig)
