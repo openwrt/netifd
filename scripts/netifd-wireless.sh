@@ -70,7 +70,8 @@ _wdev_prepare_channel() {
 
 	case "$band" in
 		2g) hwmode=g;;
-		5g|6g|60g) hwmode=a;;
+		5g|6g) hwmode=a;;
+		60g) hwmode=ad;;
 		*)
 			case "$hwmode" in
 				*a) band=5g;;
