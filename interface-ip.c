@@ -257,12 +257,19 @@ interface_ip_find_route_target(struct interface *iface, union if_addr *a,
 }
 
 struct interface *
-interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *iface)
+interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *iface,
+			      bool exclude)
 {
 	struct device_route *route, *r_next = NULL;
 	bool defaultroute_target = false;
 	union if_addr addr_zero;
 	int addrsize = v6 ? sizeof(addr->in6) : sizeof(addr->in);
+	struct interface *exclude_iface = NULL;
+
+	if (exclude) {
+		exclude_iface = iface;
+		iface = NULL;
+	}
 
 	memset(&addr_zero, 0, sizeof(addr_zero));
 	if (memcmp(&addr_zero, addr, addrsize) == 0)
@@ -278,6 +285,9 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 		interface_ip_find_route_target(iface, addr, v6, &r_next);
 	} else {
 		vlist_for_each_element(&interfaces, iface, node) {
+			if (iface == exclude_iface)
+				continue;
+
 			/* look for locally addressable target first */
 			if (interface_ip_find_addr_target(iface, addr, v6))
 				return iface;

@@ -129,7 +129,7 @@ proto_shell_update_host_dep(struct proto_shell_dependency *dep)
 	}
 
 	if (!dep->any)
-		iface = interface_ip_add_target_route(&dep->host, dep->v6, iface);
+		iface = interface_ip_add_target_route(&dep->host, dep->v6, iface, false);
 
 	if (!iface)
 		goto out;
