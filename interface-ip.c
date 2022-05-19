@@ -806,18 +806,15 @@ interface_update_proto_neighbor(struct vlist_tree *tree,
 }
 
 static void
-interface_update_proto_route(struct vlist_tree *tree,
-			     struct vlist_node *node_new,
-			     struct vlist_node *node_old)
+__interface_update_route(struct interface_ip_settings *ip,
+			 struct vlist_node *node_new,
+			 struct vlist_node *node_old)
 {
-	struct interface_ip_settings *ip;
-	struct interface *iface;
+	struct interface *iface = ip->iface;
 	struct device *dev;
 	struct device_route *route_old, *route_new;
 	bool keep = false;
 
-	ip = container_of(tree, struct interface_ip_settings, route);
-	iface = ip->iface;
 	dev = iface->l3_dev.dev;
 
 	if (!node_new || !node_old)
@@ -851,29 +848,25 @@ interface_update_proto_route(struct vlist_tree *tree,
 }
 
 static void
+interface_update_proto_route(struct vlist_tree *tree,
+			     struct vlist_node *node_new,
+			     struct vlist_node *node_old)
+{
+	struct interface_ip_settings *ip;
+
+	ip = container_of(tree, struct interface_ip_settings, route);
+	__interface_update_route(ip, node_new, node_old);
+}
+
+static void
 interface_update_host_route(struct vlist_tree *tree,
 			     struct vlist_node *node_new,
 			     struct vlist_node *node_old)
 {
 	struct interface *iface;
-	struct device *dev;
-	struct device_route *route_old, *route_new;
 
 	iface = container_of(tree, struct interface, host_routes);
-	dev = iface->l3_dev.dev;
-
-	route_old = container_of(node_old, struct device_route, node);
-	route_new = container_of(node_new, struct device_route, node);
-
-	if (node_old) {
-		system_del_route(dev, route_old);
-		free(route_old);
-	}
-
-	if (node_new) {
-		if (system_add_route(dev, route_new))
-			route_new->failed = true;
-	}
+	__interface_update_route(&iface->proto_ip, node_new, node_old);
 }
 
 static void
@@ -1609,6 +1602,32 @@ interface_write_resolv_conf(const char *jail)
 	}
 }
 
+static void
+interface_ip_set_route_enabled(struct interface_ip_settings *ip,
+			       struct device_route *route, bool enabled)
+{
+	struct device *dev = ip->iface->l3_dev.dev;
+
+	if (route->flags & DEVADDR_EXTERNAL)
+		return;
+
+	if (!enable_route(ip, route))
+		enabled = false;
+
+	if (route->enabled == enabled)
+		return;
+
+	if (enabled) {
+		interface_set_route_info(ip->iface, route);
+
+		if (system_add_route(dev, route))
+			route->failed = true;
+	} else
+		system_del_route(dev, route);
+
+	route->enabled = enabled;
+}
+
 void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 {
 	struct device_addr *addr;
@@ -1684,27 +1703,11 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		addr->enabled = enabled;
 	}
 
-	vlist_for_each_element(&ip->route, route, node) {
-		bool _enabled = enabled;
-
-		if (route->flags & DEVADDR_EXTERNAL)
-			continue;
-
-		if (!enable_route(ip, route))
-			_enabled = false;
-		if (route->enabled == _enabled)
-			continue;
-
-		if (_enabled) {
-			interface_set_route_info(ip->iface, route);
-
-			if (system_add_route(dev, route))
-				route->failed = true;
-		} else
-			system_del_route(dev, route);
-
-		route->enabled = _enabled;
-	}
+	vlist_for_each_element(&ip->route, route, node)
+		interface_ip_set_route_enabled(ip, route, enabled);
+	if (ip == &iface->proto_ip)
+		vlist_for_each_element(&iface->host_routes, route, node)
+			interface_ip_set_route_enabled(ip, route, enabled);
 
 	vlist_for_each_element(&ip->neighbor, neighbor, node) {
 		if (neighbor->enabled == enabled)
