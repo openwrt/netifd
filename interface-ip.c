@@ -1566,7 +1566,9 @@ __interface_write_dns_entries(FILE *f, const char *jail)
 void
 interface_write_resolv_conf(const char *jail)
 {
-	size_t plen = (jail ? strlen(jail) + 1 : 0 ) + strlen(resolv_conf) + 1;
+	size_t plen = (jail ? strlen(jail) + 1 : 0 ) +
+	    (strlen(resolv_conf) >= strlen(DEFAULT_RESOLV_CONF) ?
+	    strlen(resolv_conf) : strlen(DEFAULT_RESOLV_CONF) ) + 1;
 	char *path = alloca(plen);
 	char *dpath = alloca(plen);
 	char *tmppath = alloca(plen + 4);
