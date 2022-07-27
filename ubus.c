@@ -918,6 +918,9 @@ netifd_dump_status(struct interface *iface)
 	}
 
 	a = blobmsg_open_table(&b, "data");
+
+	if (iface->zone)
+		blobmsg_add_string(&b, "zone", iface->zone);
 	avl_for_each_element(&iface->data, data, node)
 		blobmsg_add_blob(&b, data->data);
 

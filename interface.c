@@ -34,6 +34,7 @@ enum {
 	IFACE_ATTR_IFNAME, /* Backward compatibility */
 	IFACE_ATTR_PROTO,
 	IFACE_ATTR_AUTO,
+	IFACE_ATTR_ZONE,
 	IFACE_ATTR_JAIL,
 	IFACE_ATTR_JAIL_DEVICE,
 	IFACE_ATTR_JAIL_IFNAME,
@@ -62,6 +63,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_PROTO] = { .name = "proto", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IFNAME] = { .name = "ifname", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_AUTO] = { .name = "auto", .type = BLOBMSG_TYPE_BOOL },
+	[IFACE_ATTR_ZONE] = { .name = "zone", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_JAIL] = { .name = "jail", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_JAIL_DEVICE] = { .name = "jail_device", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_JAIL_IFNAME] = { .name = "jail_ifname", .type = BLOBMSG_TYPE_STRING },
@@ -831,6 +833,10 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 
 	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
 		      blob_data(config), blob_len(config));
+
+	iface->zone = NULL;
+	if ((cur = tb[IFACE_ATTR_ZONE]))
+		iface->zone = strdup(blobmsg_get_string(cur));
 
 	if ((cur = tb[IFACE_ATTR_PROTO]))
 		proto_name = blobmsg_data(cur);
