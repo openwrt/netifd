@@ -216,10 +216,19 @@ wireless_vif_parse_encryption() {
 		wpa_cipher="CCMP"
 	fi
 
+	# WPA3 enterprise requires the GCMP-256 cipher (technically also CCMP and GCMP are possible
+	# but many clients/devices do not support that)
+	case "$encryption" in
+		wpa3-mixed*) wpa_cipher="${wpa_cipher} GCMP-256";;
+		wpa3*) wpa_cipher="GCMP-256";;
+	esac
+
 	case "$encryption" in
 		*tkip+aes|*tkip+ccmp|*aes+tkip|*ccmp+tkip) wpa_cipher="CCMP TKIP";;
+		*ccmp256) wpa_cipher="CCMP-256";;
 		*aes|*ccmp) wpa_cipher="CCMP";;
 		*tkip) wpa_cipher="TKIP";;
+		*gcmp256) wpa_cipher="GCMP-256";;
 		*gcmp) wpa_cipher="GCMP";;
 	esac
 
