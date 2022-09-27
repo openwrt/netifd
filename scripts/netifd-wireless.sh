@@ -226,7 +226,7 @@ wireless_vif_parse_encryption() {
 	case "$encryption" in
 		*tkip+aes|*tkip+ccmp|*aes+tkip|*ccmp+tkip) wpa_cipher="CCMP TKIP";;
 		*ccmp256) wpa_cipher="CCMP-256";;
-		*aes|*ccmp) wpa_cipher="CCMP";;
+		*aes|*ccmp|dpp) wpa_cipher="CCMP";;
 		*tkip) wpa_cipher="TKIP";;
 		*gcmp256) wpa_cipher="GCMP-256";;
 		*gcmp) wpa_cipher="GCMP";;
@@ -241,7 +241,7 @@ wireless_vif_parse_encryption() {
 	# wpa2/tkip+aes     => WPA2 RADIUS, CCMP+TKIP
 
 	case "$encryption" in
-		wpa2*|wpa3*|*psk2*|psk3*|sae*|owe*)
+		wpa2*|wpa3*|*psk2*|psk3*|sae*|owe*|dpp)
 			wpa=2
 		;;
 		wpa*mixed*|*psk*mixed*)
@@ -278,6 +278,9 @@ wireless_vif_parse_encryption() {
 		;;
 		*wpa*|*8021x*)
 			auth_type=eap
+		;;
+		dpp)
+			auth_type=dpp
 		;;
 		*wep*)
 			auth_type=wep
