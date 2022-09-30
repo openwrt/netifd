@@ -1403,10 +1403,11 @@ wireless_device_set_retry(struct wireless_device *wdev, struct blob_attr *data)
 	struct blob_attr *val;
 
 	blobmsg_parse(&retry_policy, 1, &val, blobmsg_data(data), blobmsg_data_len(data));
-	if (!val)
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
-	wdev->retry = blobmsg_get_u32(val);
+	if (val)
+		wdev->retry = blobmsg_get_u32(val);
+	else
+		wdev->retry = WIRELESS_SETUP_RETRY;
+	__wireless_device_set_up(wdev, 0);
 	netifd_log_message(L_NOTICE, "Wireless device '%s' set retry=%d\n", wdev->name, wdev->retry);
 	return 0;
 }
