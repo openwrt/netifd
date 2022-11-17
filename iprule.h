@@ -77,8 +77,8 @@ struct iprule {
 	struct interface_user out_iface_user;
 
 	/* device name */
-	char in_dev[IFNAMSIZ + 1];
-	char out_dev[IFNAMSIZ + 1];
+	char in_dev[IFNAMSIZ];
+	char out_dev[IFNAMSIZ];
 
 	/* everything below is used as avl tree key */
 	/* don't change the order                   */

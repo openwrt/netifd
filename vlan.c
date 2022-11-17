@@ -128,7 +128,7 @@ static int vlan_set_device_state(struct device *dev, bool up)
 
 static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 {
-	char name[IFNAMSIZ + 1];
+	char name[IFNAMSIZ];
 	struct vlan_device *vldev;
 
 	vldev = container_of(dep, struct vlan_device, dep);
@@ -175,7 +175,7 @@ static struct device *get_vlan_device(struct device *dev, char *id_str, bool cre
 	};
 	struct vlan_device *vldev;
 	struct device_user *dep;
-	char name[IFNAMSIZ + 1];
+	char name[IFNAMSIZ];
 	char *err = NULL;
 	int id, *alias_id;
 
