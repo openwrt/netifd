@@ -230,6 +230,7 @@ wireless_vif_parse_encryption() {
 		*tkip) wpa_cipher="TKIP";;
 		*gcmp256) wpa_cipher="GCMP-256";;
 		*gcmp) wpa_cipher="GCMP";;
+		*modern) wpa_cipher="GCMP-256 GCMP CCMP-256 CCMP";;
 	esac
 
 	# 802.11n requires CCMP for WPA
