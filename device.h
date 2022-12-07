@@ -219,7 +219,7 @@ struct device {
 	struct vlist_tree vlans;
 	struct kvlist vlan_aliases;
 
-	char ifname[IFNAMSIZ + 1];
+	char ifname[IFNAMSIZ];
 	int ifindex;
 
 	struct blob_attr *config;

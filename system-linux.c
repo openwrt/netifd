@@ -1030,7 +1030,7 @@ int system_bonding_set_port(struct device *dev, struct device *port, bool add, b
 {
 	const char *port_name = port->ifname;
 	const char op_ch = add ? '+' : '-';
-	char buf[IFNAMSIZ + 2];
+	char buf[IFNAMSIZ + 1];
 
 	snprintf(buf, sizeof(buf), "%c%s", op_ch, port_name);
 	system_if_down(port);
