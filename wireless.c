@@ -65,6 +65,7 @@ enum {
 	VIF_ATTR_ISOLATE,
 	VIF_ATTR_MODE,
 	VIF_ATTR_PROXYARP,
+	VIF_ATTR_MCAST_TO_UCAST,
 	__VIF_ATTR_MAX,
 };
 
@@ -74,6 +75,7 @@ static const struct blobmsg_policy vif_policy[__VIF_ATTR_MAX] = {
 	[VIF_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
 	[VIF_ATTR_MODE] = { .name = "mode", .type = BLOBMSG_TYPE_STRING },
 	[VIF_ATTR_PROXYARP] = { .name = "proxy_arp", .type = BLOBMSG_TYPE_BOOL },
+	[VIF_ATTR_MCAST_TO_UCAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_list vif_param = {
@@ -85,6 +87,7 @@ enum {
 	VLAN_ATTR_DISABLED,
 	VLAN_ATTR_NETWORK,
 	VLAN_ATTR_ISOLATE,
+	VLAN_ATTR_MCAST_TO_UCAST,
 	__VLAN_ATTR_MAX,
 };
 
@@ -92,6 +95,7 @@ static const struct blobmsg_policy vlan_policy[__VLAN_ATTR_MAX] = {
 	[VLAN_ATTR_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 	[VLAN_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_ARRAY },
 	[VLAN_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
+	[VLAN_ATTR_MCAST_TO_UCAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_list vlan_param = {
@@ -315,6 +319,17 @@ wireless_device_free_state(struct wireless_device *wdev)
 	}
 }
 
+static void wireless_device_set_mcast_to_unicast(struct device *dev, int val)
+{
+	if (val < 0) {
+		dev->settings.flags &= ~DEV_OPT_MULTICAST_TO_UNICAST;
+		return;
+	}
+
+	dev->settings.multicast_to_unicast = !!val;
+	dev->settings.flags |= DEV_OPT_MULTICAST_TO_UNICAST;
+}
+
 static void wireless_interface_handle_link(struct wireless_interface *vif, const char *ifname, bool up)
 {
 	struct interface *iface;
@@ -336,6 +351,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 			dev->wireless_proxyarp = vif->proxyarp;
 			dev->wireless = true;
 			dev->wireless_ap = vif->ap_mode;
+			wireless_device_set_mcast_to_unicast(dev, vif->multicast_to_unicast);
 			dev->bpdu_filter = dev->wireless_ap;
 		}
 	}
@@ -368,6 +384,7 @@ static void wireless_vlan_handle_link(struct wireless_vlan *vlan, bool up)
 			dev->wireless = true;
 			dev->wireless_ap = true;
 			dev->bpdu_filter = true;
+			wireless_device_set_mcast_to_unicast(dev, vlan->multicast_to_unicast);
 		}
 	}
 
@@ -811,6 +828,9 @@ wireless_interface_init_config(struct wireless_interface *vif)
 
 	cur = tb[VIF_ATTR_PROXYARP];
 	vif->proxyarp = vif->ap_mode && cur && blobmsg_get_bool(cur);
+
+	cur = tb[VIF_ATTR_MCAST_TO_UCAST];
+	vif->multicast_to_unicast = cur ? blobmsg_get_bool(cur) : -1;
 }
 
 /* vlist update call for wireless interface list */
@@ -873,6 +893,9 @@ wireless_vlan_init_config(struct wireless_vlan *vlan)
 	cur = tb[VLAN_ATTR_ISOLATE];
 	if (cur)
 		vlan->isolate = blobmsg_get_bool(cur);
+
+	cur = tb[VLAN_ATTR_MCAST_TO_UCAST];
+	vlan->multicast_to_unicast = cur ? blobmsg_get_bool(cur) : -1;
 }
 
 /* vlist update call for vlan list */

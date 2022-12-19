@@ -847,8 +847,10 @@ system_bridge_set_wireless(struct device *bridge, struct device *dev)
 	bool mcast_to_ucast = dev->wireless_ap;
 	bool hairpin;
 
-	if (bridge->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST &&
-	    !bridge->settings.multicast_to_unicast)
+	if (dev->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST)
+		mcast_to_ucast = dev->settings.multicast_to_unicast;
+	else if (bridge->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST &&
+	         !bridge->settings.multicast_to_unicast)
 		mcast_to_ucast = false;
 
 	hairpin = mcast_to_ucast || dev->wireless_proxyarp;
