@@ -13,7 +13,6 @@
  */
 #include <string.h>
 #include <stdlib.h>
-#include "utils.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -22,6 +21,8 @@
 #ifdef __APPLE__
 #include <libproc.h>
 #endif
+
+#include "utils.h"
 
 void
 __vlist_simple_init(struct vlist_simple_tree *tree, int offset)
