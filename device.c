@@ -472,6 +472,17 @@ static void __init dev_init(void)
 	avl_init(&devices, avl_strcmp, true, NULL);
 }
 
+static int device_release_cb(void *ctx, struct safe_list *list)
+{
+	struct device_user *dep = container_of(list, struct device_user, list);
+
+	if (!dep->dev || !dep->claimed)
+		return 0;
+
+	device_release(dep);
+	return 0;
+}
+
 static int device_broadcast_cb(void *ctx, struct safe_list *list)
 {
 	struct device_user *dep = container_of(list, struct device_user, list);
@@ -771,6 +782,8 @@ void device_set_present(struct device *dev, bool state)
 	D(DEVICE, "%s '%s' %s present\n", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
 	dev->sys_present = state;
 	device_refresh_present(dev);
+	if (!state)
+		safe_list_for_each(&dev->users, device_release_cb, NULL);
 }
 
 void device_set_link(struct device *dev, bool state)
