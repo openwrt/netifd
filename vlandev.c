@@ -139,6 +139,10 @@ vlandev_base_cb(struct device_user *dev, enum device_event ev)
 	case DEV_EVENT_UPDATE_IFNAME:
 		vlandev_hotplug_check(mvdev);
 		break;
+	case DEV_EVENT_TOPO_CHANGE:
+		/* Propagate topo changes */
+		device_broadcast_event(&mvdev->dev, DEV_EVENT_TOPO_CHANGE);
+		break;
 	default:
 		return;
 	}
