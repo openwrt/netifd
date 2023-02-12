@@ -143,7 +143,7 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		vlan_hotplug_check(vldev, dep->dev);
 		vldev->dev.hidden = dep->dev->hidden;
 		if (snprintf(name, sizeof(name), "%s.%d", dep->dev->ifname,
-			     vldev->id) >= sizeof(name) - 1 ||
+			     vldev->id) >= (int)sizeof(name) - 1 ||
 		    device_set_ifname(&vldev->dev, name))
 			free_vlan_if(&vldev->dev);
 		break;
@@ -203,7 +203,7 @@ static struct device *get_vlan_device(struct device *dev, char *id_str, bool cre
 	if (!create)
 		return NULL;
 
-	if (snprintf(name, sizeof(name), "%s.%d", dev->ifname, id) >= sizeof(name) - 1)
+	if (snprintf(name, sizeof(name), "%s.%d", dev->ifname, id) >= (int)sizeof(name) - 1)
 		return NULL;
 
 	D(DEVICE, "Create vlan device '%s'\n", name);

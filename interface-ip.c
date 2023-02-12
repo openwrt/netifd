@@ -99,7 +99,7 @@ static struct uloop_timeout valid_until_timeout;
 static void
 clear_if_addr(union if_addr *a, int mask)
 {
-	int m_bytes = (mask + 7) / 8;
+	size_t m_bytes = (mask + 7) / 8;
 	uint8_t m_clear = (1 << (m_bytes * 8 - mask)) - 1;
 	uint8_t *p = (uint8_t *) a;
 

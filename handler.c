@@ -229,7 +229,8 @@ netifd_parse_extdev_handler(const char *path_to_file, create_extdev_handler_cb c
 void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 {
 	glob_t g;
-	int i, prev_fd;
+	int prev_fd;
+	size_t i;
 
 	prev_fd = netifd_dir_push(dir_fd);
 	if (glob("./*.sh", 0, NULL, &g)) {
@@ -252,7 +253,7 @@ netifd_init_extdev_handlers(int dir_fd, create_extdev_handler_cb cb)
 
 	prev_fd = netifd_dir_push(dir_fd);
 	glob("*.json", 0, NULL, &g);
-	for (int i = 0; i < g.gl_pathc; i++)
+	for (size_t i = 0; i < g.gl_pathc; i++)
 		netifd_parse_extdev_handler(g.gl_pathv[i], cb);
 	netifd_dir_pop(prev_fd);
 }

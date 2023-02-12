@@ -303,8 +303,8 @@ int main(int argc, char **argv)
 			break;
 		case 'l':
 			log_level = atoi(optarg);
-			if (log_level >= ARRAY_SIZE(log_class))
-				log_level = ARRAY_SIZE(log_class) - 1;
+			if (log_level >= (int)ARRAY_SIZE(log_class))
+				log_level = (int)ARRAY_SIZE(log_class) - 1;
 			break;
 #ifndef DUMMY_MODE
 		case 'S':

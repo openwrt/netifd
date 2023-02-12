@@ -396,7 +396,7 @@ bonding_apply_settings(struct bonding_device *bdev, struct blob_attr **tb)
 
 	if ((cur = tb[BOND_ATTR_POLICY]) != NULL) {
 		const char *policy = blobmsg_get_string(cur);
-		int i;
+		size_t i;
 
 		for (i = 0; i < ARRAY_SIZE(bonding_policy_str); i++) {
 			if (strcmp(policy, bonding_policy_str[i]) != 0)

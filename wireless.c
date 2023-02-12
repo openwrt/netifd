@@ -1542,7 +1542,7 @@ void wireless_device_hotplug_event(const char *name, bool add)
 	struct wireless_interface *vif;
 	struct wireless_device *wdev;
 	const char *s;
-	int len;
+	size_t len;
 
 	s = strstr(name, ".sta");
 	if (s) {

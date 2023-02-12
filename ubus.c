@@ -1132,7 +1132,7 @@ netifd_handle_iface(struct ubus_context *ctx, struct ubus_object *obj,
 {
 	struct interface *iface;
 	struct blob_attr *tb;
-	int i;
+	size_t i;
 
 	blobmsg_parse(&iface_policy, 1, &tb, blob_data(msg), blob_len(msg));
 	if (!tb)
@@ -1158,7 +1158,7 @@ netifd_handle_iface(struct ubus_context *ctx, struct ubus_object *obj,
 static void netifd_add_iface_object(void)
 {
 	struct ubus_method *methods;
-	int i;
+	size_t i;
 
 	methods = calloc(1, sizeof(iface_object_methods));
 	if (!methods)
