@@ -416,7 +416,7 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 	unsigned int netmask = 32;
 	bool ip6deprecated;
 	int n_v4 = 0, n_v6 = 0;
-	struct in_addr bcast = {}, ptp = {};
+	struct in_addr bcast = {0,}, ptp = {0,};
 
 	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
 

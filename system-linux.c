@@ -1529,7 +1529,7 @@ int system_netns_set(int netns_fd)
 int system_veth_add(struct device *veth, struct veth_config *cfg)
 {
 	struct nl_msg *msg;
-	struct ifinfomsg empty_iim = {};
+	struct ifinfomsg empty_iim = {0,};
 	struct nlattr *linkinfo, *data, *veth_info;
 	int rv;
 
