@@ -49,8 +49,10 @@ run_cmd(const char *ifname, const char *device, enum interface_event event,
 	int pid;
 
 	pid = fork();
-	if (pid < 0)
-		return task_complete(NULL, -1);
+	if (pid < 0) {
+		task_complete(NULL, -1);
+		return;
+	}
 
 	if (pid > 0) {
 		task.pid = pid;

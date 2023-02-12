@@ -129,7 +129,8 @@ netifd_process_cb(struct uloop_process *proc, int ret)
 	np = container_of(proc, struct netifd_process, uloop);
 
 	netifd_delete_process(np);
-	return np->cb(np, ret);
+	np->cb(np, ret);
+	return;
 }
 
 int
