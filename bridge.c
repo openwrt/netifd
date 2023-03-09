@@ -968,12 +968,15 @@ bridge_dump_vlan(struct blob_buf *b, struct bridge_vlan *vlan)
 static void
 bridge_dump_info(struct device *dev, struct blob_buf *b)
 {
+	struct bridge_config *cfg;
 	struct bridge_state *bst;
 	struct bridge_member *bm;
 	struct bridge_vlan *vlan;
 	void *list;
+	void *c;
 
 	bst = container_of(dev, struct bridge_state, dev);
+	cfg = &bst->config;
 
 	system_if_dump_info(dev, b);
 	list = blobmsg_open_array(b, "bridge-members");
@@ -986,6 +989,29 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 	}
 
 	blobmsg_close_array(b, list);
+
+	c = blobmsg_open_table(b, "bridge-attributes");
+
+	blobmsg_add_u8(b, "stp", cfg->stp);
+	blobmsg_add_u32(b, "forward_delay", cfg->forward_delay);
+	blobmsg_add_u32(b, "priority", cfg->priority);
+	blobmsg_add_u32(b, "ageing_time", cfg->ageing_time);
+	blobmsg_add_u32(b, "hello_time", cfg->hello_time);
+	blobmsg_add_u32(b, "max_age", cfg->max_age);
+	blobmsg_add_u8(b, "igmp_snooping", cfg->igmp_snoop);
+	blobmsg_add_u8(b, "bridge_empty", cfg->bridge_empty);
+	blobmsg_add_u8(b, "multicast_querier", cfg->multicast_querier);
+	blobmsg_add_u32(b, "hash_max", cfg->hash_max);
+	blobmsg_add_u32(b, "robustness", cfg->robustness);
+	blobmsg_add_u32(b, "query_interval", cfg->query_interval);
+	blobmsg_add_u32(b, "query_response_interval", cfg->query_response_interval);
+	blobmsg_add_u32(b, "last_member_interval", cfg->last_member_interval);
+	blobmsg_add_u8(b, "vlan_filtering", cfg->vlan_filtering);
+	blobmsg_add_u8(b, "stp_kernel", cfg->stp_kernel);
+	if (cfg->stp_proto)
+		blobmsg_add_string(b, "stp_proto", cfg->stp_proto);
+
+	blobmsg_close_table(b, c);
 
 	if (avl_is_empty(&dev->vlans.avl))
 		return;
