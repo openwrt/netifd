@@ -1153,16 +1153,22 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 
 		diff = 0;
 		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, &diff);
-		if (diff)
-		    ret = DEV_CONFIG_RESTART;
+		if (diff) {
+			ret = DEV_CONFIG_RESTART;
+			D(DEVICE, "Bridge %s device attributes have changed, diff=0x%lx\n",
+			  dev->ifname, diff);
+		}
 
 		blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br,
 			blob_data(bst->config_data), blob_len(bst->config_data));
 
 		diff = 0;
 		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, &diff);
-		if (diff & ~(1 << BRIDGE_ATTR_PORTS))
-		    ret = DEV_CONFIG_RESTART;
+		if (diff & ~(1 << BRIDGE_ATTR_PORTS)) {
+			ret = DEV_CONFIG_RESTART;
+			D(DEVICE, "Bridge %s attributes have changed, diff=0x%lx\n",
+			  dev->ifname, diff);
+		}
 
 		bridge_config_init(dev);
 	}
