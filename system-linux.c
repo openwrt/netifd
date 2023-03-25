@@ -1692,7 +1692,7 @@ int system_vlandev_del(struct device *vlandev)
 }
 
 static void
-system_set_ethtool_settings(struct device *dev, struct device_settings *s)
+system_set_ethtool_settings_legacy(struct device *dev, struct device_settings *s)
 {
 	struct ethtool_cmd ecmd = {
 		.cmd = ETHTOOL_GSET,
@@ -1720,7 +1720,7 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	adv = ecmd.supported;
 	for (i = 0; i < ARRAY_SIZE(speed_mask); i++) {
 		if (s->flags & DEV_OPT_DUPLEX) {
-			int bit = s->duplex ? speed_mask[i].bit_half : speed_mask[i].bit_full;
+			uint8_t bit = s->duplex ? speed_mask[i].bit_half : speed_mask[i].bit_full;
 			adv &= ~(1 << bit);
 		}
 
@@ -1740,6 +1740,77 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	ecmd.advertising = adv;
 	ecmd.cmd = ETHTOOL_SSET;
 	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
+}
+
+static inline int ethtool_link_mode_test_bit(unsigned int nr, const __u32 *mask)
+{
+	return !!(mask[nr / 32] & (1 << (nr % 32)));
+}
+
+static inline void ethtool_link_mode_set_bit(unsigned int nr, __u32 *mask)
+{
+	mask[nr / 32] |= (1 << (nr % 32));
+}
+
+static void
+system_set_ethtool_settings(struct device *dev, struct device_settings *s)
+{
+	struct {
+		struct ethtool_link_settings req;
+		__u32 link_mode_data[3 * 127];
+	} ecmd;
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&ecmd,
+	};
+	static const struct {
+		uint8_t bit;
+	} speed_mask[] = {
+		{ ETHTOOL_LINK_MODE_10baseT_Half_BIT },
+		{ ETHTOOL_LINK_MODE_10baseT_Full_BIT },
+		{ ETHTOOL_LINK_MODE_100baseT_Half_BIT },
+		{ ETHTOOL_LINK_MODE_100baseT_Full_BIT },
+		{ ETHTOOL_LINK_MODE_1000baseT_Half_BIT },
+		{ ETHTOOL_LINK_MODE_1000baseT_Full_BIT },
+		{ ETHTOOL_LINK_MODE_2500baseT_Full_BIT },
+		{ ETHTOOL_LINK_MODE_5000baseT_Full_BIT },
+		{ ETHTOOL_LINK_MODE_10000baseT_Full_BIT },
+	};
+	size_t i;
+	uint8_t bit;
+	__s8 nwords;
+	__u32 *supported, *advertising;
+
+	memset(&ecmd, 0, sizeof(ecmd));
+	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 || ecmd.req.link_mode_masks_nwords >= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		goto legacy_mode;
+
+	ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 || ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		goto legacy_mode;
+
+	nwords = ecmd.req.link_mode_masks_nwords;
+	supported = &ecmd.link_mode_data[0];
+	advertising = &ecmd.link_mode_data[nwords];
+	memset(advertising, 0, sizeof(__u32) * nwords);
+
+	for (i = 0; i < ARRAY_SIZE(speed_mask); i++) {
+		bit = speed_mask[i].bit;
+		if (ethtool_link_mode_test_bit(bit, supported) == 1)
+			ethtool_link_mode_set_bit(bit, advertising);
+	}
+
+	ecmd.req.cmd = ETHTOOL_SLINKSETTINGS;
+	ecmd.req.autoneg = 1;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) == 0)
+		return;
+
+legacy_mode:
+	system_set_ethtool_settings_legacy(dev, s);
 }
 
 void
