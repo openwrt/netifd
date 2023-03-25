@@ -64,6 +64,11 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_SPEED] = { .name = "speed", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_DUPLEX] = { .name = "duplex", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_VLAN] = { .name = "vlan", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_PAUSE] = { .name = "pause", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_ASYM_PAUSE] = { .name = "asym_pause", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_RXPAUSE] = { .name = "rxpause", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_TXPAUSE] = { .name = "txpause", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_AUTONEG] = { .name = "autoneg", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -281,6 +286,11 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->auth = s->flags & DEV_OPT_AUTH ? s->auth : os->auth;
 	n->speed = s->flags & DEV_OPT_SPEED ? s->speed : os->speed;
 	n->duplex = s->flags & DEV_OPT_DUPLEX ? s->duplex : os->duplex;
+	n->pause = s->flags & DEV_OPT_PAUSE ? s->pause : os->pause;
+	n->asym_pause = s->flags & DEV_OPT_ASYM_PAUSE ? s->asym_pause : os->asym_pause;
+	n->rxpause = s->flags & DEV_OPT_RXPAUSE ? s->rxpause : os->rxpause;
+	n->txpause = s->flags & DEV_OPT_TXPAUSE ? s->txpause : os->txpause;
+	n->autoneg = s->flags & DEV_OPT_AUTONEG ? s->autoneg : os->autoneg;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -504,6 +514,31 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_DUPLEX])) {
 		s->duplex = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_DUPLEX;
+	}
+
+	if ((cur = tb[DEV_ATTR_PAUSE])) {
+		s->pause = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_PAUSE;
+	}
+
+	if ((cur = tb[DEV_ATTR_ASYM_PAUSE])) {
+		s->asym_pause = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_ASYM_PAUSE;
+	}
+
+	if ((cur = tb[DEV_ATTR_RXPAUSE])) {
+		s->rxpause = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_RXPAUSE;
+	}
+
+	if ((cur = tb[DEV_ATTR_TXPAUSE])) {
+		s->txpause = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_TXPAUSE;
+	}
+
+	if ((cur = tb[DEV_ATTR_AUTONEG])) {
+		s->autoneg = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_AUTONEG;
 	}
 	device_set_extra_vlans(dev, tb[DEV_ATTR_VLAN]);
 	device_set_disabled(dev, disabled);
