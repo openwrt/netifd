@@ -272,7 +272,7 @@ netifd_handle_alias(struct ubus_context *ctx, struct ubus_object *obj,
 	struct device *dev = NULL;
 	struct blob_attr *tb[__ALIAS_ATTR_MAX];
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_parse(alias_attrs, __ALIAS_ATTR_MAX, tb, blob_data(msg), blob_len(msg));
 

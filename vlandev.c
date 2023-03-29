@@ -288,7 +288,8 @@ static void vlandev_qos_mapping_list_apply(struct vlist_simple_tree *qos_mapping
 {
 	struct blob_attr *cur;
 	struct vlan_qos_mapping *qos_mapping;
-	int rem, rc;
+	size_t rem;
+	int rc;
 
 	blobmsg_for_each_attr(cur, list, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)

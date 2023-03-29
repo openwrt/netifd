@@ -1036,7 +1036,7 @@ int system_bonding_set_device(struct device *dev, struct bonding_config *cfg)
 	struct blob_attr *cur;
 	char op = cfg ? '+' : '-';
 	char buf[64];
-	int rem;
+	size_t rem;
 
 	snprintf(dev_buf, sizeof(dev_buf), "%s/class/net/bonding_masters", sysfs_path);
 	snprintf(buf, sizeof(buf), "%c%s", op, ifname);

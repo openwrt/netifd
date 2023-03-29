@@ -141,7 +141,7 @@ vif_config_add_bridge(struct blob_buf *buf, struct blob_attr *networks, bool pre
 	struct device *dev = NULL, *orig_dev;
 	struct blob_attr *cur;
 	const char *network;
-	int rem;
+	size_t rem;
 
 	if (!networks)
 		return;
@@ -335,7 +335,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 	struct interface *iface;
 	struct blob_attr *cur;
 	const char *network;
-	int rem;
+	size_t rem;
 
 	if (!vif->network || !vif->ifname)
 		return;
@@ -372,7 +372,7 @@ static void wireless_vlan_handle_link(struct wireless_vlan *vlan, bool up)
 	struct interface *iface;
 	struct blob_attr *cur;
 	const char *network;
-	int rem;
+	size_t rem;
 
 	if (!vlan->network || !vlan->ifname)
 		return;

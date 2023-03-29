@@ -337,7 +337,7 @@ config_parse_vlan(struct device *dev, struct uci_section *s)
 	char *name_buf;
 	int name_len = 0;
 	int n_ports = 0;
-	int rem;
+	size_t rem;
 
 	val = uci_lookup_option_string(uci_ctx, s, "vlan");
 	if (!val)

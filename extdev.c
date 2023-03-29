@@ -754,7 +754,7 @@ static void
 __buf_add_all(struct blob_attr *attr)
 {
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_for_each_attr(cur, attr, rem)
 		blobmsg_add_field(&b, blobmsg_type(cur), blobmsg_name(cur), blobmsg_data(cur),
@@ -1055,7 +1055,8 @@ error:
 static void
 __bridge_config_init(struct extdev_bridge *ebr)
 {
-	int rem, ret;
+	int ret;
+	size_t rem;
 	struct blob_attr *cur;
 
 	if (ebr->empty) {
@@ -1100,7 +1101,7 @@ extdev_config_init(struct device *dev)
 }
 
 static void
-extdev_buf_add_list(struct blob_attr *attr, int len, const char *name,
+extdev_buf_add_list(struct blob_attr *attr, size_t len, const char *name,
 		     struct blob_buf *buf, bool array)
 {
 	struct blob_attr *cur;

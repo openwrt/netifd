@@ -782,7 +782,7 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 {
 	struct bridge_vlan *vlan;
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	if (!vlans)
 		return;
@@ -1004,7 +1004,8 @@ bridge_config_init(struct device *dev)
 	struct bridge_state *bst;
 	struct bridge_vlan *vlan;
 	struct blob_attr *cur;
-	int i, rem;
+	size_t rem;
+	int i;
 
 	bst = container_of(dev, struct bridge_state, dev);
 

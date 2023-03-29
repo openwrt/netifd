@@ -353,7 +353,7 @@ bonding_config_init(struct device *dev)
 {
 	struct bonding_device *bdev;
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	bdev = container_of(dev, struct bonding_device, dev);
 

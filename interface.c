@@ -232,7 +232,8 @@ interface_add_data(struct interface *iface, const struct blob_attr *data)
 int interface_parse_data(struct interface *iface, const struct blob_attr *attr)
 {
 	struct blob_attr *cur;
-	int rem, ret;
+	size_t rem;
+	int ret;
 
 	iface->updated = 0;
 
@@ -517,7 +518,7 @@ static void
 interface_add_assignment_classes(struct interface *iface, struct blob_attr *list)
 {
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_for_each_attr(cur, list, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)

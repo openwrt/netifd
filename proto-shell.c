@@ -401,7 +401,7 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 			     bool v6)
 {
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_for_each_attr(cur, attr, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
@@ -418,7 +418,7 @@ proto_shell_parse_neighbor_list(struct interface *iface, struct blob_attr *attr,
 				bool v6)
 {
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_for_each_attr(cur, attr, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
@@ -434,7 +434,7 @@ static void
 proto_shell_parse_data(struct interface *iface, struct blob_attr *attr)
 {
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_for_each_attr(cur, attr, rem)
 		interface_add_data(iface, cur);
@@ -597,7 +597,7 @@ fill_string_list(struct blob_attr *attr, char **argv, int max)
 {
 	struct blob_attr *cur;
 	int argc = 0;
-	int rem;
+	size_t rem;
 
 	if (!attr)
 		goto out;
@@ -671,7 +671,7 @@ proto_shell_notify_error(struct proto_shell_state *state, struct blob_attr **tb)
 	struct blob_attr *cur;
 	char *data[16];
 	int n_data = 0;
-	int rem;
+	size_t rem;
 
 	if (!tb[NOTIFY_ERROR])
 		return UBUS_STATUS_INVALID_ARGUMENT;

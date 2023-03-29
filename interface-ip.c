@@ -1429,7 +1429,7 @@ void
 interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list)
 {
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_for_each_attr(cur, list, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
@@ -1461,7 +1461,7 @@ void
 interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list)
 {
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	blobmsg_for_each_attr(cur, list, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)

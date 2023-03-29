@@ -64,6 +64,7 @@ netifd_delete_process(struct netifd_process *proc)
 }
 
 void
+__attribute__((format(printf, 2, 0)))
 netifd_log_message(int priority, const char *format, ...)
 {
 	va_list vl;
