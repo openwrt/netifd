@@ -1037,14 +1037,18 @@ device_apply_config(struct device *dev, struct device_type *type,
 static void
 device_replace(struct device *dev, struct device *odev)
 {
-	struct device_user *dep, *tmp;
+	struct device_user *dep;
 
 	__devlock++;
 	if (odev->present)
 		device_set_present(odev, false);
 
-	list_for_each_entry_safe(dep, tmp, &odev->users.list, list.list) {
+	while (!list_empty(&odev->users.list)) {
+		dep = list_first_entry(&odev->users.list, struct device_user, list.list);
 		device_release(dep);
+		if (!dep->dev)
+			continue;
+
 		safe_list_del(&dep->list);
 		__device_add_user(dep, dev);
 	}
