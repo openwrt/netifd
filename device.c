@@ -607,8 +607,10 @@ int device_init_virtual(struct device *dev, struct device_type *type, const char
 		int ret;
 
 		ret = device_set_ifname(dev, name);
-		if (ret < 0)
+		if (ret < 0) {
+			netifd_log_message(L_WARNING, "Failed to initalize device '%s'\n", name);
 			return ret;
+		}
 	}
 
 	if (!dev->set_state)
@@ -815,8 +817,11 @@ int device_set_ifname(struct device *dev, const char *name)
 	if (!strcmp(dev->ifname, name))
 		return 0;
 
-	if (strlen(name) > sizeof(dev->ifname) - 1)
+	if (strlen(name) > sizeof(dev->ifname) - 1) {
+		netifd_log_message(L_WARNING, "Cannot set device name: '%s' is longer than max size %zd\n",
+			name, sizeof(dev->ifname) - 1);
 		return -1;
+	}
 
 	if (dev->avl.key)
 		avl_delete(&devices, &dev->avl);
