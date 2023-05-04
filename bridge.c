@@ -934,7 +934,7 @@ bridge_dump_port(struct blob_buf *b, struct bridge_vlan_port *port)
 	bool tagged = !(port->flags & BRVLAN_F_UNTAGGED);
 	bool pvid = (port->flags & BRVLAN_F_PVID);
 
-	blobmsg_printf(b, NULL, "%s%s%s%s\n", port->ifname,
+	blobmsg_printf(b, NULL, "%s%s%s%s", port->ifname,
 		tagged || pvid ? ":" : "",
 		tagged ? "t" : "",
 		pvid ? "*" : "");
