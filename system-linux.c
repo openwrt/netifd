@@ -2205,11 +2205,8 @@ int system_bridge_vlan_check(struct device *dev, char *ifname)
 		}
 	}
 
-	goto out;
-
 free:
 	nlmsg_free(msg);
-out:
 	nl_cb_put(cb);
 	return data.ret;
 }
