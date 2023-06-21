@@ -62,6 +62,7 @@ static const struct uci_blob_param_list wdev_param = {
 enum {
 	VIF_ATTR_DISABLED,
 	VIF_ATTR_NETWORK,
+	VIF_ATTR_NETWORK_VLAN,
 	VIF_ATTR_ISOLATE,
 	VIF_ATTR_MODE,
 	VIF_ATTR_PROXYARP,
@@ -72,6 +73,7 @@ enum {
 static const struct blobmsg_policy vif_policy[__VIF_ATTR_MAX] = {
 	[VIF_ATTR_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 	[VIF_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_ARRAY },
+	[VIF_ATTR_NETWORK_VLAN] = { .name = "network_vlan", .type = BLOBMSG_TYPE_ARRAY },
 	[VIF_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
 	[VIF_ATTR_MODE] = { .name = "mode", .type = BLOBMSG_TYPE_STRING },
 	[VIF_ATTR_PROXYARP] = { .name = "proxy_arp", .type = BLOBMSG_TYPE_BOOL },
@@ -86,6 +88,7 @@ static const struct uci_blob_param_list vif_param = {
 enum {
 	VLAN_ATTR_DISABLED,
 	VLAN_ATTR_NETWORK,
+	VLAN_ATTR_NETWORK_VLAN,
 	VLAN_ATTR_ISOLATE,
 	VLAN_ATTR_MCAST_TO_UCAST,
 	__VLAN_ATTR_MAX,
@@ -94,6 +97,7 @@ enum {
 static const struct blobmsg_policy vlan_policy[__VLAN_ATTR_MAX] = {
 	[VLAN_ATTR_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 	[VLAN_ATTR_NETWORK] = { .name = "network", .type = BLOBMSG_TYPE_ARRAY },
+	[VLAN_ATTR_NETWORK_VLAN] = { .name = "network_vlan", .type = BLOBMSG_TYPE_ARRAY },
 	[VLAN_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
 	[VLAN_ATTR_MCAST_TO_UCAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 };
@@ -363,7 +367,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 		if (!iface)
 			continue;
 
-		interface_handle_link(iface, ifname, NULL, up, true);
+		interface_handle_link(iface, ifname, vif->network_vlan, up, true);
 	}
 }
 
@@ -395,7 +399,7 @@ static void wireless_vlan_handle_link(struct wireless_vlan *vlan, bool up)
 		if (!iface)
 			continue;
 
-		interface_handle_link(iface, vlan->ifname, NULL, up, true);
+		interface_handle_link(iface, vlan->ifname, vlan->network_vlan, up, true);
 	}
 }
 
@@ -820,6 +824,9 @@ wireless_interface_init_config(struct wireless_interface *vif)
 	if ((cur = tb[VIF_ATTR_NETWORK]))
 		vif->network = cur;
 
+	if ((cur = tb[VIF_ATTR_NETWORK_VLAN]))
+		vif->network_vlan = cur;
+
 	cur = tb[VIF_ATTR_MODE];
 	vif->ap_mode = cur && !strcmp(blobmsg_get_string(cur), "ap");
 
@@ -889,6 +896,9 @@ wireless_vlan_init_config(struct wireless_vlan *vlan)
 
 	if ((cur = tb[VLAN_ATTR_NETWORK]))
 		vlan->network = cur;
+
+	if ((cur = tb[VLAN_ATTR_NETWORK_VLAN]))
+		vlan->network_vlan = cur;
 
 	cur = tb[VLAN_ATTR_ISOLATE];
 	if (cur)
