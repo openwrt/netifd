@@ -73,6 +73,8 @@ __vlandev_hotplug_op(struct device *dev, struct device *member, struct blob_attr
 	blob_buf_init(&b, 0);
 	a = blobmsg_open_array(&b, "vlans");
 	blobmsg_printf(&b, NULL, "%d", mvdev->config.vid);
+	if (vlan && blobmsg_len(vlan))
+		blob_put_raw(&b, blobmsg_data(vlan), blobmsg_len(vlan));
 	blobmsg_close_array(&b, a);
 
 	if (add)
