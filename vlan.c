@@ -51,7 +51,7 @@ __vlan_hotplug_op(struct device *dev, struct device *member, struct blob_attr *v
 
 	blob_buf_init(&b, 0);
 	a = blobmsg_open_array(&b, "vlans");
-	blobmsg_printf(&b, NULL, "%d", vldev->id);
+	blobmsg_printf(&b, NULL, "%d:u", vldev->id);
 	if (vlan && blobmsg_len(vlan))
 		blob_put_raw(&b, blobmsg_data(vlan), blobmsg_len(vlan));
 	blobmsg_close_array(&b, a);

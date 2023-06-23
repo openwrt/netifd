@@ -801,7 +801,7 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 
 	blobmsg_for_each_attr(cur, vlans, rem) {
 		struct bridge_vlan_hotplug_port *port;
-		uint16_t flags = BRVLAN_F_UNTAGGED;
+		uint16_t flags = 0;
 		char *name_buf;
 		unsigned int vid;
 		char *end;
@@ -828,8 +828,8 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 
 			for (end++; *end; end++) {
 				switch (*end) {
-				case 't':
-					flags &= ~BRVLAN_F_UNTAGGED;
+				case 'u':
+					flags |= BRVLAN_F_UNTAGGED;
 					break;
 				case '*':
 					flags |= BRVLAN_F_PVID;
