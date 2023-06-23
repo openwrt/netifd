@@ -206,7 +206,7 @@ __bridge_set_member_vlan(struct bridge_member *bm, struct bridge_vlan *vlan,
 	if (bm->pvid == vlan->vid)
 		flags |= BRVLAN_F_PVID;
 
-	system_bridge_vlan(port->ifname, vlan->vid, add, flags);
+	system_bridge_vlan(port->ifname, vlan->vid, -1, add, flags);
 }
 
 static void
@@ -233,7 +233,7 @@ bridge_set_local_vlan(struct bridge_state *bst, struct bridge_vlan *vlan, bool a
 	if (!vlan->local && add)
 		return;
 
-	system_bridge_vlan(bst->dev.ifname, vlan->vid, add, BRVLAN_F_SELF);
+	system_bridge_vlan(bst->dev.ifname, vlan->vid, -1, add, BRVLAN_F_SELF);
 }
 
 static void
@@ -361,7 +361,7 @@ bridge_enable_interface(struct bridge_state *bst)
 
 	if (bst->has_vlans) {
 		/* delete default VLAN 1 */
-		system_bridge_vlan(bst->dev.ifname, 1, false, BRVLAN_F_SELF);
+		system_bridge_vlan(bst->dev.ifname, 1, -1, false, BRVLAN_F_SELF);
 
 		bridge_set_local_vlans(bst, true);
 	}
@@ -392,6 +392,17 @@ bridge_disable_interface(struct bridge_state *bst)
 
 	system_bridge_delbr(&bst->dev);
 	bst->active = false;
+}
+
+static void
+bridge_member_add_extra_vlans(struct bridge_member *bm)
+{
+	struct device *dev = bm->dev.dev;
+	int i;
+
+	for (i = 0; i < dev->n_extra_vlan; i++)
+		system_bridge_vlan(dev->ifname, dev->extra_vlan[i].start,
+				   dev->extra_vlan[i].end, true, 0);
 }
 
 static int
@@ -435,8 +446,9 @@ bridge_enable_member(struct bridge_member *bm)
 	bm->active = true;
 	if (bst->has_vlans) {
 		/* delete default VLAN 1 */
-		system_bridge_vlan(bm->dev.dev->ifname, 1, false, 0);
+		system_bridge_vlan(bm->dev.dev->ifname, 1, -1, false, 0);
 
+		bridge_member_add_extra_vlans(bm);
 		vlist_for_each_element(&bst->dev.vlans, vlan, node)
 			bridge_set_member_vlan(bm, vlan, true);
 	}

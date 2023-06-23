@@ -62,6 +62,7 @@ enum {
 	DEV_ATTR_AUTH,
 	DEV_ATTR_SPEED,
 	DEV_ATTR_DUPLEX,
+	DEV_ATTR_VLAN,
 	__DEV_ATTR_MAX,
 };
 
@@ -248,6 +249,10 @@ struct device {
 	bool bpdu_filter;
 
 	struct interface *config_iface;
+	struct {
+		uint16_t start, end;
+	} *extra_vlan;
+	int n_extra_vlan;
 
 	/* set interface up or down */
 	device_state_cb set_state;

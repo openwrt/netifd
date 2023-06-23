@@ -985,7 +985,7 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return system_bridge_if(bridge->ifname, dev, SIOCBRDELIF, NULL);
 }
 
-int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags)
+int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags)
 {
 	struct bridge_vlan_info vinfo = { .vid = vid, };
 	unsigned short flags = 0;
@@ -1020,7 +1020,18 @@ int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int v
 	if (flags)
 		nla_put_u16(nlm, IFLA_BRIDGE_FLAGS, flags);
 
+	if (vid_end > vid)
+		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
+
 	nla_put(nlm, IFLA_BRIDGE_VLAN_INFO, sizeof(vinfo), &vinfo);
+
+	if (vid_end > vid) {
+		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
+		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
+		vinfo.vid = vid_end;
+		nla_put(nlm, IFLA_BRIDGE_VLAN_INFO, sizeof(vinfo), &vinfo);
+	}
+
 	nla_nest_end(nlm, afspec);
 
 	return system_rtnl_call(nlm);

@@ -246,7 +246,7 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg);
 int system_bridge_delbr(struct device *bridge);
 int system_bridge_addif(struct device *bridge, struct device *dev);
 int system_bridge_delif(struct device *bridge, struct device *dev);
-int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags);
+int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags);
 int system_bridge_vlan_check(struct device *dev, char *ifname);
 void system_bridge_set_stp_state(struct device *dev, bool val);
 

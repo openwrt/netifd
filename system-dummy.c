@@ -55,12 +55,12 @@ int system_bridge_delif(struct device *bridge, struct device *dev)
 	return 0;
 }
 
-int system_bridge_vlan(const char *iface, uint16_t vid, bool add, unsigned int vflags)
+int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags)
 {
-	D(SYSTEM, "brctl vlan %s %s %s vid=%d pvid=%d untag=%d\n",
+	D(SYSTEM, "brctl vlan %s %s %s vid=%d vid_end=%d pvid=%d untag=%d\n",
 	  add ? "add" : "remove",
 	  (vflags & BRVLAN_F_SELF) ? "self" : "master",
-	  iface, vid,
+	  iface, vid, vid_end,
 	  !!(vflags & BRVLAN_F_PVID),
 	  !!(vflags & BRVLAN_F_UNTAGGED));
 	return 0;

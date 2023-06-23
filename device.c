@@ -63,6 +63,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_AUTH] = { .name = "auth", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_SPEED] = { .name = "speed", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_DUPLEX] = { .name = "duplex", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_VLAN] = { .name = "vlan", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -283,6 +284,45 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
+static void
+device_add_extra_vlan(struct device *dev, const char *val)
+{
+	unsigned long cur_start, cur_end;
+	char *sep;
+
+	cur_start = strtoul(val, &sep, 0);
+	cur_end = cur_start;
+
+	if (*sep == '-')
+		cur_end = strtoul(sep + 1, &sep, 0);
+	if (*sep || cur_end < cur_start)
+		return;
+
+	dev->extra_vlan[dev->n_extra_vlan].start = cur_start;
+	dev->extra_vlan[dev->n_extra_vlan].end = cur_end;
+	dev->n_extra_vlan++;
+}
+
+static void
+device_set_extra_vlans(struct device *dev, struct blob_attr *data)
+{
+	struct blob_attr *cur;
+	int n_vlans;
+	size_t rem;
+
+	dev->n_extra_vlan = 0;
+	if (!data)
+		return;
+
+	n_vlans = blobmsg_check_array(data, BLOBMSG_TYPE_STRING);
+	if (n_vlans < 1)
+		return;
+
+	dev->extra_vlan = realloc(dev->extra_vlan, n_vlans * sizeof(*dev->extra_vlan));
+	blobmsg_for_each_attr(cur, data, rem)
+		device_add_extra_vlan(dev, blobmsg_get_string(cur));
+}
+
 void
 device_init_settings(struct device *dev, struct blob_attr **tb)
 {
@@ -463,7 +503,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->duplex = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_DUPLEX;
 	}
-
+	device_set_extra_vlans(dev, tb[DEV_ATTR_VLAN]);
 	device_set_disabled(dev, disabled);
 }
 
@@ -891,6 +931,7 @@ device_free(struct device *dev)
 	__devlock++;
 	free(dev->config);
 	device_cleanup(dev);
+	free(dev->extra_vlan);
 	dev->type->free(dev);
 	__devlock--;
 }
