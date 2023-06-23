@@ -206,6 +206,10 @@ struct device_settings {
 	bool duplex;
 };
 
+struct device_vlan_range {
+	uint16_t start, end;
+};
+
 /*
  * link layer device. typically represents a linux network device.
  * can be used to support VLANs as well
@@ -249,9 +253,7 @@ struct device {
 	bool bpdu_filter;
 
 	struct interface *config_iface;
-	struct {
-		uint16_t start, end;
-	} *extra_vlan;
+	struct device_vlan_range *extra_vlan;
 	int n_extra_vlan;
 
 	/* set interface up or down */

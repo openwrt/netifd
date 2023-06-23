@@ -284,8 +284,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
-static void
-device_add_extra_vlan(struct device *dev, const char *val)
+static bool device_fill_vlan_range(struct device_vlan_range *r, const char *val)
 {
 	unsigned long cur_start, cur_end;
 	char *sep;
@@ -296,11 +295,12 @@ device_add_extra_vlan(struct device *dev, const char *val)
 	if (*sep == '-')
 		cur_end = strtoul(sep + 1, &sep, 0);
 	if (*sep || cur_end < cur_start)
-		return;
+		return false;
 
-	dev->extra_vlan[dev->n_extra_vlan].start = cur_start;
-	dev->extra_vlan[dev->n_extra_vlan].end = cur_end;
-	dev->n_extra_vlan++;
+	r->start = cur_start;
+	r->end = cur_end;
+
+	return true;
 }
 
 static void
@@ -320,7 +320,9 @@ device_set_extra_vlans(struct device *dev, struct blob_attr *data)
 
 	dev->extra_vlan = realloc(dev->extra_vlan, n_vlans * sizeof(*dev->extra_vlan));
 	blobmsg_for_each_attr(cur, data, rem)
-		device_add_extra_vlan(dev, blobmsg_get_string(cur));
+		if (device_fill_vlan_range(&dev->extra_vlan[dev->n_extra_vlan],
+					   blobmsg_get_string(cur)))
+			dev->n_extra_vlan++;
 }
 
 void
