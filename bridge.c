@@ -930,12 +930,15 @@ bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *
 {
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
 	struct bridge_member *bm;
+	bool new_entry = false;
 
 	bm = vlist_find(&bst->members, member->ifname, bm, node);
-	if (!bm)
+	if (!bm) {
+	    new_entry = true;
 	    bm = bridge_alloc_member(bst, member->ifname, member, true);
+	}
 	bridge_hotplug_set_member_vlans(bst, vlan, member->ifname, bm, true);
-	if (!bm->node.avl.key)
+	if (new_entry)
 		bridge_insert_member(bm, member->ifname);
 
 	return 0;
