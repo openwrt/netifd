@@ -351,13 +351,14 @@ static void bridge_stp_notify(struct bridge_state *bst)
 static int
 bridge_enable_interface(struct bridge_state *bst)
 {
-	int ret;
+	struct device *dev = &bst->dev;
+	int i, ret;
 
 	if (bst->active)
 		return 0;
 
 	bridge_stp_notify(bst);
-	ret = system_bridge_addbr(&bst->dev, &bst->config);
+	ret = system_bridge_addbr(dev, &bst->config);
 	if (ret < 0)
 		return ret;
 
@@ -367,6 +368,10 @@ bridge_enable_interface(struct bridge_state *bst)
 
 		bridge_set_local_vlans(bst, true);
 	}
+
+	for (i = 0; i < dev->n_extra_vlan; i++)
+		system_bridge_vlan(dev->ifname, dev->extra_vlan[i].start,
+				   dev->extra_vlan[i].end, true, BRVLAN_F_SELF);
 
 	bst->active = true;
 	return 0;
