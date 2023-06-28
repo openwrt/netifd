@@ -680,10 +680,15 @@ wdev_set_config_state(struct wireless_device *wdev, enum interface_config_state 
 	if (wdev->config_state != IFC_NORMAL)
 		return;
 
+	if (s == IFC_RELOAD && wdev->reconf && wdev->state == IFS_UP) {
+		wireless_device_reconf(wdev);
+		return;
+	}
+
 	wdev->config_state = s;
 	if (wdev->state == IFS_DOWN)
 		wdev_handle_config_change(wdev);
-	else if (!wdev->reconf || wdev->state != IFS_UP)
+	else
 		__wireless_device_set_down(wdev);
 }
 
