@@ -703,6 +703,8 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 	struct blob_attr *new_config = wd_new->config;
 	bool disabled = wd_new->disabled;
 
+	wdev->reconf = wd_new->reconf;
+	wdev->serialize = wd_new->serialize;
 	free(wd_new);
 
 	wdev_prepare_prev_config(wdev);
