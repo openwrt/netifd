@@ -40,6 +40,7 @@ struct wireless_device {
 	bool handler_action;
 	bool handler_pending;
 	bool serialize;
+	bool config_update;
 
 	struct wireless_driver *drv;
 	struct vlist_tree interfaces;

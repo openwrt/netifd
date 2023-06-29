@@ -496,7 +496,7 @@ __wireless_device_set_up(struct wireless_device *wdev, int force)
 	if (!wdev->autostart)
 		return;
 
-	if (!force && (wdev->state != IFS_DOWN || config_init))
+	if ((!force && wdev->state != IFS_DOWN) || config_init)
 		return;
 
 	free(wdev->prev_config);
@@ -680,6 +680,7 @@ wdev_set_config_state(struct wireless_device *wdev, enum interface_config_state 
 	if (wdev->config_state != IFC_NORMAL)
 		return;
 
+	wdev->config_update = false;
 	if (s == IFC_RELOAD && wdev->reconf && wdev->state == IFS_UP) {
 		wireless_device_reconf(wdev);
 		return;
@@ -720,7 +721,7 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 	free(wdev->config);
 	wdev->config = blob_memdup(new_config);
 	wdev->disabled = disabled;
-	wdev_set_config_state(wdev, IFC_RELOAD);
+	wdev->config_update = true;
 }
 
 static void
@@ -888,7 +889,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		free(vif_old);
 	}
 
-	wdev_set_config_state(wdev, IFC_RELOAD);
+	wdev->config_update = true;
 }
 
 /* parse blob config into the vlan object */
@@ -957,7 +958,7 @@ vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		free(vlan_old);
 	}
 
-	wdev_set_config_state(wdev, IFC_RELOAD);
+	wdev->config_update = true;
 }
 
 /* vlist update call for station list */
@@ -997,7 +998,7 @@ station_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		free(sta_old);
 	}
 
-	wdev_set_config_state(wdev, IFC_RELOAD);
+	wdev->config_update = true;
 }
 
 static void
@@ -1550,8 +1551,11 @@ wireless_start_pending(void)
 {
 	struct wireless_device *wdev;
 
-	vlist_for_each_element(&wireless_devices, wdev, node)
+	vlist_for_each_element(&wireless_devices, wdev, node) {
+		if (wdev->config_update)
+			wdev_set_config_state(wdev, IFC_RELOAD);
 		__wireless_device_set_up(wdev, 0);
+	}
 }
 
 void wireless_device_hotplug_event(const char *name, bool add)
