@@ -1222,11 +1222,11 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_br[__BRIDGE_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
-	unsigned long diff;
 	struct bridge_state *bst;
+	unsigned long diff[2];
 
-	BUILD_BUG_ON(sizeof(diff) < __BRIDGE_ATTR_MAX / 8);
-	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / 8);
+	BUILD_BUG_ON(sizeof(diff) < __BRIDGE_ATTR_MAX / BITS_PER_LONG);
+	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / BITS_PER_LONG);
 
 	bst = container_of(dev, struct bridge_state, dev);
 	attr = blob_memdup(attr);
@@ -1250,23 +1250,23 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
 			blob_data(bst->config_data), blob_len(bst->config_data));
 
-		diff = 0;
-		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, &diff);
-		if (diff) {
+		diff[0] = diff[1] = 0;
+		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
+		if (diff[0] | diff[1]) {
 			ret = DEV_CONFIG_RESTART;
-			D(DEVICE, "Bridge %s device attributes have changed, diff=0x%lx\n",
-			  dev->ifname, diff);
+			D(DEVICE, "Bridge %s device attributes have changed, diff=[%lx %lx]\n",
+			  dev->ifname, diff[1], diff[0]);
 		}
 
 		blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br,
 			blob_data(bst->config_data), blob_len(bst->config_data));
 
-		diff = 0;
-		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, &diff);
-		if (diff & ~(1 << BRIDGE_ATTR_PORTS)) {
+		diff[0] = diff[1] = 0;
+		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, diff);
+		if (diff[0] & ~(1 << BRIDGE_ATTR_PORTS)) {
 			ret = DEV_CONFIG_RESTART;
-			D(DEVICE, "Bridge %s attributes have changed, diff=0x%lx\n",
-			  dev->ifname, diff);
+			D(DEVICE, "Bridge %s attributes have changed, diff=[%lx %lx]\n",
+			  dev->ifname, diff[1], diff[0]);
 		}
 
 		bridge_config_init(dev);
