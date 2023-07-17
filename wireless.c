@@ -1523,9 +1523,7 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 		else
 			pdata = &wdev->data;
 
-		if (*pdata)
-			return UBUS_STATUS_INVALID_ARGUMENT;
-
+		free(*pdata);
 		*pdata = blob_memdup(cur);
 		if (vif)
 			wireless_interface_set_data(vif);
