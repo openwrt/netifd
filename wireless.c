@@ -1081,7 +1081,7 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	wdev->serialize = cur && blobmsg_get_bool(cur);
 
 	cur = tb[WDEV_ATTR_RECONF];
-	wdev->reconf = cur && blobmsg_get_bool(cur);
+	wdev->reconf = !cur || blobmsg_get_bool(cur);
 
 	wdev->retry_setup_failed = false;
 	wdev->autostart = true;
