@@ -1753,6 +1753,10 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
 }
 
+static inline int ethtool_link_mode_test_bit(unsigned int nr, const __u32 *mask)
+{
+	return !!(mask[nr / 32] & (1 << (nr % 32)));
+}
 void
 system_if_get_settings(struct device *dev, struct device_settings *s)
 {
@@ -2336,7 +2340,7 @@ read_uint64_file(int dir_fd, const char *file, uint64_t *val)
 static const struct {
 	uint32_t mask;
 	const char *name;
-} ethtool_link_modes[] = {
+} ethtool_link_modes_legacy[] = {
 	{ ADVERTISED_10baseT_Half, "10baseT-H" },
 	{ ADVERTISED_10baseT_Full, "10baseT-F" },
 	{ ADVERTISED_100baseT_Half, "100baseT-H" },
@@ -2362,11 +2366,35 @@ static const struct {
 #endif
 };
 
-static void system_add_link_modes(struct blob_buf *b, __u32 mask)
+static void system_add_link_modes_legacy(struct blob_buf *b, __u32 mask)
 {
-	size_t i;
+	uint32_t i;
+	for (i = 0; i < ARRAY_SIZE(ethtool_link_modes_legacy); i++) {
+		if (mask & ethtool_link_modes_legacy[i].mask)
+			blobmsg_add_string(b, NULL, ethtool_link_modes_legacy[i].name);
+	}
+}
+
+static const struct {
+	uint32_t mask;
+	const char *name;
+} ethtool_link_modes[] = {
+	{ ETHTOOL_LINK_MODE_10baseT_Half_BIT, "10baseT-H" },
+	{ ETHTOOL_LINK_MODE_10baseT_Full_BIT, "10baseT-F" },
+	{ ETHTOOL_LINK_MODE_100baseT_Half_BIT, "100baseT-H" },
+	{ ETHTOOL_LINK_MODE_100baseT_Full_BIT, "100baseT-F" },
+	{ ETHTOOL_LINK_MODE_1000baseT_Half_BIT, "1000baseT-H" },
+	{ ETHTOOL_LINK_MODE_1000baseT_Full_BIT, "1000baseT-F" },
+	{ ETHTOOL_LINK_MODE_2500baseT_Full_BIT, "2500baseT-F" },
+	{ ETHTOOL_LINK_MODE_5000baseT_Full_BIT, "5000baseT-F" },
+	{ ETHTOOL_LINK_MODE_10000baseT_Full_BIT, "10000baseT-F" },
+};
+
+static void system_add_link_modes(struct blob_buf *b, __u32 *mask)
+{
+	uint32_t i;
 	for (i = 0; i < ARRAY_SIZE(ethtool_link_modes); i++) {
-		if (mask & ethtool_link_modes[i].mask)
+		if (ethtool_link_mode_test_bit(ethtool_link_modes[i].mask, mask))
 			blobmsg_add_string(b, NULL, ethtool_link_modes[i].name);
 	}
 }
@@ -2545,8 +2573,8 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 	return active;
 }
 
-int
-system_if_dump_info(struct device *dev, struct blob_buf *b)
+static int
+system_if_dump_info_legacy(struct device *dev, struct blob_buf *b)
 {
 	struct ethtool_cmd ecmd;
 	struct ifreq ifr;
@@ -2561,15 +2589,15 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 
 	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) == 0) {
 		c = blobmsg_open_array(b, "link-advertising");
-		system_add_link_modes(b, ecmd.advertising);
+		system_add_link_modes_legacy(b, ecmd.advertising);
 		blobmsg_close_array(b, c);
 
 		c = blobmsg_open_array(b, "link-partner-advertising");
-		system_add_link_modes(b, ecmd.lp_advertising);
+		system_add_link_modes_legacy(b, ecmd.lp_advertising);
 		blobmsg_close_array(b, c);
 
 		c = blobmsg_open_array(b, "link-supported");
-		system_add_link_modes(b, ecmd.supported);
+		system_add_link_modes_legacy(b, ecmd.supported);
 		blobmsg_close_array(b, c);
 
 		s = blobmsg_alloc_string_buffer(b, "speed", 8);
@@ -2586,6 +2614,70 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	system_add_devtype(b, dev->ifname);
 
 	return 0;
+}
+
+int
+system_if_dump_info(struct device *dev, struct blob_buf *b)
+{
+	struct {
+		struct ethtool_link_settings req;
+		__u32 link_mode_data[3 * 127];
+	} ecmd;
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&ecmd,
+	};
+	char *s;
+	void *c;
+	__s8 nwords;
+	__u32 *supported, *advertising, *lp_advertising;
+
+	memset(&ecmd, 0, sizeof(ecmd));
+	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 || ecmd.req.link_mode_masks_nwords >= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		goto legacy_mode;
+
+	ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 || ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		goto legacy_mode;
+
+
+	/* copy link mode bitmaps */
+	nwords = ecmd.req.link_mode_masks_nwords;
+	supported = &ecmd.link_mode_data[0];
+	advertising = &ecmd.link_mode_data[nwords];
+	nwords += ecmd.req.link_mode_masks_nwords;
+	lp_advertising = &ecmd.link_mode_data[nwords];
+
+	c = blobmsg_open_array(b, "link-advertising");
+	system_add_link_modes(b, advertising);
+	blobmsg_close_array(b, c);
+
+	c = blobmsg_open_array(b, "link-partner-advertising");
+	system_add_link_modes(b, lp_advertising);
+	blobmsg_close_array(b, c);
+
+	c = blobmsg_open_array(b, "link-supported");
+	system_add_link_modes(b, supported);
+	blobmsg_close_array(b, c);
+
+	s = blobmsg_alloc_string_buffer(b, "speed", 8);
+	snprintf(s, 8, "%d%c", ecmd.req.speed,
+			ecmd.req.duplex == DUPLEX_HALF ? 'H' : 'F');
+	blobmsg_add_string_buffer(b);
+
+	blobmsg_add_u8(b, "autoneg", !!ecmd.req.autoneg);
+
+	blobmsg_add_u8(b, "hw-tc-offload",
+			ethtool_feature_value(dev->ifname, "hw-tc-offload"));
+
+	system_add_devtype(b, dev->ifname);
+	return 0;
+
+legacy_mode:
+	return system_if_dump_info_legacy(dev, b);
 }
 
 int
