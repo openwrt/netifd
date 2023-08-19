@@ -74,6 +74,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_AUTONEG] = { .name = "autoneg", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_GRO] = { .name = "gro", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MASTER] = { .name = "conduit", .type = BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_EEE] = { .name = "eee", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -299,6 +300,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->txpause = s->flags & DEV_OPT_TXPAUSE ? s->txpause : os->txpause;
 	n->autoneg = s->flags & DEV_OPT_AUTONEG ? s->autoneg : os->autoneg;
 	n->gro = s->flags & DEV_OPT_GRO ? s->gro : os->gro;
+	n->eee = s->flags & DEV_OPT_EEE ? s->eee : os->eee;
 	n->master_ifindex = s->flags & DEV_OPT_MASTER ? s->master_ifindex : os->master_ifindex;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
@@ -559,6 +561,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		char *ifname = blobmsg_get_string(cur);
 		s->master_ifindex = if_nametoindex(ifname);
 		s->flags |= DEV_OPT_MASTER;
+	}
+
+	if ((cur = tb[DEV_ATTR_EEE])) {
+		s->eee = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_EEE;
 	}
 
 	cur = tb[DEV_ATTR_AUTH_VLAN];
@@ -1388,6 +1395,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "auth", st.auth);
 		if (st.flags & DEV_OPT_GRO)
 			blobmsg_add_u8(b, "gro", st.gro);
+		if (st.flags & DEV_OPT_EEE)
+			blobmsg_add_u8(b, "eee", st.eee);
 	}
 
 	s = blobmsg_open_table(b, "statistics");

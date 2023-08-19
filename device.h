@@ -71,6 +71,7 @@ enum {
 	DEV_ATTR_AUTONEG,
 	DEV_ATTR_GRO,
 	DEV_ATTR_MASTER,
+	DEV_ATTR_EEE,
 	__DEV_ATTR_MAX,
 };
 
@@ -142,6 +143,7 @@ enum {
 	DEV_OPT_AUTONEG			= (1ULL << 36),
 	DEV_OPT_GRO			= (1ULL << 37),
 	DEV_OPT_MASTER			= (1ULL << 38),
+	DEV_OPT_EEE			= (1ULL << 39),
 };
 
 /* events broadcasted to all users of a device */
@@ -226,6 +228,7 @@ struct device_settings {
 	bool autoneg;
 	bool gro;
 	int master_ifindex;
+	bool eee;
 };
 
 struct device_vlan_range {

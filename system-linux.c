@@ -1985,6 +1985,23 @@ system_set_ethtool_pause(struct device *dev, struct device_settings *s)
 }
 
 static void
+system_set_ethtool_eee_settings(struct device *dev, struct device_settings *s)
+{
+	struct ethtool_eee eeecmd;
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&eeecmd,
+	};
+
+	memset(&eeecmd, 0, sizeof(eeecmd));
+	eeecmd.cmd = ETHTOOL_SEEE;
+	eeecmd.eee_enabled = s->eee;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0)
+		netifd_log_message(L_WARNING, "cannot set eee %d for device %s", s->eee, dev->ifname);
+}
+
+static void
 system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 {
 	struct {
@@ -1999,6 +2016,9 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	__u32 *supported, *advertising;
 
 	system_set_ethtool_pause(dev, s);
+
+	if (s->flags & DEV_OPT_EEE)
+		system_set_ethtool_eee_settings(dev, s);
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
