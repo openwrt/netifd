@@ -51,6 +51,9 @@ enum device_addr_flags {
 
 	/* neighbor mac address */
 	DEVNEIGH_MAC		= (1 << 11),
+
+	/* route specifies no device */
+	DEVROUTE_NODEV		= (1 << 12),
 };
 
 union if_addr {

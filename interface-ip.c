@@ -405,6 +405,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	struct blob_attr *tb[__ROUTE_MAX], *cur;
 	struct device_route *route;
 	int af = v6 ? AF_INET6 : AF_INET;
+	bool no_device = false;
 
 	blobmsg_parse(route_attr, __ROUTE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
 
@@ -412,10 +413,13 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		return;
 
 	if (!iface) {
-		if ((cur = tb[ROUTE_INTERFACE]) == NULL)
-			return;
+		if ((cur = tb[ROUTE_INTERFACE]) == NULL) {
+			iface = vlist_find(&interfaces, "loopback", iface, node);
+			no_device = true;
+		} else {
+			iface = vlist_find(&interfaces, blobmsg_data(cur), iface, node);
+		}
 
-		iface = vlist_find(&interfaces, blobmsg_data(cur), iface, node);
 		if (!iface)
 			return;
 
@@ -520,7 +524,11 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		route->flags |= DEVROUTE_PROTO;
 	}
 
-	interface_set_route_info(iface, route);
+	if (no_device)
+		route->flags |= DEVROUTE_NODEV;
+	else
+		interface_set_route_info(iface, route);
+
 	vlist_add(&ip->route, &route->node, route);
 	return;
 

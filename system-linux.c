@@ -3022,6 +3022,9 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		}
 	}
 
+	if (route->flags & DEVROUTE_NODEV)
+		dev = NULL;
+
 	msg = nlmsg_alloc_simple(cmd, flags);
 	if (!msg)
 		return -1;
