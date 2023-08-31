@@ -216,13 +216,6 @@ wireless_vif_parse_encryption() {
 		wpa_cipher="CCMP"
 	fi
 
-	# WPA3 enterprise requires the GCMP-256 cipher (technically also CCMP and GCMP are possible
-	# but many clients/devices do not support that)
-	case "$encryption" in
-		wpa3-mixed*) wpa_cipher="${wpa_cipher} GCMP-256";;
-		wpa3*) wpa_cipher="GCMP-256";;
-	esac
-
 	case "$encryption" in
 		*tkip+aes|*tkip+ccmp|*aes+tkip|*ccmp+tkip) wpa_cipher="CCMP TKIP";;
 		*ccmp256) wpa_cipher="CCMP-256";;
@@ -230,6 +223,7 @@ wireless_vif_parse_encryption() {
 		*tkip) wpa_cipher="TKIP";;
 		*gcmp256) wpa_cipher="GCMP-256";;
 		*gcmp) wpa_cipher="GCMP";;
+		wpa3-192*) wpa_cipher="GCMP-256";;
 	esac
 
 	# 802.11n requires CCMP for WPA
@@ -261,11 +255,14 @@ wireless_vif_parse_encryption() {
 		owe*)
 			auth_type=owe
 		;;
+		wpa3-192*)
+			auth_type=eap192
+		;;
 		wpa3-mixed*)
-			auth_type=eap-eap192
+			auth_type=eap-eap2
 		;;
 		wpa3*)
-			auth_type=eap192
+			auth_type=eap2
 		;;
 		psk3-mixed*|sae-mixed*)
 			auth_type=psk-sae
