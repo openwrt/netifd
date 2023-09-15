@@ -438,6 +438,8 @@ wireless_device_run_handler(struct wireless_device *wdev, bool up)
 		wdev->prev_config = NULL;
 	} else {
 		prepare_config(wdev, &b, up);
+		free(wdev->prev_config);
+		wdev->prev_config = up ? blob_memdup(b.head) : NULL;
 		config = blobmsg_format_json(b.head, true);
 	}
 
@@ -495,8 +497,6 @@ __wireless_device_set_up(struct wireless_device *wdev, int force)
 	if ((!force && wdev->state != IFS_DOWN) || config_init)
 		return;
 
-	free(wdev->prev_config);
-	wdev->prev_config = NULL;
 	wdev->state = IFS_SETUP;
 	wireless_device_run_handler(wdev, true);
 }
@@ -690,16 +690,6 @@ wdev_set_config_state(struct wireless_device *wdev, enum interface_config_state 
 }
 
 static void
-wdev_prepare_prev_config(struct wireless_device *wdev)
-{
-	if (wdev->prev_config)
-		return;
-
-	prepare_config(wdev, &b, false);
-	wdev->prev_config = blob_memdup(b.head);
-}
-
-static void
 wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 {
 	struct blob_attr *new_config = wd_new->config;
@@ -709,7 +699,6 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 	wdev->serialize = wd_new->serialize;
 	free(wd_new);
 
-	wdev_prepare_prev_config(wdev);
 	if (blob_attr_equal(wdev->config, new_config) && wdev->disabled == disabled)
 		return;
 
