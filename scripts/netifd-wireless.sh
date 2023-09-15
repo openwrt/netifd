@@ -108,14 +108,16 @@ _wdev_wrapper() {
 }
 
 _wdev_notify_init() {
-	local command="$1"
-	local name="$2"
-	local value="$3"
+	local command="$1"; shift;
 
 	json_init
 	json_add_int "command" "$command"
 	json_add_string "device" "$__netifd_device"
-	[ -n "$name" -a -n "$value" ] && json_add_string "$name" "$value"
+	while [ -n "$1" ]; do
+		local name="$1"; shift
+		local value="$1"; shift
+		json_add_string "$name" "$value"
+	done
 	json_add_object "data"
 }
 
@@ -151,7 +153,7 @@ _wireless_add_vlan() {
 	local name="$1"; shift
 	local ifname="$1"; shift
 
-	_wdev_notify_init $CMD_SET_DATA "vlan" "$name"
+	_wdev_notify_init $CMD_SET_DATA interface "$__cur_interface" "vlan" "$name"
 	json_add_string "ifname" "$ifname"
 	_wdev_add_variables "$@"
 	_wdev_notify
@@ -333,6 +335,7 @@ for_each_interface() {
 				continue
 			}
 		fi
+		__cur_interface="$_w_iface"
 		"$@" "$_w_iface"
 		json_select ..
 	done

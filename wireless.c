@@ -205,9 +205,7 @@ prepare_config(struct wireless_device *wdev, struct blob_buf *buf, bool up)
 			blobmsg_add_blob(&b, vif->data);
 
 		j = blobmsg_open_table(&b, "vlans");
-		vlist_for_each_element(&wdev->vlans, vlan, node) {
-			if (strcmp(vlan->vif, vif->name))
-				continue;
+		vlist_for_each_element(&vif->vlans, vlan, node) {
 			k = blobmsg_open_table(&b, vlan->name);
 			vif_config_add_bridge(&b, vlan->network, up);
 			put_container(&b, vlan->config, "config");
@@ -218,9 +216,7 @@ prepare_config(struct wireless_device *wdev, struct blob_buf *buf, bool up)
 		blobmsg_close_table(&b, j);
 
 		j = blobmsg_open_table(&b, "stas");
-		vlist_for_each_element(&wdev->stations, sta, node) {
-			if (strcmp(sta->vif, vif->name))
-				continue;
+		vlist_for_each_element(&vif->stations, sta, node) {
 			k = blobmsg_open_table(&b, sta->name);
 			put_container(&b, sta->config, "config");
 			if (sta->data)
@@ -311,15 +307,15 @@ wireless_device_free_state(struct wireless_device *wdev)
 		free(vif->data);
 		vif->data = NULL;
 		vif->ifname = NULL;
-	}
-	vlist_for_each_element(&wdev->vlans, vlan, node) {
-		free(vlan->data);
-		vlan->data = NULL;
-		vlan->ifname = NULL;
-	}
-	vlist_for_each_element(&wdev->stations, sta, node) {
-		free(sta->data);
-		sta->data = NULL;
+		vlist_for_each_element(&vif->vlans, vlan, node) {
+			free(vlan->data);
+			vlan->data = NULL;
+			vlan->ifname = NULL;
+		}
+		vlist_for_each_element(&vif->stations, sta, node) {
+			free(sta->data);
+			sta->data = NULL;
+		}
 	}
 }
 
@@ -510,8 +506,6 @@ wireless_device_free(struct wireless_device *wdev)
 {
 	wireless_handler_stop(wdev);
 	vlist_flush_all(&wdev->interfaces);
-	vlist_flush_all(&wdev->vlans);
-	vlist_flush_all(&wdev->stations);
 	avl_delete(&wireless_devices.avl, &wdev->node.avl);
 	free(wdev->config);
 	free(wdev->prev_config);
@@ -547,11 +541,12 @@ wireless_device_mark_down(struct wireless_device *wdev)
 
 	netifd_log_message(L_NOTICE, "Wireless device '%s' is now down\n", wdev->name);
 
-	vlist_for_each_element(&wdev->vlans, vlan, node)
-		wireless_vlan_handle_link(vlan, false);
 
-	vlist_for_each_element(&wdev->interfaces, vif, node)
+	vlist_for_each_element(&wdev->interfaces, vif, node) {
 		wireless_interface_handle_link(vif, NULL, false);
+		vlist_for_each_element(&vif->vlans, vlan, node)
+			wireless_vlan_handle_link(vlan, false);
+	}
 
 	wireless_process_kill_all(wdev, SIGTERM, true);
 
@@ -623,10 +618,11 @@ wireless_device_mark_up(struct wireless_device *wdev)
 	netifd_log_message(L_NOTICE, "Wireless device '%s' is now up\n", wdev->name);
 	wdev->retry = WIRELESS_SETUP_RETRY;
 	wdev->state = IFS_UP;
-	vlist_for_each_element(&wdev->interfaces, vif, node)
+	vlist_for_each_element(&wdev->interfaces, vif, node) {
 		wireless_interface_handle_link(vif, NULL, true);
-	vlist_for_each_element(&wdev->vlans, vlan, node)
-		wireless_vlan_handle_link(vlan, true);
+		vlist_for_each_element(&vif->vlans, vlan, node)
+			wireless_vlan_handle_link(vlan, true);
+	}
 }
 
 static void
@@ -848,6 +844,16 @@ wireless_interface_init_config(struct wireless_interface *vif)
 	vif->multicast_to_unicast = cur ? blobmsg_get_bool(cur) : -1;
 }
 
+static void
+vif_free(struct wireless_interface *vif)
+{
+	vlist_flush_all(&vif->vlans);
+	vlist_flush_all(&vif->stations);
+	free((void *) vif->section);
+	free(vif->config);
+	free(vif);
+}
+
 /* vlist update call for wireless interface list */
 static void
 vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
@@ -884,9 +890,7 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	} else if (vif_old) {
 		D(WIRELESS, "Delete wireless interface %s on device %s\n", vif_old->name, wdev->name);
 		wireless_interface_handle_link(vif_old, NULL, false);
-		free((void *) vif_old->section);
-		free(vif_old->config);
-		free(vif_old);
+		vif_free(vif_old);
 	}
 
 	wdev->config_update = true;
@@ -921,14 +925,10 @@ static void
 vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	    struct vlist_node *node_old)
 {
-	struct wireless_vlan *vlan_old = container_of(node_old, struct wireless_vlan, node);
-	struct wireless_vlan *vlan_new = container_of(node_new, struct wireless_vlan, node);
-	struct wireless_device *wdev;
-
-	if (vlan_old)
-		wdev = vlan_old->wdev;
-	else
-		wdev = vlan_new->wdev;
+	struct wireless_vlan *vlan_old = container_of_safe(node_old, struct wireless_vlan, node);
+	struct wireless_vlan *vlan_new = container_of_safe(node_new, struct wireless_vlan, node);
+	struct wireless_interface *vif = container_of(tree, struct wireless_interface, vlans);
+	struct wireless_device *wdev = vif->wdev;
 
 	if (vlan_old && vlan_new) {
 		free((void *) vlan_old->section);
@@ -951,7 +951,7 @@ vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		vlan_new->config = blob_memdup(vlan_new->config);
 		wireless_vlan_init_config(vlan_new);
 	} else if (vlan_old) {
-		D(WIRELESS, "Delete wireless interface %s on device %s\n", vlan_old->name, wdev->name);
+		D(WIRELESS, "Delete wireless vlan %s on device %s\n", vlan_old->name, wdev->name);
 		wireless_vlan_handle_link(vlan_old, false);
 		free((void *) vlan_old->section);
 		free(vlan_old->config);
@@ -966,14 +966,10 @@ static void
 station_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	       struct vlist_node *node_old)
 {
-	struct wireless_station *sta_old = container_of(node_old, struct wireless_station, node);
-	struct wireless_station *sta_new = container_of(node_new, struct wireless_station, node);
-	struct wireless_device *wdev;
-
-	if (sta_old)
-		wdev = sta_old->wdev;
-	else
-		wdev = sta_new->wdev;
+	struct wireless_station *sta_old = container_of_safe(node_old, struct wireless_station, node);
+	struct wireless_station *sta_new = container_of_safe(node_new, struct wireless_station, node);
+	struct wireless_interface *vif = container_of(tree, struct wireless_interface, stations);
+	struct wireless_device *wdev = vif->wdev;
 
 	if (sta_old && sta_new) {
 		free((void *) sta_old->section);
@@ -1088,10 +1084,6 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	INIT_LIST_HEAD(&wdev->script_proc);
 	vlist_init(&wdev->interfaces, avl_strcmp, vif_update);
 	wdev->interfaces.keep_old = true;
-	vlist_init(&wdev->vlans, avl_strcmp, vlan_update);
-	wdev->vlans.keep_old = true;
-	vlist_init(&wdev->stations, avl_strcmp, station_update);
-	wdev->stations.keep_old = true;
 
 	wdev->timeout.cb = wireless_device_setup_timeout;
 	wdev->script_task.cb = wireless_device_script_task_cb;
@@ -1108,12 +1100,12 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 
 /* creates a wireless station object. Called by config */
 void
-wireless_station_create(struct wireless_device *wdev, char *vif, struct blob_attr *data, const char *section)
+wireless_station_create(struct wireless_interface *vif, struct blob_attr *data, const char *section)
 {
 	struct wireless_station *sta;
 	struct blob_attr *tb[__STA_ATTR_MAX];
 	struct blob_attr *cur;
-	char *name_buf, *vif_buf;
+	char *name_buf;
 	char name[8];
 
 	blobmsg_parse(sta_policy, __STA_ATTR_MAX, tb, blob_data(data), blob_len(data));
@@ -1122,18 +1114,15 @@ wireless_station_create(struct wireless_device *wdev, char *vif, struct blob_att
 	if (cur && blobmsg_get_bool(cur))
 		return;
 
-	sprintf(name, "%d", wdev->sta_idx++);
+	sprintf(name, "%d", vif->sta_idx++);
 
 	sta = calloc_a(sizeof(*sta),
-		       &name_buf, strlen(name) + 1,
-		       &vif_buf, strlen(vif) + 1);
+		       &name_buf, strlen(name) + 1);
 	sta->name = strcpy(name_buf, name);
-	sta->vif = strcpy(vif_buf, vif);
-	sta->wdev = wdev;
 	sta->config = data;
 	sta->section = section;
 
-	vlist_add(&wdev->stations, &sta->node, sta->name);
+	vlist_add(&vif->stations, &sta->node, sta->name);
 }
 
 /* ubus callback network.wireless.status, runs for every interface, encode the station */
@@ -1151,12 +1140,12 @@ wireless_station_status(struct wireless_station *sta, struct blob_buf *b)
 
 /* create a vlan object. Called by config */
 void
-wireless_vlan_create(struct wireless_device *wdev, char *vif, struct blob_attr *data, const char *section)
+wireless_vlan_create(struct wireless_interface *vif, struct blob_attr *data, const char *section)
 {
 	struct wireless_vlan *vlan;
 	struct blob_attr *tb[__VLAN_ATTR_MAX];
 	struct blob_attr *cur;
-	char *name_buf, *vif_buf;
+	char *name_buf;
 	char name[8];
 
 	blobmsg_parse(vlan_policy, __VLAN_ATTR_MAX, tb, blob_data(data), blob_len(data));
@@ -1165,19 +1154,14 @@ wireless_vlan_create(struct wireless_device *wdev, char *vif, struct blob_attr *
 	if (cur && blobmsg_get_bool(cur))
 		return;
 
-	sprintf(name, "%d", wdev->vlan_idx++);
+	sprintf(name, "%d", vif->vlan_idx++);
 
-	vlan = calloc_a(sizeof(*vlan),
-		       &name_buf, strlen(name) + 1,
-		       &vif_buf, strlen(vif) + 1);
+	vlan = calloc_a(sizeof(*vlan), &name_buf, strlen(name) + 1);
 	vlan->name = strcpy(name_buf, name);
-	vlan->vif = strcpy(vif_buf, vif);
-	vlan->wdev = wdev;
 	vlan->config = data;
 	vlan->section = section;
-	vlan->isolate = false;
 
-	vlist_add(&wdev->vlans, &vlan->node, vlan->name);
+	vlist_add(&vif->vlans, &vlan->node, vlan->name);
 }
 
 /* ubus callback network.wireless.status, runs for every interface, encode the vlan informations */
@@ -1220,6 +1204,12 @@ struct wireless_interface* wireless_interface_create(struct wireless_device *wde
 	vif->section = section;
 	vif->isolate = false;
 
+	vlist_init(&vif->vlans, avl_strcmp, vlan_update);
+	vif->vlans.keep_old = true;
+
+	vlist_init(&vif->stations, avl_strcmp, station_update);
+	vif->stations.keep_old = true;
+
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 
 	return vlist_find(&wdev->interfaces, name, vif, node);
@@ -1240,14 +1230,12 @@ wireless_interface_status(struct wireless_interface *iface, struct blob_buf *b)
 		blobmsg_add_string(b, "ifname", iface->ifname);
 	put_container(b, iface->config, "config");
 	j = blobmsg_open_array(b, "vlans");
-	vlist_for_each_element(&iface->wdev->vlans, vlan, node)
-		if (!strcmp(iface->name, vlan->vif))
-			wireless_vlan_status(vlan, b);
+	vlist_for_each_element(&iface->vlans, vlan, node)
+		wireless_vlan_status(vlan, b);
 	blobmsg_close_array(b, j);
 	j = blobmsg_open_array(b, "stations");
-	vlist_for_each_element(&iface->wdev->stations, sta, node)
-		if (!strcmp(iface->name, sta->vif))
-			wireless_station_status(sta, b);
+	vlist_for_each_element(&iface->stations, sta, node)
+		wireless_station_status(sta, b);
 	blobmsg_close_array(b, j);
 	blobmsg_close_table(b, i);
 }
@@ -1496,7 +1484,9 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 	}
 
 	if ((cur = tb[NOTIFY_ATTR_VLAN]) != NULL) {
-		vlan = vlist_find(&wdev->vlans, blobmsg_data(cur), vlan, node);
+		if (!vif)
+			return UBUS_STATUS_NOT_FOUND;
+		vlan = vlist_find(&vif->vlans, blobmsg_data(cur), vlan, node);
 		if (!vlan)
 			return UBUS_STATUS_NOT_FOUND;
 	}
@@ -1516,19 +1506,19 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 		wireless_device_mark_up(wdev);
 		break;
 	case NOTIFY_CMD_SET_DATA:
-		if (vif)
-			pdata = &vif->data;
-		else if (vlan)
+		if (vlan)
 			pdata = &vlan->data;
+		else if (vif)
+			pdata = &vif->data;
 		else
 			pdata = &wdev->data;
 
 		free(*pdata);
 		*pdata = blob_memdup(cur);
-		if (vif)
-			wireless_interface_set_data(vif);
-		else if (vlan)
+		if (vlan)
 			wireless_vlan_set_data(vlan);
+		else if (vif)
+			wireless_interface_set_data(vif);
 		break;
 	case NOTIFY_CMD_PROCESS_ADD:
 		return wireless_device_add_process(wdev, cur);
