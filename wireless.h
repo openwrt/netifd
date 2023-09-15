@@ -94,6 +94,7 @@ struct wireless_interface {
 	int multicast_to_unicast;
 	int vlan_idx;
 	int sta_idx;
+	bool disabled;
 };
 
 struct wireless_vlan {
@@ -142,7 +143,8 @@ void wireless_station_create(struct wireless_interface *vif, struct blob_attr *d
 int wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 			   struct ubus_request_data *req);
 
-void wireless_start_pending(void);
+void wireless_check_network_enabled(void);
+void wireless_start_pending(int timeout);
 void wireless_init(void);
 void wireless_device_hotplug_event(const char *name, bool add);
 

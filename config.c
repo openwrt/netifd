@@ -784,7 +784,7 @@ config_init_all(void)
 	vlist_flush(&interfaces);
 	interface_refresh_assignments(false);
 	interface_start_pending();
-	wireless_start_pending();
+	wireless_start_pending(0);
 
 	return ret;
 }

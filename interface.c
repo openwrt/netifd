@@ -25,6 +25,7 @@
 #include "ubus.h"
 #include "config.h"
 #include "system.h"
+#include "wireless.h"
 
 struct vlist_tree interfaces;
 static LIST_HEAD(iface_all_users);
@@ -1125,6 +1126,7 @@ interface_set_up(struct interface *iface)
 	const char *error = NULL;
 
 	iface->autostart = true;
+	wireless_check_network_enabled();
 
 	if (iface->state != IFS_DOWN)
 		return;
@@ -1157,6 +1159,7 @@ interface_set_down(struct interface *iface)
 			__interface_set_down(iface, false);
 	} else {
 		iface->autostart = false;
+		wireless_check_network_enabled();
 		__interface_set_down(iface, false);
 	}
 }

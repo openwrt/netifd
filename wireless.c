@@ -198,6 +198,9 @@ prepare_config(struct wireless_device *wdev, struct blob_buf *buf, bool up)
 
 	l = blobmsg_open_table(&b, "interfaces");
 	vlist_for_each_element(&wdev->interfaces, vif, node) {
+		if (vif->disabled)
+			continue;
+
 		i = blobmsg_open_table(&b, vif->name);
 		vif_config_add_bridge(&b, vif->network, up);
 		put_container(&b, vif->config, "config");
@@ -1522,16 +1525,75 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 	return 0;
 }
 
-/* called on startup and by netifd reload() */
-void
-wireless_start_pending(void)
+static void
+wdev_check_network_enabled(struct wireless_device *wdev)
+{
+	struct wireless_interface *vif;
+	struct interface *iface;
+	struct blob_attr *cur;
+	int rem;
+
+	vlist_for_each_element(&wdev->interfaces, vif, node) {
+		int enabled = -1;
+
+		blobmsg_for_each_attr(cur, vif->network, rem) {
+			iface = vlist_find(&interfaces, blobmsg_get_string(cur), iface, node);
+			if (!iface)
+				continue;
+
+			if (iface->autostart) {
+				enabled = 1;
+				break;
+			}
+			if (enabled != 1)
+				enabled = 0;
+		}
+
+		if (vif->disabled == !enabled)
+			continue;
+
+		vif->disabled = !enabled;
+		wdev->config_update = true;
+	}
+}
+
+static void
+__wireless_start_pending(struct uloop_timeout *t)
 {
 	struct wireless_device *wdev;
 
 	vlist_for_each_element(&wireless_devices, wdev, node) {
+		wdev_check_network_enabled(wdev);
 		if (wdev->config_update)
 			wdev_set_config_state(wdev, IFC_RELOAD);
 		__wireless_device_set_up(wdev, 0);
+	}
+}
+
+void wireless_start_pending(int timeout)
+{
+	static struct uloop_timeout timer = {
+		.cb = __wireless_start_pending
+	};
+
+	if (timeout) {
+		uloop_timeout_set(&timer, timeout);
+		return;
+	}
+
+	uloop_timeout_cancel(&timer);
+	timer.cb(&timer);
+}
+
+void wireless_check_network_enabled(void)
+{
+	struct wireless_device *wdev;
+
+	vlist_for_each_element(&wireless_devices, wdev, node) {
+		wdev_check_network_enabled(wdev);
+
+		if (wdev->config_update)
+			wireless_start_pending(1000);
 	}
 }
 
