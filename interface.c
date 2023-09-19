@@ -774,7 +774,7 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 		netifd_log_message(L_NOTICE, "Interface '%s' is now down\n", iface->name);
 		mark_interface_down(iface);
 		interface_write_resolv_conf(iface->jail);
-		if (iface->main_dev.dev)
+		if (iface->main_dev.dev && !(iface->config_state == IFC_NORMAL && iface->autostart && iface->available))
 			device_release(&iface->main_dev);
 		if (iface->l3_dev.dev)
 			device_remove_user(&iface->l3_dev);
