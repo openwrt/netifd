@@ -693,6 +693,14 @@ wdev_set_config_state(struct wireless_device *wdev, enum interface_config_state 
 }
 
 static void
+wdev_prepare_prev_config(struct wireless_device *wdev)
+{
+	prepare_config(wdev, &b, false);
+	free(wdev->prev_config);
+	wdev->prev_config = blob_memdup(b.head);
+}
+
+static void
 wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 {
 	struct blob_attr *new_config = wd_new->config;
@@ -1511,6 +1519,7 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 			wireless_vlan_set_data(vlan);
 		else if (vif)
 			wireless_interface_set_data(vif);
+		wdev_prepare_prev_config(wdev);
 		break;
 	case NOTIFY_CMD_PROCESS_ADD:
 		return wireless_device_add_process(wdev, cur);
