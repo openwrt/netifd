@@ -732,8 +732,14 @@ config_init_board(void)
 	free(board_netdevs);
 	board_netdevs = NULL;
 
-	cur = config_find_blobmsg_attr(b.head, "network-device",
+	// a previous oversight resulted in network-device being used
+	// instead of network_device, to avoid breaking anything, try
+	// network_device first, fallback to network-device if nothing
+	// is found.
+	cur = config_find_blobmsg_attr(b.head, "network_device",
 				       BLOBMSG_TYPE_TABLE);
+	if (!cur) cur = config_find_blobmsg_attr(b.head, "network-device",
+		BLOBMSG_TYPE_TABLE);
 	if (!cur)
 		return;
 
