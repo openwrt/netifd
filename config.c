@@ -732,7 +732,7 @@ config_init_board(void)
 	free(board_netdevs);
 	board_netdevs = NULL;
 
-	cur = config_find_blobmsg_attr(b.head, "network-device",
+	cur = config_find_blobmsg_attr(b.head, "network_device",
 				       BLOBMSG_TYPE_TABLE);
 	if (!cur)
 		return;

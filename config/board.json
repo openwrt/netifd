@@ -20,7 +20,7 @@
             "macaddr": "be:a5:11:16:76:d7"
         }
     },
-    "network-device": {
+    "network_device": {
         "eth0": {
             "macaddr": "bc:a5:11:16:76:d7"
         },
