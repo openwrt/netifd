@@ -719,6 +719,24 @@ struct ether_addr *config_get_default_macaddr(const char *ifname)
 	return ether_aton(blobmsg_get_string(cur));
 }
 
+int config_get_default_gro(const char *ifname)
+{
+	struct blob_attr *cur;
+
+	if (!board_netdevs)
+		return -1;
+
+	cur = config_find_blobmsg_attr(board_netdevs, ifname, BLOBMSG_TYPE_TABLE);
+	if (!cur)
+		return -1;
+
+	cur = config_find_blobmsg_attr(cur, "gro", BLOBMSG_TYPE_BOOL);
+	if (!cur)
+		return -1;
+
+	return blobmsg_get_bool(cur);
+}
+
 static void
 config_init_board(void)
 {

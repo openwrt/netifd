@@ -1736,6 +1736,40 @@ static bool ethtool_link_mode_test_bit(__s8 nwords, int nr, const __u32 *mask)
 	return !!(mask[nr / 32] & (1U << (nr % 32)));
 }
 
+static int
+system_get_ethtool_gro(struct device *dev)
+{
+	struct ethtool_value ecmd;
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&ecmd,
+	};
+
+	memset(&ecmd, 0, sizeof(ecmd));
+	ecmd.cmd = ETHTOOL_GGRO;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr))
+		return -1;
+
+	return ecmd.data;
+}
+
+static void
+system_set_ethtool_gro(struct device *dev, struct device_settings *s)
+{
+	struct ethtool_value ecmd;
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&ecmd,
+	};
+
+	memset(&ecmd, 0, sizeof(ecmd));
+	ecmd.cmd = ETHTOOL_SGRO;
+	ecmd.data = s->gro;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
+}
+
 static void
 system_set_ethtool_pause(struct device *dev, struct device_settings *s)
 {
@@ -1860,11 +1894,19 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
 }
 
+static void
+system_set_ethtool_settings_after_up(struct device *dev, struct device_settings *s)
+{
+	if (s->flags & DEV_OPT_GRO)
+		system_set_ethtool_gro(dev, s);
+}
+
 void
 system_if_get_settings(struct device *dev, struct device_settings *s)
 {
 	struct ifreq ifr;
 	char buf[10];
+	int ret;
 
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
@@ -1985,6 +2027,12 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->arp_accept = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_ARP_ACCEPT;
 	}
+
+	ret = system_get_ethtool_gro(dev);
+	if (ret >= 0) {
+		s->gro = ret;
+		s->flags |= DEV_OPT_GRO;
+	}
 }
 
 void
@@ -2084,6 +2132,11 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	if (apply_mask & DEV_OPT_ARP_ACCEPT)
 		system_set_arp_accept(dev, s->arp_accept ? "1" : "0");
 	system_set_ethtool_settings(dev, s);
+}
+
+void system_if_apply_settings_after_up(struct device *dev, struct device_settings *s)
+{
+	system_set_ethtool_settings_after_up(dev, s);
 }
 
 int system_if_up(struct device *dev)

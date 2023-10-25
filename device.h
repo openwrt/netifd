@@ -69,6 +69,7 @@ enum {
 	DEV_ATTR_RXPAUSE,
 	DEV_ATTR_TXPAUSE,
 	DEV_ATTR_AUTONEG,
+	DEV_ATTR_GRO,
 	__DEV_ATTR_MAX,
 };
 
@@ -138,6 +139,7 @@ enum {
 	DEV_OPT_RXPAUSE			= (1ULL << 34),
 	DEV_OPT_TXPAUSE			= (1ULL << 35),
 	DEV_OPT_AUTONEG			= (1ULL << 36),
+	DEV_OPT_GRO			= (1ULL << 37),
 };
 
 /* events broadcasted to all users of a device */
@@ -220,6 +222,7 @@ struct device_settings {
 	bool rxpause;
 	bool txpause;
 	bool autoneg;
+	bool gro;
 };
 
 struct device_vlan_range {

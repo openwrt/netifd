@@ -278,6 +278,7 @@ struct device *system_if_get_parent(struct device *dev);
 bool system_if_force_external(const char *ifname);
 void system_if_apply_settings(struct device *dev, struct device_settings *s,
 			      uint64_t apply_mask);
+void system_if_apply_settings_after_up(struct device *dev, struct device_settings *s);
 
 int system_add_address(struct device *dev, struct device_addr *addr);
 int system_del_address(struct device *dev, struct device_addr *addr);
