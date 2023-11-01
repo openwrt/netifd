@@ -25,9 +25,11 @@
 #include "system.h"
 #include "config.h"
 #include "wireless.h"
+#include "ubus.h"
 
 static struct list_head devtypes = LIST_HEAD_INIT(devtypes);
 static struct avl_tree devices;
+static struct blob_buf b;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
@@ -576,10 +578,31 @@ static int device_broadcast_cb(void *ctx, struct safe_list *list)
 
 void device_broadcast_event(struct device *dev, enum device_event ev)
 {
+	static const char * const event_names[] = {
+		[DEV_EVENT_ADD] = "add",
+		[DEV_EVENT_REMOVE] = "remove",
+		[DEV_EVENT_UP] = "up",
+		[DEV_EVENT_DOWN] = "down",
+		[DEV_EVENT_AUTH_UP] = "auth_up",
+		[DEV_EVENT_LINK_UP] = "link_up",
+		[DEV_EVENT_LINK_DOWN] = "link_down",
+		[DEV_EVENT_TOPO_CHANGE] = "topo_change",
+	};
 	int dev_ev = ev;
 
 	safe_list_for_each(&dev->aliases, device_broadcast_cb, &dev_ev);
 	safe_list_for_each(&dev->users, device_broadcast_cb, &dev_ev);
+
+	if (ev >= ARRAY_SIZE(event_names) || !event_names[ev] || !dev->ifname[0])
+		return;
+
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "name", dev->ifname);
+	blobmsg_add_u8(&b, "auth_status", dev->auth_status);
+	blobmsg_add_u8(&b, "present", dev->present);
+	blobmsg_add_u8(&b, "active", dev->active);
+	blobmsg_add_u8(&b, "link_active", dev->link_active);
+	netifd_ubus_device_notify(event_names[ev], b.head, -1);
 }
 
 static void
