@@ -830,8 +830,16 @@ device_refresh_present(struct device *dev)
 }
 
 void
-device_set_auth_status(struct device *dev, bool value)
+device_set_auth_status(struct device *dev, bool value, struct blob_attr *vlans)
 {
+	if (!value)
+		vlans = NULL;
+	else if (!blob_attr_equal(vlans, dev->auth_vlans))
+		device_set_auth_status(dev, false, NULL);
+
+	free(dev->auth_vlans);
+	dev->auth_vlans = vlans ? blob_memdup(vlans) : NULL;
+
 	if (dev->auth_status == value)
 		return;
 
@@ -966,6 +974,7 @@ static void
 device_free(struct device *dev)
 {
 	__devlock++;
+	free(dev->auth_vlans);
 	free(dev->config);
 	device_cleanup(dev);
 	free(dev->extra_vlan);

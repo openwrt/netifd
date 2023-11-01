@@ -401,6 +401,155 @@ bridge_disable_interface(struct bridge_state *bst)
 	bst->active = false;
 }
 
+static struct bridge_vlan *
+bridge_hotplug_get_vlan(struct bridge_state *bst, uint16_t vid, bool create)
+{
+	struct bridge_vlan *vlan;
+
+	vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
+	if (vlan || !create)
+		return vlan;
+
+	vlan = calloc(1, sizeof(*vlan));
+	vlan->vid = vid;
+	vlan->local = true;
+	INIT_LIST_HEAD(&vlan->hotplug_ports);
+	vlist_add(&bst->dev.vlans, &vlan->node, &vlan->vid);
+	vlan->node.version = -1;
+
+	return vlan;
+}
+
+static struct bridge_vlan_hotplug_port *
+bridge_hotplug_get_vlan_port(struct bridge_vlan *vlan, const char *ifname)
+{
+	struct bridge_vlan_hotplug_port *port;
+
+	list_for_each_entry(port, &vlan->hotplug_ports, list)
+		if (!strcmp(port->port.ifname, ifname))
+			return port;
+
+	return NULL;
+}
+
+static void
+bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlans,
+				struct bridge_member *bm, bool add, bool untracked)
+{
+	const char *ifname = bm->name;
+	struct device_vlan_range *r;
+	struct bridge_vlan *vlan;
+	struct blob_attr *cur;
+	int n_vlans;
+	size_t rem;
+
+	if (!vlans)
+		return;
+
+	if (add) {
+		bm->n_extra_vlan = 0;
+		n_vlans = blobmsg_check_array(vlans, BLOBMSG_TYPE_STRING);
+		if (n_vlans < 1)
+			return;
+
+		bm->extra_vlan = realloc(bm->extra_vlan, n_vlans * sizeof(*bm->extra_vlan));
+	}
+
+	blobmsg_for_each_attr(cur, vlans, rem) {
+		struct bridge_vlan_hotplug_port *port;
+		unsigned int vid, vid_end;
+		uint16_t flags = 0;
+		char *name_buf;
+		char *end;
+
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+			continue;
+
+		vid = strtoul(blobmsg_get_string(cur), &end, 0);
+		vid_end = vid;
+		if (!vid || vid > 4095)
+			continue;
+
+		if (*end == '-') {
+			vid_end = strtoul(end + 1, &end, 0);
+			if (vid_end < vid)
+				continue;
+		}
+
+		if (end && *end) {
+			if (*end != ':')
+				continue;
+
+			for (end++; *end; end++) {
+				switch (*end) {
+				case 'u':
+					flags |= BRVLAN_F_UNTAGGED;
+					fallthrough;
+				case '*':
+					flags |= BRVLAN_F_PVID;
+					break;
+				}
+			}
+		}
+
+		vlan = bridge_hotplug_get_vlan(bst, vid, !!flags);
+		if (!vlan || vid_end > vid || untracked) {
+			if (add) {
+				if (!untracked) {
+					r = &bm->extra_vlan[bm->n_extra_vlan++];
+					r->start = vid;
+					r->end = vid_end;
+				}
+				if (bm->active)
+					system_bridge_vlan(ifname, vid, vid_end, true, flags);
+			} else if (bm->active) {
+				system_bridge_vlan(ifname, vid, vid_end, false, 0);
+			}
+			continue;
+		}
+
+		if (vlan->pending) {
+			vlan->pending = false;
+			bridge_set_vlan_state(bst, vlan, true);
+		}
+
+		port = bridge_hotplug_get_vlan_port(vlan, ifname);
+		if (!add) {
+			if (!port)
+				continue;
+
+			__bridge_set_member_vlan(bm, vlan, &port->port, false);
+			list_del(&port->list);
+			free(port);
+			continue;
+		}
+
+		if (port) {
+			if (port->port.flags == flags)
+				continue;
+
+			__bridge_set_member_vlan(bm, vlan, &port->port, false);
+			port->port.flags = flags;
+			__bridge_set_member_vlan(bm, vlan, &port->port, true);
+			continue;
+		}
+
+		port = calloc_a(sizeof(*port), &name_buf, strlen(ifname) + 1);
+		if (!port)
+			continue;
+
+		port->port.flags = flags;
+		port->port.ifname = strcpy(name_buf, ifname);
+		list_add_tail(&port->list, &vlan->hotplug_ports);
+
+		if (!bm)
+			continue;
+
+		__bridge_set_member_vlan(bm, vlan, &port->port, true);
+	}
+}
+
+
 static void
 bridge_member_add_extra_vlans(struct bridge_member *bm)
 {
@@ -461,6 +610,8 @@ bridge_enable_member(struct bridge_member *bm)
 		bridge_member_add_extra_vlans(bm);
 		vlist_for_each_element(&bst->dev.vlans, vlan, node)
 			bridge_set_member_vlan(bm, vlan, true);
+		if (dev->settings.auth && dev->auth_vlans)
+			bridge_hotplug_set_member_vlans(bst, dev->auth_vlans, bm, true, true);
 	}
 
 	device_set_present(&bst->dev, true);
@@ -785,151 +936,6 @@ bridge_add_member(struct bridge_state *bst, const char *name)
 	bridge_create_member(bst, name, dev, false);
 }
 
-static struct bridge_vlan *
-bridge_hotplug_get_vlan(struct bridge_state *bst, uint16_t vid, bool create)
-{
-	struct bridge_vlan *vlan;
-
-	vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
-	if (vlan || !create)
-		return vlan;
-
-	vlan = calloc(1, sizeof(*vlan));
-	vlan->vid = vid;
-	vlan->local = true;
-	INIT_LIST_HEAD(&vlan->hotplug_ports);
-	vlist_add(&bst->dev.vlans, &vlan->node, &vlan->vid);
-	vlan->node.version = -1;
-
-	return vlan;
-}
-
-static struct bridge_vlan_hotplug_port *
-bridge_hotplug_get_vlan_port(struct bridge_vlan *vlan, const char *ifname)
-{
-	struct bridge_vlan_hotplug_port *port;
-
-	list_for_each_entry(port, &vlan->hotplug_ports, list)
-		if (!strcmp(port->port.ifname, ifname))
-			return port;
-
-	return NULL;
-}
-
-static void
-bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlans,
-				const char *ifname, struct bridge_member *bm, bool add)
-{
-	struct device_vlan_range *r;
-	struct bridge_vlan *vlan;
-	struct blob_attr *cur;
-	int n_vlans;
-	size_t rem;
-
-	if (!vlans)
-		return;
-
-	if (add) {
-		bm->n_extra_vlan = 0;
-		n_vlans = blobmsg_check_array(vlans, BLOBMSG_TYPE_STRING);
-		if (n_vlans < 1)
-			return;
-
-		bm->extra_vlan = realloc(bm->extra_vlan, n_vlans * sizeof(*bm->extra_vlan));
-	}
-
-	blobmsg_for_each_attr(cur, vlans, rem) {
-		struct bridge_vlan_hotplug_port *port;
-		unsigned int vid, vid_end;
-		uint16_t flags = 0;
-		char *name_buf;
-		char *end;
-
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
-			continue;
-
-		vid = strtoul(blobmsg_get_string(cur), &end, 0);
-		vid_end = vid;
-		if (!vid || vid > 4095)
-			continue;
-
-		if (*end == '-') {
-			vid_end = strtoul(end + 1, &end, 0);
-			if (vid_end < vid)
-				continue;
-		}
-
-		if (end && *end) {
-			if (*end != ':')
-				continue;
-
-			for (end++; *end; end++) {
-				switch (*end) {
-				case 'u':
-					flags |= BRVLAN_F_UNTAGGED;
-					break;
-				case '*':
-					flags |= BRVLAN_F_PVID;
-					break;
-				}
-			}
-		}
-
-		vlan = bridge_hotplug_get_vlan(bst, vid, !!flags);
-		if (!vlan || vid_end > vid) {
-			if (add) {
-				r = &bm->extra_vlan[bm->n_extra_vlan++];
-				r->start = vid;
-				r->end = vid_end;
-				if (bm->active)
-					system_bridge_vlan(ifname, vid, vid_end, true, 0);
-			} else if (bm->active) {
-				system_bridge_vlan(ifname, vid, vid_end, false, 0);
-			}
-			continue;
-		}
-
-		if (vlan->pending) {
-			vlan->pending = false;
-			bridge_set_vlan_state(bst, vlan, true);
-		}
-
-		port = bridge_hotplug_get_vlan_port(vlan, ifname);
-		if (!add) {
-			if (!port)
-				continue;
-
-			__bridge_set_member_vlan(bm, vlan, &port->port, false);
-			list_del(&port->list);
-			free(port);
-			continue;
-		}
-
-		if (port) {
-			if (port->port.flags == flags)
-				continue;
-
-			__bridge_set_member_vlan(bm, vlan, &port->port, false);
-			port->port.flags = flags;
-			__bridge_set_member_vlan(bm, vlan, &port->port, true);
-			continue;
-		}
-
-		port = calloc_a(sizeof(*port), &name_buf, strlen(ifname) + 1);
-		if (!port)
-			continue;
-
-		port->port.flags = flags;
-		port->port.ifname = strcpy(name_buf, ifname);
-		list_add_tail(&port->list, &vlan->hotplug_ports);
-
-		if (!bm)
-			continue;
-
-		__bridge_set_member_vlan(bm, vlan, &port->port, true);
-	}
-}
-
 static int
 bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
 {
@@ -942,7 +948,7 @@ bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *
 	    new_entry = true;
 	    bm = bridge_alloc_member(bst, member->ifname, member, true);
 	}
-	bridge_hotplug_set_member_vlans(bst, vlan, member->ifname, bm, true);
+	bridge_hotplug_set_member_vlans(bst, vlan, bm, true, false);
 	if (new_entry)
 		bridge_insert_member(bm, member->ifname);
 
@@ -959,7 +965,7 @@ bridge_hotplug_del(struct device *dev, struct device *member, struct blob_attr *
 	if (!bm)
 		return UBUS_STATUS_NOT_FOUND;
 
-	bridge_hotplug_set_member_vlans(bst, vlan, member->ifname, bm, false);
+	bridge_hotplug_set_member_vlans(bst, vlan, bm, false, false);
 	if (!bm->dev.hotplug)
 		return 0;
 

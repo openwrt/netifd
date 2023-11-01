@@ -238,6 +238,7 @@ struct device {
 
 	struct vlist_tree vlans;
 	struct kvlist vlan_aliases;
+	struct blob_attr *auth_vlans;
 
 	char ifname[IFNAMSIZ];
 	int ifindex;
@@ -371,7 +372,7 @@ struct device *get_vlan_device_chain(const char *ifname, int create);
 void alias_notify_device(const char *name, struct device *dev);
 struct device *device_alias_get(const char *name);
 
-void device_set_auth_status(struct device *dev, bool value);
+void device_set_auth_status(struct device *dev, bool value, struct blob_attr *vlans);
 
 static inline void
 device_set_deferred(struct device *dev, bool value)

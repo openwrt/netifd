@@ -305,6 +305,7 @@ enum {
 	DEV_STATE_NAME,
 	DEV_STATE_DEFER,
 	DEV_STATE_AUTH_STATUS,
+	DEV_STATE_AUTH_VLANS,
 	__DEV_STATE_MAX,
 };
 
@@ -312,6 +313,7 @@ static const struct blobmsg_policy dev_state_policy[__DEV_STATE_MAX] = {
 	[DEV_STATE_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
 	[DEV_STATE_DEFER] = { .name = "defer", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_STATE_AUTH_STATUS] = { .name = "auth_status", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_STATE_AUTH_VLANS] = { .name = "auth_vlans", BLOBMSG_TYPE_ARRAY },
 };
 
 static int
@@ -322,6 +324,7 @@ netifd_handle_set_state(struct ubus_context *ctx, struct ubus_object *obj,
 	struct device *dev = NULL;
 	struct blob_attr *tb[__DEV_STATE_MAX];
 	struct blob_attr *cur;
+	bool auth_status;
 
 	blobmsg_parse(dev_state_policy, __DEV_STATE_MAX, tb, blob_data(msg), blob_len(msg));
 
@@ -337,9 +340,12 @@ netifd_handle_set_state(struct ubus_context *ctx, struct ubus_object *obj,
 	if (cur)
 		device_set_deferred(dev, !!blobmsg_get_u8(cur));
 
-	cur = tb[DEV_STATE_AUTH_STATUS];
-	if (cur)
-		device_set_auth_status(dev, !!blobmsg_get_u8(cur));
+	if ((cur = tb[DEV_STATE_AUTH_STATUS]) != NULL)
+		auth_status = blobmsg_get_bool(cur);
+	else
+		auth_status = dev->auth_status;
+	if (tb[DEV_STATE_AUTH_STATUS] || tb[DEV_STATE_AUTH_VLANS])
+		device_set_auth_status(dev, auth_status, tb[DEV_STATE_AUTH_VLANS]);
 
 	return 0;
 }
