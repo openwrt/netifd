@@ -564,11 +564,27 @@ bridge_member_add_extra_vlans(struct bridge_member *bm)
 				   bm->extra_vlan[i].end, true, 0);
 }
 
+static void
+bridge_member_enable_vlans(struct bridge_member *bm)
+{
+	struct bridge_state *bst = bm->bst;
+	struct device *dev = bm->dev.dev;
+	struct bridge_vlan *vlan;
+
+	if (dev->settings.auth && !dev->auth_status)
+		return;
+
+	bridge_member_add_extra_vlans(bm);
+	vlist_for_each_element(&bst->dev.vlans, vlan, node)
+		bridge_set_member_vlan(bm, vlan, true);
+	if (dev->settings.auth && dev->auth_vlans)
+		bridge_hotplug_set_member_vlans(bst, dev->auth_vlans, bm, true, true);
+}
+
 static int
 bridge_enable_member(struct bridge_member *bm)
 {
 	struct bridge_state *bst = bm->bst;
-	struct bridge_vlan *vlan;
 	struct device *dev;
 	int ret;
 
@@ -590,32 +606,29 @@ bridge_enable_member(struct bridge_member *bm)
 		goto error;
 
 	dev = bm->dev.dev;
-	if (dev->settings.auth && !dev->auth_status)
+	if (dev->settings.auth && !bst->has_vlans && !dev->auth_status)
 		return -1;
 
-	if (bm->active)
-		return 0;
+	if (!bm->active) {
+		ret = system_bridge_addif(&bst->dev, bm->dev.dev);
+		if (ret < 0) {
+			D(DEVICE, "Bridge device %s could not be added\n", bm->dev.dev->ifname);
+			goto error;
+		}
 
-	ret = system_bridge_addif(&bst->dev, bm->dev.dev);
-	if (ret < 0) {
-		D(DEVICE, "Bridge device %s could not be added\n", bm->dev.dev->ifname);
-		goto error;
+		bm->active = true;
 	}
 
-	bm->active = true;
 	if (bst->has_vlans) {
 		/* delete default VLAN 1 */
 		system_bridge_vlan(bm->dev.dev->ifname, 1, -1, false, 0);
 
-		bridge_member_add_extra_vlans(bm);
-		vlist_for_each_element(&bst->dev.vlans, vlan, node)
-			bridge_set_member_vlan(bm, vlan, true);
-		if (dev->settings.auth && dev->auth_vlans)
-			bridge_hotplug_set_member_vlans(bst, dev->auth_vlans, bm, true, true);
+		bridge_member_enable_vlans(bm);
 	}
 
 	device_set_present(&bst->dev, true);
-	device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
+	if (!dev->settings.auth || dev->auth_status)
+		device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
 
 	return 0;
 
@@ -761,8 +774,13 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 					 DEV_OPT_MTU | DEV_OPT_MTU6);
 		break;
 	case DEV_EVENT_LINK_UP:
-		if (bst->has_vlans)
-			uloop_timeout_set(&bm->check_timer, 1000);
+		if (!bst->has_vlans)
+			break;
+
+		if (dev->settings.auth)
+			bridge_enable_member(bm);
+
+		uloop_timeout_set(&bm->check_timer, 1000);
 		break;
 	case DEV_EVENT_LINK_DOWN:
 		if (!dev->settings.auth)
