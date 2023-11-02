@@ -73,6 +73,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_TXPAUSE] = { .name = "txpause", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_AUTONEG] = { .name = "autoneg", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_GRO] = { .name = "gro", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_MASTER] = { .name = "conduit", .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -298,6 +299,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->txpause = s->flags & DEV_OPT_TXPAUSE ? s->txpause : os->txpause;
 	n->autoneg = s->flags & DEV_OPT_AUTONEG ? s->autoneg : os->autoneg;
 	n->gro = s->flags & DEV_OPT_GRO ? s->gro : os->gro;
+	n->master_ifindex = s->flags & DEV_OPT_MASTER ? s->master_ifindex : os->master_ifindex;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -553,6 +555,12 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->flags |= DEV_OPT_GRO;
 	}
 
+	if ((cur = tb[DEV_ATTR_MASTER])) {
+		char *ifname = blobmsg_get_string(cur);
+		s->master_ifindex = if_nametoindex(ifname);
+		s->flags |= DEV_OPT_MASTER;
+	}
+
 	cur = tb[DEV_ATTR_AUTH_VLAN];
 	free(dev->config_auth_vlans);
 	dev->config_auth_vlans = cur ? blob_memdup(cur) : NULL;
@@ -625,6 +633,7 @@ device_fill_default_settings(struct device *dev)
 {
 	struct device_settings *s = &dev->settings;
 	struct ether_addr *ea;
+	const char *master;
 	int ret;
 
 	if (!(s->flags & DEV_OPT_MACADDR)) {
@@ -640,6 +649,14 @@ device_fill_default_settings(struct device *dev)
 		if (ret >= 0) {
 			s->gro = ret;
 			s->flags |= DEV_OPT_GRO;
+		}
+	}
+
+	if (!(s->flags & DEV_OPT_MASTER)) {
+		master = config_get_default_conduit(dev->ifname);
+		if (master) {
+			s->master_ifindex = if_nametoindex(master);
+			s->flags |= DEV_OPT_MASTER;
 		}
 	}
 }
@@ -1302,6 +1319,13 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 
 	if (dev->active) {
 		device_merge_settings(dev, &st);
+		if (st.flags & DEV_OPT_MASTER) {
+			char buf[64], *devname;
+
+			devname = if_indextoname(st.master_ifindex, buf);
+			if (devname)
+				blobmsg_add_string(b, "conduit", devname);
+		}
 		if (st.flags & DEV_OPT_MTU)
 			blobmsg_add_u32(b, "mtu", st.mtu);
 		if (st.flags & DEV_OPT_MTU6)

@@ -737,6 +737,24 @@ int config_get_default_gro(const char *ifname)
 	return blobmsg_get_bool(cur);
 }
 
+const char *config_get_default_conduit(const char *ifname)
+{
+	struct blob_attr *cur;
+
+	if (!board_netdevs)
+		return NULL;
+
+	cur = config_find_blobmsg_attr(board_netdevs, ifname, BLOBMSG_TYPE_TABLE);
+	if (!cur)
+		return NULL;
+
+	cur = config_find_blobmsg_attr(cur, "conduit", BLOBMSG_TYPE_STRING);
+	if (!cur)
+		return NULL;
+
+	return blobmsg_get_string(cur);
+}
+
 static void
 config_init_board(void)
 {

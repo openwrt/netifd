@@ -22,5 +22,6 @@ extern bool config_init;
 int config_init_all(void);
 struct ether_addr *config_get_default_macaddr(const char *ifname);
 int config_get_default_gro(const char *ifname);
+const char *config_get_default_conduit(const char *ifname);
 
 #endif

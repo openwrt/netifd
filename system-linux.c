@@ -1714,6 +1714,169 @@ int system_vlandev_del(struct device *vlandev)
 	return system_link_del(vlandev->ifname);
 }
 
+struct if_get_master_data {
+	int ifindex;
+	int master_ifindex;
+	int pending;
+};
+
+static void if_get_master_dsa_linkinfo_attr(struct if_get_master_data *data,
+			       struct rtattr *attr)
+{
+	struct rtattr *cur;
+	int rem = RTA_PAYLOAD(attr);
+
+	for (cur = RTA_DATA(attr); RTA_OK(cur, rem); cur = RTA_NEXT(cur, rem)) {
+		if (cur->rta_type != IFLA_DSA_MASTER)
+			continue;
+
+		data->master_ifindex = *(__u32 *)RTA_DATA(cur);
+	}
+}
+
+static void if_get_master_linkinfo_attr(struct if_get_master_data *data,
+			       struct rtattr *attr)
+{
+	struct rtattr *cur;
+	int rem = RTA_PAYLOAD(attr);
+
+	for (cur = RTA_DATA(attr); RTA_OK(cur, rem); cur = RTA_NEXT(cur, rem)) {
+		if (cur->rta_type != IFLA_INFO_KIND && cur->rta_type != IFLA_INFO_DATA)
+			continue;
+
+		if (cur->rta_type == IFLA_INFO_KIND && strcmp("dsa", (char *)RTA_DATA(cur)))
+			break;
+
+		if (cur->rta_type == IFLA_INFO_DATA)
+			if_get_master_dsa_linkinfo_attr(data, cur);
+	}
+}
+
+static int cb_if_get_master_valid(struct nl_msg *msg, void *arg)
+{
+	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
+	struct if_get_master_data *data = (struct if_get_master_data *)arg;
+	struct rtattr *attr;
+	int rem;
+
+	if (nh->nlmsg_type != RTM_NEWLINK)
+		return NL_SKIP;
+
+	if (ifi->ifi_family != AF_UNSPEC)
+		return NL_SKIP;
+
+	if (ifi->ifi_index != data->ifindex)
+		return NL_SKIP;
+
+	attr = IFLA_RTA(ifi);
+	rem = nh->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+
+	while (RTA_OK(attr, rem)) {
+		if (attr->rta_type == IFLA_LINKINFO)
+			if_get_master_linkinfo_attr(data, attr);
+
+		attr = RTA_NEXT(attr, rem);
+	}
+
+	return NL_OK;
+}
+
+static int cb_if_get_master_ack(struct nl_msg *msg, void *arg)
+{
+	struct if_get_master_data *data = (struct if_get_master_data *)arg;
+	data->pending = 0;
+	return NL_STOP;
+}
+
+static int cb_if_get_master_error(struct sockaddr_nl *nla, struct nlmsgerr *err, void *arg)
+{
+	struct if_get_master_data *data = (struct if_get_master_data *)arg;
+	data->pending = 0;
+	return NL_STOP;
+}
+
+int system_if_get_master_ifindex(struct device *dev)
+{
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct nl_msg *msg;
+	struct ifinfomsg ifi = {
+		.ifi_family = AF_UNSPEC,
+		.ifi_index = 0,
+	};
+	struct if_get_master_data data = {
+		.ifindex = if_nametoindex(dev->ifname),
+		.master_ifindex = -1,
+		.pending = 1,
+	};
+	int ret = -1;
+
+	if (!cb)
+		return ret;
+
+	msg = nlmsg_alloc_simple(RTM_GETLINK, NLM_F_REQUEST);
+	if (!msg)
+		goto out;
+
+	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
+	    nla_put_string(msg, IFLA_IFNAME, dev->ifname))
+		goto free;
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_if_get_master_valid, &data);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_if_get_master_ack, &data);
+	nl_cb_err(cb, NL_CB_CUSTOM, cb_if_get_master_error, &data);
+
+	ret = nl_send_auto_complete(sock_rtnl, msg);
+	if (ret < 0)
+		goto free;
+
+	while (data.pending > 0)
+		nl_recvmsgs(sock_rtnl, cb);
+
+	if (data.master_ifindex >= 0)
+		ret = data.master_ifindex;
+
+free:
+	nlmsg_free(msg);
+out:
+	nl_cb_put(cb);
+	return ret;
+}
+
+static void system_set_master(struct device *dev, int master_ifindex)
+{
+	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
+	struct nl_msg *nlm;
+
+	nlm = nlmsg_alloc_simple(RTM_NEWLINK, NLM_F_REQUEST);
+	if (!nlm)
+		return;
+
+	nlmsg_append(nlm, &ifi, sizeof(ifi), 0);
+	nla_put_string(nlm, IFLA_IFNAME, dev->ifname);
+
+	struct nlattr *linkinfo = nla_nest_start(nlm, IFLA_LINKINFO);
+	if (!linkinfo)
+		goto failure;
+
+	nla_put_string(nlm, IFLA_INFO_KIND, "dsa");
+	struct nlattr *infodata = nla_nest_start(nlm, IFLA_INFO_DATA);
+	if (!infodata)
+		goto failure;
+
+	nla_put_u32(nlm, IFLA_DSA_MASTER, master_ifindex);
+
+	nla_nest_end(nlm, infodata);
+	nla_nest_end(nlm, linkinfo);
+
+	system_rtnl_call(nlm);
+
+	return;
+
+failure:
+	nlmsg_free(nlm);
+}
+
 static void ethtool_link_mode_clear_bit(__s8 nwords, int nr, __u32 *mask)
 {
 	if (nr < 0)
@@ -2033,6 +2196,12 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->gro = ret;
 		s->flags |= DEV_OPT_GRO;
 	}
+
+	ret = system_if_get_master_ifindex(dev);
+	if (ret >= 0) {
+		s->master_ifindex = ret;
+		s->flags |= DEV_OPT_MASTER;
+	}
 }
 
 void
@@ -2131,6 +2300,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 		system_set_drop_unsolicited_na(dev, s->drop_unsolicited_na ? "1" : "0");
 	if (apply_mask & DEV_OPT_ARP_ACCEPT)
 		system_set_arp_accept(dev, s->arp_accept ? "1" : "0");
+	if (apply_mask & DEV_OPT_MASTER)
+		system_set_master(dev, s->master_ifindex);
 	system_set_ethtool_settings(dev, s);
 }
 
