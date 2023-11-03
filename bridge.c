@@ -571,14 +571,19 @@ bridge_member_enable_vlans(struct bridge_member *bm)
 	struct device *dev = bm->dev.dev;
 	struct bridge_vlan *vlan;
 
+	if (dev->settings.auth) {
+		bridge_hotplug_set_member_vlans(bst, dev->config_auth_vlans, bm,
+						!dev->auth_status, true);
+		bridge_hotplug_set_member_vlans(bst, dev->auth_vlans, bm,
+						dev->auth_status, true);
+	}
+
 	if (dev->settings.auth && !dev->auth_status)
 		return;
 
 	bridge_member_add_extra_vlans(bm);
 	vlist_for_each_element(&bst->dev.vlans, vlan, node)
 		bridge_set_member_vlan(bm, vlan, true);
-	if (dev->settings.auth && dev->auth_vlans)
-		bridge_hotplug_set_member_vlans(bst, dev->auth_vlans, bm, true, true);
 }
 
 static int

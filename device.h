@@ -60,6 +60,7 @@ enum {
 	DEV_ATTR_DROP_UNSOLICITED_NA,
 	DEV_ATTR_ARP_ACCEPT,
 	DEV_ATTR_AUTH,
+	DEV_ATTR_AUTH_VLAN,
 	DEV_ATTR_SPEED,
 	DEV_ATTR_DUPLEX,
 	DEV_ATTR_VLAN,
@@ -238,6 +239,7 @@ struct device {
 
 	struct vlist_tree vlans;
 	struct kvlist vlan_aliases;
+	struct blob_attr *config_auth_vlans;
 	struct blob_attr *auth_vlans;
 
 	char ifname[IFNAMSIZ];

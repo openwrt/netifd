@@ -63,6 +63,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_DROP_UNSOLICITED_NA] = { .name = "drop_unsolicited_na", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_ARP_ACCEPT] = { .name = "arp_accept", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_AUTH] = { .name = "auth", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_AUTH_VLAN] = { .name = "auth_vlan", BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_SPEED] = { .name = "speed", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_DUPLEX] = { .name = "duplex", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_VLAN] = { .name = "vlan", .type = BLOBMSG_TYPE_ARRAY },
@@ -542,6 +543,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->autoneg = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_AUTONEG;
 	}
+
+	cur = tb[DEV_ATTR_AUTH_VLAN];
+	free(dev->config_auth_vlans);
+	dev->config_auth_vlans = cur ? blob_memdup(cur) : NULL;
+
 	device_set_extra_vlans(dev, tb[DEV_ATTR_VLAN]);
 	device_set_disabled(dev, disabled);
 }
@@ -1000,6 +1006,7 @@ device_free(struct device *dev)
 	free(dev->auth_vlans);
 	free(dev->config);
 	device_cleanup(dev);
+	free(dev->config_auth_vlans);
 	free(dev->extra_vlan);
 	dev->type->free(dev);
 	__devlock--;
