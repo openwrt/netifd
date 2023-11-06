@@ -1248,7 +1248,7 @@ interface_device_config_changed(struct interface *if_old, struct interface *if_n
 	struct blob_attr *ntb[__DEV_ATTR_MAX];
 	struct blob_attr *otb[__DEV_ATTR_MAX];
 	struct device *dev = if_old->main_dev.dev;
-	unsigned long diff = 0;
+	unsigned long diff[2] = {};
 
 	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / 8);
 
@@ -1267,8 +1267,9 @@ interface_device_config_changed(struct interface *if_old, struct interface *if_n
 	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, ntb,
 		blob_data(if_new->config), blob_len(if_new->config));
 
-	uci_blob_diff(ntb, otb, &device_attr_list, &diff);
-	return diff;
+	uci_blob_diff(ntb, otb, &device_attr_list, diff);
+
+	return diff[0] | diff[1];
 }
 
 static void

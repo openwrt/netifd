@@ -1252,7 +1252,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 	struct blob_attr *tb_br[__BRIDGE_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	struct bridge_state *bst;
-	unsigned long diff[2];
+	unsigned long diff[2] = {};
 
 	BUILD_BUG_ON(sizeof(diff) < __BRIDGE_ATTR_MAX / BITS_PER_LONG);
 	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / BITS_PER_LONG);
@@ -1279,7 +1279,6 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
 			blob_data(bst->config_data), blob_len(bst->config_data));
 
-		diff[0] = diff[1] = 0;
 		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
 		if (diff[0] | diff[1]) {
 			ret = DEV_CONFIG_RESTART;
