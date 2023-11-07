@@ -692,34 +692,44 @@ static int system_get_arp_accept(struct device *dev, char *buf, const size_t buf
 			dev->ifname, buf, buf_sz);
 }
 
+#ifndef IFF_LOWER_UP
+#define IFF_LOWER_UP	0x10000
+#endif
+
+static void
+system_device_update_state(struct device *dev, unsigned int flags, unsigned int ifindex)
+{
+	if (dev->type == &simple_device_type) {
+		bool present = ifindex > 0;
+
+		if (dev->external)
+			present = present && (flags & IFF_UP);
+
+		device_set_present(dev, present);
+	}
+	device_set_link(dev, flags & IFF_LOWER_UP ? true : false);
+}
+
 /* Evaluate netlink messages */
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct nlattr *nla[__IFLA_MAX];
-	int link_state = 0;
-	char buf[10];
+	struct device *dev;
 
 	if (nh->nlmsg_type != RTM_NEWLINK)
-		goto out;
+		return 0;
 
 	nlmsg_parse(nh, sizeof(struct ifinfomsg), nla, __IFLA_MAX - 1, NULL);
 	if (!nla[IFLA_IFNAME])
-		goto out;
+		return 0;
 
-	struct device *dev = device_find(nla_data(nla[IFLA_IFNAME]));
+	dev = device_find(nla_data(nla[IFLA_IFNAME]));
 	if (!dev)
-		goto out;
+		return 0;
 
-	if (!system_get_dev_sysfs("carrier", dev->ifname, buf, sizeof(buf)))
-		link_state = strtoul(buf, NULL, 0);
-
-	if (dev->type == &simple_device_type)
-		device_set_present(dev, true);
-
-	device_set_link(dev, link_state ? true : false);
-
-out:
+	system_device_update_state(dev, ifi->ifi_flags, ifi->ifi_index);
 	return 0;
 }
 
@@ -2092,10 +2102,6 @@ struct if_check_data {
 	int ret;
 };
 
-#ifndef IFF_LOWER_UP
-#define IFF_LOWER_UP	0x10000
-#endif
-
 static int cb_if_check_valid(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
@@ -2105,10 +2111,7 @@ static int cb_if_check_valid(struct nl_msg *msg, void *arg)
 	if (nh->nlmsg_type != RTM_NEWLINK)
 		return NL_SKIP;
 
-	if (chk->dev->type == &simple_device_type)
-		device_set_present(chk->dev, ifi->ifi_index > 0 ? true : false);
-	device_set_link(chk->dev, ifi->ifi_flags & IFF_LOWER_UP ? true : false);
-
+	system_device_update_state(chk->dev, ifi->ifi_flags, ifi->ifi_index);
 	return NL_OK;
 }
 
