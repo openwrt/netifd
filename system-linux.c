@@ -1796,7 +1796,7 @@ static int cb_if_get_master_error(struct sockaddr_nl *nla, struct nlmsgerr *err,
 	return NL_STOP;
 }
 
-int system_if_get_master_ifindex(struct device *dev)
+static int system_if_get_master_ifindex(struct device *dev)
 {
 	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
 	struct nl_msg *msg;
