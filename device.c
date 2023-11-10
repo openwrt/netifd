@@ -880,9 +880,9 @@ void device_cleanup(struct device *dev)
 	device_delete(dev);
 }
 
-static void __device_set_present(struct device *dev, bool state)
+static void __device_set_present(struct device *dev, bool state, bool force)
 {
-	if (dev->present == state)
+	if (dev->present == state && !force)
 		return;
 
 	dev->present = state;
@@ -897,7 +897,7 @@ device_refresh_present(struct device *dev)
 	if (dev->disabled || dev->deferred)
 		state = false;
 
-	__device_set_present(dev, state);
+	__device_set_present(dev, state, false);
 }
 
 void
@@ -937,7 +937,10 @@ void device_set_present(struct device *dev, bool state)
 
 	D(DEVICE, "%s '%s' %s present\n", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
 	dev->sys_present = state;
-	device_refresh_present(dev);
+	if (!state)
+		__device_set_present(dev, state, true);
+	else
+		device_refresh_present(dev);
 	if (!state)
 		safe_list_for_each(&dev->users, device_release_cb, NULL);
 }

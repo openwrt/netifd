@@ -303,7 +303,7 @@ bonding_port_cb(struct device_user *dep, enum device_event ev)
 		bonding_disable_port(bp, true);
 		break;
 	case DEV_EVENT_REMOVE:
-		if (dep->hotplug) {
+		if (dep->hotplug && !dev->sys_present) {
 			vlist_delete(&bdev->ports, &bp->node);
 			return;
 		}

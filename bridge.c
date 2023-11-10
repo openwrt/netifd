@@ -794,7 +794,7 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		bridge_disable_member(bm, true);
 		break;
 	case DEV_EVENT_REMOVE:
-		if (dep->hotplug) {
+		if (dep->hotplug && !dev->sys_present) {
 			vlist_delete(&bst->members, &bm->node);
 			return;
 		}

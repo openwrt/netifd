@@ -700,12 +700,10 @@ static void
 system_device_update_state(struct device *dev, unsigned int flags, unsigned int ifindex)
 {
 	if (dev->type == &simple_device_type) {
-		bool present = ifindex > 0;
-
 		if (dev->external)
-			present = present && (flags & IFF_UP);
+			device_set_disabled(dev, !(flags & IFF_UP));
 
-		device_set_present(dev, present);
+		device_set_present(dev, ifindex > 0);
 	}
 	device_set_link(dev, flags & IFF_LOWER_UP ? true : false);
 }
