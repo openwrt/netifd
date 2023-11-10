@@ -1540,7 +1540,7 @@ wdev_check_network_enabled(struct wireless_device *wdev)
 	struct wireless_interface *vif;
 	struct interface *iface;
 	struct blob_attr *cur;
-	int rem;
+	size_t rem;
 
 	vlist_for_each_element(&wdev->interfaces, vif, node) {
 		int enabled = -1;
