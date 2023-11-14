@@ -448,7 +448,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 		/* Mask out IPv4 host bits to avoid "Invalid prefix for given prefix length" */
 		if (af == AF_INET && route->mask < 32)
-			route->addr.in.s_addr &= ((1u << route->mask) - 1);
+			clear_if_addr(&route->addr, route->mask);
 	}
 
 	if ((cur = tb[ROUTE_GATEWAY]) != NULL) {
