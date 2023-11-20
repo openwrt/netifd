@@ -442,7 +442,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_TARGET]) != NULL) {
 		if (!parse_ip_and_netmask(af, blobmsg_data(cur), &route->addr, &route->mask)) {
-			DPRINTF("Failed to parse route target: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse route target: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 
@@ -453,7 +453,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_GATEWAY]) != NULL) {
 		if (!inet_pton(af, blobmsg_data(cur), &route->nexthop)) {
-			DPRINTF("Failed to parse route gateway: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse route gateway: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 	}
@@ -477,7 +477,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		const char *mask = strtok_r(NULL, "/", &saveptr);
 
 		if (!addr || inet_pton(af, addr, &route->source) < 1) {
-			DPRINTF("Failed to parse route source: %s\n", addr ? addr : "NULL");
+			D(INTERFACE, "Failed to parse route source: %s\n", addr ? addr : "NULL");
 			goto error;
 		}
 
@@ -489,7 +489,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_TABLE]) != NULL) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &route->table)) {
-			DPRINTF("Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 
@@ -510,7 +510,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_TYPE]) != NULL) {
 		if (!system_resolve_rt_type(blobmsg_data(cur), &route->type)) {
-			DPRINTF("Failed to resolve routing type: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing type: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		route->flags |= DEVROUTE_TYPE;
@@ -518,7 +518,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_PROTO]) != NULL) {
 		if (!system_resolve_rt_proto(blobmsg_data(cur), &route->proto)) {
-			DPRINTF("Failed to resolve proto type: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve proto type: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		route->flags |= DEVROUTE_PROTO;

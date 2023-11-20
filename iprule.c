@@ -236,7 +236,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[RULE_SRC]) != NULL) {
 		if (!parse_ip_and_netmask(af, blobmsg_data(cur), &rule->src_addr, &rule->src_mask)) {
-			DPRINTF("Failed to parse rule source: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse rule source: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		rule->flags |= IPRULE_SRC;
@@ -244,7 +244,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[RULE_DEST]) != NULL) {
 		if (!parse_ip_and_netmask(af, blobmsg_data(cur), &rule->dest_addr, &rule->dest_mask)) {
-			DPRINTF("Failed to parse rule destination: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse rule destination: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		rule->flags |= IPRULE_DEST;
@@ -257,7 +257,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[RULE_TOS]) != NULL) {
 		if ((rule->tos = blobmsg_get_u32(cur)) > 255) {
-			DPRINTF("Invalid TOS value: %u\n", blobmsg_get_u32(cur));
+			D(INTERFACE, "Invalid TOS value: %u\n", blobmsg_get_u32(cur));
 			goto error;
 		}
 		rule->flags |= IPRULE_TOS;
@@ -265,7 +265,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[RULE_FWMARK]) != NULL) {
 		if (!iprule_parse_mark(blobmsg_data(cur), rule)) {
-			DPRINTF("Failed to parse rule fwmark: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse rule fwmark: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		/* flags set by iprule_parse_mark() */
@@ -273,7 +273,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[RULE_LOOKUP]) != NULL) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &rule->lookup)) {
-			DPRINTF("Failed to parse rule lookup table: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse rule lookup table: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		rule->flags |= IPRULE_LOOKUP;
@@ -290,7 +290,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 		if (ret == 1)
 			rule->uidrange_end = rule->uidrange_start;
 		else if (ret != 2) {
-			DPRINTF("Failed to parse UID range: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse UID range: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		rule->flags |= IPRULE_UIDRANGE;
@@ -298,7 +298,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[RULE_ACTION]) != NULL) {
 		if (!system_resolve_iprule_action(blobmsg_data(cur), &rule->action)) {
-			DPRINTF("Failed to parse rule action: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse rule action: %s\n", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		rule->flags |= IPRULE_ACTION;

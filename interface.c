@@ -911,12 +911,12 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 
 	if ((cur = tb[IFACE_ATTR_IP4TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip4table))
-			DPRINTF("Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
 	}
 
 	if ((cur = tb[IFACE_ATTR_IP6TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip6table))
-			DPRINTF("Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
 	}
 
 	iface->proto_ip.no_delegation = !blobmsg_get_bool_default(tb[IFACE_ATTR_DELEGATE], true);

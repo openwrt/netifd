@@ -645,7 +645,7 @@ config_init_wireless(void)
 	const char *dev_name;
 
 	if (!uci_wireless) {
-		DPRINTF("No wireless configuration found\n");
+		D(WIRELESS, "No wireless configuration found\n");
 		return;
 	}
 
@@ -678,7 +678,7 @@ config_init_wireless(void)
 
 		wdev = vlist_find(&wireless_devices, dev_name, wdev, node);
 		if (!wdev) {
-			DPRINTF("device %s not found!\n", dev_name);
+			D(WIRELESS, "device %s not found!\n", dev_name);
 			continue;
 		}
 

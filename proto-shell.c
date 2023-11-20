@@ -405,7 +405,7 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 
 	blobmsg_for_each_attr(cur, attr, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
-			DPRINTF("Ignore wrong route type: %d\n", blobmsg_type(cur));
+			D(INTERFACE, "Ignore wrong route type: %d\n", blobmsg_type(cur));
 			continue;
 		}
 
@@ -422,7 +422,7 @@ proto_shell_parse_neighbor_list(struct interface *iface, struct blob_attr *attr,
 
 	blobmsg_for_each_attr(cur, attr, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
-			DPRINTF("Ignore wrong neighbor type: %d\n", blobmsg_type(cur));
+			D(INTERFACE, "Ignore wrong neighbor type: %d\n", blobmsg_type(cur));
 			continue;
 		}
 
@@ -936,7 +936,7 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	if (config)
 		handler->config_buf = netifd_handler_parse_config(&handler->config, config);
 
-	DPRINTF("Add handler for script %s: %s\n", script, proto->name);
+	D(INTERFACE, "Add handler for script %s: %s\n", script, proto->name);
 	add_proto_handler(proto);
 }
 

@@ -400,7 +400,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (system_resolve_rpfilter(blobmsg_data(cur), &s->rpfilter))
 			s->flags |= DEV_OPT_RPFILTER;
 		else
-			DPRINTF("Failed to resolve rpfilter: %s\n", (char *) blobmsg_data(cur));
+			D(DEVICE, "Failed to resolve rpfilter: %s\n", (char *) blobmsg_data(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_ACCEPTLOCAL])) {
@@ -413,7 +413,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (s->igmpversion >= 1 && s->igmpversion <= 3)
 			s->flags |= DEV_OPT_IGMPVERSION;
 		else
-			DPRINTF("Failed to resolve igmpversion: %d\n", blobmsg_get_u32(cur));
+			D(DEVICE, "Failed to resolve igmpversion: %d\n", blobmsg_get_u32(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_MLDVERSION])) {
@@ -421,7 +421,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (s->mldversion >= 1 && s->mldversion <= 2)
 			s->flags |= DEV_OPT_MLDVERSION;
 		else
-			DPRINTF("Failed to resolve mldversion: %d\n", blobmsg_get_u32(cur));
+			D(DEVICE, "Failed to resolve mldversion: %d\n", blobmsg_get_u32(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_NEIGHREACHABLETIME])) {
@@ -454,7 +454,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (s->multicast_router <= 2)
 			s->flags |= DEV_OPT_MULTICAST_ROUTER;
 		else
-			DPRINTF("Invalid value: %d - (Use 0: never, 1: learn, 2: always)\n", blobmsg_get_u32(cur));
+			D(DEVICE, "Invalid value: %d - (Use 0: never, 1: learn, 2: always)\n", blobmsg_get_u32(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_MULTICAST_FAST_LEAVE])) {
