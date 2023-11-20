@@ -90,6 +90,7 @@ struct wireless_interface {
 	struct blob_attr *network_vlan;
 	bool proxyarp;
 	bool isolate;
+	bool bridge_isolate;
 	bool ap_mode;
 	int multicast_to_unicast;
 	int vlan_idx;
@@ -110,6 +111,7 @@ struct wireless_vlan {
 	struct blob_attr *network_vlan;
 	int multicast_to_unicast;
 	bool isolate;
+	bool bridge_isolate;
 };
 
 struct wireless_station {

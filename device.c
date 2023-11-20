@@ -354,7 +354,10 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	struct ether_addr *ea;
 	bool disabled = false;
 
-	s->flags = 0;
+	if (dev->wireless)
+		s->flags &= DEV_OPT_ISOLATE;
+	else
+		s->flags = 0;
 	if ((cur = tb[DEV_ATTR_ENABLED]))
 		disabled = !blobmsg_get_bool(cur);
 
