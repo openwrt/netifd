@@ -19,6 +19,8 @@
 #include <stdarg.h>
 #include <syslog.h>
 
+#include <udebug.h>
+
 #include "netifd.h"
 #include "ubus.h"
 #include "config.h"
@@ -35,6 +37,9 @@ const char *resolv_conf = DEFAULT_RESOLV_CONF;
 static char **global_argv;
 
 static struct list_head process_list = LIST_HEAD_INIT(process_list);
+static struct udebug ud;
+static struct udebug_buf udb;
+static bool udebug_enabled;
 
 #define DEFAULT_LOG_LEVEL L_NOTICE
 
@@ -63,6 +68,49 @@ netifd_delete_process(struct netifd_process *proc)
 	close(proc->log.fd.fd);
 }
 
+static void
+netifd_udebug_vprintf(const char *format, va_list ap)
+{
+	if (!udebug_enabled)
+		return;
+
+	udebug_entry_init(&udb);
+	udebug_entry_vprintf(&udb, format, ap);
+	udebug_entry_add(&udb);
+}
+
+void netifd_udebug_printf(const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	netifd_udebug_vprintf(format, ap);
+	va_end(ap);
+}
+
+void netifd_udebug_set_enabled(bool val)
+{
+	static const struct udebug_buf_meta meta = {
+		.name = "netifd_log",
+		.format = UDEBUG_FORMAT_STRING,
+	};
+
+	if (udebug_enabled == val)
+		return;
+
+	udebug_enabled = val;
+	if (!val) {
+		udebug_buf_free(&udb);
+		udebug_free(&ud);
+		return;
+	}
+
+	udebug_init(&ud);
+	udebug_auto_connect(&ud, NULL);
+	udebug_buf_init(&udb, 1024, 64 * 1024);
+	udebug_buf_add(&ud, &udb, &meta);
+}
+
 void
 __attribute__((format(printf, 2, 0)))
 netifd_log_message(int priority, const char *format, ...)
@@ -73,6 +121,7 @@ netifd_log_message(int priority, const char *format, ...)
 		return;
 
 	va_start(vl, format);
+	netifd_udebug_vprintf(format, vl);
 	if (use_syslog)
 		vsyslog(log_class[priority], format, vl);
 	else

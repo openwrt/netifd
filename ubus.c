@@ -27,6 +27,7 @@
 struct ubus_context *ubus_ctx = NULL;
 static struct blob_buf b;
 static const char *ubus_path;
+struct ubus_subscriber udebug_sub;
 
 /* global object */
 
@@ -1365,9 +1366,74 @@ netifd_extdev_invoke(uint32_t id, const char *method, struct blob_attr *msg,
 	return ubus_invoke(ubus_ctx, id, method, msg, data_cb, data, 3000);
 }
 
+static struct blob_attr *
+find_attr(struct blob_attr *attr, const char *name, enum blobmsg_type type)
+{
+	struct blobmsg_policy policy = { name, type };
+	struct blob_attr *ret;
+
+	if (!attr)
+		return NULL;
+
+	blobmsg_parse_attr(&policy, 1, &ret, attr);
+
+	return ret;
+}
+
+static void
+netifd_udebug_config_cb(struct blob_attr *data)
+{
+	enum {
+		CFG_ATTR_ENABLED,
+		__CFG_ATTR_MAX
+	};
+	static const struct blobmsg_policy policy[__CFG_ATTR_MAX] = {
+		[CFG_ATTR_ENABLED] = { "enabled", BLOBMSG_TYPE_STRING },
+	};
+	struct blob_attr *tb[__CFG_ATTR_MAX];
+	bool en;
+
+	data = find_attr(data, "service", BLOBMSG_TYPE_TABLE);
+	data = find_attr(data, "netifd", BLOBMSG_TYPE_TABLE);
+	if (!data)
+		return;
+
+	blobmsg_parse_attr(policy, __CFG_ATTR_MAX, tb, data);
+	if (!tb[CFG_ATTR_ENABLED])
+		return;
+
+	en = !!atoi(blobmsg_get_string(tb[CFG_ATTR_ENABLED]));
+	netifd_udebug_set_enabled(en);
+}
+
+static int
+netifd_udebug_notify_cb(struct ubus_context *ctx, struct ubus_object *obj,
+			struct ubus_request_data *req, const char *method,
+			struct blob_attr *msg)
+{
+	netifd_udebug_config_cb(msg);
+
+	return 0;
+}
+
+static void
+netifd_udebug_req_cb(struct ubus_request *req, int type, struct blob_attr *msg)
+{
+	netifd_udebug_config_cb(msg);
+}
+
+static bool
+netifd_udebug_sub_cb(struct ubus_context *ctx, struct ubus_subscriber *sub,
+		     const char *path)
+{
+	return !strcmp(path, "udebug");
+}
+
 int
 netifd_ubus_init(const char *path)
 {
+	uint32_t id;
+
 	uloop_init();
 	ubus_path = path;
 
@@ -1383,6 +1449,14 @@ netifd_ubus_init(const char *path)
 	netifd_add_object(&dev_object);
 	netifd_add_object(&wireless_object);
 	netifd_add_iface_object();
+
+	udebug_sub.cb = netifd_udebug_notify_cb;
+	udebug_sub.new_obj_cb = netifd_udebug_sub_cb;
+	ubus_register_subscriber(ubus_ctx, &udebug_sub);
+	if (ubus_lookup_id(ubus_ctx, "udebug", &id) == 0) {
+		ubus_subscribe(ubus_ctx, &udebug_sub, id);
+		ubus_invoke(ubus_ctx, id, "get_config", NULL, netifd_udebug_req_cb, NULL, 1000);
+	}
 
 	return 0;
 }

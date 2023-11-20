@@ -70,6 +70,7 @@ enum {
 #ifdef DEBUG
 #define DPRINTF(format, ...) fprintf(stderr, "%s(%d): " format, __func__, __LINE__, ## __VA_ARGS__)
 #define D(level, format, ...) do { \
+		netifd_udebug_printf("[" #level "] %s(%d): " format,  __func__, __LINE__, ## __VA_ARGS__); \
 		if (debug_mask & (1 << (DEBUG_ ## level))) \
 				DPRINTF(format, ##__VA_ARGS__); \
 	} while (0)
@@ -95,6 +96,8 @@ struct netifd_process {
 	bool log_overflow;
 };
 
+void netifd_udebug_printf(const char *format, ...);
+void netifd_udebug_set_enabled(bool val);
 void netifd_log_message(int priority, const char *format, ...);
 
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);

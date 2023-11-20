@@ -33,11 +33,13 @@ FIND_LIBRARY(uci NAMES uci)
 FIND_LIBRARY(ubox NAMES ubox)
 FIND_LIBRARY(ubus NAMES ubus)
 FIND_LIBRARY(json NAMES json-c json)
+FIND_LIBRARY(udebug NAMES udebug)
 FIND_LIBRARY(blobmsg_json NAMES blobmsg_json)
 
-SET(LIBS ${ubox} ${ubus} ${uci} ${json} ${blobmsg_json})
+SET(LIBS ${ubox} ${ubus} ${uci} ${json} ${blobmsg_json} ${udebug})
 
 FIND_PATH(ubox_include_dir libubox/usock.h)
+FIND_PATH(udebug_include_dir udebug.h)
 INCLUDE_DIRECTORIES(${ubox_include_dir})
 
 IF (NOT DEFINED LIBNL_LIBS)
