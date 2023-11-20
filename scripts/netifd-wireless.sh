@@ -378,10 +378,12 @@ _wdev_common_device_config() {
 
 _wdev_common_iface_config() {
 	config_add_string mode ssid encryption 'key:wpakey'
+	config_add_boolean bridge_isolate
 }
 
 _wdev_common_vlan_config() {
 	config_add_string name vid iface
+	config_add_boolean bridge_isolate
 }
 
 _wdev_common_station_config() {
