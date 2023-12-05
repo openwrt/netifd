@@ -223,7 +223,9 @@ bridge_set_member_vlan(struct bridge_member *bm, struct bridge_vlan *vlan, bool 
 	if (!port)
 		return;
 
-	if (bridge_member_vlan_is_pvid(bm, port))
+	if (!add && bm->pvid == vlan->vid)
+		bm->pvid = 0;
+	else if (add && bridge_member_vlan_is_pvid(bm, port))
 		bm->pvid = vlan->vid;
 
 	__bridge_set_member_vlan(bm, vlan, port, add);
@@ -275,12 +277,12 @@ bridge_set_vlan_state(struct bridge_state *bst, struct bridge_vlan *vlan, bool a
 {
 	struct bridge_member *bm;
 	struct bridge_vlan *vlan2;
+	bool clear_pvid = false;
 
 	bridge_set_local_vlan(bst, vlan, add);
 
 	vlist_for_each_element(&bst->members, bm, node) {
 		struct bridge_vlan_port *port;
-		int new_pvid = -1;
 
 		port = bridge_find_vlan_member_port(bm, vlan);
 		if (!port)
@@ -293,17 +295,18 @@ bridge_set_vlan_state(struct bridge_state *bst, struct bridge_vlan *vlan, bool a
 			vlan2 = bridge_recalc_member_pvid(bm);
 			if (vlan2 && vlan2->vid != vlan->vid) {
 				bridge_set_member_vlan(bm, vlan2, false);
+				bm->pvid = vlan2->vid;
 				bridge_set_member_vlan(bm, vlan2, true);
+			} else if (!vlan2) {
+				clear_pvid = true;
 			}
-			new_pvid = vlan2 ? vlan2->vid : 0;
 		}
 
-		if (!bm->present)
-			continue;
+		if (bm->present)
+			__bridge_set_member_vlan(bm, vlan, port, add);
 
-		__bridge_set_member_vlan(bm, vlan, port, add);
-		if (new_pvid >= 0)
-			bm->pvid = new_pvid;
+		if (clear_pvid)
+			bm->pvid = 0;
 	}
 }
 
@@ -1369,13 +1372,13 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	struct bridge_state *bst = container_of(tree, struct bridge_state, dev.vlans);
 	struct bridge_vlan *vlan_new = NULL, *vlan_old = NULL;
 
-	if (!bst->has_vlans || !bst->active)
-		goto out;
-
 	if (node_old)
 		vlan_old = container_of(node_old, struct bridge_vlan, node);
 	if (node_new)
 		vlan_new = container_of(node_new, struct bridge_vlan, node);
+
+	if (!bst->has_vlans || !bst->active)
+		goto out;
 
 	if (node_new && node_old && bridge_vlan_equal(vlan_old, vlan_new)) {
 		list_splice_init(&vlan_old->hotplug_ports, &vlan_new->hotplug_ports);
