@@ -203,6 +203,14 @@ abort:
 	return;
 }
 
+static void
+nl_udebug_cb(void *priv, struct nl_msg *msg)
+{
+	struct nlmsghdr *nlh = nlmsg_hdr(msg);
+
+	udebug_netlink_msg(priv, nlmsg_get_proto(msg), nlh, nlh->nlmsg_len);
+}
+
 static struct nl_sock *
 create_socket(int protocol, int groups)
 {
@@ -219,6 +227,9 @@ create_socket(int protocol, int groups)
 		nl_socket_free(sock);
 		return NULL;
 	}
+
+	nl_socket_set_tx_debug_cb(sock, nl_udebug_cb, &udb_nl);
+	nl_socket_set_rx_debug_cb(sock, nl_udebug_cb, &udb_nl);
 
 	return sock;
 }

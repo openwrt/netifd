@@ -16,7 +16,6 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
-#include <udebug.h>
 
 #include "netifd.h"
 #include "interface.h"
@@ -1367,16 +1366,9 @@ netifd_extdev_invoke(uint32_t id, const char *method, struct blob_attr *msg,
 	return ubus_invoke(ubus_ctx, id, method, msg, data_cb, data, 3000);
 }
 
-static void
-netifd_udebug_cb(struct udebug_ubus *ctx, struct blob_attr *data, bool enabled)
-{
-	netifd_udebug_set_enabled(enabled);
-}
-
 int
 netifd_ubus_init(const char *path)
 {
-	uloop_init();
 	ubus_path = path;
 
 	ubus_ctx = ubus_connect(path);
@@ -1392,7 +1384,7 @@ netifd_ubus_init(const char *path)
 	netifd_add_object(&wireless_object);
 	netifd_add_iface_object();
 
-	udebug_ubus_init(&udebug, ubus_ctx, "netifd", netifd_udebug_cb);
+	udebug_ubus_init(&udebug, ubus_ctx, "netifd", netifd_udebug_config);
 
 	return 0;
 }

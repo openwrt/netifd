@@ -25,6 +25,7 @@
 #include <libubox/utils.h>
 
 #include <libubus.h>
+#include <udebug.h>
 
 #ifdef linux
 #include <netinet/ether.h>
@@ -51,6 +52,7 @@
 extern const char *resolv_conf;
 extern char *hotplug_cmd_path;
 extern unsigned int debug_mask;
+extern struct udebug_buf udb_nl;
 
 enum {
 	L_CRIT,
@@ -97,7 +99,8 @@ struct netifd_process {
 };
 
 void netifd_udebug_printf(const char *format, ...);
-void netifd_udebug_set_enabled(bool val);
+void netifd_udebug_config(struct udebug_ubus *ctx, struct blob_attr *data,
+			  bool enabled);
 void netifd_log_message(int priority, const char *format, ...);
 
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);
