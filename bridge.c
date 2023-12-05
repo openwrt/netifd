@@ -1391,9 +1391,8 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	if (node_new)
 		vlan_new->pending = true;
 
-	bst->dev.config_pending = true;
-
 out:
+	bst->dev.config_pending = true;
 	bridge_vlan_free(vlan_old);
 }
 
