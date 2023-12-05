@@ -172,6 +172,11 @@ static int set_device_state(struct device *dev, bool state)
 	} else {
 		system_if_down(dev);
 		system_if_apply_settings(dev, &dev->orig_settings, dev->orig_settings.flags);
+
+		/* Restore any settings present in UCI which may have
+		 * failed to apply so that they will be re-attempted
+		 * the next time the device is brought up */
+		dev->settings.flags |= dev->settings.valid_flags;
 	}
 
 	return 0;
@@ -570,6 +575,9 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->eee = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_EEE;
 	}
+
+	/* Remember the settings present in UCI */
+	s->valid_flags = s->flags;
 
 	cur = tb[DEV_ATTR_AUTH_VLAN];
 	free(dev->config_auth_vlans);
