@@ -146,7 +146,7 @@ config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype
 	config_fixup_bridge_vlan_filtering(s, name);
 	uci_to_blob(&b, s, devtype->config_params);
 	if (!device_create(name, devtype, b.head)) {
-		D(INTERFACE, "Failed to create '%s' device for interface '%s'\n",
+		D(INTERFACE, "Failed to create '%s' device for interface '%s'",
 			devtype->name, s->e.name);
 	}
 
@@ -645,7 +645,7 @@ config_init_wireless(void)
 	const char *dev_name;
 
 	if (!uci_wireless) {
-		D(WIRELESS, "No wireless configuration found\n");
+		D(WIRELESS, "No wireless configuration found");
 		return;
 	}
 
@@ -678,7 +678,7 @@ config_init_wireless(void)
 
 		wdev = vlist_find(&wireless_devices, dev_name, wdev, node);
 		if (!wdev) {
-			D(WIRELESS, "device %s not found!\n", dev_name);
+			D(WIRELESS, "device %s not found!", dev_name);
 			continue;
 		}
 

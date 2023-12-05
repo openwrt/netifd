@@ -617,7 +617,7 @@ bridge_enable_member(struct bridge_member *bm)
 	if (!bm->active) {
 		ret = system_bridge_addif(&bst->dev, bm->dev.dev);
 		if (ret < 0) {
-			D(DEVICE, "Bridge device %s could not be added\n", bm->dev.dev->ifname);
+			D(DEVICE, "Bridge device %s could not be added", bm->dev.dev->ifname);
 			goto error;
 		}
 
@@ -1282,7 +1282,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
 		if (diff[0] | diff[1]) {
 			ret = DEV_CONFIG_RESTART;
-			D(DEVICE, "Bridge %s device attributes have changed, diff=[%lx %lx]\n",
+			D(DEVICE, "Bridge %s device attributes have changed, diff=[%lx %lx]",
 			  dev->ifname, diff[1], diff[0]);
 		}
 
@@ -1293,7 +1293,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, diff);
 		if (diff[0] & ~(1 << BRIDGE_ATTR_PORTS)) {
 			ret = DEV_CONFIG_RESTART;
-			D(DEVICE, "Bridge %s attributes have changed, diff=[%lx %lx]\n",
+			D(DEVICE, "Bridge %s attributes have changed, diff=[%lx %lx]",
 			  dev->ifname, diff[1], diff[0]);
 		}
 

@@ -88,7 +88,7 @@ veth_set_state(struct device *dev, bool up)
 {
 	struct veth *veth;
 
-	D(SYSTEM, "veth_set_state(%s, %u)\n", dev->ifname, up);
+	D(SYSTEM, "veth_set_state(%s, %u)", dev->ifname, up);
 
 	veth = container_of(dev, struct veth, dev);
 	if (up)

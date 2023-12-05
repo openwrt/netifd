@@ -970,7 +970,7 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 		if (!ret)
 			break;
 
-		D(SYSTEM, "Failed to add device '%s' to bridge '%s' (tries=%d): %s\n",
+		D(SYSTEM, "Failed to add device '%s' to bridge '%s' (tries=%d): %s",
 		  dev->ifname, bridge->ifname, tries, strerror(errno));
 	}
 
@@ -1250,9 +1250,9 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 		return NL_SKIP;
 
 	if (type == RTM_DELRULE)
-		D(SYSTEM, "Remove a rule\n");
+		D(SYSTEM, "Remove a rule");
 	else
-		D(SYSTEM, "Remove %s from device %s\n",
+		D(SYSTEM, "Remove %s from device %s",
 		  type == RTM_DELADDR ? "an address" : "a route",
 		  clr->dev->ifname);
 
@@ -1265,9 +1265,9 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 	ret = nl_send_auto_complete(sock_rtnl, clr->msg);
 	if (ret < 0) {
 		if (type == RTM_DELRULE)
-			D(SYSTEM, "Error deleting a rule: %d\n", ret);
+			D(SYSTEM, "Error deleting a rule: %d", ret);
 		else
-			D(SYSTEM, "Error deleting %s from device '%s': %d\n",
+			D(SYSTEM, "Error deleting %s from device '%s': %d",
 				type == RTM_DELADDR ? "an address" : "a route",
 				clr->dev->ifname, ret);
 	}
@@ -1360,14 +1360,14 @@ void system_if_clear_state(struct device *dev)
 	system_if_flags(dev->ifname, 0, IFF_UP);
 
 	if (system_is_bridge(dev->ifname)) {
-		D(SYSTEM, "Delete existing bridge named '%s'\n", dev->ifname);
+		D(SYSTEM, "Delete existing bridge named '%s'", dev->ifname);
 		system_bridge_delbr(dev);
 		return;
 	}
 
 	bridge = system_get_bridge(dev->ifname, buf, sizeof(buf));
 	if (bridge) {
-		D(SYSTEM, "Remove device '%s' from bridge '%s'\n", dev->ifname, bridge);
+		D(SYSTEM, "Remove device '%s' from bridge '%s'", dev->ifname, bridge);
 		system_bridge_if(bridge, dev, SIOCBRDELIF, NULL);
 	}
 
@@ -1460,7 +1460,7 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 
 	rv = system_rtnl_call(msg);
 	if (rv)
-		D(SYSTEM, "Error adding bridge '%s': %d\n", bridge->ifname, rv);
+		D(SYSTEM, "Error adding bridge '%s': %d", bridge->ifname, rv);
 
 	return rv;
 
@@ -1516,7 +1516,7 @@ int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvla
 
 	rv = system_rtnl_call(msg);
 	if (rv)
-		D(SYSTEM, "Error adding macvlan '%s' over '%s': %d\n", macvlan->ifname, dev->ifname, rv);
+		D(SYSTEM, "Error adding macvlan '%s' over '%s': %d", macvlan->ifname, dev->ifname, rv);
 
 	return rv;
 
@@ -1604,9 +1604,9 @@ int system_veth_add(struct device *veth, struct veth_config *cfg)
 	rv = system_rtnl_call(msg);
 	if (rv) {
 		if (cfg->flags & VETH_OPT_PEER_NAME)
-			D(SYSTEM, "Error adding veth '%s' with peer '%s': %d\n", veth->ifname, cfg->peer_name, rv);
+			D(SYSTEM, "Error adding veth '%s' with peer '%s': %d", veth->ifname, cfg->peer_name, rv);
 		else
-			D(SYSTEM, "Error adding veth '%s': %d\n", veth->ifname, rv);
+			D(SYSTEM, "Error adding veth '%s': %d", veth->ifname, rv);
 	}
 
 	return rv;
@@ -1712,7 +1712,7 @@ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlande
 
 	rv = system_rtnl_call(msg);
 	if (rv)
-		D(SYSTEM, "Error adding vlandev '%s' over '%s': %d\n", vlandev->ifname, dev->ifname, rv);
+		D(SYSTEM, "Error adding vlandev '%s' over '%s': %d", vlandev->ifname, dev->ifname, rv);
 
 	return rv;
 
@@ -4409,7 +4409,7 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 
 	ret = system_rtnl_call(msg);
 	if (ret)
-		D(SYSTEM, "Error adding vxlan '%s': %d\n", name, ret);
+		D(SYSTEM, "Error adding vxlan '%s': %d", name, ret);
 
 	return ret;
 

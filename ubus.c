@@ -435,12 +435,12 @@ netifd_ubus_reconnect_timer(struct uloop_timeout *timeout)
 	int t = 2;
 
 	if (ubus_reconnect(ubus_ctx, ubus_path) != 0) {
-		D(SYSTEM, "failed to reconnect, trying again in %d seconds\n", t);
+		D(SYSTEM, "failed to reconnect, trying again in %d seconds", t);
 		uloop_timeout_set(&retry, t * 1000);
 		return;
 	}
 
-	D(SYSTEM, "reconnected to ubus, new id: %08x\n", ubus_ctx->local_id);
+	D(SYSTEM, "reconnected to ubus, new id: %08x", ubus_ctx->local_id);
 	netifd_ubus_add_fd();
 }
 
@@ -1375,7 +1375,7 @@ netifd_ubus_init(const char *path)
 	if (!ubus_ctx)
 		return -EIO;
 
-	D(SYSTEM, "connected as %08x\n", ubus_ctx->local_id);
+	D(SYSTEM, "connected as %08x", ubus_ctx->local_id);
 	ubus_ctx->connection_lost = netifd_ubus_connection_lost;
 	netifd_ubus_add_fd();
 
@@ -1430,7 +1430,7 @@ netifd_ubus_add_interface(struct interface *iface)
 	obj->methods = iface_object_methods;
 	obj->n_methods = ARRAY_SIZE(iface_object_methods);
 	if (ubus_add_object(ubus_ctx, &iface->ubus)) {
-		D(SYSTEM, "failed to publish ubus object for interface '%s'\n", iface->name);
+		D(SYSTEM, "failed to publish ubus object for interface '%s'", iface->name);
 		free(name);
 		obj->name = NULL;
 	}

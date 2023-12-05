@@ -73,8 +73,10 @@ enum {
 #define DPRINTF(format, ...) fprintf(stderr, "%s(%d): " format, __func__, __LINE__, ## __VA_ARGS__)
 #define D(level, format, ...) do { \
 		netifd_udebug_printf("[" #level "] %s(%d): " format,  __func__, __LINE__, ## __VA_ARGS__); \
-		if (debug_mask & (1 << (DEBUG_ ## level))) \
-				DPRINTF(format, ##__VA_ARGS__); \
+		if (debug_mask & (1 << (DEBUG_ ## level))) { \
+			DPRINTF(format, ##__VA_ARGS__); \
+			fprintf(stderr, "\n"); \
+		} \
 	} while (0)
 #else
 #define DPRINTF(format, ...) no_debug(0, format, ## __VA_ARGS__)

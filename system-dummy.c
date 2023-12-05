@@ -32,32 +32,32 @@ int system_init(void)
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
-	D(SYSTEM, "brctl addbr %s vlan_filtering=%d\n",
+	D(SYSTEM, "brctl addbr %s vlan_filtering=%d",
 	  bridge->ifname, cfg->vlan_filtering);
 	return 0;
 }
 
 int system_bridge_delbr(struct device *bridge)
 {
-	D(SYSTEM, "brctl delbr %s\n", bridge->ifname);
+	D(SYSTEM, "brctl delbr %s", bridge->ifname);
 	return 0;
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
-	D(SYSTEM, "brctl addif %s %s\n", bridge->ifname, dev->ifname);
+	D(SYSTEM, "brctl addif %s %s", bridge->ifname, dev->ifname);
 	return 0;
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
-	D(SYSTEM, "brctl delif %s %s\n", bridge->ifname, dev->ifname);
+	D(SYSTEM, "brctl delif %s %s", bridge->ifname, dev->ifname);
 	return 0;
 }
 
 int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags)
 {
-	D(SYSTEM, "brctl vlan %s %s %s vid=%d vid_end=%d pvid=%d untag=%d\n",
+	D(SYSTEM, "brctl vlan %s %s %s vid=%d vid_end=%d pvid=%d untag=%d",
 	  add ? "add" : "remove",
 	  (vflags & BRVLAN_F_SELF) ? "self" : "master",
 	  iface, vid, vid_end,
@@ -87,31 +87,31 @@ int system_bonding_set_port(struct device *dev, struct device *port, bool add, b
 
 int system_link_netns_move(struct device *dev, int netns_fd, const char *target_ifname)
 {
-	D(SYSTEM, "ip link set %s name %s netns %d\n", dev->ifname, target_ifname, netns_fd);
+	D(SYSTEM, "ip link set %s name %s netns %d", dev->ifname, target_ifname, netns_fd);
 	return 0;
 }
 
 int system_netns_open(const pid_t target_ns)
 {
-	D(SYSTEM, "open netns of pid %d\n", target_ns);
+	D(SYSTEM, "open netns of pid %d", target_ns);
 	return 1;
 }
 
 int system_netns_set(int netns_fd)
 {
-	D(SYSTEM, "set netns %d\n", netns_fd);
+	D(SYSTEM, "set netns %d", netns_fd);
 	return 0;
 }
 
 int system_vlan_add(struct device *dev, int id)
 {
-	D(SYSTEM, "vconfig add %s %d\n", dev->ifname, id);
+	D(SYSTEM, "vconfig add %s %d", dev->ifname, id);
 	return 0;
 }
 
 int system_vlan_del(struct device *dev)
 {
-	D(SYSTEM, "vconfig rem %s\n", dev->ifname);
+	D(SYSTEM, "vconfig rem %s", dev->ifname);
 	return 0;
 }
 
@@ -122,13 +122,13 @@ bool system_if_force_external(const char *ifname)
 
 int system_if_up(struct device *dev)
 {
-	D(SYSTEM, "ifconfig %s up\n", dev->ifname);
+	D(SYSTEM, "ifconfig %s up", dev->ifname);
 	return 0;
 }
 
 int system_if_down(struct device *dev)
 {
-	D(SYSTEM, "ifconfig %s down\n", dev->ifname);
+	D(SYSTEM, "ifconfig %s down", dev->ifname);
 	return 0;
 }
 
@@ -181,7 +181,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	apply_mask &= s->flags;
 
 	if ((apply_mask & (DEV_OPT_MACADDR | DEV_OPT_DEFAULT_MACADDR)) && !dev->external) {
-		D(SYSTEM, "ifconfig %s hw ether %s\n",
+		D(SYSTEM, "ifconfig %s hw ether %s",
 		  dev->ifname, format_macaddr(s->macaddr));
 	}
 }
@@ -191,7 +191,7 @@ static int system_address_msg(struct device *dev, struct device_addr *addr, cons
 	char ipaddr[64];
 	int af = system_get_addr_family(addr->flags);
 
-	D(SYSTEM, "ifconfig %s %s %s/%u\n",
+	D(SYSTEM, "ifconfig %s %s %s/%u",
 		dev->ifname, type, inet_ntop(af, &addr->addr.in, ipaddr, sizeof(ipaddr)),
 		addr->mask);
 
@@ -234,7 +234,7 @@ static int system_route_msg(struct device *dev, struct device_route *route, cons
 	if (route->metric > 0)
 		sprintf(devstr, " metric %d", route->metric);
 
-	D(SYSTEM, "route %s %s%s%s\n", type, addr, gw, devstr);
+	D(SYSTEM, "route %s %s%s%s", type, addr, gw, devstr);
 	return 0;
 }
 
@@ -244,7 +244,7 @@ static int system_neighbor_msg(struct device *dev, struct device_neighbor *neigh
 	int af = system_get_addr_family(neighbor->flags);
 	inet_ntop(af, &neighbor->addr.in , addr, sizeof(addr));
 
-	D(SYSTEM, "neigh %s %s%s%s %s\n", type, addr, neighbor->proxy ? "proxy " : "",
+	D(SYSTEM, "neigh %s %s%s%s %s", type, addr, neighbor->proxy ? "proxy " : "",
 		(neighbor->flags & DEVNEIGH_MAC) ? format_macaddr(neighbor->macaddr) : "",
 		neighbor->router ? "router": "");
 	return 0;

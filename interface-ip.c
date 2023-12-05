@@ -442,7 +442,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_TARGET]) != NULL) {
 		if (!parse_ip_and_netmask(af, blobmsg_data(cur), &route->addr, &route->mask)) {
-			D(INTERFACE, "Failed to parse route target: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse route target: %s", (char *) blobmsg_data(cur));
 			goto error;
 		}
 
@@ -453,7 +453,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_GATEWAY]) != NULL) {
 		if (!inet_pton(af, blobmsg_data(cur), &route->nexthop)) {
-			D(INTERFACE, "Failed to parse route gateway: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to parse route gateway: %s", (char *) blobmsg_data(cur));
 			goto error;
 		}
 	}
@@ -477,7 +477,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 		const char *mask = strtok_r(NULL, "/", &saveptr);
 
 		if (!addr || inet_pton(af, addr, &route->source) < 1) {
-			D(INTERFACE, "Failed to parse route source: %s\n", addr ? addr : "NULL");
+			D(INTERFACE, "Failed to parse route source: %s", addr ? addr : "NULL");
 			goto error;
 		}
 
@@ -489,7 +489,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_TABLE]) != NULL) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &route->table)) {
-			D(INTERFACE, "Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing table: %s", (char *) blobmsg_data(cur));
 			goto error;
 		}
 
@@ -510,7 +510,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_TYPE]) != NULL) {
 		if (!system_resolve_rt_type(blobmsg_data(cur), &route->type)) {
-			D(INTERFACE, "Failed to resolve routing type: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing type: %s", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		route->flags |= DEVROUTE_TYPE;
@@ -518,7 +518,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 
 	if ((cur = tb[ROUTE_PROTO]) != NULL) {
 		if (!system_resolve_rt_proto(blobmsg_data(cur), &route->proto)) {
-			D(INTERFACE, "Failed to resolve proto type: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve proto type: %s", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		route->flags |= DEVROUTE_PROTO;
@@ -1432,7 +1432,7 @@ interface_add_dns_server(struct interface_ip_settings *ip, const char *str)
 	return;
 
 add:
-	D(INTERFACE, "Add IPv%c DNS server: %s\n",
+	D(INTERFACE, "Add IPv%c DNS server: %s",
 	  s->af == AF_INET6 ? '6' : '4', str);
 	vlist_simple_add(&ip->dns_servers, &s->node);
 }
@@ -1464,7 +1464,7 @@ interface_add_dns_search_domain(struct interface_ip_settings *ip, const char *st
 	if (!s)
 		return;
 
-	D(INTERFACE, "Add DNS search domain: %s\n", str);
+	D(INTERFACE, "Add DNS search domain: %s", str);
 	memcpy(s->name, str, len);
 	vlist_simple_add(&ip->dns_search, &s->node);
 }
@@ -1600,7 +1600,7 @@ interface_write_resolv_conf(const char *jail)
 	unlink(tmppath);
 	f = fopen(tmppath, "w+");
 	if (!f) {
-		D(INTERFACE, "Failed to open %s for writing\n", path);
+		D(INTERFACE, "Failed to open %s for writing", path);
 		return;
 	}
 
@@ -1621,7 +1621,7 @@ interface_write_resolv_conf(const char *jail)
 	if (crcold == crcnew) {
 		unlink(tmppath);
 	} else if (rename(tmppath, path) < 0) {
-		D(INTERFACE, "Failed to replace %s\n", path);
+		D(INTERFACE, "Failed to replace %s", path);
 		unlink(tmppath);
 	}
 }

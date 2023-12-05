@@ -97,7 +97,7 @@ call_hotplug(void)
 	if ((current_ev == IFEV_UP || current_ev == IFEV_UPDATE) && current->l3_dev.dev)
 		device = current->l3_dev.dev->ifname;
 
-	D(SYSTEM, "Call hotplug handler for interface '%s', event '%s' (%s)\n",
+	D(SYSTEM, "Call hotplug handler for interface '%s', event '%s' (%s)",
 	current->name, eventnames[current_ev], device ? device : "none");
 	run_cmd(current->name, device, current_ev, current->updated);
 }
@@ -106,7 +106,7 @@ static void
 task_complete(struct uloop_process *proc, int ret)
 {
 	if (current)
-		D(SYSTEM, "Complete hotplug handler for interface '%s'\n", current->name);
+		D(SYSTEM, "Complete hotplug handler for interface '%s'", current->name);
 	current = NULL;
 	call_hotplug();
 }
@@ -121,7 +121,7 @@ task_complete(struct uloop_process *proc, int ret)
 static void
 interface_queue_event(struct interface *iface, enum interface_event ev)
 {
-	D(SYSTEM, "Queue hotplug handler for interface '%s', event '%s'\n",
+	D(SYSTEM, "Queue hotplug handler for interface '%s', event '%s'",
 			iface->name, eventnames[ev]);
 	if (ev == IFEV_UP || ev == IFEV_DOWN)
 		netifd_ubus_interface_event(iface, ev == IFEV_UP);

@@ -244,7 +244,7 @@ bonding_enable_port(struct bonding_port *bp)
 
 	ret = system_bonding_set_port(&bdev->dev, bp->dev.dev, true, bp->set_primary);
 	if (ret < 0) {
-		D(DEVICE, "Bonding port %s could not be added\n", bp->dev.dev->ifname);
+		D(DEVICE, "Bonding port %s could not be added", bp->dev.dev->ifname);
 		goto error;
 	}
 

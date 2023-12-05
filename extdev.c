@@ -128,7 +128,7 @@ static const char *__extdev_methods[__METHODS_MAX] = {
 static inline int
 netifd_extdev_create(struct extdev_device *edev, struct blob_attr *msg)
 {
-	D(DEVICE, "create %s '%s' at external device handler\n", edev->dev.type->name,
+	D(DEVICE, "create %s '%s' at external device handler", edev->dev.type->name,
 		edev->dev.ifname);
 	return netifd_extdev_invoke(edev->etype->peer_id, __extdev_methods[METHOD_CREATE], msg,
 				     NULL, NULL);
@@ -137,7 +137,7 @@ netifd_extdev_create(struct extdev_device *edev, struct blob_attr *msg)
 static inline int
 netifd_extdev_reload(struct extdev_device *edev, struct blob_attr *msg)
 {
-	D(DEVICE, "reload %s '%s' at external device handler\n", edev->dev.type->name,
+	D(DEVICE, "reload %s '%s' at external device handler", edev->dev.type->name,
 		edev->dev.ifname);
 	return netifd_extdev_invoke(edev->etype->peer_id, __extdev_methods[METHOD_RELOAD], msg,
 				     NULL, NULL);
@@ -146,7 +146,7 @@ netifd_extdev_reload(struct extdev_device *edev, struct blob_attr *msg)
 static inline int
 netifd_extdev_free(struct extdev_device *edev, struct blob_attr *msg)
 {
-	D(DEVICE, "delete %s '%s' with external device handler\n", edev->dev.type->name,
+	D(DEVICE, "delete %s '%s' with external device handler", edev->dev.type->name,
 		edev->dev.ifname);
 	return netifd_extdev_invoke(edev->etype->peer_id, __extdev_methods[METHOD_FREE], msg,
 				     NULL, NULL);
@@ -155,7 +155,7 @@ netifd_extdev_free(struct extdev_device *edev, struct blob_attr *msg)
 static inline int
 netifd_extdev_prepare(struct extdev_bridge *ebr, struct blob_attr *msg)
 {
-	D(DEVICE, "prepare %s bridge '%s' at external device handler\n", ebr->edev.dev.type->name,
+	D(DEVICE, "prepare %s bridge '%s' at external device handler", ebr->edev.dev.type->name,
 		ebr->edev.dev.ifname);
 	return netifd_extdev_invoke(ebr->edev.etype->peer_id,
 		__extdev_methods[METHOD_HOTPLUG_PREPARE], msg, NULL, NULL);
@@ -164,7 +164,7 @@ netifd_extdev_prepare(struct extdev_bridge *ebr, struct blob_attr *msg)
 static inline int
 netifd_extdev_add(struct extdev_bridge *ebr, struct blob_attr *msg)
 {
-	D(DEVICE, "add a member to %s bridge '%s' at external device handler\n",
+	D(DEVICE, "add a member to %s bridge '%s' at external device handler",
 	  ebr->edev.dev.type->name, ebr->edev.dev.ifname);
 	return netifd_extdev_invoke(ebr->edev.etype->peer_id,
 		__extdev_methods[METHOD_HOTPLUG_ADD], msg,NULL, NULL);
@@ -173,7 +173,7 @@ netifd_extdev_add(struct extdev_bridge *ebr, struct blob_attr *msg)
 static inline int
 netifd_extdev_remove(struct extdev_bridge *ebr, struct blob_attr *msg)
 {
-	D(DEVICE, "remove a member from %s bridge '%s' at external device handler\n",
+	D(DEVICE, "remove a member from %s bridge '%s' at external device handler",
 	  ebr->edev.dev.type->name, ebr->edev.dev.ifname);
 	return netifd_extdev_invoke(ebr->edev.etype->peer_id,
 		__extdev_methods[METHOD_HOTPLUG_REMOVE], msg, NULL, NULL);
@@ -319,7 +319,7 @@ extdev_bridge_enable_member(struct extdev_bridge_member *ubm)
 	int ret;
 	struct extdev_bridge *ebr = ubm->parent_br;
 
-	D(DEVICE, "%s enable member %s\n", ebr->edev.dev.ifname, ubm->name);
+	D(DEVICE, "%s enable member %s", ebr->edev.dev.ifname, ubm->name);
 
 	if (!ubm->present)
 		return 0;
@@ -351,7 +351,7 @@ extdev_bridge_enable_member(struct extdev_bridge_member *ubm)
 	return 0;
 
 error:
-	D(DEVICE, "%s: failed to enable member '%s'\n", ebr->edev.dev.ifname, ubm->name);
+	D(DEVICE, "%s: failed to enable member '%s'", ebr->edev.dev.ifname, ubm->name);
 
 	ebr->n_failed++;
 	ubm->present = false;
@@ -369,7 +369,7 @@ extdev_bridge_disable_member(struct extdev_bridge_member *ubm)
 	if (!ubm->present)
 		return 0;
 
-	D(DEVICE, "%s disable member %s\n", ubm->parent_br->edev.dev.ifname, ubm->name);
+	D(DEVICE, "%s disable member %s", ubm->parent_br->edev.dev.ifname, ubm->name);
 
 	blob_buf_init(&b, 0);
 	blobmsg_add_string(&b, "bridge", ebr->edev.dev.ifname);
@@ -398,7 +398,7 @@ error:
 static int
 extdev_bridge_set_down(struct extdev_bridge *ebr)
 {
-	D(DEVICE, "set %s bridge %s down\n", ebr->edev.dev.type->name, ebr->edev.dev.ifname);
+	D(DEVICE, "set %s bridge %s down", ebr->edev.dev.type->name, ebr->edev.dev.ifname);
 
 	struct extdev_bridge_member *ubm;
 
@@ -424,7 +424,7 @@ extdev_bridge_check_retry(struct extdev_bridge *ebr)
 static int
 extdev_bridge_set_up(struct extdev_bridge *ebr)
 {
-	D(DEVICE, "set %s bridge %s up\n", ebr->edev.dev.type->name, ebr->edev.dev.ifname);
+	D(DEVICE, "set %s bridge %s up", ebr->edev.dev.type->name, ebr->edev.dev.ifname);
 
 	struct extdev_bridge_member *ubm;
 	int ret;
@@ -571,7 +571,7 @@ extdev_bridge_retry_enable_members(struct uloop_timeout *timeout)
 {
 	struct extdev_bridge *ebr = container_of(timeout, struct extdev_bridge, retry);
 
-	D(DEVICE, "%s retry enable members\n", ebr->edev.dev.ifname);
+	D(DEVICE, "%s retry enable members", ebr->edev.dev.ifname);
 
 	__bridge_enable_members(ebr);
 }
@@ -605,7 +605,7 @@ extdev_bridge_create_member(struct extdev_bridge *ebr, struct device *dev)
 static void
 extdev_bridge_add_member(struct extdev_bridge *ebr, const char *name)
 {
-	D(DEVICE, "%s add member %s\n", ebr->edev.dev.ifname, name);
+	D(DEVICE, "%s add member %s", ebr->edev.dev.ifname, name);
 
 	struct device *dev;
 
@@ -620,7 +620,7 @@ extdev_bridge_add_member(struct extdev_bridge *ebr, const char *name)
 static int
 extdev_hotplug_add(struct device *ebr_dev, struct device *ebm_dev, struct blob_attr *vlan)
 {
-	D(DEVICE, "%s hotplug add member %s\n", ebr_dev->ifname, ebm_dev->ifname);
+	D(DEVICE, "%s hotplug add member %s", ebr_dev->ifname, ebm_dev->ifname);
 
 	struct extdev_bridge *ebr;
 	struct extdev_bridge_member *ubm;
@@ -848,7 +848,7 @@ __bridge_reload(struct extdev_bridge *ebr, struct blob_attr *config)
 	if (ebr->edev.dep_name) {
 		dev = device_get(ebr->edev.dep_name, 0);
 		if (!(dev && dev->current_config)) {
-			D(DEVICE, "%s: cannot yet init config since dependency '%s' is not ready\n",
+			D(DEVICE, "%s: cannot yet init config since dependency '%s' is not ready",
 			  ebr->edev.dev.ifname, ebr->edev.dep_name);
 			ebr->edev.retry.cb = bridge_dependency_retry;
 			uloop_timeout_set(&ebr->edev.retry, 200);

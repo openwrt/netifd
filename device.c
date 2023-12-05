@@ -403,7 +403,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (system_resolve_rpfilter(blobmsg_data(cur), &s->rpfilter))
 			s->flags |= DEV_OPT_RPFILTER;
 		else
-			D(DEVICE, "Failed to resolve rpfilter: %s\n", (char *) blobmsg_data(cur));
+			D(DEVICE, "Failed to resolve rpfilter: %s", (char *) blobmsg_data(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_ACCEPTLOCAL])) {
@@ -416,7 +416,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (s->igmpversion >= 1 && s->igmpversion <= 3)
 			s->flags |= DEV_OPT_IGMPVERSION;
 		else
-			D(DEVICE, "Failed to resolve igmpversion: %d\n", blobmsg_get_u32(cur));
+			D(DEVICE, "Failed to resolve igmpversion: %d", blobmsg_get_u32(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_MLDVERSION])) {
@@ -424,7 +424,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (s->mldversion >= 1 && s->mldversion <= 2)
 			s->flags |= DEV_OPT_MLDVERSION;
 		else
-			D(DEVICE, "Failed to resolve mldversion: %d\n", blobmsg_get_u32(cur));
+			D(DEVICE, "Failed to resolve mldversion: %d", blobmsg_get_u32(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_NEIGHREACHABLETIME])) {
@@ -457,7 +457,7 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		if (s->multicast_router <= 2)
 			s->flags |= DEV_OPT_MULTICAST_ROUTER;
 		else
-			D(DEVICE, "Invalid value: %d - (Use 0: never, 1: learn, 2: always)\n", blobmsg_get_u32(cur));
+			D(DEVICE, "Invalid value: %d - (Use 0: never, 1: learn, 2: always)", blobmsg_get_u32(cur));
 	}
 
 	if ((cur = tb[DEV_ATTR_MULTICAST_FAST_LEAVE])) {
@@ -683,7 +683,7 @@ int device_claim(struct device_user *dep)
 		return -1;
 
 	dep->claimed = true;
-	D(DEVICE, "Claim %s %s, new active count: %d\n", dev->type->name, dev->ifname, dev->active + 1);
+	D(DEVICE, "Claim %s %s, new active count: %d", dev->type->name, dev->ifname, dev->active + 1);
 	if (++dev->active != 1)
 		return 0;
 
@@ -703,7 +703,7 @@ int device_claim(struct device_user *dep)
 	if (ret == 0)
 		device_broadcast_event(dev, DEV_EVENT_UP);
 	else {
-		D(DEVICE, "claim %s %s failed: %d\n", dev->type->name, dev->ifname, ret);
+		D(DEVICE, "claim %s %s failed: %d", dev->type->name, dev->ifname, ret);
 		dev->active = 0;
 		dep->claimed = false;
 	}
@@ -720,7 +720,7 @@ void device_release(struct device_user *dep)
 
 	dep->claimed = false;
 	dev->active--;
-	D(DEVICE, "Release %s %s, new active count: %d\n", dev->type->name, dev->ifname, dev->active);
+	D(DEVICE, "Release %s %s, new active count: %d", dev->type->name, dev->ifname, dev->active);
 	assert(dev->active >= 0);
 
 	if (dev->active)
@@ -749,7 +749,7 @@ int device_init_virtual(struct device *dev, struct device_type *type, const char
 	assert(dev);
 	assert(type);
 
-	D(DEVICE, "Initialize device '%s'\n", name ? name : "");
+	D(DEVICE, "Initialize device '%s'", name ? name : "");
 	INIT_SAFE_LIST(&dev->users);
 	INIT_SAFE_LIST(&dev->aliases);
 	dev->type = type;
@@ -795,7 +795,7 @@ device_create_default(const char *name, bool external)
 	if (!external && system_if_force_external(name))
 		return NULL;
 
-	D(DEVICE, "Create simple device '%s'\n", name);
+	D(DEVICE, "Create simple device '%s'", name);
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;
@@ -860,7 +860,7 @@ device_delete(struct device *dev)
 	if (!dev->avl.key)
 		return;
 
-	D(DEVICE, "Delete device '%s' from list\n", dev->ifname);
+	D(DEVICE, "Delete device '%s' from list", dev->ifname);
 	avl_delete(&devices, &dev->avl);
 	dev->avl.key = NULL;
 }
@@ -877,7 +877,7 @@ static int device_cleanup_cb(void *ctx, struct safe_list *list)
 
 void device_cleanup(struct device *dev)
 {
-	D(DEVICE, "Clean up device '%s'\n", dev->ifname);
+	D(DEVICE, "Clean up device '%s'", dev->ifname);
 	safe_list_for_each(&dev->users, device_cleanup_cb, NULL);
 	safe_list_for_each(&dev->aliases, device_cleanup_cb, NULL);
 	device_delete(dev);
@@ -938,7 +938,7 @@ void device_set_present(struct device *dev, bool state)
 	if (dev->sys_present == state)
 		return;
 
-	D(DEVICE, "%s '%s' %s present\n", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
+	D(DEVICE, "%s '%s' %s present", dev->type->name, dev->ifname, state ? "is now" : "is no longer" );
 	dev->sys_present = state;
 	if (!state)
 		__device_set_present(dev, state, true);
@@ -1021,7 +1021,7 @@ __device_add_user(struct device_user *dep, struct device *dev)
 		head = &dev->users;
 
 	safe_list_add(&dep->list, head);
-	D(DEVICE, "Add user for device '%s', refcount=%d\n", dev->ifname, device_refcount(dev));
+	D(DEVICE, "Add user for device '%s', refcount=%d", dev->ifname, device_refcount(dev));
 
 	if (dep->cb && dev->present) {
 		dep->cb(dep, DEV_EVENT_ADD);
@@ -1097,7 +1097,7 @@ void device_remove_user(struct device_user *dep)
 
 	safe_list_del(&dep->list);
 	dep->dev = NULL;
-	D(DEVICE, "Remove user for device '%s', refcount=%d\n", dev->ifname, device_refcount(dev));
+	D(DEVICE, "Remove user for device '%s', refcount=%d", dev->ifname, device_refcount(dev));
 	device_free_unused();
 }
 
@@ -1172,7 +1172,7 @@ device_apply_config(struct device *dev, struct device_type *type,
 	switch (change) {
 		case DEV_CONFIG_RESTART:
 		case DEV_CONFIG_APPLIED:
-			D(DEVICE, "Device '%s': config applied\n", dev->ifname);
+			D(DEVICE, "Device '%s': config applied", dev->ifname);
 			config = blob_memdup(config);
 			free(dev->config);
 			dev->config = config;
@@ -1190,7 +1190,7 @@ device_apply_config(struct device *dev, struct device_type *type,
 			}
 			break;
 		case DEV_CONFIG_NO_CHANGE:
-			D(DEVICE, "Device '%s': no configuration change\n", dev->ifname);
+			D(DEVICE, "Device '%s': no configuration change", dev->ifname);
 			break;
 		case DEV_CONFIG_RECREATE:
 			break;
@@ -1264,14 +1264,14 @@ device_create(const char *name, struct device_type *type,
 		change = device_apply_config(odev, type, config);
 		switch (change) {
 		case DEV_CONFIG_RECREATE:
-			D(DEVICE, "Device '%s': recreate device\n", odev->ifname);
+			D(DEVICE, "Device '%s': recreate device", odev->ifname);
 			device_delete(odev);
 			break;
 		default:
 			return odev;
 		}
 	} else
-		D(DEVICE, "Create new device '%s' (%s)\n", name, type->name);
+		D(DEVICE, "Create new device '%s' (%s)", name, type->name);
 
 	config = blob_memdup(config);
 	if (!config)

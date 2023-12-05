@@ -484,7 +484,7 @@ interface_set_available(struct interface *iface, bool new_state)
 	if (iface->available == new_state)
 		return;
 
-	D(INTERFACE, "Interface '%s', available=%d\n", iface->name, new_state);
+	D(INTERFACE, "Interface '%s', available=%d", iface->name, new_state);
 	iface->available = new_state;
 
 	if (new_state) {
@@ -911,12 +911,12 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 
 	if ((cur = tb[IFACE_ATTR_IP4TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip4table))
-			D(INTERFACE, "Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing table: %s", (char *) blobmsg_data(cur));
 	}
 
 	if ((cur = tb[IFACE_ATTR_IP6TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip6table))
-			D(INTERFACE, "Failed to resolve routing table: %s\n", (char *) blobmsg_data(cur));
+			D(INTERFACE, "Failed to resolve routing table: %s", (char *) blobmsg_data(cur));
 	}
 
 	iface->proto_ip.no_delegation = !blobmsg_get_bool_default(tb[IFACE_ATTR_DELEGATE], true);
@@ -1297,7 +1297,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		reload = true;
 
 	if (!if_old->proto_handler->config_params)
-		D(INTERFACE, "No config parameters for interface '%s'\n",
+		D(INTERFACE, "No config parameters for interface '%s'",
 		  if_old->name);
 	else if (!uci_blob_check_equal(if_old->config, if_new->config,
 				       if_old->proto_handler->config_params))
@@ -1360,7 +1360,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 #undef UPDATE
 
 	if (reload) {
-		D(INTERFACE, "Reload interface '%s' because of config changes\n",
+		D(INTERFACE, "Reload interface '%s' because of config changes",
 		  if_old->name);
 		interface_clear_errors(if_old);
 		set_config_state(if_old, IFC_RELOAD);
@@ -1399,13 +1399,13 @@ interface_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	struct interface *if_new = container_of(node_new, struct interface, node);
 
 	if (node_old && node_new) {
-		D(INTERFACE, "Update interface '%s'\n", if_new->name);
+		D(INTERFACE, "Update interface '%s'", if_new->name);
 		interface_change_config(if_old, if_new);
 	} else if (node_old) {
-		D(INTERFACE, "Remove interface '%s'\n", if_old->name);
+		D(INTERFACE, "Remove interface '%s'", if_old->name);
 		set_config_state(if_old, IFC_REMOVE);
 	} else if (node_new) {
-		D(INTERFACE, "Create interface '%s'\n", if_new->name);
+		D(INTERFACE, "Create interface '%s'", if_new->name);
 		interface_event(if_new, IFEV_CREATE);
 		proto_init_interface(if_new, if_new->config);
 		interface_claim_device(if_new);

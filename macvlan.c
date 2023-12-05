@@ -113,7 +113,7 @@ macvlan_set_state(struct device *dev, bool up)
 {
 	struct macvlan_device *mvdev;
 
-	D(SYSTEM, "macvlan_set_state(%s, %u)\n", dev->ifname, up);
+	D(SYSTEM, "macvlan_set_state(%s, %u)", dev->ifname, up);
 
 	mvdev = container_of(dev, struct macvlan_device, dev);
 	if (up)

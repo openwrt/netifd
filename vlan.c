@@ -208,7 +208,7 @@ static struct device *get_vlan_device(struct device *dev, char *id_str, bool cre
 	if (snprintf(name, sizeof(name), "%s.%d", dev->ifname, id) >= (int)sizeof(name) - 1)
 		return NULL;
 
-	D(DEVICE, "Create vlan device '%s'\n", name);
+	D(DEVICE, "Create vlan device '%s'", name);
 
 	vldev = calloc(1, sizeof(*vldev));
 	if (!vldev)

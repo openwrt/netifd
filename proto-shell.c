@@ -228,7 +228,7 @@ proto_shell_handler(struct interface_proto_state *proto,
 		}
 	}
 
-	D(INTERFACE, "run %s for interface '%s'\n", action, proto->iface->name);
+	D(INTERFACE, "run %s for interface '%s'", action, proto->iface->name);
 	config = blobmsg_format_json(state->config, true);
 	if (!config)
 		return -1;
@@ -405,7 +405,7 @@ proto_shell_parse_route_list(struct interface *iface, struct blob_attr *attr,
 
 	blobmsg_for_each_attr(cur, attr, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
-			D(INTERFACE, "Ignore wrong route type: %d\n", blobmsg_type(cur));
+			D(INTERFACE, "Ignore wrong route type: %d", blobmsg_type(cur));
 			continue;
 		}
 
@@ -422,7 +422,7 @@ proto_shell_parse_neighbor_list(struct interface *iface, struct blob_attr *attr,
 
 	blobmsg_for_each_attr(cur, attr, rem) {
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
-			D(INTERFACE, "Ignore wrong neighbor type: %d\n", blobmsg_type(cur));
+			D(INTERFACE, "Ignore wrong neighbor type: %d", blobmsg_type(cur));
 			continue;
 		}
 
@@ -825,7 +825,7 @@ proto_shell_checkup_timeout_cb(struct uloop_timeout *timeout)
 	if (iface->state == IFS_UP)
 		return;
 
-	D(INTERFACE, "Interface '%s' is not up after %d sec\n",
+	D(INTERFACE, "Interface '%s' is not up after %d sec",
 			iface->name, state->checkup_interval);
 	proto_shell_handler(proto, PROTO_CMD_TEARDOWN, false);
 }
@@ -936,7 +936,7 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	if (config)
 		handler->config_buf = netifd_handler_parse_config(&handler->config, config);
 
-	D(INTERFACE, "Add handler for script %s: %s\n", script, proto->name);
+	D(INTERFACE, "Add handler for script %s: %s", script, proto->name);
 	add_proto_handler(proto);
 }
 

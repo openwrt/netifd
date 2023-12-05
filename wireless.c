@@ -257,7 +257,7 @@ wireless_complete_kill_request(struct wireless_device *wdev)
 static void
 wireless_process_free(struct wireless_device *wdev, struct wireless_process *proc)
 {
-	D(WIRELESS, "Wireless device '%s' free pid %d\n", wdev->name, proc->pid);
+	D(WIRELESS, "Wireless device '%s' free pid %d", wdev->name, proc->pid);
 	list_del(&proc->list);
 	free(proc);
 
@@ -285,7 +285,7 @@ wireless_process_kill_all(struct wireless_device *wdev, int signal, bool free)
 		bool check = wireless_process_check(proc);
 
 		if (check && !proc->keep) {
-			D(WIRELESS, "Wireless device '%s' kill pid %d\n", wdev->name, proc->pid);
+			D(WIRELESS, "Wireless device '%s' kill pid %d", wdev->name, proc->pid);
 			kill(proc->pid, signal);
 		}
 
@@ -424,7 +424,7 @@ wireless_device_setup_cancel(struct wireless_device *wdev)
 		return;
 
 	wireless_handler_stop(wdev);
-	D(WIRELESS, "Cancel wireless device '%s' setup\n", wdev->name);
+	D(WIRELESS, "Cancel wireless device '%s' setup", wdev->name);
 	wdev->cancel = true;
 	uloop_timeout_set(&wdev->timeout, 10 * 1000);
 }
@@ -449,7 +449,7 @@ wireless_device_run_handler(struct wireless_device *wdev, bool up)
 	if (wdev->serialize)
 		handler_pending = true;
 
-	D(WIRELESS, "Wireless device '%s' run %s handler\n", wdev->name, action);
+	D(WIRELESS, "Wireless device '%s' run %s handler", wdev->name, action);
 	if (!up && wdev->prev_config) {
 		config = blobmsg_format_json(wdev->prev_config, true);
 		free(wdev->prev_config);
@@ -728,7 +728,7 @@ wdev_change_config(struct wireless_device *wdev, struct wireless_device *wd_new)
 	if (blob_attr_equal(wdev->config, new_config) && wdev->disabled == disabled)
 		return;
 
-	D(WIRELESS, "Update configuration of wireless device '%s'\n", wdev->name);
+	D(WIRELESS, "Update configuration of wireless device '%s'", wdev->name);
 	free(wdev->config);
 	wdev->config = blob_memdup(new_config);
 	wdev->disabled = disabled;
@@ -751,13 +751,13 @@ wdev_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	struct wireless_device *wd_new = container_of(node_new, struct wireless_device, node);
 
 	if (wd_old && wd_new) {
-		D(WIRELESS, "Update wireless device '%s'\n", wd_old->name);
+		D(WIRELESS, "Update wireless device '%s'", wd_old->name);
 		wdev_change_config(wd_old, wd_new);
 	} else if (wd_old) {
-		D(WIRELESS, "Delete wireless device '%s'\n", wd_old->name);
+		D(WIRELESS, "Delete wireless device '%s'", wd_old->name);
 		wdev_set_config_state(wd_old, IFC_REMOVE);
 	} else if (wd_new) {
-		D(WIRELESS, "Create wireless device '%s'\n", wd_new->name);
+		D(WIRELESS, "Create wireless device '%s'", wd_new->name);
 		wdev_create(wd_new);
 	}
 }
@@ -813,7 +813,7 @@ wireless_add_handler(const char *script, const char *name, json_object *obj)
 
 	drv->node.key = drv->name;
 	avl_insert(&wireless_drivers, &drv->node);
-	D(WIRELESS, "Add handler for script %s: %s\n", script, name);
+	D(WIRELESS, "Add handler for script %s: %s", script, name);
 }
 
 void wireless_init(void)
@@ -894,19 +894,19 @@ vif_update(struct vlist_tree *tree, struct vlist_node *node_new,
 			return;
 		}
 
-		D(WIRELESS, "Update wireless interface %s on device %s\n", vif_new->name, wdev->name);
+		D(WIRELESS, "Update wireless interface %s on device %s", vif_new->name, wdev->name);
 		wireless_interface_handle_link(vif_old, NULL, false);
 		free(vif_old->config);
 		vif_old->config = blob_memdup(vif_new->config);
 		wireless_interface_init_config(vif_old);
 		free(vif_new);
 	} else if (vif_new) {
-		D(WIRELESS, "Create new wireless interface %s on device %s\n", vif_new->name, wdev->name);
+		D(WIRELESS, "Create new wireless interface %s on device %s", vif_new->name, wdev->name);
 		vif_new->section = strdup(vif_new->section);
 		vif_new->config = blob_memdup(vif_new->config);
 		wireless_interface_init_config(vif_new);
 	} else if (vif_old) {
-		D(WIRELESS, "Delete wireless interface %s on device %s\n", vif_old->name, wdev->name);
+		D(WIRELESS, "Delete wireless interface %s on device %s", vif_old->name, wdev->name);
 		wireless_interface_handle_link(vif_old, NULL, false);
 		vif_free(vif_old);
 	}
@@ -958,7 +958,7 @@ vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 			return;
 		}
 
-		D(WIRELESS, "Update wireless vlan %s on device %s\n", vlan_new->name, wdev->name);
+		D(WIRELESS, "Update wireless vlan %s on device %s", vlan_new->name, wdev->name);
 		wireless_vlan_handle_link(vlan_old, false);
 		free(vlan_old->config);
 		vlan_old->config = blob_memdup(vlan_new->config);
@@ -966,12 +966,12 @@ vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		wireless_vlan_init_config(vlan_old);
 		free(vlan_new);
 	} else if (vlan_new) {
-		D(WIRELESS, "Create new wireless vlan %s on device %s\n", vlan_new->name, wdev->name);
+		D(WIRELESS, "Create new wireless vlan %s on device %s", vlan_new->name, wdev->name);
 		vlan_new->section = strdup(vlan_new->section);
 		vlan_new->config = blob_memdup(vlan_new->config);
 		wireless_vlan_init_config(vlan_new);
 	} else if (vlan_old) {
-		D(WIRELESS, "Delete wireless vlan %s on device %s\n", vlan_old->name, wdev->name);
+		D(WIRELESS, "Delete wireless vlan %s on device %s", vlan_old->name, wdev->name);
 		wireless_vlan_handle_link(vlan_old, false);
 		free((void *) vlan_old->section);
 		free(vlan_old->config);
@@ -999,16 +999,16 @@ station_update(struct vlist_tree *tree, struct vlist_node *node_new,
 			return;
 		}
 
-		D(WIRELESS, "Update wireless station %s on device %s\n", sta_new->name, wdev->name);
+		D(WIRELESS, "Update wireless station %s on device %s", sta_new->name, wdev->name);
 		free(sta_old->config);
 		sta_old->config = blob_memdup(sta_new->config);
 		free(sta_new);
 	} else if (sta_new) {
-		D(WIRELESS, "Create new wireless station %s on device %s\n", sta_new->name, wdev->name);
+		D(WIRELESS, "Create new wireless station %s on device %s", sta_new->name, wdev->name);
 		sta_new->section = strdup(sta_new->section);
 		sta_new->config = blob_memdup(sta_new->config);
 	} else if (sta_old) {
-		D(WIRELESS, "Delete wireless station %s on device %s\n", sta_old->name, wdev->name);
+		D(WIRELESS, "Delete wireless station %s on device %s", sta_old->name, wdev->name);
 		free((void *) sta_old->section);
 		free(sta_old->config);
 		free(sta_old);
@@ -1057,7 +1057,7 @@ wireless_device_check_script_tasks(struct uloop_timeout *timeout)
 		if (wireless_process_check(proc))
 			continue;
 
-		D(WIRELESS, "Wireless device '%s' pid %d has terminated\n", wdev->name, proc->pid);
+		D(WIRELESS, "Wireless device '%s' pid %d has terminated", wdev->name, proc->pid);
 		if (proc->required)
 			restart = true;
 
@@ -1394,7 +1394,7 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 	if (tb[PROC_ATTR_KEEP])
 		proc->keep = blobmsg_get_bool(tb[PROC_ATTR_KEEP]);
 
-	D(WIRELESS, "Wireless device '%s' add pid %d\n", wdev->name, proc->pid);
+	D(WIRELESS, "Wireless device '%s' add pid %d", wdev->name, proc->pid);
 	list_add(&proc->list, &wdev->script_proc);
 	uloop_timeout_set(&wdev->script_check, 0);
 
