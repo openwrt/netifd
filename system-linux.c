@@ -2251,7 +2251,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	if (apply_mask & DEV_OPT_MASTER) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
 		system_set_master(dev, s->master_ifindex);
-		system_refresh_orig_macaddr(dev, &dev->orig_settings);
+		if (!(apply_mask & (DEV_OPT_MACADDR | DEV_OPT_DEFAULT_MACADDR)) || dev->external)
+			system_refresh_orig_macaddr(dev, &dev->orig_settings);
 #else
 		netifd_log_message(L_WARNING, "%s Your kernel is older than linux 6.1.0, changing DSA port conduit is not supported!", dev->ifname);
 #endif
