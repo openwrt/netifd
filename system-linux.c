@@ -169,19 +169,14 @@ static void
 handler_nl_event(struct uloop_fd *u, unsigned int events)
 {
 	struct event_socket *ev = container_of(u, struct event_socket, uloop);
-	int err;
-	socklen_t errlen = sizeof(err);
+	int ret;
 
-	if (!u->error) {
-		nl_recvmsgs_default(ev->sock);
+	ret = nl_recvmsgs_default(ev->sock);
+	if (ret >= 0)
 		return;
-	}
 
-	if (getsockopt(u->fd, SOL_SOCKET, SO_ERROR, (void *)&err, &errlen))
-		goto abort;
-
-	switch(err) {
-	case ENOBUFS:
+	switch (-ret) {
+	case NLE_NOMEM:
 		/* Increase rx buffer size on netlink socket */
 		ev->bufsize *= 2;
 		if (nl_socket_set_buffer_size(ev->sock, ev->bufsize, 0))
@@ -195,7 +190,6 @@ handler_nl_event(struct uloop_fd *u, unsigned int events)
 	default:
 		goto abort;
 	}
-	u->error = false;
 	return;
 
 abort:
@@ -786,24 +780,19 @@ handle_hotplug_event(struct uloop_fd *u, unsigned int events)
 	struct sockaddr_nl nla;
 	unsigned char *buf = NULL;
 	int size;
-	int err;
-	socklen_t errlen = sizeof(err);
 
-	if (!u->error) {
-		while ((size = nl_recv(ev->sock, &nla, &buf, NULL)) > 0) {
-			if (nla.nl_pid == 0)
-				handle_hotplug_msg((char *) buf, size);
+	while ((size = nl_recv(ev->sock, &nla, &buf, NULL)) > 0) {
+		if (nla.nl_pid == 0)
+			handle_hotplug_msg((char *) buf, size);
 
-			free(buf);
-		}
-		return;
+		free(buf);
 	}
 
-	if (getsockopt(u->fd, SOL_SOCKET, SO_ERROR, (void *)&err, &errlen))
-		goto abort;
+	switch (-size) {
+	case 0:
+		return;
 
-	switch(err) {
-	case ENOBUFS:
+	case NLE_NOMEM:
 		/* Increase rx buffer size on netlink socket */
 		ev->bufsize *= 2;
 		if (nl_socket_set_buffer_size(ev->sock, ev->bufsize, 0))
@@ -813,7 +802,6 @@ handle_hotplug_event(struct uloop_fd *u, unsigned int events)
 	default:
 		goto abort;
 	}
-	u->error = false;
 	return;
 
 abort:
