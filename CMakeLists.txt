@@ -1,11 +1,9 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 
 PROJECT(netifd C)
 
-IF(NOT ${CMAKE_VERSION} LESS 3.0)
-  include(CheckCCompilerFlag)
-  check_c_compiler_flag(-Wimplicit-fallthrough HAS_IMPLICIT_FALLTHROUGH)
-ENDIF()
+include(CheckCCompilerFlag)
+check_c_compiler_flag(-Wimplicit-fallthrough HAS_IMPLICIT_FALLTHROUGH)
 
 ADD_DEFINITIONS(-Wall -Werror)
 IF(CMAKE_C_COMPILER_VERSION VERSION_GREATER 6)
