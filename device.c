@@ -969,6 +969,7 @@ void device_set_link(struct device *dev, bool state)
 	if (!state)
 		dev->auth_status = false;
 	device_broadcast_event(dev, state ? DEV_EVENT_LINK_UP : DEV_EVENT_LINK_DOWN);
+	netifd_ubus_device_event(dev, state);
 }
 
 void device_set_ifindex(struct device *dev, int ifindex)
