@@ -164,6 +164,57 @@ error:
 }
 
 enum {
+	DI_DEV_NAME,
+	DI_DEV_TYPE,
+	__DI_DEV_MAX
+};
+
+static const struct blobmsg_policy dynamic_device_policy[__DI_DEV_MAX] = {
+	[DI_DEV_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
+	[DI_DEV_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING }
+};
+
+static int
+netifd_add_dynamic_device(
+        struct ubus_context */*ctx*/, struct ubus_object */*obj*/,
+        struct ubus_request_data */*req*/, const char */*method*/,
+        struct blob_attr *msg )
+{
+	struct blob_attr *tb[__DI_DEV_MAX];
+	struct device *device;
+	struct device_type *type;
+	struct blob_attr *config;
+
+	blobmsg_parse( dynamic_device_policy, __DI_DEV_MAX, tb,
+	               blob_data(msg), blob_len(msg) );
+
+	if (!tb[DI_DEV_NAME] || !tb[DI_DEV_TYPE])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	const char *name = blobmsg_get_string(tb[DI_DEV_NAME]);
+	const char *type_name = blobmsg_get_string(tb[DI_DEV_TYPE]);
+
+	type = device_type_get(type_name);
+
+	if (!type)
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	config = blob_memdup(msg);
+	if (!config)
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
+	device = device_create(name, type, config);
+	if (!device)
+		goto error_free_config;
+
+	return UBUS_STATUS_OK;
+
+error_free_config:
+	free(config);
+	return UBUS_STATUS_UNKNOWN_ERROR;
+}
+
+enum {
 	NETNS_UPDOWN_JAIL,
 	NETNS_UPDOWN_START,
 	__NETNS_UPDOWN_MAX
@@ -209,6 +260,7 @@ static struct ubus_method main_object_methods[] = {
 	UBUS_METHOD("add_host_route", netifd_add_host_route, route_policy),
 	{ .name = "get_proto_handlers", .handler = netifd_get_proto_handlers },
 	UBUS_METHOD("add_dynamic", netifd_add_dynamic, dynamic_policy),
+	UBUS_METHOD("add_dynamic_device", netifd_add_dynamic_device, dynamic_device_policy),
 	UBUS_METHOD("netns_updown", netifd_netns_updown, netns_updown_policy),
 };
 
