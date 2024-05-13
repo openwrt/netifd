@@ -912,6 +912,10 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_NODEV;
 
+	tmp = json_get_field(obj, "no-device-config", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_NODEV_CONFIG;
+
 	tmp = json_get_field(obj, "no-proto-task", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_NO_TASK;

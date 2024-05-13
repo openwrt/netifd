@@ -437,6 +437,7 @@ init_proto() {
 		dump)
 			add_protocol() {
 				no_device=0
+				no_device_config=0
 				no_proto_task=0
 				available=0
 				renew_handler=0
@@ -450,6 +451,7 @@ init_proto() {
 				eval "proto_$1_init_config"
 				json_close_array
 				json_add_boolean no-device "$no_device"
+				json_add_boolean no-device-config "$no_device_config"
 				json_add_boolean no-proto-task "$no_proto_task"
 				json_add_boolean available "$available"
 				json_add_boolean renew-handler "$renew_handler"
