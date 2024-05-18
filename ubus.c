@@ -180,6 +180,8 @@ netifd_add_dynamic_device(
         struct ubus_request_data */*req*/, const char */*method*/,
         struct blob_attr *msg )
 {
+	D(DEVICE, "%s\n", __func__);
+
 	struct blob_attr *tb[__DI_DEV_MAX];
 	struct device *device;
 	struct device_type *type;
