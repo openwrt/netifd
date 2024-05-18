@@ -384,6 +384,8 @@ static struct device *
 vlandev_create(const char *name, struct device_type *devtype,
 	       struct blob_attr *attr)
 {
+	D(DEVICE, "%s\n", __func__);
+
 	struct vlandev_device *mvdev;
 	struct device *dev = NULL;
 
