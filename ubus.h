@@ -14,6 +14,8 @@
 #ifndef __NETIFD_UBUS_H
 #define __NETIFD_UBUS_H
 
+typedef void (*procd_data_cb)(struct blob_attr *data);
+
 extern struct ubus_context *ubus_ctx;
 
 int netifd_ubus_init(const char *path);
@@ -26,5 +28,6 @@ void netifd_ubus_remove_interface(struct interface *iface);
 void netifd_ubus_interface_event(struct interface *iface, bool up);
 void netifd_ubus_interface_notify(struct interface *iface, bool up);
 void netifd_ubus_device_notify(const char *event, struct blob_attr *data, int timeout);
+void netifd_ubus_get_procd_data(const char *type, procd_data_cb cb);
 
 #endif

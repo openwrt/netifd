@@ -138,7 +138,7 @@ static void
 put_container(struct blob_buf *buf, struct blob_attr *attr, const char *name)
 {
 	void *c = blobmsg_open_table(buf, name);
-	blob_put_raw(buf, blob_data(attr), blob_len(attr));
+	blob_put_raw(buf, blobmsg_data(attr), blobmsg_len(attr));
 	blobmsg_close_table(buf, c);
 }
 
@@ -1232,7 +1232,15 @@ struct wireless_interface* wireless_interface_create(struct wireless_device *wde
 
 	vlist_add(&wdev->interfaces, &vif->node, vif->name);
 
-	return vlist_find(&wdev->interfaces, name, vif, node);
+	vif = vlist_find(&wdev->interfaces, name, vif, node);
+	if (!vif)
+		return NULL;
+
+	vif->vlan_idx = vif->sta_idx = 0;
+	vlist_update(&vif->vlans);
+	vlist_update(&vif->stations);
+
+	return vif;
 }
 
 /* ubus callback network.wireless.status, runs for every interface */

@@ -27,6 +27,7 @@
 #include "proto.h"
 #include "wireless.h"
 #include "config.h"
+#include "ubus.h"
 
 bool config_init = false;
 
@@ -599,10 +600,6 @@ config_parse_wireless_interface(struct wireless_device *wdev, struct uci_section
 	if (!vif)
 		return;
 
-	vif->vlan_idx = vif->sta_idx = 0;
-	vlist_update(&vif->vlans);
-	vlist_update(&vif->stations);
-
 	if (s->anonymous)
 		goto out;
 
@@ -635,6 +632,73 @@ config_parse_wireless_interface(struct wireless_device *wdev, struct uci_section
 out:
 	vlist_flush(&vif->vlans);
 	vlist_flush(&vif->stations);
+}
+
+static void
+config_init_procd_wireless_interface(const char *wdev_name, const char *vif_name,
+				     struct blob_attr *config,
+				     struct blob_attr *vlans,
+				     struct blob_attr *stations)
+{
+	struct wireless_interface *vif;
+	struct wireless_device *wdev;
+	struct blob_attr *cur;
+	char name[16];
+	int idx = 0;
+	int rem;
+
+	wdev = vlist_find(&wireless_devices, wdev_name, wdev, node);
+	if (!wdev) {
+		D(WIRELESS, "device %s not found!", wdev_name);
+		return;
+	}
+
+	vif = wireless_interface_create(wdev, config, vif_name);
+	if (!vif)
+		return;
+
+	blobmsg_for_each_attr(cur, vlans, rem) {
+		snprintf(name, sizeof(name), "%d", ++idx);
+		wireless_vlan_create(vif, cur, name);
+	}
+
+	blobmsg_for_each_attr(cur, stations, rem) {
+		snprintf(name, sizeof(name), "%d", ++idx);
+		wireless_station_create(vif, cur, name);
+	}
+
+	vlist_flush(&vif->vlans);
+	vlist_flush(&vif->stations);
+}
+
+static void
+config_procd_wireless_interface_cb(struct blob_attr *data)
+{
+	enum {
+		UDATA_ATTR_DEVICE,
+		UDATA_ATTR_CONFIG,
+		UDATA_ATTR_STATIONS,
+		UDATA_ATTR_VLANS,
+		__UDATA_ATTR_MAX,
+	};
+	static const struct blobmsg_policy policy[__UDATA_ATTR_MAX] = {
+		[UDATA_ATTR_DEVICE] = { "device", BLOBMSG_TYPE_STRING },
+		[UDATA_ATTR_CONFIG] = { "config", BLOBMSG_TYPE_TABLE },
+		[UDATA_ATTR_STATIONS] = { "stations", BLOBMSG_TYPE_ARRAY },
+		[UDATA_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_ARRAY },
+	};
+	struct blob_attr *tb[__UDATA_ATTR_MAX];
+	const char *dev;
+
+	blobmsg_parse_attr(policy, __UDATA_ATTR_MAX, tb, data);
+	if (!tb[UDATA_ATTR_DEVICE] || !tb[UDATA_ATTR_CONFIG])
+		return;
+
+	dev = blobmsg_get_string(tb[UDATA_ATTR_DEVICE]);
+	config_init_procd_wireless_interface(dev, blobmsg_name(data),
+					     tb[UDATA_ATTR_CONFIG],
+					     tb[UDATA_ATTR_VLANS],
+					     tb[UDATA_ATTR_STATIONS]);
 }
 
 static void
@@ -684,6 +748,8 @@ config_init_wireless(void)
 
 		config_parse_wireless_interface(wdev, s);
 	}
+
+	netifd_ubus_get_procd_data("wifi-iface", config_procd_wireless_interface_cb);
 
 	vlist_for_each_element(&wireless_devices, wdev, node)
 		vlist_flush(&wdev->interfaces);

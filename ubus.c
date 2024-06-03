@@ -1445,3 +1445,45 @@ netifd_ubus_remove_interface(struct interface *iface)
 	ubus_remove_object(ubus_ctx, &iface->ubus);
 	free((void *) iface->ubus.name);
 }
+
+static void
+netifd_ubus_data_cb(struct ubus_request *req, int type, struct blob_attr *msg)
+{
+	struct blob_attr *srv, *in, *t, *data;
+	procd_data_cb cb = req->priv;
+	int rem, rem2, rem3, rem4;
+
+	blobmsg_for_each_attr(srv, msg, rem) {
+		if (!blobmsg_check_attr(srv, true) ||
+		    blobmsg_type(srv) != BLOBMSG_TYPE_TABLE)
+			continue;
+		blobmsg_for_each_attr(in, srv, rem2) {
+			if (!blobmsg_check_attr(in , true) ||
+				blobmsg_type(in) != BLOBMSG_TYPE_TABLE)
+				continue;
+			blobmsg_for_each_attr(t, in, rem3) {
+				if (!blobmsg_check_attr(t, true) ||
+					blobmsg_type(t) != BLOBMSG_TYPE_TABLE)
+					continue;
+				blobmsg_for_each_attr(data, t, rem4) {
+					if (!blobmsg_check_attr(t, true) ||
+						blobmsg_type(t) != BLOBMSG_TYPE_TABLE)
+						continue;
+					cb(data);
+				}
+			}
+		}
+	}
+}
+
+void netifd_ubus_get_procd_data(const char *type, procd_data_cb cb)
+{
+	uint32_t id;
+
+	if (ubus_lookup_id(ubus_ctx, "service", &id))
+		return;
+
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "type", type);
+	ubus_invoke(ubus_ctx, id, "get_data", b.head, netifd_ubus_data_cb, cb, 30000);
+}
