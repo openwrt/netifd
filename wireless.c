@@ -838,7 +838,7 @@ wireless_interface_init_config(struct wireless_interface *vif)
 	struct blob_attr *cur;
 
 	vif->network = NULL;
-	blobmsg_parse(vif_policy, __VIF_ATTR_MAX, tb, blob_data(vif->config), blob_len(vif->config));
+	blobmsg_parse_attr(vif_policy, __VIF_ATTR_MAX, tb, vif->config);
 
 	if ((cur = tb[VIF_ATTR_NETWORK]))
 		vif->network = cur;
@@ -922,7 +922,7 @@ wireless_vlan_init_config(struct wireless_vlan *vlan)
 	struct blob_attr *cur;
 
 	vlan->network = NULL;
-	blobmsg_parse(vlan_policy, __VLAN_ATTR_MAX, tb, blob_data(vlan->config), blob_len(vlan->config));
+	blobmsg_parse_attr(vlan_policy, __VLAN_ATTR_MAX, tb, vlan->config);
 
 	if ((cur = tb[VLAN_ATTR_NETWORK]))
 		vlan->network = cur;
@@ -1079,7 +1079,7 @@ wireless_device_create(struct wireless_driver *drv, const char *name, struct blo
 	struct blob_attr *tb[__WDEV_ATTR_MAX];
 	struct blob_attr *cur;
 
-	blobmsg_parse(wdev_policy, __WDEV_ATTR_MAX, tb, blob_data(data), blob_len(data));
+	blobmsg_parse_attr(wdev_policy, __WDEV_ATTR_MAX, tb, data);
 
 	wdev = calloc_a(sizeof(*wdev), &name_buf, strlen(name) + 1);
 
@@ -1128,7 +1128,7 @@ wireless_station_create(struct wireless_interface *vif, struct blob_attr *data, 
 	char *name_buf;
 	char name[8];
 
-	blobmsg_parse(sta_policy, __STA_ATTR_MAX, tb, blob_data(data), blob_len(data));
+	blobmsg_parse_attr(sta_policy, __STA_ATTR_MAX, tb, data);
 
 	cur = tb[STA_ATTR_DISABLED];
 	if (cur && blobmsg_get_bool(cur))
@@ -1168,7 +1168,7 @@ wireless_vlan_create(struct wireless_interface *vif, struct blob_attr *data, con
 	char *name_buf;
 	char name[8];
 
-	blobmsg_parse(vlan_policy, __VLAN_ATTR_MAX, tb, blob_data(data), blob_len(data));
+	blobmsg_parse_attr(vlan_policy, __VLAN_ATTR_MAX, tb, data);
 
 	cur = tb[VLAN_ATTR_DISABLED];
 	if (cur && blobmsg_get_bool(cur))
@@ -1208,7 +1208,7 @@ struct wireless_interface* wireless_interface_create(struct wireless_device *wde
 	char *name_buf;
 	char name[8];
 
-	blobmsg_parse(vif_policy, __VIF_ATTR_MAX, tb, blob_data(data), blob_len(data));
+	blobmsg_parse_attr(vif_policy, __VIF_ATTR_MAX, tb, data);
 
 	cur = tb[VIF_ATTR_DISABLED];
 	if (cur && blobmsg_get_bool(cur))
@@ -1321,8 +1321,7 @@ wireless_interface_set_data(struct wireless_interface *vif)
 	struct blob_attr *tb[__VIF_DATA_MAX];
 	struct blob_attr *cur;
 
-	blobmsg_parse(data_policy, __VIF_DATA_MAX, tb,
-		      blobmsg_data(vif->data), blobmsg_data_len(vif->data));
+	blobmsg_parse_attr(data_policy, __VIF_DATA_MAX, tb, vif->data);
 
 	if ((cur = tb[VIF_DATA_IFNAME]))
 		vif->ifname = blobmsg_data(cur);
@@ -1342,8 +1341,7 @@ wireless_vlan_set_data(struct wireless_vlan *vlan)
 	struct blob_attr *tb[__VLAN_DATA_MAX];
 	struct blob_attr *cur;
 
-	blobmsg_parse(data_policy, __VLAN_DATA_MAX, tb,
-		      blobmsg_data(vlan->data), blobmsg_data_len(vlan->data));
+	blobmsg_parse_attr(data_policy, __VLAN_DATA_MAX, tb, vlan->data);
 
 	if ((cur = tb[VLAN_DATA_IFNAME]))
 		vlan->ifname = blobmsg_data(cur);
@@ -1374,7 +1372,7 @@ wireless_device_add_process(struct wireless_device *wdev, struct blob_attr *data
 	if (!data)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	blobmsg_parse(proc_policy, __PROC_ATTR_MAX, tb, blobmsg_data(data), blobmsg_data_len(data));
+	blobmsg_parse_attr(proc_policy, __PROC_ATTR_MAX, tb, data);
 	if (!tb[PROC_ATTR_PID] || !tb[PROC_ATTR_EXE])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
@@ -1420,7 +1418,7 @@ wireless_device_process_kill_all(struct wireless_device *wdev, struct blob_attr 
 	bool immediate = false;
 	int signal = SIGTERM;
 
-	blobmsg_parse(kill_policy, __KILL_ATTR_MAX, tb, blobmsg_data(data), blobmsg_data_len(data));
+	blobmsg_parse_attr(kill_policy, __KILL_ATTR_MAX, tb, data);
 
 	if ((cur = tb[KILL_ATTR_SIGNAL]))
 		signal = blobmsg_get_u32(cur);
@@ -1451,7 +1449,7 @@ wireless_device_set_retry(struct wireless_device *wdev, struct blob_attr *data)
 	};
 	struct blob_attr *val;
 
-	blobmsg_parse(&retry_policy, 1, &val, blobmsg_data(data), blobmsg_data_len(data));
+	blobmsg_parse_attr(&retry_policy, 1, &val, data);
 	if (val)
 		wdev->retry = blobmsg_get_u32(val);
 	else
@@ -1492,7 +1490,7 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 	struct blob_attr *tb[__NOTIFY_MAX];
 	struct blob_attr *cur, **pdata;
 
-	blobmsg_parse(notify_policy, __NOTIFY_MAX, tb, blob_data(data), blob_len(data));
+	blobmsg_parse_attr(notify_policy, __NOTIFY_MAX, tb, data);
 
 	if (!tb[NOTIFY_ATTR_COMMAND])
 		return UBUS_STATUS_INVALID_ARGUMENT;
