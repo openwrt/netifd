@@ -702,6 +702,9 @@ static int system_get_arp_accept(struct device *dev, char *buf, const size_t buf
 #endif
 
 static void
+system_set_ethtool_settings(struct device *dev, struct device_settings *s);
+
+static void
 system_device_update_state(struct device *dev, unsigned int flags, unsigned int ifindex)
 {
 	if (dev->type == &simple_device_type) {
@@ -711,6 +714,9 @@ system_device_update_state(struct device *dev, unsigned int flags, unsigned int 
 		device_set_present(dev, ifindex > 0);
 	}
 	device_set_link(dev, flags & IFF_LOWER_UP ? true : false);
+
+	if ((flags & IFF_UP) && !(flags & IFF_LOWER_UP))
+		system_set_ethtool_settings(dev, &dev->settings);
 }
 
 /* Evaluate netlink messages */
