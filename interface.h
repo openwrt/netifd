@@ -124,6 +124,7 @@ struct interface {
 	bool dynamic;
 	bool policy_rules_set;
 	bool link_up_event;
+	bool renew;
 
 	time_t start_time;
 	enum interface_state state;

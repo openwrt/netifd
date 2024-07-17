@@ -45,6 +45,7 @@ enum {
 	IFACE_ATTR_DNS,
 	IFACE_ATTR_DNS_SEARCH,
 	IFACE_ATTR_DNS_METRIC,
+	IFACE_ATTR_RENEW,
 	IFACE_ATTR_METRIC,
 	IFACE_ATTR_INTERFACE,
 	IFACE_ATTR_IP6ASSIGN,
@@ -73,6 +74,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_PEERDNS] = { .name = "peerdns", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_METRIC] = { .name = "metric", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_DNS] = { .name = "dns", .type = BLOBMSG_TYPE_ARRAY },
+	[IFACE_ATTR_RENEW] = { .name = "renew", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_DNS_SEARCH] = { .name = "dns_search", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DNS_METRIC] = { .name = "dns_metric", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_INTERFACE] = { .name = "interface", .type = BLOBMSG_TYPE_STRING },
@@ -452,7 +454,8 @@ interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 		interface_set_link_state(iface, device_link_active(dep->dev));
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
-		interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);
+		if (iface->renew)
+			interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);
 		return;
 	default:
 		break;
@@ -850,6 +853,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 		force_link = true;
 
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
+	iface->renew = blobmsg_get_bool_default(tb[IFACE_ATTR_RENEW], true);
 	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], force_link);
 	iface->dynamic = dynamic;
 	iface->proto_ip.no_defaultroute =
