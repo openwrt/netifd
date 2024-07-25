@@ -4168,6 +4168,7 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 			ttl = 64;
 
 		nla_put_u8(nlm, IFLA_GRE_PMTUDISC, set_df ? 1 : 0);
+		nla_put_u8(nlm, IFLA_GRE_IGNORE_DF, set_df ? 0 : 1);
 
 		nla_put_u8(nlm, IFLA_GRE_TOS, tos);
 	}
