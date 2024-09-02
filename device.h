@@ -365,9 +365,26 @@ static inline struct device *device_get(const char *name, int create)
 
 void device_add_user(struct device_user *dep, struct device *dev);
 void device_remove_user(struct device_user *dep);
-void device_broadcast_event(struct device *dev, enum device_event ev);
+const char *device_event_name(enum device_event ev);
+void __device_broadcast_event(struct device *dev, enum device_event ev);
+#define device_broadcast_event(dev, ev) do {					\
+	struct device *__ev_dev = (dev);					\
+	D(DEVICE, "%s: event (%s)\n",						\
+	  (__ev_dev && __ev_dev->ifname[0] ? __ev_dev->ifname : "(none)"),	\
+	  device_event_name(ev));						\
+	__device_broadcast_event(__ev_dev, ev);					\
+} while (0)
 
-void device_set_present(struct device *dev, bool state);
+void _device_set_present(struct device *dev, bool state);
+#define device_set_present(dev, state) do {					\
+	struct device *__ev_dev = (dev);					\
+	bool __ev_state = state;						\
+	D(DEVICE, "%s: set present=%d\n",					\
+	  (__ev_dev && __ev_dev->ifname[0] ? __ev_dev->ifname : "(none)"),	\
+	  __ev_state);								\
+	_device_set_present(__ev_dev, __ev_state);				\
+} while (0)
+
 void device_set_link(struct device *dev, bool state);
 void device_set_ifindex(struct device *dev, int ifindex);
 int device_set_ifname(struct device *dev, const char *name);

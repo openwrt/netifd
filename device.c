@@ -617,11 +617,15 @@ static int device_broadcast_cb(void *ctx, struct safe_list *list)
 	return 0;
 }
 
-void device_broadcast_event(struct device *dev, enum device_event ev)
+const char *device_event_name(enum device_event ev)
 {
 	static const char * const event_names[] = {
 		[DEV_EVENT_ADD] = "add",
 		[DEV_EVENT_REMOVE] = "remove",
+		[DEV_EVENT_UPDATE_IFNAME] = "update_ifname",
+		[DEV_EVENT_UPDATE_IFINDEX] = "update_ifindex",
+		[DEV_EVENT_SETUP] = "setup",
+		[DEV_EVENT_TEARDOWN] = "teardown",
 		[DEV_EVENT_UP] = "up",
 		[DEV_EVENT_DOWN] = "down",
 		[DEV_EVENT_AUTH_UP] = "auth_up",
@@ -629,12 +633,37 @@ void device_broadcast_event(struct device *dev, enum device_event ev)
 		[DEV_EVENT_LINK_DOWN] = "link_down",
 		[DEV_EVENT_TOPO_CHANGE] = "topo_change",
 	};
+
+	if (ev >= ARRAY_SIZE(event_names) || !event_names[ev])
+		return "unknown";
+
+	return event_names[ev];
+}
+
+void __device_broadcast_event(struct device *dev, enum device_event ev)
+{
+	const char *ev_name;
 	int dev_ev = ev;
 
 	safe_list_for_each(&dev->aliases, device_broadcast_cb, &dev_ev);
 	safe_list_for_each(&dev->users, device_broadcast_cb, &dev_ev);
 
-	if (ev >= ARRAY_SIZE(event_names) || !event_names[ev] || !dev->ifname[0])
+	switch (ev) {
+	case DEV_EVENT_ADD:
+	case DEV_EVENT_REMOVE:
+	case DEV_EVENT_UP:
+	case DEV_EVENT_DOWN:
+	case DEV_EVENT_AUTH_UP:
+	case DEV_EVENT_LINK_UP:
+	case DEV_EVENT_LINK_DOWN:
+	case DEV_EVENT_TOPO_CHANGE:
+		break;
+	default:
+		return;
+	}
+
+	ev_name = device_event_name(ev);
+	if (!dev->ifname[0])
 		return;
 
 	blob_buf_init(&b, 0);
@@ -643,7 +672,7 @@ void device_broadcast_event(struct device *dev, enum device_event ev)
 	blobmsg_add_u8(&b, "present", dev->present);
 	blobmsg_add_u8(&b, "active", dev->active);
 	blobmsg_add_u8(&b, "link_active", dev->link_active);
-	netifd_ubus_device_notify(event_names[ev], b.head, -1);
+	netifd_ubus_device_notify(ev_name, b.head, -1);
 }
 
 static void
@@ -910,6 +939,8 @@ device_refresh_present(struct device *dev)
 	if (dev->disabled || dev->deferred)
 		state = false;
 
+	D(DEVICE, "refresh device %s present: sys=%d disabled=%d deferred=%d\n",
+	  dev->ifname, dev->sys_present, dev->disabled, dev->deferred);
 	__device_set_present(dev, state, false);
 }
 
@@ -943,7 +974,7 @@ device_set_auth_status(struct device *dev, bool value, struct blob_attr *vlans)
 	device_broadcast_event(dev, DEV_EVENT_LINK_UP);
 }
 
-void device_set_present(struct device *dev, bool state)
+void _device_set_present(struct device *dev, bool state)
 {
 	if (dev->sys_present == state)
 		return;
