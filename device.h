@@ -369,7 +369,7 @@ const char *device_event_name(enum device_event ev);
 void __device_broadcast_event(struct device *dev, enum device_event ev);
 #define device_broadcast_event(dev, ev) do {					\
 	struct device *__ev_dev = (dev);					\
-	D(DEVICE, "%s: event (%s)\n",						\
+	D(DEVICE, "%s: event (%s)",						\
 	  (__ev_dev && __ev_dev->ifname[0] ? __ev_dev->ifname : "(none)"),	\
 	  device_event_name(ev));						\
 	__device_broadcast_event(__ev_dev, ev);					\
@@ -379,7 +379,7 @@ void _device_set_present(struct device *dev, bool state);
 #define device_set_present(dev, state) do {					\
 	struct device *__ev_dev = (dev);					\
 	bool __ev_state = state;						\
-	D(DEVICE, "%s: set present=%d\n",					\
+	D(DEVICE, "%s: set present=%d",						\
 	  (__ev_dev && __ev_dev->ifname[0] ? __ev_dev->ifname : "(none)"),	\
 	  __ev_state);								\
 	_device_set_present(__ev_dev, __ev_state);				\

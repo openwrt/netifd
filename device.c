@@ -939,7 +939,7 @@ device_refresh_present(struct device *dev)
 	if (dev->disabled || dev->deferred)
 		state = false;
 
-	D(DEVICE, "refresh device %s present: sys=%d disabled=%d deferred=%d\n",
+	D(DEVICE, "refresh device %s present: sys=%d disabled=%d deferred=%d",
 	  dev->ifname, dev->sys_present, dev->disabled, dev->deferred);
 	__device_set_present(dev, state, false);
 }
