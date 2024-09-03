@@ -1083,11 +1083,11 @@ interface_add_link(struct interface *iface, struct device *dev,
 {
 	struct device *mdev = iface->main_dev.dev;
 
-	if (mdev == dev)
+	if (mdev == dev && iface->state == IFS_UP)
 		return 0;
 
 	if (iface->main_dev.hotplug)
-		device_remove_user(&iface->main_dev);
+		interface_set_main_dev(iface, NULL);
 
 	if (mdev) {
 		if (mdev->hotplug_ops)
@@ -1119,7 +1119,7 @@ interface_handle_link(struct interface *iface, const char *name,
 
 	interface_set_device_config(iface, dev);
 	if (!link_ext)
-		device_set_present(dev, true);
+		system_if_check(dev);
 
 	return interface_add_link(iface, dev, vlan, link_ext);
 }
