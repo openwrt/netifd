@@ -1472,5 +1472,5 @@ void device_hotplug_event(const char *name, bool add)
 	if (!dev || dev->type != &simple_device_type)
 		return;
 
-	device_set_present(dev, add);
+	system_if_check(dev);
 }
