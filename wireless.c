@@ -1645,10 +1645,8 @@ void wireless_device_hotplug_event(const char *name, bool add)
 			return;
 
 		len = s - name;
-	} else if (!device_find(name)) {
-		len = strlen(name);
 	} else {
-		return;
+		len = strlen(name);
 	}
 
 	vlist_for_each_element(&wireless_devices, wdev, node) {
