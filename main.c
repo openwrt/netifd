@@ -121,12 +121,12 @@ netifd_log_message(int priority, const char *format, ...)
 {
 	va_list vl;
 
-	if (priority > log_level)
-		return;
-
 	va_start(vl, format);
 	netifd_udebug_vprintf(format, vl);
 	va_end(vl);
+
+	if (priority > log_level)
+		return;
 
 	va_start(vl, format);
 	if (use_syslog)
