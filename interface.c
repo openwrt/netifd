@@ -1119,7 +1119,7 @@ interface_handle_link(struct interface *iface, const char *name,
 
 	interface_set_device_config(iface, dev);
 	if (!link_ext)
-		system_if_check(dev);
+		device_set_present(dev, true);
 
 	return interface_add_link(iface, dev, vlan, link_ext);
 }
