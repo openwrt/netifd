@@ -166,11 +166,13 @@ static int set_device_state(struct device *dev, bool state)
 		dev->orig_settings.flags &= dev->settings.flags;
 		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 
-		system_if_up(dev);
+		if (!dev->external)
+			system_if_up(dev);
 
 		system_if_apply_settings_after_up(dev, &dev->settings);
 	} else {
-		system_if_down(dev);
+		if (!dev->external)
+			system_if_down(dev);
 		system_if_apply_settings(dev, &dev->orig_settings, dev->orig_settings.flags);
 
 		/* Restore any settings present in UCI which may have
@@ -726,17 +728,7 @@ int device_claim(struct device_user *dep)
 
 	device_broadcast_event(dev, DEV_EVENT_SETUP);
 	device_fill_default_settings(dev);
-	if (dev->external) {
-		/* Get ifindex for external claimed devices so a valid   */
-		/* ifindex is in place avoiding possible race conditions */
-		device_set_ifindex(dev, system_if_resolve(dev));
-		if (!dev->ifindex)
-			ret = -1;
-
-		system_if_get_settings(dev, &dev->orig_settings);
-	} else
-		ret = dev->set_state(dev, true);
-
+	ret = dev->set_state(dev, true);
 	if (ret == 0)
 		device_broadcast_event(dev, DEV_EVENT_UP);
 	else {
@@ -764,8 +756,7 @@ void device_release(struct device_user *dep)
 		return;
 
 	device_broadcast_event(dev, DEV_EVENT_TEARDOWN);
-	if (!dev->external)
-		dev->set_state(dev, false);
+	dev->set_state(dev, false);
 
 	if (dev->active)
 		return;
@@ -849,9 +840,6 @@ device_create_default(const char *name, bool external)
 	}
 
 	dev->default_config = true;
-	if (external)
-		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
-
 	device_check_state(dev);
 
 	return dev;
@@ -880,7 +868,6 @@ __device_get(const char *name, int create, bool check_vlan)
 
 	if (dev) {
 		if (create > 1 && !dev->external) {
-			system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
 			dev->external = true;
 			device_set_present(dev, true);
 		}
@@ -1208,11 +1195,6 @@ device_apply_config(struct device *dev, struct device_type *type,
 	enum dev_change_type change;
 
 	change = device_set_config(dev, type, config);
-	if (dev->external) {
-		system_if_apply_settings(dev, &dev->settings, dev->settings.flags);
-		change = DEV_CONFIG_APPLIED;
-	}
-
 	switch (change) {
 		case DEV_CONFIG_RESTART:
 		case DEV_CONFIG_APPLIED:
@@ -1224,7 +1206,7 @@ device_apply_config(struct device *dev, struct device_type *type,
 				int ret = 0;
 
 				device_set_present(dev, false);
-				if (dev->active && !dev->external) {
+				if (dev->active) {
 					ret = dev->set_state(dev, false);
 					if (!ret)
 						ret = dev->set_state(dev, true);
