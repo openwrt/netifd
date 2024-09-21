@@ -1083,8 +1083,14 @@ interface_add_link(struct interface *iface, struct device *dev,
 {
 	struct device *mdev = iface->main_dev.dev;
 
-	if (mdev == dev && iface->state == IFS_UP)
+	if (mdev == dev) {
+		if (iface->state != IFS_UP) {
+			interface_set_available(iface, false);
+			if (dev->present)
+				interface_set_available(iface, true);
+		}
 		return 0;
+	}
 
 	if (iface->main_dev.hotplug)
 		interface_set_main_dev(iface, NULL);
