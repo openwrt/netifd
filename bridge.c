@@ -136,6 +136,7 @@ struct bridge_member {
 	uint16_t pvid;
 	bool present;
 	bool active;
+	bool has_link_down;
 	char name[];
 };
 
@@ -782,6 +783,11 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 					 DEV_OPT_MTU | DEV_OPT_MTU6);
 		break;
 	case DEV_EVENT_LINK_UP:
+		if (!bst->has_vlans && !dev->settings.auth && bm->has_link_down) {
+			device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
+		}
+		bm->has_link_down = false;
+
 		if (!bst->has_vlans)
 			break;
 
@@ -791,10 +797,11 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		uloop_timeout_set(&bm->check_timer, 1000);
 		break;
 	case DEV_EVENT_LINK_DOWN:
-		if (!dev->settings.auth)
-			break;
+		bm->has_link_down = true;
 
-		bridge_disable_member(bm, true);
+		if (dev->settings.auth)
+			bridge_disable_member(bm, true);
+
 		break;
 	case DEV_EVENT_REMOVE:
 		if (dep->hotplug && !dev->sys_present) {
