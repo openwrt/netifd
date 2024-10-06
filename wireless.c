@@ -337,12 +337,39 @@ static void wireless_device_set_mcast_to_unicast(struct device *dev, int val)
 	dev->settings.flags |= DEV_OPT_MULTICAST_TO_UNICAST;
 }
 
+static void wireless_check_interface(struct blob_attr *list, int *enabled, int *ifindex)
+{
+	struct interface *iface;
+	struct blob_attr *cur;
+	size_t rem;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		struct device *mdev;
+
+		iface = vlist_find(&interfaces, blobmsg_get_string(cur), iface, node);
+		if (!iface)
+			continue;
+
+		if (iface->autostart)
+			*enabled = 1;
+		else if (*enabled != 1)
+			*enabled = 0;
+
+		mdev = iface->main_dev.dev;
+		if (!mdev || !mdev->hotplug_ops)
+			continue;
+
+		*ifindex = mdev->ifindex;
+	}
+}
+
 static void wireless_interface_handle_link(struct wireless_interface *vif, const char *ifname, bool up)
 {
 	struct interface *iface;
 	struct blob_attr *cur;
 	const char *network;
 	struct device *dev;
+	int enabled = -1;
 	size_t rem;
 
 	if (!vif->network || !vif->ifname)
@@ -372,6 +399,7 @@ static void wireless_interface_handle_link(struct wireless_interface *vif, const
 	dev->bpdu_filter = dev->wireless_ap;
 
 out:
+	wireless_check_interface(vif->network, &enabled, &vif->network_ifindex);
 	blobmsg_for_each_attr(cur, vif->network, rem) {
 		network = blobmsg_data(cur);
 
@@ -388,6 +416,7 @@ static void wireless_vlan_handle_link(struct wireless_vlan *vlan, bool up)
 	struct interface *iface;
 	struct blob_attr *cur;
 	const char *network;
+	int enabled = -1;
 	size_t rem;
 
 	if (!vlan->network || !vlan->ifname)
@@ -406,6 +435,7 @@ static void wireless_vlan_handle_link(struct wireless_vlan *vlan, bool up)
 		}
 	}
 
+	wireless_check_interface(vlan->network, &enabled, &vlan->network_ifindex);
 	blobmsg_for_each_attr(cur, vlan->network, rem) {
 		network = blobmsg_data(cur);
 
@@ -1561,33 +1591,41 @@ wireless_device_notify(struct wireless_device *wdev, struct blob_attr *data,
 }
 
 static void
+wdev_vlan_check_network_enabled(struct wireless_device *wdev,
+				struct wireless_interface *vif)
+{
+	struct wireless_vlan *vlan;
+
+	vlist_for_each_element(&vif->vlans, vlan, node) {
+		int enabled = -1, ifindex = -1;
+
+		wireless_check_interface(vlan->network, &enabled, &ifindex);
+
+		if (wdev->state != IFS_UP || vlan->network_ifindex == ifindex)
+			continue;
+
+		vlan->network_ifindex = ifindex;
+		wdev->config_update = true;
+	}
+}
+
+static void
 wdev_check_network_enabled(struct wireless_device *wdev)
 {
 	struct wireless_interface *vif;
-	struct interface *iface;
-	struct blob_attr *cur;
-	size_t rem;
 
 	vlist_for_each_element(&wdev->interfaces, vif, node) {
-		int enabled = -1;
+		int enabled = -1, ifindex = -1;
 
-		blobmsg_for_each_attr(cur, vif->network, rem) {
-			iface = vlist_find(&interfaces, blobmsg_get_string(cur), iface, node);
-			if (!iface)
-				continue;
+		wireless_check_interface(vif->network, &enabled, &ifindex);
+		wdev_vlan_check_network_enabled(wdev, vif);
 
-			if (iface->autostart) {
-				enabled = 1;
-				break;
-			}
-			if (enabled != 1)
-				enabled = 0;
-		}
-
-		if (vif->disabled == !enabled)
+		if (vif->disabled == !enabled &&
+		    (wdev->state != IFS_UP || vif->network_ifindex == ifindex))
 			continue;
 
 		vif->disabled = !enabled;
+		vif->network_ifindex = ifindex;
 		wdev->config_update = true;
 	}
 }

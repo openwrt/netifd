@@ -96,6 +96,8 @@ struct wireless_interface {
 	int vlan_idx;
 	int sta_idx;
 	bool disabled;
+
+	int network_ifindex;
 };
 
 struct wireless_vlan {
@@ -112,6 +114,8 @@ struct wireless_vlan {
 	int multicast_to_unicast;
 	bool isolate;
 	bool bridge_isolate;
+
+	int network_ifindex;
 };
 
 struct wireless_station {
