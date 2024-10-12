@@ -1317,7 +1317,8 @@ device_create(const char *name, struct device_type *type,
 		dev->config_pending = false;
 	}
 
-	device_check_state(dev);
+	int checkret = device_check_state(dev);
+	D(DEVICE, "%s device_check_state return %d\n", __func__, checkret);
 
 	return dev;
 }
