@@ -66,6 +66,9 @@ enum iprule_flags {
 
 	/* rule specifies uidrange */
 	IPRULE_UIDRANGE		= (1 << 14),
+
+	/* rule specifies ipproto */
+	IPRULE_IPPROTO  = (1 << 15),
 };
 
 struct iprule {
@@ -109,6 +112,7 @@ struct iprule {
 	unsigned int uidrange_end;
 	unsigned int action;
 	unsigned int gotoid;
+	unsigned int ipproto;
 };
 
 extern struct vlist_tree iprules;
