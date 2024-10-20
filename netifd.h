@@ -100,10 +100,12 @@ struct netifd_process {
 	bool log_overflow;
 };
 
-void netifd_udebug_printf(const char *format, ...);
+void netifd_udebug_printf(const char *format, ...)
+	__attribute__((format (printf, 1, 2)));
 void netifd_udebug_config(struct udebug_ubus *ctx, struct blob_attr *data,
 			  bool enabled);
-void netifd_log_message(int priority, const char *format, ...);
+void netifd_log_message(int priority, const char *format, ...)
+	 __attribute__((format (printf, 2, 3)));
 
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);
 void netifd_kill_process(struct netifd_process *proc);

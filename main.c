@@ -89,7 +89,7 @@ netifd_delete_process(struct netifd_process *proc)
 	close(proc->log.fd.fd);
 }
 
-static void
+static void __attribute__((format (printf, 1, 0)))
 netifd_udebug_vprintf(const char *format, va_list ap)
 {
 	if (!udebug_buf_valid(&udb_log))
