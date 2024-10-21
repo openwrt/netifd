@@ -186,6 +186,10 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	}
 }
 
+void system_if_apply_settings_after_up(struct device *dev, struct device_settings *s)
+{
+}
+
 static int system_address_msg(struct device *dev, struct device_addr *addr, const char *type)
 {
 	char ipaddr[64];
