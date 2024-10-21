@@ -645,7 +645,7 @@ config_init_procd_wireless_interface(const char *wdev_name, const char *vif_name
 	struct blob_attr *cur;
 	char name[16];
 	int idx = 0;
-	int rem;
+	size_t rem;
 
 	wdev = vlist_find(&wireless_devices, wdev_name, wdev, node);
 	if (!wdev) {

@@ -1451,7 +1451,7 @@ netifd_ubus_data_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 {
 	struct blob_attr *srv, *in, *t, *data;
 	procd_data_cb cb = req->priv;
-	int rem, rem2, rem3, rem4;
+	size_t rem, rem2, rem3, rem4;
 
 	blobmsg_for_each_attr(srv, msg, rem) {
 		if (!blobmsg_check_attr(srv, true) ||
