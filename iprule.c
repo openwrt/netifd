@@ -45,6 +45,7 @@ enum {
 	RULE_GOTO,
 	RULE_SUP_PREFIXLEN,
 	RULE_UIDRANGE,
+	RULE_IPPROTO,
 	RULE_DISABLED,
 	__RULE_MAX
 };
@@ -63,6 +64,7 @@ static const struct blobmsg_policy rule_attr[__RULE_MAX] = {
 	[RULE_UIDRANGE] = { .name = "uidrange", .type = BLOBMSG_TYPE_STRING },
 	[RULE_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_STRING },
 	[RULE_GOTO]   = { .name = "goto", .type = BLOBMSG_TYPE_INT32 },
+	[RULE_IPPROTO]  = { .name = "ipproto", .type = BLOBMSG_TYPE_INT32 },
 	[RULE_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 };
 
@@ -307,6 +309,14 @@ iprule_add(struct blob_attr *attr, bool v6)
 	if ((cur = tb[RULE_GOTO]) != NULL) {
 		rule->gotoid = blobmsg_get_u32(cur);
 		rule->flags |= IPRULE_GOTO;
+	}
+
+	if ((cur = tb[RULE_IPPROTO]) != NULL) {
+		if ((rule->ipproto = blobmsg_get_u32(cur)) > 255) {
+			D(INTERFACE, "Invalid ipproto value: %u", blobmsg_get_u32(cur));
+			goto error;
+		}
+		rule->flags |= IPRULE_IPPROTO;
 	}
 
 	vlist_add(&iprules, &rule->node, rule);
