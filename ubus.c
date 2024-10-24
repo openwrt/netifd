@@ -1406,6 +1406,15 @@ netifd_ubus_interface_event(struct interface *iface, bool up)
 }
 
 void
+netifd_ubus_device_event(struct device *dev, bool state)
+{
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "ifname", dev->ifname);
+	blobmsg_add_string(&b, "link", state? "up" : "down");
+	ubus_send_event(ubus_ctx, "network.device", b.head);
+}
+
+void
 netifd_ubus_interface_notify(struct interface *iface, bool up)
 {
 	const char *event = (up) ? "interface.update" : "interface.down";
