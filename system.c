@@ -46,6 +46,7 @@ static const struct blobmsg_policy vxlan_data_attrs[__VXLAN_DATA_ATTR_MAX] = {
 	[VXLAN_DATA_ATTR_L2MISS] = { .name = "l2miss", .type = BLOBMSG_TYPE_BOOL },
 	[VXLAN_DATA_ATTR_L3MISS] = { .name = "l3miss", .type = BLOBMSG_TYPE_BOOL },
 	[VXLAN_DATA_ATTR_GBP] = { .name = "gbp", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_GPE] = { .name = "gpe", .type = BLOBMSG_TYPE_BOOL },
 	[VXLAN_DATA_ATTR_AGEING] = { .name = "ageing", .type = BLOBMSG_TYPE_INT32 },
 	[VXLAN_DATA_ATTR_LIMIT] = { .name = "maxaddress", .type = BLOBMSG_TYPE_INT32 },
 };
