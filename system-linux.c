@@ -4360,6 +4360,7 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_L3MISS , VXLAN_DATA_ATTR_L3MISS, false);
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_GBP , VXLAN_DATA_ATTR_GBP, false);
 	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_GPE , VXLAN_DATA_ATTR_GPE, false);
+	system_vxlan_map_bool_attr(msg, tb_data, IFLA_VXLAN_TTL_INHERIT , VXLAN_DATA_ATTR_TTL_INHERIT, false);
 
 	if ((cur = tb_data[VXLAN_DATA_ATTR_AGEING])) {
 		uint32_t ageing = blobmsg_get_u32(cur);
