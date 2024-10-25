@@ -50,6 +50,8 @@ static const struct blobmsg_policy vxlan_data_attrs[__VXLAN_DATA_ATTR_MAX] = {
 	[VXLAN_DATA_ATTR_TTL_INHERIT] = { .name = "ttlinherit", .type = BLOBMSG_TYPE_BOOL },
 	[VXLAN_DATA_ATTR_AGEING] = { .name = "ageing", .type = BLOBMSG_TYPE_INT32 },
 	[VXLAN_DATA_ATTR_LIMIT] = { .name = "maxaddress", .type = BLOBMSG_TYPE_INT32 },
+	[VXLAN_DATA_ATTR_COLLECT_METADATA] = { .name = "collectmetadata", .type = BLOBMSG_TYPE_BOOL },
+	[VXLAN_DATA_ATTR_VNI_FILTER] = { .name = "vnifilter", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list vxlan_data_attr_list = {
