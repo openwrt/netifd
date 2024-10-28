@@ -521,6 +521,23 @@ interface_remove_user(struct interface_user *dep)
 }
 
 static void
+interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list)
+{
+	struct blob_attr *cur;
+	size_t rem;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE)
+			continue;
+
+		if (!blobmsg_check_attr(cur, false))
+			continue;
+
+		interface_add_dns_server(ip, cur);
+	}
+}
+
+static void
 interface_add_assignment_classes(struct interface *iface, struct blob_attr *list)
 {
 	struct blob_attr *cur;

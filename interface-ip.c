@@ -90,6 +90,16 @@ const struct uci_blob_param_list neighbor_attr_list = {
 	.params = neighbor_attr,
 };
 
+enum {
+	DNS_HOST,
+	DNS_LIFETIME,
+	__DNS_MAX
+};
+
+static const struct blobmsg_policy dns_attr[__DNS_MAX]= {
+	[DNS_HOST]= { .name = "dns", .type = BLOBMSG_TYPE_STRING},
+	[DNS_LIFETIME]= { .name = "lifetime", .type = BLOBMSG_TYPE_INT32},
+};
 
 struct list_head prefixes = LIST_HEAD_INIT(prefixes);
 static struct device_prefix *ula_prefix = NULL;
@@ -1411,47 +1421,47 @@ interface_ip_set_ula_prefix(const char *prefix)
 	}
 }
 
-static void
-interface_add_dns_server(struct interface_ip_settings *ip, const char *str)
+void
+interface_add_dns_server(struct interface_ip_settings *ip, struct blob_attr *attr)
 {
+	struct blob_attr *tb[__DNS_MAX], *cur;
 	struct dns_server *s;
+
+	blobmsg_parse(dns_attr, __DNS_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+
+	cur = tb[DNS_HOST];
+	if (cur == NULL)
+		return;
 
 	s = calloc(1, sizeof(*s));
 	if (!s)
 		return;
 
 	s->af = AF_INET;
-	if (inet_pton(s->af, str, &s->addr.in))
+	if (inet_pton(s->af, (char *)blobmsg_data(cur), &s->addr.in))
 		goto add;
 
 	s->af = AF_INET6;
-	if (inet_pton(s->af, str, &s->addr.in))
+	if (inet_pton(s->af, (char *)blobmsg_data(cur), &s->addr.in))
 		goto add;
 
 	free(s);
 	return;
 
 add:
-	D(INTERFACE, "Add IPv%c DNS server: %s",
-	  s->af == AF_INET6 ? '6' : '4', str);
-	vlist_simple_add(&ip->dns_servers, &s->node);
-}
-
-void
-interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list)
-{
-	struct blob_attr *cur;
-	size_t rem;
-
-	blobmsg_for_each_attr(cur, list, rem) {
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
-			continue;
-
-		if (!blobmsg_check_attr(cur, false))
-			continue;
-
-		interface_add_dns_server(ip, blobmsg_data(cur));
+	s->valid_until = 0;
+	cur = tb[DNS_LIFETIME];
+	if (cur != NULL) {
+		int64_t lifetime = blobmsg_get_u32(cur);
+		if (lifetime > 0) {
+			int64_t valid_until = lifetime + (int64_t)system_get_rtime();
+			if (valid_until > 0) /* Catch overflow */
+				s->valid_until = valid_until;
+		}
 	}
+	D(INTERFACE, "Add IPv%c DNS server: %s Expiry Time: %lld\n",
+	  s->af == AF_INET6 ? '6' : '4', (char *)blobmsg_data(tb[DNS_HOST]), s->valid_until);
+	vlist_simple_add(&ip->dns_servers, &s->node);
 }
 
 static void
@@ -1837,6 +1847,8 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 		struct device_addr *addr, *addrp;
 		struct device_route *route, *routep;
 		struct device_prefix *pref, *prefp;
+		struct dns_server *srv, *tmpsrv;
+		bool dns_expired = false;
 
 		vlist_for_each_element_safe(&iface->proto_ip.addr, addr, node, addrp)
 			if (addr->valid_until && addr->valid_until < now)
@@ -1850,6 +1862,14 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 			if (pref->valid_until && pref->valid_until < now)
 				vlist_delete(&iface->proto_ip.prefix, &pref->node);
 
+		vlist_simple_for_each_element_safe(&iface->proto_ip.dns_servers, srv, node, tmpsrv)
+			if (srv->valid_until && srv->valid_until < now) {
+				vlist_simple_delete(&iface->proto_ip.dns_servers, &srv->node);
+				dns_expired = true;
+			}
+
+		if (dns_expired)
+			interface_write_resolv_conf(iface->jail);
 	}
 
 	uloop_timeout_set(t, 1000);
