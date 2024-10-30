@@ -178,6 +178,7 @@ extern struct list_head prefixes;
 void interface_ip_init(struct interface *iface);
 void interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list);
 void interface_write_resolv_conf(const char *jail);
+void interface_update_search_domain_conf(struct interface *iface, bool add);
 
 void interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6);
 void interface_ip_add_neighbor(struct interface *iface, struct blob_attr *attr, bool v6);

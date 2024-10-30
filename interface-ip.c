@@ -30,6 +30,8 @@
 #include "ubus.h"
 #include "system.h"
 
+#define MAX_SEARCH_DOMAINS		50   /* Search domain maximum number that can be stored under /etc/resolv.conf */
+
 enum {
 	ROUTE_INTERFACE,
 	ROUTE_TARGET,
@@ -1500,7 +1502,6 @@ static void
 write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip, const char *dev)
 {
 	struct dns_server *s;
-	struct dns_search_domain *d;
 	const char *str;
 	char buf[INET6_ADDRSTRLEN];
 
@@ -1513,10 +1514,6 @@ write_resolv_conf_entries(FILE *f, struct interface_ip_settings *ip, const char 
 			fprintf(f, "nameserver %s%%%s\n", str, dev);
 		else
 			fprintf(f, "nameserver %s\n", str);
-	}
-
-	vlist_simple_for_each_element(&ip->dns_search, d, node) {
-		fprintf(f, "search %s\n", d->name);
 	}
 }
 
@@ -1555,9 +1552,7 @@ __interface_write_dns_entries(FILE *f, const char *jail)
 		if (jail && (!iface->jail || strcmp(jail, iface->jail)))
 			continue;
 
-		if (vlist_simple_empty(&iface->proto_ip.dns_search) &&
-		    vlist_simple_empty(&iface->proto_ip.dns_servers) &&
-		    vlist_simple_empty(&iface->config_ip.dns_search) &&
+		if (vlist_simple_empty(&iface->proto_ip.dns_servers) &&
 		    vlist_simple_empty(&iface->config_ip.dns_servers))
 			continue;
 
@@ -1633,6 +1628,200 @@ interface_write_resolv_conf(const char *jail)
 	} else if (rename(tmppath, path) < 0) {
 		D(INTERFACE, "Failed to replace %s", path);
 		unlink(tmppath);
+	}
+}
+
+static void
+free_search_domains(char **search_domains, int count)
+{
+	for (int i = 0; i < count; i++)
+		free(search_domains[i]);
+}
+
+static int
+gather_interface_search_domains(struct interface_ip_settings *ip, char **search_domains, int *count)
+{
+	struct dns_search_domain *d;
+
+	vlist_simple_for_each_element(&ip->dns_search, d, node) {
+		if (*count < MAX_SEARCH_DOMAINS) {
+			search_domains[*count] = strdup(d->name);
+			if (!search_domains[*count])
+				return -1;
+			++(*count);
+		}
+	}
+
+	return 0;
+}
+
+static void
+remove_search_domain_entries(FILE *origin_f, FILE *tmp_f, char **search_domains, int count)
+{
+	char line[256];
+
+	rewind(origin_f);
+	while (fgets(line, sizeof(line), origin_f)) {
+		if (!strncmp(line, "search ", 7)) {
+			char *token = strtok(line + 7, " \n");
+			char new_line[256] = {'\0'};
+
+			while (token != NULL) {
+				bool exist = false;
+
+				for (int i = 0; i < count; i++) {
+					if (!strcmp(search_domains[i], token)) {
+						exist = true;
+						break;
+					}
+				}
+
+				if (!exist) {
+					// new_line cannot become longer than line , strcat can't lead to overflows
+					strcat(new_line, " ");
+					strcat(new_line, token);
+				}
+
+				token = strtok(NULL, " \n");
+			}
+
+			if (new_line[0] != '\0')
+				fprintf(tmp_f, "search%s\n", new_line);
+
+		} else {
+			fprintf(tmp_f, "%s", line);
+		}
+	}
+}
+
+static int
+write_search_domain_entries(FILE *origin_f, FILE *tmp_f, char **search_domains, int *count)
+{
+	char line[256];
+
+	rewind(origin_f);
+	while (fgets(line, sizeof(line), origin_f)) {
+		if (!strncmp(line, "search ", 7)) {
+			char *token = strtok(line + 7, " \n");
+
+			while (token != NULL) {
+				bool exist = false;
+
+				for (int i = 0; i < *count; i++) {
+					if (!strcmp(search_domains[i], token)) {
+						exist = true;
+						break;
+					}
+				}
+
+				if (!exist && (*count < MAX_SEARCH_DOMAINS)) {
+					search_domains[*count] = strdup(token);
+					if (!search_domains[*count])
+						return -1;
+					++(*count);
+				}
+
+				token = strtok(NULL, " \n");
+			}
+		}
+	}
+
+	if (*count > 0) {
+		fprintf(tmp_f, "search");
+		for (int i = 0; i < *count; i++) {
+			fprintf(tmp_f, " %s", search_domains[i]);
+		}
+		fprintf(tmp_f, "\n");
+
+		rewind(origin_f);
+		while (fgets(line, sizeof(line), origin_f)) {
+			if (strncmp(line, "search ", 7) != 0)
+				fprintf(tmp_f, "%s", line);
+		}
+	}
+	return 0;
+}
+
+static void
+update_search_domain_entries(char **search_domains, int *count, bool add)
+{
+	const char *resolv_conf_path = "/tmp/resolv.conf";
+	char *tmppath  = alloca(strlen(resolv_conf_path) + 5);
+	FILE *f1, *f2;
+	uint32_t crcold, crcnew;
+
+	f1 = fopen(resolv_conf_path, "r");
+	if (!f1) {
+		D(INTERFACE, "Failed to open %s for reading\n", resolv_conf_path);
+		return;
+	}
+
+	sprintf(tmppath, "%s.tmp", resolv_conf_path);
+	f2 = fopen(tmppath, "w+");
+	if (!f2) {
+		D(INTERFACE, "Failed to open %s for writing\n", tmppath);
+		fclose(f1);
+		return;
+	}
+
+	if (add) {
+		if (write_search_domain_entries(f1, f2, search_domains, count) < 0) {
+			D(INTERFACE, "Failed to allocate memory for dns search domain list\n");
+			fclose(f1);
+			fclose(f2);
+			return;
+		}
+	} else {
+		remove_search_domain_entries(f1, f2, search_domains, *count);
+	}
+
+	rewind(f1);
+	crcold = crc32_file(f1);
+	fclose(f1);
+
+	fflush(f2);
+	rewind(f2);
+	crcnew = crc32_file(f2);
+	fclose(f2);
+
+	if (crcold == crcnew) {
+		unlink(tmppath);
+	} else if (rename(tmppath, resolv_conf_path) < 0) {
+		D(INTERFACE, "Failed to replace %s\n", resolv_conf_path);
+		unlink(tmppath);
+	}
+}
+
+void
+interface_update_search_domain_conf(struct interface *iface, bool add)
+{
+	char *search_domains[MAX_SEARCH_DOMAINS];
+	int count = 0;
+
+	if (iface->state != IFS_UP)
+		return;
+
+	if (vlist_simple_empty(&iface->proto_ip.dns_search) &&
+	    (iface->proto_ip.no_dns || vlist_simple_empty(&iface->config_ip.dns_search)))
+		return;
+
+	if (gather_interface_search_domains(&iface->config_ip, search_domains, &count) < 0) {
+		D(INTERFACE, "Failed to allocate memory for dns search domain list\n");
+		free_search_domains(search_domains, count);
+		return;
+	}
+
+	if (!iface->proto_ip.no_dns) {
+		if (gather_interface_search_domains(&iface->proto_ip, search_domains, &count) < 0) {
+			D(INTERFACE, "Failed to allocate memory for dns search domain list\n");
+			free_search_domains(search_domains, count);
+			return;
+		}
+	}
+
+	if (count > 0) {
+		update_search_domain_entries(search_domains, &count, add);
+		free_search_domains(search_domains, count);
 	}
 }
 
@@ -1792,6 +1981,7 @@ interface_ip_update_start(struct interface_ip_settings *ip)
 void
 interface_ip_update_complete(struct interface_ip_settings *ip)
 {
+	interface_update_search_domain_conf(ip->iface, false);
 	vlist_simple_flush(&ip->dns_servers);
 	vlist_simple_flush(&ip->dns_search);
 	vlist_flush(&ip->route);
@@ -1799,6 +1989,7 @@ interface_ip_update_complete(struct interface_ip_settings *ip)
 	vlist_flush(&ip->prefix);
 	vlist_flush(&ip->neighbor);
 	interface_write_resolv_conf(ip->iface->jail);
+	interface_update_search_domain_conf(ip->iface, true);
 }
 
 void
