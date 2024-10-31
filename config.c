@@ -28,6 +28,7 @@
 #include "wireless.h"
 #include "config.h"
 #include "ubus.h"
+#include "system.h"
 
 bool config_init = false;
 
@@ -537,6 +538,16 @@ config_init_globals(void)
 	const char *ula_prefix = uci_lookup_option_string(
 			uci_ctx, globals, "ula_prefix");
 	interface_ip_set_ula_prefix(ula_prefix);
+
+	const char *tcp_l3mdev = uci_lookup_option_string(
+			uci_ctx, globals, "tcp_l3mdev");
+	if (tcp_l3mdev)
+		system_tcp_l3mdev(!strcmp(tcp_l3mdev, "1"));
+
+	const char *udp_l3mdev = uci_lookup_option_string(
+			uci_ctx, globals, "udp_l3mdev");
+	if (udp_l3mdev)
+		system_udp_l3mdev(!strcmp(udp_l3mdev, "1"));
 }
 
 static void
