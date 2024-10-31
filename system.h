@@ -250,6 +250,14 @@ int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool ad
 int system_bridge_vlan_check(struct device *dev, char *ifname);
 void system_bridge_set_stp_state(struct device *dev, bool val);
 
+int system_vrf_addvrf(struct device *vrf, unsigned int table);
+int system_vrf_delvrf(struct device *vrf);
+int system_vrf_addif(struct device *vrf, struct device *dev);
+int system_vrf_delif(struct device *vrf, struct device *dev);
+
+void system_tcp_l3mdev(bool enable);
+void system_udp_l3mdev(bool enable);
+
 int system_bonding_set_device(struct device *dev, struct bonding_config *cfg);
 int system_bonding_set_port(struct device *dev, struct device *port, bool add, bool primary);
 

@@ -24,7 +24,7 @@ SET(SOURCES
 	iprule.c proto.c proto-static.c proto-shell.c
 	config.c device.c bridge.c veth.c vlan.c alias.c
 	macvlan.c ubus.c vlandev.c wireless.c
-	extdev.c bonding.c)
+	extdev.c bonding.c vrf.c)
 
 
 FIND_LIBRARY(uci NAMES uci)
