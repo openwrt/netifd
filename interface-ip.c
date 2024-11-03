@@ -103,6 +103,17 @@ static const struct blobmsg_policy dns_attr[__DNS_MAX]= {
 	[DNS_LIFETIME]= { .name = "lifetime", .type = BLOBMSG_TYPE_INT32},
 };
 
+enum {
+	DNS_SEARCH_DOMAIN,
+	DNS_SEARCH_LIFETIME,
+	__DNS_SEARCH_MAX
+};
+
+static const struct blobmsg_policy dns_search_attr[__DNS_SEARCH_MAX]= {
+	[DNS_SEARCH_DOMAIN]= { .name = "domain", .type = BLOBMSG_TYPE_STRING},
+	[DNS_SEARCH_LIFETIME]= { .name = "lifetime", .type = BLOBMSG_TYPE_INT32},
+};
+
 struct list_head prefixes = LIST_HEAD_INIT(prefixes);
 static struct device_prefix *ula_prefix = NULL;
 static struct uloop_timeout valid_until_timeout;
@@ -1466,36 +1477,39 @@ add:
 	vlist_simple_add(&ip->dns_servers, &s->node);
 }
 
-static void
-interface_add_dns_search_domain(struct interface_ip_settings *ip, const char *str)
+void
+interface_add_dns_search_domain(struct interface_ip_settings *ip, struct blob_attr *attr)
 {
+	struct blob_attr *tb[__DNS_SEARCH_MAX], *cur;
 	struct dns_search_domain *s;
-	int len = strlen(str);
+	int len;
 
+	blobmsg_parse(dns_search_attr, __DNS_SEARCH_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+
+	cur = tb[DNS_SEARCH_DOMAIN];
+	if (cur == NULL)
+		return;
+
+	len = strlen((char *)blobmsg_data(cur));
 	s = calloc(1, sizeof(*s) + len + 1);
 	if (!s)
 		return;
 
-	D(INTERFACE, "Add DNS search domain: %s", str);
-	memcpy(s->name, str, len);
-	vlist_simple_add(&ip->dns_search, &s->node);
-}
+	memcpy(s->name, (char *)blobmsg_data(cur), len);
+	s->valid_until = 0;
 
-void
-interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list)
-{
-	struct blob_attr *cur;
-	size_t rem;
-
-	blobmsg_for_each_attr(cur, list, rem) {
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
-			continue;
-
-		if (!blobmsg_check_attr(cur, false))
-			continue;
-
-		interface_add_dns_search_domain(ip, blobmsg_data(cur));
+	cur = tb[DNS_SEARCH_LIFETIME];
+	if (cur != NULL) {
+		int64_t lifetime = blobmsg_get_u32(cur);
+		if (lifetime > 0) {
+			int64_t valid_until = lifetime + (int64_t)system_get_rtime();
+			if (valid_until > 0) /* Catch overflow */
+				s->valid_until = valid_until;
+		}
 	}
+
+	D(INTERFACE, "Add DNS search domain: %s Expiry Time: %lld\n", (char *)blobmsg_data(tb[DNS_SEARCH_DOMAIN]), s->valid_until);
+	vlist_simple_add(&ip->dns_search, &s->node);
 }
 
 static void
@@ -2029,6 +2043,8 @@ interface_ip_init(struct interface *iface)
 static void
 interface_ip_valid_until_handler(struct uloop_timeout *t)
 {
+	char *search_domains[MAX_SEARCH_DOMAINS];
+	int count = 0;
 	time_t now = system_get_rtime();
 	struct interface *iface;
 	vlist_for_each_element(&interfaces, iface, node) {
@@ -2039,6 +2055,7 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 		struct device_route *route, *routep;
 		struct device_prefix *pref, *prefp;
 		struct dns_server *srv, *tmpsrv;
+		struct dns_search_domain *domain, *tmpdomain;
 		bool dns_expired = false;
 
 		vlist_for_each_element_safe(&iface->proto_ip.addr, addr, node, addrp)
@@ -2059,8 +2076,27 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 				dns_expired = true;
 			}
 
+		vlist_simple_for_each_element_safe(&iface->proto_ip.dns_search, domain, node, tmpdomain)
+			if (domain->valid_until && domain->valid_until < now) {
+				if (count < MAX_SEARCH_DOMAINS) {
+					search_domains[count] = strdup(domain->name);
+					if (!search_domains[count]) {
+						D(INTERFACE, "Failed to allocate memory to remove dns search domain\n");
+						break;
+					}
+					++count;
+				}
+				vlist_simple_delete(&iface->proto_ip.dns_search, &domain->node);
+			}
+
 		if (dns_expired)
 			interface_write_resolv_conf(iface->jail);
+
+	}
+
+	if (count > 0) {
+		update_search_domain_entries(search_domains, &count, false);
+		free_search_domains(search_domains, count);
 	}
 
 	uloop_timeout_set(t, 1000);

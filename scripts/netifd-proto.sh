@@ -113,8 +113,9 @@ proto_add_dns_server() {
 
 proto_add_dns_search() {
 	local address="$1"
+	local lifetime="$2"
 
-	append PROTO_DNS_SEARCH "$address"
+	append PROTO_DNS_SEARCH "$address/$lifetime"
 }
 
 proto_add_ipv4_address() {
@@ -315,6 +316,18 @@ _proto_push_dns() {
 	json_close_object
 }
 
+_proto_push_dns_search() {
+	local str="$1";
+	local domain="${str%%/*}"
+	str="${str#*/}"
+	local lifetime="${str%%/*}"
+
+	json_add_object ""
+	json_add_string domain "$domain"
+	[ -n "$lifetime" ] && json_add_int lifetime "$lifetime"
+	json_close_object
+}
+
 _proto_push_array() {
 	local name="$1"
 	local val="$2"
@@ -346,7 +359,7 @@ proto_send_update() {
 	_proto_push_array "routes6" "$PROTO_ROUTE6" _proto_push_route
 	_proto_push_array "ip6prefix" "$PROTO_PREFIX6" _proto_push_string
 	_proto_push_array "dns" "$PROTO_DNS" _proto_push_dns
-	_proto_push_array "dns_search" "$PROTO_DNS_SEARCH" _proto_push_string
+	_proto_push_array "dns_search" "$PROTO_DNS_SEARCH" _proto_push_dns_search
 	_proto_push_array "neighbor" "$PROTO_NEIGHBOR" _proto_push_ipv4_neighbor
 	_proto_push_array "neighbor6" "$PROTO_NEIGHBOR6" _proto_push_ipv6_neighbor
 	_proto_notify "$interface"
