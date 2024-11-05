@@ -2059,25 +2059,25 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 		bool dns_expired = false;
 
 		vlist_for_each_element_safe(&iface->proto_ip.addr, addr, node, addrp)
-			if (addr->valid_until && addr->valid_until < now)
+			if (addr->valid_until && addr->valid_until <= now)
 				vlist_delete(&iface->proto_ip.addr, &addr->node);
 
 		vlist_for_each_element_safe(&iface->proto_ip.route, route, node, routep)
-			if (route->valid_until && route->valid_until < now)
+			if (route->valid_until && route->valid_until <= now)
 				vlist_delete(&iface->proto_ip.route, &route->node);
 
 		vlist_for_each_element_safe(&iface->proto_ip.prefix, pref, node, prefp)
-			if (pref->valid_until && pref->valid_until < now)
+			if (pref->valid_until && pref->valid_until <= now)
 				vlist_delete(&iface->proto_ip.prefix, &pref->node);
 
 		vlist_simple_for_each_element_safe(&iface->proto_ip.dns_servers, srv, node, tmpsrv)
-			if (srv->valid_until && srv->valid_until < now) {
+			if (srv->valid_until && srv->valid_until <= now) {
 				vlist_simple_delete(&iface->proto_ip.dns_servers, &srv->node);
 				dns_expired = true;
 			}
 
 		vlist_simple_for_each_element_safe(&iface->proto_ip.dns_search, domain, node, tmpdomain)
-			if (domain->valid_until && domain->valid_until < now) {
+			if (domain->valid_until && domain->valid_until <= now) {
 				if (count < MAX_SEARCH_DOMAINS) {
 					search_domains[count] = strdup(domain->name);
 					if (!search_domains[count]) {
@@ -2099,12 +2099,12 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 		free_search_domains(search_domains, count);
 	}
 
-	uloop_timeout_set(t, 1000);
+	uloop_timeout_set(t, 500);
 }
 
 static void __init
 interface_ip_init_worker(void)
 {
 	valid_until_timeout.cb = interface_ip_valid_until_handler;
-	uloop_timeout_set(&valid_until_timeout, 1000);
+	uloop_timeout_set(&valid_until_timeout, 500);
 }
