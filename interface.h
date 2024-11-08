@@ -145,6 +145,7 @@ struct interface {
 	struct device_user l3_dev;
 
 	struct blob_attr *config;
+	struct blob_attr *tags;
 
 	/* primary protocol state */
 	const struct proto_handler *proto_handler;

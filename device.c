@@ -75,6 +75,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_GRO] = { .name = "gro", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MASTER] = { .name = "conduit", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_EEE] = { .name = "eee", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -585,6 +586,10 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	free(dev->config_auth_vlans);
 	dev->config_auth_vlans = cur ? blob_memdup(cur) : NULL;
 
+	cur = tb[DEV_ATTR_TAGS];
+	free(dev->tags);
+	dev->tags = cur ? blob_memdup(cur) : NULL;
+
 	device_set_extra_vlans(dev, tb[DEV_ATTR_VLAN]);
 	device_set_disabled(dev, disabled);
 }
@@ -1085,6 +1090,7 @@ device_free(struct device *dev)
 	free(dev->auth_vlans);
 	free(dev->config);
 	device_cleanup(dev);
+	free(dev->tags);
 	free(dev->config_auth_vlans);
 	free(dev->extra_vlan);
 	dev->type->free(dev);
@@ -1350,6 +1356,9 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 	blobmsg_add_u8(b, "up", !!dev->active);
 	blobmsg_add_u8(b, "carrier", !!dev->link_active);
 	blobmsg_add_u8(b, "auth_status", !!dev->auth_status);
+
+	if (dev->tags)
+		blobmsg_add_blob(b, dev->tags);
 
 	if (dev->type->dump_info)
 		dev->type->dump_info(dev, b);

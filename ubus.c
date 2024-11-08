@@ -838,6 +838,8 @@ netifd_dump_status(struct interface *iface)
 
 	if (iface->jail_device)
 		blobmsg_add_string(&b, "jail_device", iface->jail_device);
+	if (iface->tags)
+		blobmsg_add_blob(&b, iface->tags);
 
 	if (iface->state == IFS_UP) {
 		if (iface->updated) {

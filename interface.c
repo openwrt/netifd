@@ -57,6 +57,7 @@ enum {
 	IFACE_ATTR_IP6IFACEID,
 	IFACE_ATTR_FORCE_LINK,
 	IFACE_ATTR_IP6WEIGHT,
+	IFACE_ATTR_TAGS,
 	IFACE_ATTR_MAX
 };
 
@@ -87,6 +88,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6IFACEID] = { .name = "ip6ifaceid", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6WEIGHT] = { .name = "ip6weight", .type = BLOBMSG_TYPE_INT32 },
+	[IFACE_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 const struct uci_blob_param_list interface_attr_list = {
@@ -978,6 +980,7 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 	}
 
 	iface->config = config;
+	iface->tags = tb[IFACE_ATTR_TAGS];
 	vlist_add(&interfaces, &iface->node, iface->name);
 
 	if (name) {
@@ -1321,6 +1324,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	})
 
 	if_old->config = if_new->config;
+	if_old->tags = if_new->tags;
 	if (if_old->config_autostart != if_new->config_autostart) {
 		if (if_old->config_autostart)
 			reload = true;
