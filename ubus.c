@@ -1417,6 +1417,16 @@ netifd_ubus_interface_notify(struct interface *iface, bool up)
 }
 
 void
+netifd_ubus_wireless_notify(struct wireless_device *wdev, bool up)
+{
+	const char *event = (up) ? "wireless.update" : "wireless.down";
+
+	blob_buf_init(&b, 0);
+	wireless_device_status(wdev, &b);
+	ubus_notify(ubus_ctx, &wireless_object, event, b.head, -1);
+}
+
+void
 netifd_ubus_add_interface(struct interface *iface)
 {
 	struct ubus_object *obj = &iface->ubus;

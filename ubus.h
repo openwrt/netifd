@@ -14,6 +14,7 @@
 #ifndef __NETIFD_UBUS_H
 #define __NETIFD_UBUS_H
 
+struct wireless_device;
 typedef void (*procd_data_cb)(struct blob_attr *data);
 
 extern struct ubus_context *ubus_ctx;
@@ -29,5 +30,6 @@ void netifd_ubus_interface_event(struct interface *iface, bool up);
 void netifd_ubus_interface_notify(struct interface *iface, bool up);
 void netifd_ubus_device_notify(const char *event, struct blob_attr *data, int timeout);
 void netifd_ubus_get_procd_data(const char *type, procd_data_cb cb);
+void netifd_ubus_wireless_notify(struct wireless_device *wdev, bool up);
 
 #endif

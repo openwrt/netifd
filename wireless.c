@@ -602,6 +602,7 @@ wireless_device_mark_down(struct wireless_device *wdev)
 	wdev->state = IFS_DOWN;
 	wireless_device_free_state(wdev);
 	wdev_handle_config_change(wdev);
+	netifd_ubus_wireless_notify(wdev, false);
 }
 
 /* timeout callback to protect the tear down */
@@ -671,6 +672,7 @@ wireless_device_mark_up(struct wireless_device *wdev)
 		vlist_for_each_element(&vif->vlans, vlan, node)
 			wireless_vlan_handle_link(vlan, true);
 	}
+	netifd_ubus_wireless_notify(wdev, true);
 }
 
 static void
