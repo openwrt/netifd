@@ -327,6 +327,11 @@ bridge_disable_member(struct bridge_member *bm, bool keep_dev)
 	if (!keep_dev)
 		device_release(&bm->dev);
 
+	if (bm->dev.dev->settings.flags & DEV_OPT_IPV6) {
+		bm->dev.dev->settings.ipv6 = 1;
+		bm->dev.dev->settings.flags &= ~DEV_OPT_IPV6;
+	}
+
 	device_broadcast_event(&bst->dev, DEV_EVENT_TOPO_CHANGE);
 
 	return 0;

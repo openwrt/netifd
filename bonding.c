@@ -171,6 +171,11 @@ bonding_disable_port(struct bonding_port *bp, bool keep_dev)
 	if (!keep_dev)
 		device_release(&bp->dev);
 
+	if (bp->dev.dev->settings.flags & DEV_OPT_IPV6) {
+		bp->dev.dev->settings.ipv6 = 1;
+		bp->dev.dev->settings.flags &= ~DEV_OPT_IPV6;
+	}
+
 	return 0;
 }
 
