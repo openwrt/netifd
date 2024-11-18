@@ -269,7 +269,7 @@ proto_shell_if_down_cb(struct interface_user *dep, struct interface *iface,
 	struct proto_shell_dependency *pdep;
 	struct proto_shell_state *state;
 
-	if (ev == IFEV_UP || ev == IFEV_UPDATE)
+	if (ev != IFEV_UP_FAILED && ev != IFEV_DOWN && ev != IFEV_FREE)
 		return;
 
 	pdep = container_of(dep, struct proto_shell_dependency, dep);
