@@ -697,13 +697,34 @@ static int system_get_arp_accept(struct device *dev, char *buf, const size_t buf
 			dev->ifname, buf, buf_sz);
 }
 
+static int
+system_device_ifreq(struct ifreq *ifr, const char *ifname, int cmd)
+{
+	memset(ifr, 0, sizeof(*ifr));
+	strncpy(ifr->ifr_name, ifname, sizeof(ifr->ifr_name) - 1);
+	return ioctl(sock_ioctl, cmd, ifr);
+}
+
+static int system_if_get_flags(const char *ifname)
+{
+	struct ifreq ifr;
+
+	if (system_device_ifreq(&ifr, ifname, SIOCGIFFLAGS))
+		return 0;
+
+	return ifr.ifr_flags;
+}
+
 #ifndef IFF_LOWER_UP
 #define IFF_LOWER_UP	0x10000
 #endif
 
 static void
-system_device_update_state(struct device *dev, unsigned int flags, unsigned int ifindex)
+system_device_update_state(struct device *dev)
 {
+	unsigned int ifindex = system_if_resolve(dev);
+	int flags = system_if_get_flags(dev->ifname);
+
 	if (dev->type == &simple_device_type) {
 		if (dev->external)
 			device_set_disabled(dev, !(flags & IFF_UP));
@@ -717,7 +738,6 @@ system_device_update_state(struct device *dev, unsigned int flags, unsigned int 
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
-	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct nlattr *nla[__IFLA_MAX];
 	struct device *dev;
 
@@ -732,7 +752,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (!dev)
 		return 0;
 
-	system_device_update_state(dev, ifi->ifi_flags, ifi->ifi_index);
+	system_device_update_state(dev);
 	return 0;
 }
 
@@ -1142,21 +1162,17 @@ int system_if_resolve(struct device *dev)
 {
 	struct ifreq ifr;
 
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
-	if (!ioctl(sock_ioctl, SIOCGIFINDEX, &ifr))
-		return ifr.ifr_ifindex;
-	else
+	if (system_device_ifreq(&ifr, dev->ifname, SIOCGIFINDEX))
 		return 0;
+
+	return ifr.ifr_ifindex;
 }
 
 static int system_if_flags(const char *ifname, unsigned add, unsigned rem)
 {
 	struct ifreq ifr;
 
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
-	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) < 0)
+	if (system_device_ifreq(&ifr, ifname, SIOCGIFFLAGS))
 		return -1;
 
 	ifr.ifr_flags |= add;
@@ -2372,13 +2388,12 @@ struct if_check_data {
 static int cb_if_check_valid(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
-	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct if_check_data *chk = (struct if_check_data *)arg;
 
 	if (nh->nlmsg_type != RTM_NEWLINK)
 		return NL_SKIP;
 
-	system_device_update_state(chk->dev, ifi->ifi_flags, ifi->ifi_index);
+	system_device_update_state(chk->dev);
 	return NL_OK;
 }
 
