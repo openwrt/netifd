@@ -585,7 +585,7 @@ config_parse_wireless_station(struct wireless_interface *vif, struct uci_section
 }
 
 static void
-config_parse_wireless_interface(struct wireless_device *wdev, struct uci_section *s)
+config_wdev_parse_wireless_interface(struct wireless_device *wdev, struct uci_section *s)
 {
 	struct wireless_interface *vif;
 	struct uci_element *f;
@@ -702,11 +702,24 @@ config_procd_wireless_interface_cb(struct blob_attr *data)
 }
 
 static void
+config_parse_wireless_interface(const char *dev_name, struct uci_section *s)
+{
+	struct wireless_device *wdev;
+
+	wdev = vlist_find(&wireless_devices, dev_name, wdev, node);
+	if (!wdev) {
+		D(WIRELESS, "device %s not found!", dev_name);
+		return;
+	}
+
+	config_wdev_parse_wireless_interface(wdev, s);
+}
+
+static void
 config_init_wireless(void)
 {
 	struct wireless_device *wdev;
 	struct uci_element *e;
-	const char *dev_name;
 
 	if (!uci_wireless) {
 		D(WIRELESS, "No wireless configuration found");
@@ -732,21 +745,23 @@ config_init_wireless(void)
 
 	uci_foreach_element(&uci_wireless->sections, e) {
 		struct uci_section *s = uci_to_section(e);
+		struct uci_element *val;
+		struct uci_option *o;
 
 		if (strcmp(s->type, "wifi-iface") != 0)
 			continue;
 
-		dev_name = uci_lookup_option_string(uci_ctx, s, "device");
-		if (!dev_name)
+		o = uci_lookup_option(uci_ctx, s, "device");
+		if (!o)
 			continue;
 
-		wdev = vlist_find(&wireless_devices, dev_name, wdev, node);
-		if (!wdev) {
-			D(WIRELESS, "device %s not found!", dev_name);
+		if (o->type == UCI_TYPE_STRING) {
+			config_parse_wireless_interface(o->v.string, s);
 			continue;
 		}
 
-		config_parse_wireless_interface(wdev, s);
+		uci_foreach_element(&o->v.list, val)
+			config_parse_wireless_interface(val->name, s);
 	}
 
 	netifd_ubus_get_procd_data("wifi-iface", config_procd_wireless_interface_cb);
