@@ -705,25 +705,14 @@ system_device_ifreq(struct ifreq *ifr, const char *ifname, int cmd)
 	return ioctl(sock_ioctl, cmd, ifr);
 }
 
-static int system_if_get_flags(const char *ifname)
-{
-	struct ifreq ifr;
-
-	if (system_device_ifreq(&ifr, ifname, SIOCGIFFLAGS))
-		return 0;
-
-	return ifr.ifr_flags;
-}
-
 #ifndef IFF_LOWER_UP
 #define IFF_LOWER_UP	0x10000
 #endif
 
 static void
-system_device_update_state(struct device *dev)
+system_device_update_state(struct device *dev, unsigned int flags)
 {
 	unsigned int ifindex = system_if_resolve(dev);
-	int flags = system_if_get_flags(dev->ifname);
 
 	if (dev->type == &simple_device_type) {
 		if (dev->external)
@@ -738,6 +727,7 @@ system_device_update_state(struct device *dev)
 static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct nlattr *nla[__IFLA_MAX];
 	struct device *dev;
 
@@ -752,7 +742,7 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (!dev)
 		return 0;
 
-	system_device_update_state(dev);
+	system_device_update_state(dev, ifi->ifi_flags);
 	return 0;
 }
 
@@ -2388,12 +2378,13 @@ struct if_check_data {
 static int cb_if_check_valid(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct if_check_data *chk = (struct if_check_data *)arg;
 
 	if (nh->nlmsg_type != RTM_NEWLINK)
 		return NL_SKIP;
 
-	system_device_update_state(chk->dev);
+	system_device_update_state(chk->dev, ifi->ifi_flags);
 	return NL_OK;
 }
 
