@@ -69,6 +69,9 @@ enum iprule_flags {
 
 	/* rule specifies ipproto */
 	IPRULE_IPPROTO		= (1 << 15),
+
+	/* rule specifies sport */
+	IPRULE_SPORT		= (1 << 16),
 };
 
 struct iprule {
@@ -113,6 +116,8 @@ struct iprule {
 	unsigned int action;
 	unsigned int gotoid;
 	unsigned int ipproto;
+	unsigned int sport_start;
+	unsigned int sport_end;
 };
 
 extern struct vlist_tree iprules;
