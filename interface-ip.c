@@ -737,6 +737,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				interface_handle_subnet_route(iface, a_old, false);
 				system_del_address(dev, a_old);
 
+				if ((a_old->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
+					v6 = true;
+
 				if ((a_old->flags & DEVADDR_OFFLINK) && (a_old->mask < (v6 ? 128 : 32))) {
 					struct device_route route;
 
