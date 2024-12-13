@@ -3578,7 +3578,7 @@ static int system_iprule(struct iprule *rule, int cmd)
 		nla_put_u32(msg, FRA_GOTO, rule->gotoid);
 
 	if (rule->flags & IPRULE_IPPROTO)
-		nla_put_u32(msg, FRA_IP_PROTO, rule->ipproto);
+		nla_put_u8(msg, FRA_IP_PROTO, rule->ipproto);
 
 	return system_rtnl_call(msg);
 }
