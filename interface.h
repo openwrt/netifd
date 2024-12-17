@@ -108,7 +108,7 @@ struct interface {
 
 	const char *name;
 	const char *device;
-	const char *zone;
+	char *zone;
 	char *jail;
 	char *jail_device;
 	char *host_device;
