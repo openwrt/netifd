@@ -64,7 +64,7 @@ static const struct blobmsg_policy rule_attr[__RULE_MAX] = {
 	[RULE_UIDRANGE] = { .name = "uidrange", .type = BLOBMSG_TYPE_STRING },
 	[RULE_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_STRING },
 	[RULE_GOTO]   = { .name = "goto", .type = BLOBMSG_TYPE_INT32 },
-	[RULE_IPPROTO]  = { .name = "ipproto", .type = BLOBMSG_TYPE_INT32 },
+	[RULE_IPPROTO]  = { .name = "ipproto", .type = BLOBMSG_TYPE_STRING },
 	[RULE_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 };
 
@@ -312,8 +312,8 @@ iprule_add(struct blob_attr *attr, bool v6)
 	}
 
 	if ((cur = tb[RULE_IPPROTO]) != NULL) {
-		if ((rule->ipproto = blobmsg_get_u32(cur)) > 255) {
-			D(INTERFACE, "Invalid ipproto value: %u", blobmsg_get_u32(cur));
+		if (!system_resolve_iprule_ipproto(blobmsg_data(cur), &rule->ipproto)) {
+			D(INTERFACE, "Failed to parse rule ip protocol: %s", (char *) blobmsg_data(cur));
 			goto error;
 		}
 		rule->flags |= IPRULE_IPPROTO;

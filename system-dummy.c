@@ -323,7 +323,13 @@ int system_flush_iprules(void)
 	return 0;
 }
 
-bool system_resolve_iprule_action(const char *action, unsigned int *id)
+bool system_resolve_iprule_action(const char *name, unsigned int *id)
+{
+	*id = 0;
+	return true;
+}
+
+bool system_resolve_iprule_ipproto(const char *name, unsigned int *id)
 {
 	*id = 0;
 	return true;
