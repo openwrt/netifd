@@ -469,12 +469,14 @@ init_proto() {
 			add_protocol() {
 				[[ "$proto" == "$1" ]] || return 0
 
+				env -i ACTION="pre-${cmd}" PROTOCOL="$proto" INTERFACE="$interface" IFNAME="$ifname" DATA="$data" /sbin/hotplug-call proto
 				case "$cmd" in
 					setup) _proto_do_setup "$1";;
 					teardown) _proto_do_teardown "$1" ;;
 					renew) _proto_do_renew "$1" ;;
 					*) return 1 ;;
 				esac
+				env -i ACTION="post-${cmd}" PROTOCOL="$proto" INTERFACE="$interface" IFNAME="$ifname" DATA="$data" /sbin/hotplug-call proto
 			}
 		;;
 	esac
