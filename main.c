@@ -24,9 +24,9 @@
 #include "config.h"
 #include "system.h"
 #include "interface.h"
-#include "wireless.h"
 #include "proto.h"
 #include "extdev.h"
+#include "ucode.h"
 
 unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
@@ -190,6 +190,20 @@ netifd_process_cb(struct uloop_process *proc, int ret)
 	return;
 }
 
+void
+netifd_add_process(struct netifd_process *proc, int fd, int pid)
+{
+	proc->uloop.cb = netifd_process_cb;
+	proc->uloop.pid = pid;
+	uloop_process_add(&proc->uloop);
+	list_add_tail(&proc->list, &process_list);
+
+	system_fd_set_cloexec(fd);
+	proc->log.stream.string_data = true;
+	proc->log.stream.notify_read = netifd_process_log_read_cb;
+	ustream_fd_init(&proc->log, fd);
+}
+
 int
 netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 {
@@ -233,15 +247,7 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 	}
 
 	close(pfds[1]);
-	proc->uloop.cb = netifd_process_cb;
-	proc->uloop.pid = pid;
-	uloop_process_add(&proc->uloop);
-	list_add_tail(&proc->list, &process_list);
-
-	system_fd_set_cloexec(pfds[0]);
-	proc->log.stream.string_data = true;
-	proc->log.stream.notify_read = netifd_process_log_read_cb;
-	ustream_fd_init(&proc->log, pfds[0]);
+	netifd_add_process(proc, pfds[0], pid);
 
 	return 0;
 
@@ -391,7 +397,7 @@ int main(int argc, char **argv)
 
 	proto_shell_init();
 	extdev_init();
-	wireless_init();
+	netifd_ucode_init();
 
 	if (system_init()) {
 		fprintf(stderr, "Failed to initialize system control\n");
@@ -404,6 +410,7 @@ int main(int argc, char **argv)
 	netifd_kill_processes();
 
 	netifd_ubus_done();
+	netifd_ucode_free();
 
 	if (use_syslog)
 		closelog();
