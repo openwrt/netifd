@@ -25,36 +25,16 @@
 #include "interface-ip.h"
 #include "iprule.h"
 #include "proto.h"
-#include "wireless.h"
 #include "config.h"
 #include "ubus.h"
+#include "ucode.h"
 
 bool config_init = false;
 
 static struct uci_context *uci_ctx;
 static struct uci_package *uci_network;
-static struct uci_package *uci_wireless;
 static struct blob_attr *board_netdevs;
 static struct blob_buf b;
-
-static int
-config_section_idx(struct uci_section *s)
-{
-	struct uci_element *e;
-	int idx = 0;
-
-	uci_foreach_element(&uci_wireless->sections, e) {
-		struct uci_section *cur = uci_to_section(e);
-
-		if (s == cur)
-			return idx;
-
-		if (!strcmp(cur->type, s->type))
-			idx++;
-	}
-
-	return -1;
-}
 
 static bool
 config_bridge_has_vlans(const char *br_name)
@@ -539,238 +519,6 @@ config_init_globals(void)
 	interface_ip_set_ula_prefix(ula_prefix);
 }
 
-static void
-config_parse_wireless_device(struct uci_section *s)
-{
-	struct wireless_driver *drv;
-	const char *driver_name;
-
-	driver_name = uci_lookup_option_string(uci_ctx, s, "type");
-	if (!driver_name)
-		return;
-
-	drv = avl_find_element(&wireless_drivers, driver_name, drv, node);
-	if (!drv)
-		return;
-
-	blob_buf_init(&b, 0);
-	uci_to_blob(&b, s, drv->device.config);
-	wireless_device_create(drv, s->e.name, b.head);
-}
-
-static void
-config_parse_wireless_vlan(struct wireless_interface *vif, struct uci_section *s)
-{
-	char *name;
-
-	name = alloca(strlen(s->type) + 16);
-	sprintf(name, "@%s[%d]", s->type, config_section_idx(s));
-
-	blob_buf_init(&b, 0);
-	uci_to_blob(&b, s, vif->wdev->drv->vlan.config);
-	wireless_vlan_create(vif, b.head, s->anonymous ? name : s->e.name);
-}
-
-static void
-config_parse_wireless_station(struct wireless_interface *vif, struct uci_section *s)
-{
-	char *name;
-
-	name = alloca(strlen(s->type) + 16);
-	sprintf(name, "@%s[%d]", s->type, config_section_idx(s));
-
-	blob_buf_init(&b, 0);
-	uci_to_blob(&b, s, vif->wdev->drv->station.config);
-	wireless_station_create(vif, b.head, s->anonymous ? name : s->e.name);
-}
-
-static void
-config_wdev_parse_wireless_interface(struct wireless_device *wdev, struct uci_section *s)
-{
-	struct wireless_interface *vif;
-	struct uci_element *f;
-	char *name;
-
-	name = alloca(strlen(s->type) + 16);
-	sprintf(name, "@%s[%d]", s->type, config_section_idx(s));
-
-	blob_buf_init(&b, 0);
-	uci_to_blob(&b, s, wdev->drv->interface.config);
-	vif = wireless_interface_create(wdev, b.head, s->anonymous ? name : s->e.name);
-	if (!vif)
-		return;
-
-	if (s->anonymous)
-		goto out;
-
-	uci_foreach_element(&uci_wireless->sections, f) {
-		struct uci_section *cur = uci_to_section(f);
-		const char *vif_name;
-
-		if (strcmp(cur->type, "wifi-vlan") != 0)
-			continue;
-
-		vif_name = uci_lookup_option_string(uci_ctx, cur, "iface");
-		if (vif_name && strcmp(s->e.name, vif_name))
-			continue;
-		config_parse_wireless_vlan(vif, cur);
-	}
-
-	uci_foreach_element(&uci_wireless->sections, f) {
-		struct uci_section *cur = uci_to_section(f);
-		const char *vif_name;
-
-		if (strcmp(cur->type, "wifi-station") != 0)
-			continue;
-
-		vif_name = uci_lookup_option_string(uci_ctx, cur, "iface");
-		if (vif_name && strcmp(s->e.name, vif_name))
-			continue;
-		config_parse_wireless_station(vif, cur);
-	}
-
-out:
-	vlist_flush(&vif->vlans);
-	vlist_flush(&vif->stations);
-}
-
-static void
-config_init_procd_wireless_interface(const char *wdev_name, const char *vif_name,
-				     struct blob_attr *config,
-				     struct blob_attr *vlans,
-				     struct blob_attr *stations)
-{
-	struct wireless_interface *vif;
-	struct wireless_device *wdev;
-	struct blob_attr *cur;
-	char name[16];
-	int idx = 0;
-	size_t rem;
-
-	wdev = vlist_find(&wireless_devices, wdev_name, wdev, node);
-	if (!wdev) {
-		D(WIRELESS, "device %s not found!", wdev_name);
-		return;
-	}
-
-	vif = wireless_interface_create(wdev, config, vif_name);
-	if (!vif)
-		return;
-
-	blobmsg_for_each_attr(cur, vlans, rem) {
-		snprintf(name, sizeof(name), "%d", ++idx);
-		wireless_vlan_create(vif, cur, name);
-	}
-
-	blobmsg_for_each_attr(cur, stations, rem) {
-		snprintf(name, sizeof(name), "%d", ++idx);
-		wireless_station_create(vif, cur, name);
-	}
-
-	vlist_flush(&vif->vlans);
-	vlist_flush(&vif->stations);
-}
-
-static void
-config_procd_wireless_interface_cb(struct blob_attr *data)
-{
-	enum {
-		UDATA_ATTR_DEVICE,
-		UDATA_ATTR_CONFIG,
-		UDATA_ATTR_STATIONS,
-		UDATA_ATTR_VLANS,
-		__UDATA_ATTR_MAX,
-	};
-	static const struct blobmsg_policy policy[__UDATA_ATTR_MAX] = {
-		[UDATA_ATTR_DEVICE] = { "device", BLOBMSG_TYPE_STRING },
-		[UDATA_ATTR_CONFIG] = { "config", BLOBMSG_TYPE_TABLE },
-		[UDATA_ATTR_STATIONS] = { "stations", BLOBMSG_TYPE_ARRAY },
-		[UDATA_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_ARRAY },
-	};
-	struct blob_attr *tb[__UDATA_ATTR_MAX];
-	const char *dev;
-
-	blobmsg_parse_attr(policy, __UDATA_ATTR_MAX, tb, data);
-	if (!tb[UDATA_ATTR_DEVICE] || !tb[UDATA_ATTR_CONFIG])
-		return;
-
-	dev = blobmsg_get_string(tb[UDATA_ATTR_DEVICE]);
-	config_init_procd_wireless_interface(dev, blobmsg_name(data),
-					     tb[UDATA_ATTR_CONFIG],
-					     tb[UDATA_ATTR_VLANS],
-					     tb[UDATA_ATTR_STATIONS]);
-}
-
-static void
-config_parse_wireless_interface(const char *dev_name, struct uci_section *s)
-{
-	struct wireless_device *wdev;
-
-	wdev = vlist_find(&wireless_devices, dev_name, wdev, node);
-	if (!wdev) {
-		D(WIRELESS, "device %s not found!", dev_name);
-		return;
-	}
-
-	config_wdev_parse_wireless_interface(wdev, s);
-}
-
-static void
-config_init_wireless(void)
-{
-	struct wireless_device *wdev;
-	struct uci_element *e;
-
-	if (!uci_wireless) {
-		D(WIRELESS, "No wireless configuration found");
-		return;
-	}
-
-	vlist_update(&wireless_devices);
-
-	uci_foreach_element(&uci_wireless->sections, e) {
-		struct uci_section *s = uci_to_section(e);
-		if (strcmp(s->type, "wifi-device") != 0)
-			continue;
-
-		config_parse_wireless_device(s);
-	}
-
-	vlist_flush(&wireless_devices);
-
-	vlist_for_each_element(&wireless_devices, wdev, node) {
-		wdev->vif_idx = 0;
-		vlist_update(&wdev->interfaces);
-	}
-
-	uci_foreach_element(&uci_wireless->sections, e) {
-		struct uci_section *s = uci_to_section(e);
-		struct uci_element *val;
-		struct uci_option *o;
-
-		if (strcmp(s->type, "wifi-iface") != 0)
-			continue;
-
-		o = uci_lookup_option(uci_ctx, s, "device");
-		if (!o)
-			continue;
-
-		if (o->type == UCI_TYPE_STRING) {
-			config_parse_wireless_interface(o->v.string, s);
-			continue;
-		}
-
-		uci_foreach_element(&o->v.list, val)
-			config_parse_wireless_interface(val->name, s);
-	}
-
-	netifd_ubus_get_procd_data("wifi-iface", config_procd_wireless_interface_cb);
-
-	vlist_for_each_element(&wireless_devices, wdev, node)
-		vlist_flush(&wdev->interfaces);
-}
-
-
 static struct blob_attr *
 config_find_blobmsg_attr(struct blob_attr *attr, const char *name, int type)
 {
@@ -871,14 +619,6 @@ config_init_all(void)
 		return -1;
 	}
 
-	uci_wireless = config_init_package("wireless");
-	if (!uci_wireless && uci_ctx->err != UCI_ERR_NOTFOUND) {
-		uci_get_errorstr(uci_ctx, &err, NULL);
-		netifd_log_message(L_CRIT, "Failed to load wireless config (%s)\n", err);
-		free(err);
-		ret = -1;
-	}
-
 	config_init_board();
 
 	vlist_update(&interfaces);
@@ -892,7 +632,7 @@ config_init_all(void)
 	config_init_ip();
 	config_init_rules();
 	config_init_globals();
-	config_init_wireless();
+	netifd_ucode_config_load(false);
 
 	config_init = false;
 
@@ -901,7 +641,7 @@ config_init_all(void)
 	vlist_flush(&interfaces);
 	interface_refresh_assignments(false);
 	interface_start_pending();
-	wireless_start_pending(0);
+	netifd_ucode_config_load(true);
 
 	return ret;
 }
