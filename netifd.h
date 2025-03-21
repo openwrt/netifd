@@ -107,6 +107,7 @@ void netifd_udebug_config(struct udebug_ubus *ctx, struct blob_attr *data,
 void netifd_log_message(int priority, const char *format, ...)
 	 __attribute__((format (printf, 2, 3)));
 
+void netifd_add_process(struct netifd_process *proc, int fd, int pid);
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);
 void netifd_kill_process(struct netifd_process *proc);
 
