@@ -22,7 +22,6 @@
 #include "proto.h"
 #include "ubus.h"
 #include "system.h"
-#include "wireless.h"
 
 struct ubus_context *ubus_ctx = NULL;
 static struct blob_buf b;
@@ -1187,180 +1186,6 @@ static void netifd_add_iface_object(void)
 	netifd_add_object(&iface_object);
 }
 
-static struct wireless_device *
-get_wdev(struct blob_attr *msg, int *ret)
-{
-	struct blobmsg_policy wdev_policy = {
-		.name = "device",
-		.type = BLOBMSG_TYPE_STRING,
-	};
-	struct blob_attr *dev_attr;
-	struct wireless_device *wdev = NULL;
-
-
-	blobmsg_parse(&wdev_policy, 1, &dev_attr, blob_data(msg), blob_len(msg));
-	if (!dev_attr) {
-		*ret = UBUS_STATUS_INVALID_ARGUMENT;
-		return NULL;
-	}
-
-	wdev = vlist_find(&wireless_devices, blobmsg_data(dev_attr), wdev, node);
-	if (!wdev) {
-		*ret = UBUS_STATUS_NOT_FOUND;
-		return NULL;
-	}
-
-	*ret = 0;
-	return wdev;
-}
-
-static int
-netifd_handle_wdev_reconf(struct ubus_context *ctx, struct ubus_object *obj,
-		          struct ubus_request_data *req, const char *method,
-		          struct blob_attr *msg)
-{
-	struct wireless_device *wdev;
-	int ret;
-
-	wdev = get_wdev(msg, &ret);
-	if (ret == UBUS_STATUS_NOT_FOUND)
-		return ret;
-
-	if (wdev) {
-		wireless_device_reconf(wdev);
-	} else {
-		vlist_for_each_element(&wireless_devices, wdev, node)
-			wireless_device_reconf(wdev);
-	}
-
-	return 0;
-}
-
-static int
-netifd_handle_wdev_up(struct ubus_context *ctx, struct ubus_object *obj,
-		      struct ubus_request_data *req, const char *method,
-		      struct blob_attr *msg)
-{
-	struct wireless_device *wdev;
-	int ret;
-
-	wdev = get_wdev(msg, &ret);
-	if (ret == UBUS_STATUS_NOT_FOUND)
-		return ret;
-
-	if (wdev) {
-		wireless_device_set_up(wdev);
-	} else {
-		vlist_for_each_element(&wireless_devices, wdev, node)
-			wireless_device_set_up(wdev);
-	}
-
-	return 0;
-}
-
-static int
-netifd_handle_wdev_down(struct ubus_context *ctx, struct ubus_object *obj,
-			struct ubus_request_data *req, const char *method,
-			struct blob_attr *msg)
-{
-	struct wireless_device *wdev;
-	int ret;
-
-	wdev = get_wdev(msg, &ret);
-	if (ret == UBUS_STATUS_NOT_FOUND)
-		return ret;
-
-	if (wdev) {
-		wireless_device_set_down(wdev);
-	} else {
-		vlist_for_each_element(&wireless_devices, wdev, node)
-			wireless_device_set_down(wdev);
-	}
-
-	return 0;
-}
-
-static int
-netifd_handle_wdev_status(struct ubus_context *ctx, struct ubus_object *obj,
-			  struct ubus_request_data *req, const char *method,
-			  struct blob_attr *msg)
-{
-	struct wireless_device *wdev;
-	int ret;
-
-	wdev = get_wdev(msg, &ret);
-	if (ret == UBUS_STATUS_NOT_FOUND)
-		return ret;
-
-	blob_buf_init(&b, 0);
-	if (wdev) {
-		wireless_device_status(wdev, &b);
-	} else {
-		vlist_for_each_element(&wireless_devices, wdev, node)
-			wireless_device_status(wdev, &b);
-	}
-	ubus_send_reply(ctx, req, b.head);
-	return 0;
-}
-
-static int
-netifd_handle_wdev_get_validate(struct ubus_context *ctx, struct ubus_object *obj,
-			  struct ubus_request_data *req, const char *method,
-			  struct blob_attr *msg)
-{
-	struct wireless_device *wdev;
-	int ret;
-
-	wdev = get_wdev(msg, &ret);
-	if (ret == UBUS_STATUS_NOT_FOUND)
-		return ret;
-
-	blob_buf_init(&b, 0);
-	if (wdev) {
-		wireless_device_get_validate(wdev, &b);
-	} else {
-		vlist_for_each_element(&wireless_devices, wdev, node)
-			wireless_device_get_validate(wdev, &b);
-	}
-	ubus_send_reply(ctx, req, b.head);
-	return 0;
-}
-
-static int
-netifd_handle_wdev_notify(struct ubus_context *ctx, struct ubus_object *obj,
-			  struct ubus_request_data *req, const char *method,
-			  struct blob_attr *msg)
-{
-	struct wireless_device *wdev;
-	int ret;
-
-	wdev = get_wdev(msg, &ret);
-	if (!wdev)
-		return ret;
-
-	return wireless_device_notify(wdev, msg, req);
-}
-
-static struct ubus_method wireless_object_methods[] = {
-	{ .name = "up", .handler = netifd_handle_wdev_up },
-	{ .name = "down", .handler = netifd_handle_wdev_down },
-	{ .name = "reconf", .handler = netifd_handle_wdev_reconf },
-	{ .name = "status", .handler = netifd_handle_wdev_status },
-	{ .name = "notify", .handler = netifd_handle_wdev_notify },
-	{ .name = "get_validate", .handler = netifd_handle_wdev_get_validate },
-};
-
-static struct ubus_object_type wireless_object_type =
-	UBUS_OBJECT_TYPE("netifd_iface", wireless_object_methods);
-
-
-static struct ubus_object wireless_object = {
-	.name = "network.wireless",
-	.type = &wireless_object_type,
-	.methods = wireless_object_methods,
-	.n_methods = ARRAY_SIZE(wireless_object_methods),
-};
-
 int
 netifd_extdev_invoke(uint32_t id, const char *method, struct blob_attr *msg,
          ubus_data_handler_t data_cb, void *data)
@@ -1383,7 +1208,6 @@ netifd_ubus_init(const char *path)
 
 	netifd_add_object(&main_object);
 	netifd_add_object(&dev_object);
-	netifd_add_object(&wireless_object);
 	netifd_add_iface_object();
 
 	udebug_ubus_init(&udebug, ubus_ctx, "netifd", netifd_udebug_config);
@@ -1416,16 +1240,6 @@ netifd_ubus_interface_notify(struct interface *iface, bool up)
 	netifd_dump_status(iface);
 	ubus_notify(ubus_ctx, &iface_object, event, b.head, -1);
 	ubus_notify(ubus_ctx, &iface->ubus, event, b.head, -1);
-}
-
-void
-netifd_ubus_wireless_notify(struct wireless_device *wdev, bool up)
-{
-	const char *event = (up) ? "wireless.update" : "wireless.down";
-
-	blob_buf_init(&b, 0);
-	wireless_device_status(wdev, &b);
-	ubus_notify(ubus_ctx, &wireless_object, event, b.head, -1);
 }
 
 void
