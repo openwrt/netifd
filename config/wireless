@@ -4,7 +4,7 @@ config wifi-device  radio0
 	option band     2g
 	option channel  11
 	option htmode   HE20
-	error foo
+#	option disabled 1
 
 config wifi-iface vif0
 	option device   radio0
