@@ -1,6 +1,10 @@
 NETIFD_MAIN_DIR="${NETIFD_MAIN_DIR:-/lib/netifd}"
 
-. /usr/share/libubox/jshn.sh
+if [ -f /usr/share/libubox/jshn.sh ]; then
+	. /usr/share/libubox/jshn.sh
+else
+	. /usr/local/share/libubox/jshn.sh
+fi
 . $NETIFD_MAIN_DIR/utils.sh
 
 CMD_UP=0
