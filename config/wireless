@@ -1,20 +1,25 @@
 config wifi-device  radio0
 	option type     mac80211
+	option phy      wl0
+	option band     2g
 	option channel  11
-	option hwmode   11ng
-	option path     'platform/ar933x_wmac'
-	option htmode   HT20
-	list ht_capab   SHORT-GI-20
-	list ht_capab   SHORT-GI-40
-	list ht_capab   RX-STBC1
-	list ht_capab   DSSS_CCK-40
-	# REMOVE THIS LINE TO ENABLE WIFI:
-	# option disabled 1
+	option htmode   HE20
+	error foo
 
-config wifi-iface
+config wifi-iface vif0
 	option device   radio0
 	option network  lan
 	option mode     ap
 	option ssid     OpenWrt
 	option encryption none
 
+config wifi-vlan
+	option iface	vif0
+	option name	'v#'
+	option vid	'*'
+
+config wifi-station
+	option iface	vif0
+	option mac	00:11:22:33:44:55
+	option vid	100
+	option key	deadbeef
