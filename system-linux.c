@@ -3580,6 +3580,15 @@ static int system_iprule(struct iprule *rule, int cmd)
 	if (rule->flags & IPRULE_IPPROTO)
 		nla_put_u8(msg, FRA_IP_PROTO, rule->ipproto);
 
+	if (rule->flags & IPRULE_SPORT) {
+		struct fib_rule_port_range sportrange = {
+			.start = rule->sport_start,
+			.end = rule->sport_end
+		};
+
+		nla_put(msg, FRA_SPORT_RANGE, sizeof(sportrange), &sportrange);
+	}
+
 	return system_rtnl_call(msg);
 }
 
