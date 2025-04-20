@@ -46,6 +46,8 @@ enum {
 	RULE_SUP_PREFIXLEN,
 	RULE_UIDRANGE,
 	RULE_IPPROTO,
+	RULE_SPORT,
+	RULE_DPORT,
 	RULE_DISABLED,
 	__RULE_MAX
 };
@@ -65,6 +67,8 @@ static const struct blobmsg_policy rule_attr[__RULE_MAX] = {
 	[RULE_ACTION] = { .name = "action", .type = BLOBMSG_TYPE_STRING },
 	[RULE_GOTO]   = { .name = "goto", .type = BLOBMSG_TYPE_INT32 },
 	[RULE_IPPROTO]  = { .name = "ipproto", .type = BLOBMSG_TYPE_STRING },
+	[RULE_SPORT]  = { .name = "sport", .type = BLOBMSG_TYPE_STRING },
+	[RULE_DPORT]  = { .name = "dport", .type = BLOBMSG_TYPE_STRING },
 	[RULE_DISABLED] = { .name = "disabled", .type = BLOBMSG_TYPE_BOOL },
 };
 
@@ -317,6 +321,30 @@ iprule_add(struct blob_attr *attr, bool v6)
 			goto error;
 		}
 		rule->flags |= IPRULE_IPPROTO;
+	}
+
+	if ((cur = tb[RULE_SPORT]) != NULL) {
+		int ret = sscanf(blobmsg_get_string(cur), "%u-%u", &rule->sport_start, &rule->sport_end);
+
+		if (ret == 1)
+			rule->sport_end = rule->sport_start;
+		else if (ret != 2) {
+			D(INTERFACE, "Failed to parse sport range: %s", (char *) blobmsg_data(cur));
+			goto error;
+		}
+		rule->flags |= IPRULE_SPORT;
+	}
+
+	if ((cur = tb[RULE_DPORT]) != NULL) {
+		int ret = sscanf(blobmsg_get_string(cur), "%u-%u", &rule->dport_start, &rule->dport_end);
+
+		if (ret == 1)
+			rule->dport_end = rule->dport_start;
+		else if (ret != 2) {
+			D(INTERFACE, "Failed to parse dport range: %s", (char *) blobmsg_data(cur));
+			goto error;
+		}
+		rule->flags |= IPRULE_DPORT;
 	}
 
 	vlist_add(&iprules, &rule->node, rule);
