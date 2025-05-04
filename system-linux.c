@@ -1189,7 +1189,7 @@ int system_bonding_set_device(struct device *dev, struct bonding_config *cfg)
 
 	system_set_dev_sysfs("bonding/mode", ifname, bonding_policy_str[cfg->policy]);
 
-	system_set_dev_sysfs_int("bonding/all_ports_active", ifname, cfg->all_ports_active);
+	system_set_dev_sysfs_int("bonding/all_slaves_active", ifname, cfg->all_ports_active);
 
 	if (cfg->policy == BONDING_MODE_BALANCE_XOR ||
 	    cfg->policy == BONDING_MODE_BALANCE_TLB ||
