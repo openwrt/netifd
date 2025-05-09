@@ -27,6 +27,7 @@
 #include <net/if_arp.h>
 
 #include <limits.h>
+#include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ether.h>
@@ -3744,6 +3745,27 @@ int system_flush_iprules(void)
 bool system_resolve_iprule_action(const char *action, unsigned int *id)
 {
 	return system_rtn_aton(action, id);
+}
+
+bool system_resolve_iprule_ipproto(const char *name, unsigned int *id)
+{
+	char *e;
+	struct protoent *ent;
+	unsigned int n, ipproto = 0;
+
+	if ((n = strtoul(name, &e, 0)) > 0 && *e == '\0')
+		ipproto = n;
+	else {
+		ent = getprotobyname(name);
+
+		if (ent)
+			ipproto = ent->p_proto;
+		else
+			return false;
+	}
+
+	*id = ipproto;
+	return true;
 }
 
 time_t system_get_rtime(void)

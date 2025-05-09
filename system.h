@@ -311,6 +311,7 @@ int system_add_iprule(struct iprule *rule);
 int system_del_iprule(struct iprule *rule);
 int system_flush_iprules(void);
 
+bool system_resolve_iprule_ipproto(const char *name, unsigned int *id);
 bool system_resolve_iprule_action(const char *action, unsigned int *id);
 
 time_t system_get_rtime(void);
