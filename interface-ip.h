@@ -162,11 +162,13 @@ struct device_source_table {
 struct dns_server {
 	struct vlist_simple_node node;
 	int af;
+	time_t valid_until;
 	union if_addr addr;
 };
 
 struct dns_search_domain {
 	struct vlist_simple_node node;
+	time_t valid_until;
 	char name[];
 };
 
@@ -175,12 +177,13 @@ extern const struct uci_blob_param_list neighbor_attr_list;
 extern struct list_head prefixes;
 
 void interface_ip_init(struct interface *iface);
-void interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list);
-void interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list);
 void interface_write_resolv_conf(const char *jail);
+void interface_update_search_domain_conf(struct interface *iface, bool add);
 
 void interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6);
 void interface_ip_add_neighbor(struct interface *iface, struct blob_attr *attr, bool v6);
+void interface_add_dns_server(struct interface_ip_settings *ip, struct blob_attr *attr);
+void interface_add_dns_search_domain(struct interface_ip_settings *ip, struct blob_attr *attr);
 void interface_ip_update_start(struct interface_ip_settings *ip);
 void interface_ip_update_complete(struct interface_ip_settings *ip);
 void interface_ip_flush(struct interface_ip_settings *ip);
