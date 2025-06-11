@@ -389,3 +389,31 @@ int system_vlandev_del(struct device *vlandev)
 {
 	return 0;
 }
+
+int system_vrf_addvrf(struct device *vrf, unsigned int table)
+{
+	return 0;
+}
+
+int system_vrf_delvrf(struct device *vrf)
+{
+	return 0;
+}
+
+int system_vrf_addif(struct device *vrf, struct device *dev)
+{
+	return 0;
+}
+
+int system_vrf_delif(struct device *vrf, struct device *dev)
+{
+	return 0;
+}
+
+void system_tcp_l3mdev(bool enable)
+{
+}
+
+void system_udp_l3mdev(bool enable)
+{
+}
