@@ -1727,12 +1727,6 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		addr->enabled = enabled;
 	}
 
-	vlist_for_each_element(&ip->route, route, node)
-		interface_ip_set_route_enabled(ip, route, enabled);
-	if (ip == &iface->proto_ip)
-		vlist_for_each_element(&iface->host_routes, route, node)
-			interface_ip_set_route_enabled(ip, route, enabled);
-
 	vlist_for_each_element(&ip->neighbor, neighbor, node) {
 		if (neighbor->enabled == enabled)
 			continue;
@@ -1752,6 +1746,12 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 		list_for_each_entry(a, &c->assignments, head)
 			if (!strcmp(a->name, ip->iface->name))
 				interface_set_prefix_address(a, c, ip->iface, enabled);
+
+	vlist_for_each_element(&ip->route, route, node)
+		interface_ip_set_route_enabled(ip, route, enabled);
+	if (ip == &iface->proto_ip)
+		vlist_for_each_element(&iface->host_routes, route, node)
+			interface_ip_set_route_enabled(ip, route, enabled);
 
 	if (ip->iface->policy_rules_set != enabled &&
 	    ip->iface->l3_dev.dev) {
