@@ -45,6 +45,7 @@ function config_init(uci)
 	let handlers = {};
 	let devices = {};
 	let vifs = {};
+	let mlo_device;
 
 	let sections = {
 		device: {},
@@ -52,6 +53,7 @@ function config_init(uci)
 		vlan: {},
 		station: {},
 	};
+	let radio_idx = {};
 
 	for (let name, data in config) {
 		let type = data[".type"];
@@ -64,6 +66,20 @@ function config_init(uci)
 		let list = sections[substr(type, 5)];
 		if (list)
 			list[name] = data;
+
+		if (type == "wifi-iface" && parse_bool(data.mlo))
+			mlo_device = true;
+	}
+
+	if (mlo_device) {
+		devices[wdev.mlo_name] = {
+			name: wdev.mlo_name,
+			config: {
+				type: "mac80211",
+			},
+			vif: [],
+		};
+		handlers[wdev.mlo_name] = wireless.handlers.mac80211;
 	}
 
 	for (let name, data in sections.device) {
@@ -73,6 +89,9 @@ function config_init(uci)
 		let handler = wireless.handlers[data.type];
 		if (!handler)
 			continue;
+
+		if (data.radio != null)
+			radio_idx[name] = +data.radio;
 
 		let config = parse_attribute_list(data, handler.device);
 		devices[name] = {
@@ -86,6 +105,12 @@ function config_init(uci)
 
 	for (let name, data in sections.iface) {
 		let dev_names = parse_array(data.device);
+		let mlo_vif = parse_bool(data.mlo);
+		let radios = map(dev_names, (v) => radio_idx[v]);
+		radios = filter(radios, (v) => v != null);
+		let radio_config = map(dev_names, (v) => devices[v].config);
+		if (mlo_vif)
+			dev_names = [ wdev.mlo_name, ...dev_names ];
 		for (let dev_name in dev_names) {
 			let dev = devices[dev_name];
 			if (!dev)
@@ -96,6 +121,12 @@ function config_init(uci)
 				continue;
 
 			let config = parse_attribute_list(data, handler.iface);
+			if (mlo_vif)
+				if (dev_name == wdev.mlo_name)
+					config.radio_config = radio_config;
+				else
+					config.mode = "link";
+			config.radios = radios;
 
 			let vif = {
 				name, config,
@@ -266,8 +297,11 @@ function wdev_call(req, cb)
 		return cb(dev);
 	}
 
-	for (let name, dev in wireless.devices)
+	for (let name, dev in wireless.devices) {
+		if (name == wdev.mlo_name)
+			continue;
 		cb(dev);
+	}
 
 	return 0;
 }
@@ -308,6 +342,10 @@ const ubus_obj = {
 	up: {
 		args: wdev_args,
 		call: function(req) {
+			let mlo_dev = wireless.devices[wdev.mlo_name];
+			if (mlo_dev)
+				mlo_dev.start();
+
 			return wdev_call(req, (dev) => {
 				dev.start();
 				return 0;
@@ -317,6 +355,10 @@ const ubus_obj = {
 	down: {
 		args: wdev_args,
 		call: function(req) {
+			let mlo_dev = wireless.devices[wdev.mlo_name];
+			if (mlo_dev)
+				mlo_dev.config_change = true;
+
 			return wdev_call(req, (dev) => {
 				dev.stop();
 				return 0;
@@ -326,6 +368,10 @@ const ubus_obj = {
 	reconf: {
 		args: wdev_args,
 		call: function(req) {
+			let mlo_dev = wireless.devices[wdev.mlo_name];
+			if (mlo_dev)
+				mlo_dev.update();
+
 			return wdev_call(req, (dev) => {
 				dev.update();
 				return 0;

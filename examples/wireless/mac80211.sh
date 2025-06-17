@@ -287,6 +287,17 @@ setup_vif() {
 	vifidx=$((vifidx + 1))
 }
 
+setup_link() {
+	local name="$1"
+
+	json_select config
+	json_get_vars ifname
+	json_select ..
+
+	echo "Add link on $radio: $ifname"
+}
+
+
 drv_mac80211_cleanup() {
 	echo "mac80211 cleanup"
 }
@@ -296,6 +307,7 @@ drv_mac80211_setup() {
 	radio=$1
 	vifidx=0
 	json_dump
+	for_each_interface "link" setup_link
 	for_each_interface "sta ap adhoc" setup_vif
 	wireless_set_data phy=phy0
 	wireless_set_up
