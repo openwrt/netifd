@@ -3106,7 +3106,7 @@ int
 system_if_dump_info(struct device *dev, struct blob_buf *b)
 {
 	__u32 *supported, *advertising, *lp_advertising;
-	bool rx_pause, tx_pause, pause_autoneg;
+	bool rx_pause = false, tx_pause = false, pause_autoneg;
 	struct {
 		struct ethtool_link_settings req;
 		__u32 link_mode_data[3 * 127];
