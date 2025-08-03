@@ -333,10 +333,12 @@ uc_netifd_start_process(uc_value_t *dir, uc_value_t *arg, uc_value_t *env, int *
 			break;
 		fallthrough;
 	case UC_INTEGER:
-		fchdir(ucv_int64_get(dir));
+		if (fchdir(ucv_int64_get(dir)) < 0)
+			exit(1);
 		break;
 	case UC_STRING:
-		chdir(ucv_string_get(dir));
+		if (chdir(ucv_string_get(dir)) < 0)
+			exit(1);
 		break;
 	default:
 		break;
