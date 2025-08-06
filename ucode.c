@@ -177,14 +177,18 @@ uc_netifd_interface_handle_link(uc_vm_t *vm, size_t nargs)
 
 	if (vlan) {
 		size_t len = ucv_array_length(vlan);
+		void *c;
 
 		blob_buf_init(&b, 0);
+		c = blobmsg_open_array(&b, "vlan");
 		for (size_t i = 0; i < len; i++) {
 			uc_value_t *val = ucv_array_get(vlan, i);
 			if (ucv_type(val) == UC_STRING)
 				blobmsg_add_string(&b, NULL, ucv_string_get(val));
 		}
-		vlan_attr = b.head;
+		blobmsg_close_array(&b, c);
+
+		vlan_attr = blobmsg_data(b.head);
 	}
 
 	ret = interface_handle_link(iface, ucv_string_get(ifname), vlan_attr, up, link_ext);
