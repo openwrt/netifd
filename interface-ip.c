@@ -991,7 +991,32 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			/* Address is still valid; pass its ownership to kernel (see L-14 RFC 7084). */
 			addr.preferred_until = now;
 
-			if (!addr.valid_until || addr.valid_until > now + 7200)
+			/* 
+			 * RFC7084 § 4.3 L-13
+			 *
+    		 * L-13:  If the delegated prefix changes, i.e., the current prefix is
+        	 *        replaced with a new prefix without any overlapping time
+        	 *        period, then the IPv6 CE router MUST immediately advertise the
+        	 *        old prefix with a Preferred Lifetime of zero and a Valid
+        	 *        Lifetime of either a) zero or b) the lower of the current
+        	 *        Valid Lifetime and two hours (which must be decremented in
+        	 *        real time) in a Router Advertisement message as described in
+        	 *        Section 5.5.3, (e) of [RFC4862].
+			 */
+			/* 
+			 * RFC9096 § 3.5
+			 *
+    		 * - Any prefixes that were previously advertised by the CE router
+        	 *   via PIOs in RA messages, but that have now become stale, MUST
+        	 *   be advertised with PIOs that have the "Valid Lifetime" and the
+        	 *   "Preferred Lifetime" set to 0 and the "A" and "L" bits
+        	 *   unchanged.
+			 *
+			 * - The aforementioned advertisements MUST be performed for at
+        	 *   least the "Valid Lifetime" previously employed for such
+        	 *   prefixes.
+			 */
+			if (!addr.valid_until)
 				addr.valid_until = now + 7200;
 		}
 
