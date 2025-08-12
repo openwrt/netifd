@@ -580,10 +580,8 @@ vrf_reload(struct device *dev, struct blob_attr *attr)
 	vst = container_of(dev, struct vrf_state, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
-		blob_data(attr), blob_len(attr));
-	blobmsg_parse(vrf_attrs, __VRF_ATTR_MAX, tb_v,
-		blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
+	blobmsg_parse_attr(vrf_attrs, __VRF_ATTR_MAX, tb_v, attr);
 
 	if (tb_dev[DEV_ATTR_MACADDR])
 		vst->primary_port = NULL;
@@ -596,8 +594,8 @@ vrf_reload(struct device *dev, struct blob_attr *attr)
 		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_v[__VRF_ATTR_MAX];
 
-		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-			blob_data(vst->config_data), blob_len(vst->config_data));
+		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
+				   vst->config_data);
 
 		diff[0] = diff[1] = 0;
 		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
@@ -607,8 +605,8 @@ vrf_reload(struct device *dev, struct blob_attr *attr)
 			  dev->ifname, diff[1], diff[0]);
 		}
 
-		blobmsg_parse(vrf_attrs, __VRF_ATTR_MAX, otb_v,
-			blob_data(vst->config_data), blob_len(vst->config_data));
+		blobmsg_parse_attr(vrf_attrs, __VRF_ATTR_MAX, otb_v,
+				   vst->config_data);
 
 		diff[0] = diff[1] = 0;
 		uci_blob_diff(tb_v, otb_v, &vrf_attr_list, diff);

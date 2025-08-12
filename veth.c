@@ -169,10 +169,8 @@ veth_reload(struct device *dev, struct blob_attr *attr)
 	veth = container_of(dev, struct veth, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
-		blob_data(attr), blob_len(attr));
-	blobmsg_parse(veth_attrs, __VETH_ATTR_MAX, tb_mv,
-		blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
+	blobmsg_parse_attr(veth_attrs, __VETH_ATTR_MAX, tb_mv, attr);
 
 	device_init_settings(dev, tb_dev);
 	veth_apply_settings(veth, tb_mv);
@@ -181,14 +179,14 @@ veth_reload(struct device *dev, struct blob_attr *attr)
 		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_mv[__VETH_ATTR_MAX];
 
-		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-			blob_data(veth->config_data), blob_len(veth->config_data));
+		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
+				   veth->config_data);
 
 		if (uci_blob_diff(tb_dev, otb_dev, &device_attr_list, NULL))
 		    ret = DEV_CONFIG_RESTART;
 
-		blobmsg_parse(veth_attrs, __VETH_ATTR_MAX, otb_mv,
-			blob_data(veth->config_data), blob_len(veth->config_data));
+		blobmsg_parse_attr(veth_attrs, __VETH_ATTR_MAX, otb_mv,
+				   veth->config_data);
 
 		if (uci_blob_diff(tb_mv, otb_mv, &veth_attr_list, NULL))
 		    ret = DEV_CONFIG_RESTART;

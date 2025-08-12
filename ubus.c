@@ -76,7 +76,7 @@ netifd_add_host_route(struct ubus_context *ctx, struct ubus_object *obj,
 	bool v6 = false;
 	bool exclude = false;
 
-	blobmsg_parse(route_policy, __HR_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(route_policy, __HR_MAX, tb, msg);
 	if (!tb[HR_TARGET])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
@@ -135,7 +135,7 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 	struct interface *iface;
 	struct blob_attr *config;
 
-	blobmsg_parse(dynamic_policy, __DI_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(dynamic_policy, __DI_MAX, tb, msg);
 
 	if (!tb[DI_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
@@ -185,7 +185,7 @@ netifd_netns_updown(struct ubus_context *ctx, struct ubus_object *obj,
 	if (target_netns_fd < 0)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	blobmsg_parse(netns_updown_policy, __NETNS_UPDOWN_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(netns_updown_policy, __NETNS_UPDOWN_MAX, tb, msg);
 
 	start = tb[NETNS_UPDOWN_START] && blobmsg_get_bool(tb[NETNS_UPDOWN_START]);
 
@@ -238,7 +238,7 @@ netifd_dev_status(struct ubus_context *ctx, struct ubus_object *obj,
 	struct device *dev = NULL;
 	struct blob_attr *tb[__DEV_MAX];
 
-	blobmsg_parse(dev_policy, __DEV_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(dev_policy, __DEV_MAX, tb, msg);
 
 	if (tb[DEV_NAME]) {
 		dev = device_find(blobmsg_data(tb[DEV_NAME]));
@@ -274,7 +274,7 @@ netifd_handle_alias(struct ubus_context *ctx, struct ubus_object *obj,
 	struct blob_attr *cur;
 	size_t rem;
 
-	blobmsg_parse(alias_attrs, __ALIAS_ATTR_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(alias_attrs, __ALIAS_ATTR_MAX, tb, msg);
 
 	if (!tb[ALIAS_ATTR_ALIAS])
 		return UBUS_STATUS_INVALID_ARGUMENT;
@@ -326,7 +326,7 @@ netifd_handle_set_state(struct ubus_context *ctx, struct ubus_object *obj,
 	struct blob_attr *cur;
 	bool auth_status;
 
-	blobmsg_parse(dev_state_policy, __DEV_STATE_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(dev_state_policy, __DEV_STATE_MAX, tb, msg);
 
 	cur = tb[DEV_STATE_NAME];
 	if (!cur)
@@ -370,8 +370,7 @@ netifd_handle_dev_hotplug(struct ubus_context *ctx, struct ubus_object *obj,
 	struct blob_attr *tb[__DEV_HOTPLUG_ATTR_MAX];
 	const char *name;
 
-	blobmsg_parse(dev_hotplug_policy, __DEV_HOTPLUG_ATTR_MAX, tb,
-		      blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(dev_hotplug_policy, __DEV_HOTPLUG_ATTR_MAX, tb, msg);
 
 	if (!tb[DEV_HOTPLUG_ATTR_NAME] || !tb[DEV_HOTPLUG_ATTR_ADD])
 		return UBUS_STATUS_INVALID_ARGUMENT;
@@ -1001,7 +1000,7 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 
 	iface = container_of(obj, struct interface, ubus);
 
-	blobmsg_parse(dev_link_policy, __DEV_LINK_MAX, tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(dev_link_policy, __DEV_LINK_MAX, tb, msg);
 
 	if (!tb[DEV_LINK_NAME])
 		return UBUS_STATUS_INVALID_ARGUMENT;
@@ -1142,7 +1141,7 @@ netifd_handle_iface(struct ubus_context *ctx, struct ubus_object *obj,
 	struct blob_attr *tb;
 	size_t i;
 
-	blobmsg_parse(&iface_policy, 1, &tb, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(&iface_policy, 1, &tb, msg);
 	if (!tb)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 

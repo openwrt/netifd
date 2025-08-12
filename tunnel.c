@@ -52,8 +52,7 @@ tunnel_reload(struct device *dev, struct blob_attr *attr)
 	memset(tb_dev, 0, sizeof(tb_dev));
 
 	if (attr)
-		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
-			blob_data(attr), blob_len(attr));
+		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
 
 	device_init_settings(dev, tb_dev);
 

@@ -468,10 +468,8 @@ bonding_reload(struct device *dev, struct blob_attr *attr)
 	bdev = container_of(dev, struct bonding_device, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
-		blob_data(attr), blob_len(attr));
-	blobmsg_parse(bonding_attrs, __BOND_ATTR_MAX, tb_b,
-		blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
+	blobmsg_parse_attr(bonding_attrs, __BOND_ATTR_MAX, tb_b, attr);
 
 	bdev->has_macaddr = tb_dev[DEV_ATTR_MACADDR];
 	if (bdev->primary_port && !bdev->primary_port->set_primary &&
@@ -486,15 +484,15 @@ bonding_reload(struct device *dev, struct blob_attr *attr)
 		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_b[__BOND_ATTR_MAX];
 
-		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-			blob_data(bdev->config_data), blob_len(bdev->config_data));
+		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
+				   bdev->config_data);
 
 		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
 		if (diff[0] | diff[1])
 		    ret = DEV_CONFIG_RESTART;
 
-		blobmsg_parse(bonding_attrs, __BOND_ATTR_MAX, otb_b,
-			blob_data(bdev->config_data), blob_len(bdev->config_data));
+		blobmsg_parse_attr(bonding_attrs, __BOND_ATTR_MAX, otb_b,
+				   bdev->config_data);
 
 		diff[0] = 0;
 		uci_blob_diff(tb_b, otb_b, &bonding_attr_list, diff);

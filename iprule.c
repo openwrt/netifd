@@ -211,7 +211,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 	char *iface_name;
 	int af = v6 ? AF_INET6 : AF_INET;
 
-	blobmsg_parse(rule_attr, __RULE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+	blobmsg_parse_attr(rule_attr, __RULE_MAX, tb, attr);
 
 	if ((cur = tb[RULE_DISABLED]) != NULL && blobmsg_get_bool(cur))
 		return;

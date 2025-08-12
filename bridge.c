@@ -1268,10 +1268,8 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 	bst = container_of(dev, struct bridge_state, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, tb_dev,
-		blob_data(attr), blob_len(attr));
-	blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, tb_br,
-		blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
+	blobmsg_parse_attr(bridge_attrs, __BRIDGE_ATTR_MAX, tb_br, attr);
 
 	if (tb_dev[DEV_ATTR_MACADDR])
 		bst->primary_port = NULL;
@@ -1284,8 +1282,8 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_br[__BRIDGE_ATTR_MAX];
 
-		blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-			blob_data(bst->config_data), blob_len(bst->config_data));
+		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
+				   bst->config_data);
 
 		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
 		if (diff[0] | diff[1]) {
@@ -1294,8 +1292,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 			  dev->ifname, diff[1], diff[0]);
 		}
 
-		blobmsg_parse(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br,
-			blob_data(bst->config_data), blob_len(bst->config_data));
+		blobmsg_parse_attr(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br, bst->config_data);
 
 		diff[0] = diff[1] = 0;
 		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, diff);

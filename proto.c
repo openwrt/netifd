@@ -194,7 +194,7 @@ parse_address_item(struct blob_attr *attr, bool v6, bool ext)
 	if (!addr)
 		return NULL;
 
-	blobmsg_parse(proto_ip_addr, __ADDR_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+	blobmsg_parse_attr(proto_ip_addr, __ADDR_MAX, tb, attr);
 
 	addr->mask = v6 ? 128 : 32;
 	if ((cur = tb[ADDR_MASK])) {
@@ -418,7 +418,7 @@ proto_apply_static_ip_settings(struct interface *iface, struct blob_attr *attr)
 	int n_v4 = 0, n_v6 = 0;
 	struct in_addr bcast = {0,}, ptp = {0,};
 
-	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(proto_ip_attributes, __OPT_MAX, tb, attr);
 
 	if ((cur = tb[OPT_NETMASK])) {
 		netmask = parse_netmask_string(blobmsg_data(cur), false);
@@ -484,7 +484,7 @@ proto_apply_ip_settings(struct interface *iface, struct blob_attr *attr, bool ex
 	struct blob_attr *cur;
 	int n_v4 = 0, n_v6 = 0;
 
-	blobmsg_parse(proto_ip_attributes, __OPT_MAX, tb, blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(proto_ip_attributes, __OPT_MAX, tb, attr);
 
 	if ((cur = tb[OPT_IPADDR]))
 		n_v4 = parse_address_list(iface, cur, false, ext);

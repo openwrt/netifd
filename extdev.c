@@ -258,7 +258,7 @@ extdev_wait_ev_cb(struct ubus_context *ctx, struct ubus_event_handler *ev_handle
 	if (strcmp(type, "ubus.object.add"))
 		return;
 
-	blobmsg_parse(&wait_policy, 1, &attr, blob_data(msg), blob_len(msg));
+	blobmsg_parse_attr(&wait_policy, 1, &attr, msg);
 	if (!attr)
 		return;
 
@@ -813,7 +813,7 @@ __bridge_reload(struct extdev_bridge *ebr, struct blob_attr *config)
 
 	if (config) {
 		config = blob_memdup(config);
-		blobmsg_parse(brpol, __BRIDGE_MAX, tb, blobmsg_data(config), blobmsg_len(config));
+		blobmsg_parse_attr(brpol, __BRIDGE_MAX, tb, config);
 		ebr->edev.dep_name = blobmsg_get_string(tb[BRIDGE_DEPENDS_ON]);
 
 		if (tb[BRIDGE_EMPTY] && blobmsg_get_bool(tb[BRIDGE_EMPTY]))
@@ -823,10 +823,8 @@ __bridge_reload(struct extdev_bridge *ebr, struct blob_attr *config)
 			config_params = ebr->edev.dev.type->config_params;
 			pol = config_params->params;
 
-			blobmsg_parse(pol, n_params, old_tb, blobmsg_data(ebr->config),
-				blobmsg_len(ebr->config));
-			blobmsg_parse(pol, n_params, brtb, blobmsg_data(config), blobmsg_len
-			(config));
+			blobmsg_parse_attr(pol, n_params, old_tb, ebr->config);
+			blobmsg_parse_attr(pol, n_params, brtb, config);
 
 			diff = 0;
 			uci_blob_diff(brtb, old_tb, config_params, &diff);
@@ -874,10 +872,8 @@ __reload(struct extdev_device *edev, struct blob_attr *config)
 	struct blob_attr *tb[params->n_params];
 	struct blob_attr *old_tb[params->n_params];
 
-	blobmsg_parse(params->params, params->n_params,	tb, blobmsg_data(config),
-		blobmsg_len(config));
-	blobmsg_parse(params->params, params->n_params,	old_tb, blobmsg_data(edev->dev.config),
-		blobmsg_len(edev->dev.config));
+	blobmsg_parse_attr(params->params, params->n_params, tb, config);
+	blobmsg_parse_attr(params->params, params->n_params, old_tb, edev->dev.config);
 
 	uci_blob_diff(tb, old_tb, edev->etype->config_params, &diff);
 	if (!diff)
@@ -1207,7 +1203,7 @@ dump_cb(struct ubus_request *req, int type, struct blob_attr *reply)
 
 	struct blob_attr *tb[n_params];
 
-	blobmsg_parse(info_policy, n_params, tb, blobmsg_data(reply), blobmsg_len(reply));
+	blobmsg_parse_attr(info_policy, n_params, tb, reply);
 	add_parsed_data(tb, info_policy, n_params, buf);
 }
 

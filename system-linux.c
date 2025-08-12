@@ -3876,8 +3876,8 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 		struct blob_attr *tb_data[__IPIP6_DATA_ATTR_MAX];
 		uint32_t tun_flags = IP6_TNL_F_IGN_ENCAP_LIMIT;
 
-		blobmsg_parse(ipip6_data_attr_list.params, __IPIP6_DATA_ATTR_MAX, tb_data,
-			blobmsg_data(cur), blobmsg_len(cur));
+		blobmsg_parse_attr(ipip6_data_attr_list.params, __IPIP6_DATA_ATTR_MAX,
+				   tb_data, cur);
 
 		if ((cur = tb_data[IPIP6_DATA_ENCAPLIMIT])) {
 			char *str = blobmsg_get_string(cur);
@@ -3913,8 +3913,8 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 				struct in_addr ip4prefix;
 				unsigned ip4len, ip6len, ealen, offset;
 
-				blobmsg_parse(fmr_data_attr_list.params, __FMR_DATA_ATTR_MAX, tb_fmr,
-						blobmsg_data(rcur), blobmsg_len(rcur));
+				blobmsg_parse_attr(fmr_data_attr_list.params, __FMR_DATA_ATTR_MAX,
+						   tb_fmr, rcur);
 
 				if (!(tb_cur = tb_fmr[FMR_DATA_PREFIX6]) ||
 						!parse_ip_and_netmask(AF_INET6,
@@ -4043,8 +4043,8 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 	if ((cur = tb[TUNNEL_ATTR_DATA])) {
 		struct blob_attr *tb_data[__GRE_DATA_ATTR_MAX];
 
-		blobmsg_parse(gre_data_attr_list.params, __GRE_DATA_ATTR_MAX, tb_data,
-			blobmsg_data(cur), blobmsg_len(cur));
+		blobmsg_parse_attr(gre_data_attr_list.params, __GRE_DATA_ATTR_MAX,
+				   tb_data, cur);
 
 		if ((cur = tb_data[GRE_DATA_IKEY])) {
 			if ((ikey = blobmsg_get_u32(cur)))
@@ -4273,8 +4273,8 @@ static int system_add_vti_tunnel(const char *name, const char *kind,
 		struct blob_attr *tb_data[__VTI_DATA_ATTR_MAX];
 		uint32_t ikey = 0, okey = 0;
 
-		blobmsg_parse(vti_data_attr_list.params, __VTI_DATA_ATTR_MAX, tb_data,
-			blobmsg_data(cur), blobmsg_len(cur));
+		blobmsg_parse_attr(vti_data_attr_list.params, __VTI_DATA_ATTR_MAX,
+				   tb_data, cur);
 
 		if ((cur = tb_data[VTI_DATA_IKEY])) {
 			if ((ikey = blobmsg_get_u32(cur)))
@@ -4334,8 +4334,8 @@ static int system_add_xfrm_tunnel(const char *name, const char *kind,
 		struct blob_attr *tb_data[__XFRM_DATA_ATTR_MAX];
 		uint32_t if_id = 0;
 
-		blobmsg_parse(xfrm_data_attr_list.params, __XFRM_DATA_ATTR_MAX, tb_data,
-			blobmsg_data(cur), blobmsg_len(cur));
+		blobmsg_parse_attr(xfrm_data_attr_list.params, __XFRM_DATA_ATTR_MAX,
+				   tb_data, cur);
 
 		if ((cur = tb_data[XFRM_DATA_IF_ID])) {
 			if ((if_id = blobmsg_get_u32(cur)))
@@ -4381,8 +4381,8 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 	int ret = 0;
 
 	if ((cur = tb[TUNNEL_ATTR_DATA]))
-		blobmsg_parse(vxlan_data_attr_list.params, __VXLAN_DATA_ATTR_MAX, tb_data,
-			blobmsg_data(cur), blobmsg_len(cur));
+		blobmsg_parse_attr(vxlan_data_attr_list.params, __VXLAN_DATA_ATTR_MAX,
+				   tb_data, cur);
 	else
 		return -EINVAL;
 
@@ -4581,8 +4581,8 @@ static int system_add_sit_tunnel(const char *name, const unsigned int link, stru
 		unsigned int mask;
 		struct ip_tunnel_6rd p6;
 
-		blobmsg_parse(sixrd_data_attr_list.params, __SIXRD_DATA_ATTR_MAX, tb_data,
-			blobmsg_data(cur), blobmsg_len(cur));
+		blobmsg_parse_attr(sixrd_data_attr_list.params, __SIXRD_DATA_ATTR_MAX,
+				   tb_data, cur);
 
 		memset(&p6, 0, sizeof(p6));
 
@@ -4716,8 +4716,7 @@ int system_add_ip_tunnel(const struct device *dev, struct blob_attr *attr)
 	struct blob_attr *cur;
 	const char *str;
 
-	blobmsg_parse(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb,
-		blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(tunnel_attr_list.params, __TUNNEL_ATTR_MAX, tb, attr);
 
 	system_link_del(dev->ifname);
 

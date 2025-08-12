@@ -785,7 +785,7 @@ proto_shell_notify(struct interface_proto_state *proto, struct blob_attr *attr)
 
 	state = container_of(proto, struct proto_shell_state, proto);
 
-	blobmsg_parse(notify_attr, __NOTIFY_LAST, tb, blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(notify_attr, __NOTIFY_LAST, tb, attr);
 	if (!tb[NOTIFY_ACTION])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
@@ -840,7 +840,7 @@ proto_shell_checkup_attach(struct proto_shell_state *state,
 		.type = BLOBMSG_TYPE_INT32
 	};
 
-	blobmsg_parse(&checkup_policy, 1, &tb, blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(&checkup_policy, 1, &tb, (struct blob_attr *)attr);
 	if (!tb) {
 		state->checkup_interval = -1;
 		state->checkup_timeout.cb = NULL;

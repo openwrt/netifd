@@ -536,7 +536,7 @@ config_find_blobmsg_attr(struct blob_attr *attr, const char *name, int type)
 	struct blobmsg_policy policy = { .name = name, .type = type };
 	struct blob_attr *cur;
 
-	blobmsg_parse(&policy, 1, &cur, blobmsg_data(attr), blobmsg_len(attr));
+	blobmsg_parse_attr(&policy, 1, &cur, attr);
 
 	return cur;
 }

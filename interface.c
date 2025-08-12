@@ -842,8 +842,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	iface->l3_dev.cb = interface_l3_dev_cb;
 	iface->ext_dev.cb = interface_ext_dev_cb;
 
-	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
-		      blob_data(config), blob_len(config));
+	blobmsg_parse_attr(iface_attrs, IFACE_ATTR_MAX, tb, config);
 
 	iface->zone = NULL;
 	if ((cur = tb[IFACE_ATTR_ZONE]))
@@ -957,8 +956,7 @@ static bool __interface_add(struct interface *iface, struct blob_attr *config, b
 	struct blob_attr *cur;
 	char *name = NULL;
 
-	blobmsg_parse(iface_attrs, IFACE_ATTR_MAX, tb,
-		      blob_data(config), blob_len(config));
+	blobmsg_parse_attr(iface_attrs, IFACE_ATTR_MAX, tb, config);
 
 	if (alias) {
 		if ((cur = tb[IFACE_ATTR_INTERFACE]))
@@ -1277,11 +1275,8 @@ interface_device_config_changed(struct interface *if_old, struct interface *if_n
 	if (!if_new->device_config)
 		return false;
 
-	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, otb,
-		blob_data(if_old->config), blob_len(if_old->config));
-
-	blobmsg_parse(device_attr_list.params, __DEV_ATTR_MAX, ntb,
-		blob_data(if_new->config), blob_len(if_new->config));
+	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb, if_old->config);
+	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, ntb, if_new->config);
 
 	uci_blob_diff(ntb, otb, &device_attr_list, diff);
 

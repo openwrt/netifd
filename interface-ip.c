@@ -349,7 +349,7 @@ interface_ip_add_neighbor(struct interface *iface, struct blob_attr *attr, bool 
 	int af = v6 ? AF_INET6: AF_INET;
 	struct ether_addr *ea;
 
-	blobmsg_parse(neighbor_attr, __NEIGHBOR_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+	blobmsg_parse_attr(neighbor_attr, __NEIGHBOR_MAX, tb, attr);
 
 	if (!iface) {
 		if ((cur = tb[NEIGHBOR_INTERFACE]) == NULL)
@@ -407,7 +407,7 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 	int af = v6 ? AF_INET6 : AF_INET;
 	bool no_device = false;
 
-	blobmsg_parse(route_attr, __ROUTE_MAX, tb, blobmsg_data(attr), blobmsg_data_len(attr));
+	blobmsg_parse_attr(route_attr, __ROUTE_MAX, tb, attr);
 
 	if ((cur = tb[ROUTE_DISABLED]) != NULL && blobmsg_get_bool(cur))
 		return;

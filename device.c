@@ -220,7 +220,7 @@ simple_device_create(const char *name, struct device_type *devtype,
 	/* device type is unused for simple devices */
 	devtype = NULL;
 
-	blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb, blob_data(attr), blob_len(attr));
+	blobmsg_parse_attr(dev_attrs, __DEV_ATTR_MAX, tb, attr);
 	dev = device_get(name, true);
 	if (!dev)
 		return NULL;
@@ -1185,8 +1185,7 @@ device_set_config(struct device *dev, struct device_type *type,
 		memset(tb, 0, sizeof(tb));
 
 		if (attr)
-			blobmsg_parse(dev_attrs, __DEV_ATTR_MAX, tb,
-				blob_data(attr), blob_len(attr));
+			blobmsg_parse_attr(dev_attrs, __DEV_ATTR_MAX, tb, attr);
 
 		device_init_settings(dev, tb);
 		return DEV_CONFIG_RESTART;
