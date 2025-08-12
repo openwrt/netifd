@@ -1292,8 +1292,8 @@ netifd_ubus_data_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 					blobmsg_type(t) != BLOBMSG_TYPE_TABLE)
 					continue;
 				blobmsg_for_each_attr(data, t, rem4) {
-					if (!blobmsg_check_attr(t, true) ||
-						blobmsg_type(t) != BLOBMSG_TYPE_TABLE)
+					if (!blobmsg_check_attr(data, true) ||
+						blobmsg_type(data) != BLOBMSG_TYPE_TABLE)
 						continue;
 					cb(data);
 				}
