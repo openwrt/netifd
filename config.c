@@ -37,6 +37,7 @@ static struct uci_package *uci_network;
 static struct blob_attr *board_netdevs;
 static struct blob_buf b;
 static LIST_HEAD(config_vlans);
+static LIST_HEAD(config_ifaces);
 
 struct vlan_config_entry {
 	struct list_head list;
@@ -567,8 +568,29 @@ config_init_package(const char *config)
 }
 
 static void
+config_procd_interface_cb(struct blob_attr *data)
+{
+	struct interface *iface;
+	const char *name = blobmsg_name(data);
+
+	iface = interface_alloc(name, data, false);
+	if (!iface)
+		return;
+
+	data = blob_memdup(data);
+	if (!data) {
+		interface_free(iface);
+		return;
+	}
+
+	iface->config = data;
+	list_add(&iface->node.avl.list, &config_ifaces);
+}
+
+static void
 config_init_interfaces(void)
 {
+	struct interface *iface;
 	struct uci_element *e;
 
 	uci_foreach_element(&uci_network->sections, e) {
@@ -583,6 +605,15 @@ config_init_interfaces(void)
 
 		if (!strcmp(s->type, "alias"))
 			config_parse_interface(s, true);
+	}
+
+	netifd_ubus_get_procd_data("network-interface", config_procd_interface_cb);
+	while (!list_empty(&config_ifaces)) {
+		iface = list_first_entry(&config_ifaces, struct interface, node.avl.list);
+		list_del(&iface->node.avl.list);
+
+		if (!interface_add(iface, iface->config))
+			interface_free(iface);
 	}
 }
 
