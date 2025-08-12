@@ -193,7 +193,7 @@ config_parse_interface(struct uci_section *s, bool alias)
 error_free_config:
 	free(config);
 error:
-	free(iface);
+	interface_free(iface);
 }
 
 static void

@@ -184,6 +184,7 @@ extern struct vlist_tree interfaces;
 extern const struct uci_blob_param_list interface_attr_list;
 
 struct interface *interface_alloc(const char *name, struct blob_attr *config, bool dynamic);
+void interface_free(struct interface *iface);
 
 bool interface_add(struct interface *iface, struct blob_attr *config);
 bool interface_add_alias(struct interface *iface, struct blob_attr *config);

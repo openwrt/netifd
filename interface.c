@@ -702,19 +702,24 @@ interface_cleanup(struct interface *iface)
 	interface_cleanup_state(iface);
 }
 
-static void
-interface_do_free(struct interface *iface)
+void interface_free(struct interface *iface)
 {
-	interface_event(iface, IFEV_FREE);
-	interface_cleanup(iface);
 	free(iface->config);
-	netifd_ubus_remove_interface(iface);
-	avl_delete(&interfaces.avl, &iface->node.avl);
 	free(iface->zone);
 	free(iface->jail);
 	free(iface->jail_device);
 	free(iface->host_device);
 	free(iface);
+}
+
+static void
+interface_do_remove(struct interface *iface)
+{
+	interface_event(iface, IFEV_FREE);
+	interface_cleanup(iface);
+	netifd_ubus_remove_interface(iface);
+	avl_delete(&interfaces.avl, &iface->node.avl);
+	interface_free(iface);
 }
 
 static void
@@ -739,7 +744,7 @@ interface_handle_config_change(struct interface *iface)
 		interface_do_reload(iface);
 		break;
 	case IFC_REMOVE:
-		interface_do_free(iface);
+		interface_do_remove(iface);
 		return;
 	}
 	if (iface->autostart)
