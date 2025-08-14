@@ -1342,7 +1342,7 @@ bridge_vlan_equal(struct bridge_vlan *v1, struct bridge_vlan *v2)
 {
 	int i;
 
-	if (v1->n_ports != v2->n_ports)
+	if (v1->n_ports != v2->n_ports || v1->local != v2->local)
 		return false;
 
 	for (i = 0; i < v1->n_ports; i++)
