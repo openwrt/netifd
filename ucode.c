@@ -442,7 +442,7 @@ uc_netifd_process(uc_vm_t *vm, size_t nargs)
 
 	prefix_str = ucv_string_get(prefix);
 
-	res = ucv_resource_create_ex(vm, "netifd.process", (void **)&up, 1, sizeof(*up) + strlen(prefix_str + 1));
+	res = ucv_resource_create_ex(vm, "netifd.process", (void **)&up, 1, sizeof(*up) + strlen(prefix_str) + 1);
 	if (!res)
 		return NULL;
 
