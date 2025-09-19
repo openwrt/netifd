@@ -2989,6 +2989,45 @@ ethtool_get_feature_value(const char *ifname, const char *keyname)
 	return active;
 }
 
+static int
+ethtool_set_feature_value(const char *ifname, const char *keyname, bool activate)
+{
+	struct ethtool_set_features_block *feature_block;
+	struct ethtool_sfeatures *feature_values;
+	struct ifreq ifr = { 0 };
+	int32_t feature_idx;
+	int ret;
+
+	feature_idx = ethtool_feature_index(ifname, keyname);
+
+	if (feature_idx < 0)
+		return -1;
+
+	feature_values = calloc(1,
+		sizeof(*feature_values) +
+		sizeof(feature_values->features[0]) * DIV_ROUND_UP(feature_idx, 32));
+
+	if (!feature_values)
+		return -1;
+
+	feature_values->cmd = ETHTOOL_SFEATURES;
+	feature_values->size = DIV_ROUND_UP(feature_idx, 32);
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)feature_values;
+
+	feature_block = &feature_values->features[feature_idx / 32];
+	feature_block->valid |= (1U << feature_idx % 32);
+
+	if (activate)
+		feature_block->requested |= (1U << feature_idx % 32);
+
+	ret = ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
+	free(feature_values);
+
+	return ret;
+}
+
 static void
 system_add_link_mode_name(struct blob_buf *b, int i, bool half)
 {
