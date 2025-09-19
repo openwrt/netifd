@@ -2948,8 +2948,8 @@ ethtool_feature_index(const char *ifname, const char *keyname)
 	return i;
 }
 
-static bool
-ethtool_feature_value(const char *ifname, const char *keyname)
+static int
+ethtool_get_feature_value(const char *ifname, const char *keyname)
 {
 	struct ethtool_get_features_block *feature_block;
 	struct ethtool_gfeatures *feature_values;
@@ -2960,14 +2960,14 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 	feature_idx = ethtool_feature_index(ifname, keyname);
 
 	if (feature_idx < 0)
-		return false;
+		return -1;
 
 	feature_values = calloc(1,
 		sizeof(*feature_values) +
 		sizeof(feature_values->features[0]) * DIV_ROUND_UP(feature_idx, 32));
 
 	if (!feature_values)
-		return false;
+		return -1;
 
 	feature_values->cmd = ETHTOOL_GFEATURES;
 	feature_values->size = DIV_ROUND_UP(feature_idx, 32);
@@ -2978,7 +2978,7 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0) {
 		free(feature_values);
 
-		return false;
+		return -1;
 	}
 
 	feature_block = &feature_values->features[feature_idx / 32];
@@ -3197,7 +3197,7 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	blobmsg_close_table(b, c);
 
 	blobmsg_add_u8(b, "hw-tc-offload",
-		ethtool_feature_value(dev->ifname, "hw-tc-offload"));
+		ethtool_get_feature_value(dev->ifname, "hw-tc-offload") == 1);
 
 	system_add_devtype(b, dev->ifname);
 
