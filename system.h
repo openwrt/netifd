@@ -324,4 +324,8 @@ int system_link_netns_move(struct device *dev, const pid_t target_ns, const char
 int system_netns_open(const pid_t target_ns);
 int system_netns_set(int netns_fd);
 
+#ifndef SYSTEM_IMPL
+#include "system-log.h"
+#endif
+
 #endif

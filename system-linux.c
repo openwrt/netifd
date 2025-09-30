@@ -17,6 +17,7 @@
  * GNU General Public License for more details.
  */
 #define _GNU_SOURCE
+#define SYSTEM_IMPL
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>

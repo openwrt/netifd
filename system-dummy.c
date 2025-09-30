@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#define SYSTEM_IMPL
 #include <sys/time.h>
 #include <stdio.h>
 #include <string.h>
@@ -32,37 +33,26 @@ int system_init(void)
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
-	D(SYSTEM, "brctl addbr %s vlan_filtering=%d",
-	  bridge->ifname, cfg->vlan_filtering);
 	return 0;
 }
 
 int system_bridge_delbr(struct device *bridge)
 {
-	D(SYSTEM, "brctl delbr %s", bridge->ifname);
 	return 0;
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
-	D(SYSTEM, "brctl addif %s %s", bridge->ifname, dev->ifname);
 	return 0;
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
-	D(SYSTEM, "brctl delif %s %s", bridge->ifname, dev->ifname);
 	return 0;
 }
 
 int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags)
 {
-	D(SYSTEM, "brctl vlan %s %s %s vid=%d vid_end=%d pvid=%d untag=%d",
-	  add ? "add" : "remove",
-	  (vflags & BRVLAN_F_SELF) ? "self" : "master",
-	  iface, vid, vid_end,
-	  !!(vflags & BRVLAN_F_PVID),
-	  !!(vflags & BRVLAN_F_UNTAGGED));
 	return 0;
 }
 
