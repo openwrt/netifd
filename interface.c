@@ -1372,6 +1372,13 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 #undef UPDATE
 
+	if (!reload) {
+		struct device *old_dev = if_old->main_dev.dev;
+
+		interface_claim_device(if_old);
+		reload = if_old->main_dev.dev != old_dev;
+	}
+
 	if (reload) {
 		D(INTERFACE, "Reload interface '%s' because of config changes",
 		  if_old->name);
