@@ -938,7 +938,16 @@ bridge_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		bm = container_of(node_new, struct bridge_member, node);
 
 		if (node_old) {
+			struct device *dev = bm->dev.dev;
+
 			free(bm);
+
+			bm = container_of(node_old, struct bridge_member, node);
+			if (!dev || dev == bm->dev.dev)
+				return;
+
+			bridge_remove_member(bm);
+			device_add_user(&bm->dev, dev);
 			return;
 		}
 
@@ -1302,7 +1311,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr)
 			  dev->ifname, diff[1], diff[0]);
 		}
 
-		bridge_config_init(dev);
+		dev->config_pending = true;
 	}
 
 	free(bst->config_data);
