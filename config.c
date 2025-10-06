@@ -42,6 +42,7 @@ static LIST_HEAD(config_ifaces);
 struct vlan_config_entry {
 	struct list_head list;
 	struct blob_attr *data;
+	char *dev_name;
 	char name[];
 };
 
@@ -51,7 +52,7 @@ config_bridge_has_vlans(const char *br_name)
 	struct vlan_config_entry *e;
 
 	list_for_each_entry(e, &config_vlans, list)
-		if (!strcmp(e->name, br_name))
+		if (!strcmp(e->dev_name, br_name))
 			return true;
 
 	return false;
@@ -229,14 +230,25 @@ config_parse_rule(struct uci_section *s, bool v6)
 }
 
 static void
-config_insert_vlan_entry(const char *name, struct blob_attr *data)
+config_insert_vlan_entry(const char *name, const char *dev_name, struct blob_attr *data)
 {
-	struct vlan_config_entry *e;
+	struct vlan_config_entry *e, *tmp;
 	struct blob_attr *attrbuf;
+	char *dev_name_buf;
+
+	list_for_each_entry_safe(e, tmp, &config_vlans, list) {
+		if (strcmp(e->name, name) != 0)
+			continue;
+
+		list_del(&e->list);
+		free(e);
+	}
 
 	e = calloc_a(sizeof(*e) + strlen(name) + 1,
-		     &attrbuf, blob_pad_len(data));
+		     &attrbuf, blob_pad_len(data),
+		     &dev_name_buf, strlen(dev_name) + 1);
 	e->data = memcpy(attrbuf, data, blob_pad_len(data));
+	e->dev_name = strcpy(dev_name_buf, dev_name);
 	strcpy(e->name, name);
 	list_add_tail(&e->list, &config_vlans);
 }
@@ -295,7 +307,7 @@ config_procd_bridge_cb(struct blob_attr *data)
 	};
 	static const struct blobmsg_policy policy[] = {
 		[PROCD_DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
-		[PROCD_DEV_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_ARRAY },
+		[PROCD_DEV_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_TABLE },
 	};
 	const char *name = blobmsg_name(data);
 	struct blob_attr *tb[__PROCD_DEV_ATTR_MAX], *attr, *cur;
@@ -331,7 +343,7 @@ config_procd_bridge_cb(struct blob_attr *data)
 		return;
 
 	blobmsg_for_each_attr(cur, attr, rem)
-		config_insert_vlan_entry(name, cur);
+		config_insert_vlan_entry(blobmsg_name(cur), name, cur);
 }
 
 static void
@@ -407,7 +419,7 @@ config_init_vlan_entry(struct vlan_config_entry *e)
 	int n_ports = 0;
 	size_t rem;
 
-	dev = device_get(e->name, 0);
+	dev = device_get(e->dev_name, 0);
 	if (!dev || !dev->vlans.update)
 		return;
 
@@ -470,7 +482,7 @@ config_init_vlan_entry(struct vlan_config_entry *e)
 }
 
 static void
-config_load_vlan(const char *name, struct uci_section *s)
+config_load_vlan(const char *dev_name, struct uci_section *s)
 {
 	static const struct uci_blob_param_info vlan_attr_info[__BRVLAN_ATTR_MAX] = {
 		[BRVLAN_ATTR_PORTS] = { .type = BLOBMSG_TYPE_STRING },
@@ -484,7 +496,7 @@ config_load_vlan(const char *name, struct uci_section *s)
 
 	blob_buf_init(&b, 0);
 	uci_to_blob(&b, s, &vlan_attr_list);
-	config_insert_vlan_entry(name, b.head);
+	config_insert_vlan_entry(s->e.name, dev_name, b.head);
 }
 
 static void
@@ -498,7 +510,7 @@ config_procd_vlan_cb(struct blob_attr *data)
 	if (!attr)
 		return;
 
-	config_insert_vlan_entry(blobmsg_get_string(attr), data);
+	config_insert_vlan_entry(blobmsg_name(data), blobmsg_get_string(attr), data);
 }
 
 static void
