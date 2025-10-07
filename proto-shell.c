@@ -431,6 +431,44 @@ proto_shell_parse_neighbor_list(struct interface *iface, struct blob_attr *attr,
 }
 
 static void
+proto_shell_parse_dns_list(struct interface *iface, struct blob_attr *attr)
+{
+	struct blob_attr *cur;
+	size_t rem;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
+			DPRINTF("Ignore wrong dns type: %d\n", blobmsg_type(cur));
+			continue;
+		}
+
+		if (!blobmsg_check_attr(cur, false))
+			continue;
+
+		interface_add_dns_server(&iface->proto_ip, cur);
+	}
+}
+
+static void
+proto_shell_parse_dns_search_list(struct interface *iface, struct blob_attr *attr)
+{
+	struct blob_attr *cur;
+	size_t rem;
+
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE) {
+			DPRINTF("Ignore wrong dns search type: %d\n", blobmsg_type(cur));
+			continue;
+		}
+
+		if (!blobmsg_check_attr(cur, false))
+			continue;
+
+		interface_add_dns_search_domain(&iface->proto_ip, cur);
+	}
+}
+
+static void
 proto_shell_parse_data(struct interface *iface, struct blob_attr *attr)
 {
 	struct blob_attr *cur;
@@ -574,10 +612,10 @@ proto_shell_update_link(struct proto_shell_state *state, struct blob_attr *data,
 		proto_shell_parse_neighbor_list(state->proto.iface, cur, true);
 
 	if ((cur = tb[NOTIFY_DNS]))
-		interface_add_dns_server_list(&iface->proto_ip, cur);
+		proto_shell_parse_dns_list(state->proto.iface, cur);
 
 	if ((cur = tb[NOTIFY_DNS_SEARCH]))
-		interface_add_dns_search_list(&iface->proto_ip, cur);
+		proto_shell_parse_dns_search_list(state->proto.iface, cur);
 
 	if ((cur = tb[NOTIFY_DATA]))
 		proto_shell_parse_data(state->proto.iface, cur);
