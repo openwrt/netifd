@@ -76,6 +76,11 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_MASTER] = { .name = "conduit", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_EEE] = { .name = "eee", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_OFFLOAD] = { .name = "ethtool_offload", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_RING] = { .name = "ethtool_ring", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_COALESCE] = { .name = "ethtool_coalesce", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_CHANNELS] = { .name = "ethtool_channels", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_PRIV] = { .name = "ethtool_priv", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -590,6 +595,26 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	free(dev->tags);
 	dev->tags = cur ? blob_memdup(cur) : NULL;
 
+	cur = tb[DEV_ATTR_OFFLOAD];
+	free(dev->ethtool_offload);
+	dev->ethtool_offload = cur ? blob_memdup(cur) : NULL;
+
+	cur = tb[DEV_ATTR_RING];
+	free(dev->ethtool_ring);
+	dev->ethtool_ring = cur ? blob_memdup(cur) : NULL;
+
+	cur = tb[DEV_ATTR_COALESCE];
+	free(dev->ethtool_coalesce);
+	dev->ethtool_coalesce = cur ? blob_memdup(cur) : NULL;
+
+	cur = tb[DEV_ATTR_CHANNELS];
+	free(dev->ethtool_channels);
+	dev->ethtool_channels = cur ? blob_memdup(cur) : NULL;
+
+	cur = tb[DEV_ATTR_PRIV];
+	free(dev->ethtool_priv);
+	dev->ethtool_priv = cur ? blob_memdup(cur) : NULL;
+
 	device_set_extra_vlans(dev, tb[DEV_ATTR_VLAN]);
 	device_set_disabled(dev, disabled);
 }
@@ -1093,6 +1118,11 @@ device_free(struct device *dev)
 	free(dev->tags);
 	free(dev->config_auth_vlans);
 	free(dev->extra_vlan);
+	free(dev->ethtool_offload);
+	free(dev->ethtool_ring);
+	free(dev->ethtool_coalesce);
+	free(dev->ethtool_channels);
+	free(dev->ethtool_priv);
 	dev->type->free(dev);
 	__devlock--;
 }
