@@ -93,6 +93,9 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
 static int system_add_proto_tunnel(const char *name, const uint8_t proto,
 					const unsigned int link, struct blob_attr **tb);
+static int ethtool_get_feature_value(const char *ifname, const char *keyname);
+static int ethtool_set_feature_value(const char *ifname, const char *keyname,
+					bool activate);
 
 static char dev_buf[256];
 static const char *proc_path = "/proc";
@@ -2129,6 +2132,18 @@ system_set_ethtool_eee_settings(struct device *dev, struct device_settings *s)
 		netifd_log_message(L_WARNING, "cannot set eee %d for device %s", s->eee, dev->ifname);
 }
 
+static int
+system_get_ethtool_rxhash(struct device *dev)
+{
+	return ethtool_get_feature_value(dev->ifname, "rx-hashing");
+}
+
+static void
+system_set_ethtool_rxhash(struct device *dev, struct device_settings *s)
+{
+	ethtool_set_feature_value(dev->ifname, "rx-hashing", s->rxhash);
+}
+
 static void
 system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 {
@@ -2147,6 +2162,8 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 
 	if (s->flags & DEV_OPT_EEE)
 		system_set_ethtool_eee_settings(dev, s);
+	if (s->flags & DEV_OPT_RXHASH)
+		system_set_ethtool_rxhash(dev, s);
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
@@ -2345,6 +2362,12 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	if (ret >= 0) {
 		s->gro = ret;
 		s->flags |= DEV_OPT_GRO;
+	}
+
+	ret = system_get_ethtool_rxhash(dev);
+	if (ret >= 0) {
+		s->rxhash = ret;
+		s->flags |= DEV_OPT_RXHASH;
 	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
@@ -2949,8 +2972,8 @@ ethtool_feature_index(const char *ifname, const char *keyname)
 	return i;
 }
 
-static bool
-ethtool_feature_value(const char *ifname, const char *keyname)
+static int
+ethtool_get_feature_value(const char *ifname, const char *keyname)
 {
 	struct ethtool_get_features_block *feature_block;
 	struct ethtool_gfeatures *feature_values;
@@ -2961,14 +2984,14 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 	feature_idx = ethtool_feature_index(ifname, keyname);
 
 	if (feature_idx < 0)
-		return false;
+		return -1;
 
 	feature_values = calloc(1,
 		sizeof(*feature_values) +
 		sizeof(feature_values->features[0]) * DIV_ROUND_UP(feature_idx, 32));
 
 	if (!feature_values)
-		return false;
+		return -1;
 
 	feature_values->cmd = ETHTOOL_GFEATURES;
 	feature_values->size = DIV_ROUND_UP(feature_idx, 32);
@@ -2979,7 +3002,7 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0) {
 		free(feature_values);
 
-		return false;
+		return -1;
 	}
 
 	feature_block = &feature_values->features[feature_idx / 32];
@@ -2988,6 +3011,45 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 	free(feature_values);
 
 	return active;
+}
+
+static int
+ethtool_set_feature_value(const char *ifname, const char *keyname, bool activate)
+{
+	struct ethtool_set_features_block *feature_block;
+	struct ethtool_sfeatures *feature_values;
+	struct ifreq ifr = { 0 };
+	int32_t feature_idx;
+	int ret;
+
+	feature_idx = ethtool_feature_index(ifname, keyname);
+
+	if (feature_idx < 0)
+		return -1;
+
+	feature_values = calloc(1,
+		sizeof(*feature_values) +
+		sizeof(feature_values->features[0]) * DIV_ROUND_UP(feature_idx, 32));
+
+	if (!feature_values)
+		return -1;
+
+	feature_values->cmd = ETHTOOL_SFEATURES;
+	feature_values->size = DIV_ROUND_UP(feature_idx, 32);
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)feature_values;
+
+	feature_block = &feature_values->features[feature_idx / 32];
+	feature_block->valid |= (1U << feature_idx % 32);
+
+	if (activate)
+		feature_block->requested |= (1U << feature_idx % 32);
+
+	ret = ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
+	free(feature_values);
+
+	return ret;
 }
 
 static void
@@ -3198,7 +3260,7 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	blobmsg_close_table(b, c);
 
 	blobmsg_add_u8(b, "hw-tc-offload",
-		ethtool_feature_value(dev->ifname, "hw-tc-offload"));
+		ethtool_get_feature_value(dev->ifname, "hw-tc-offload") == 1);
 
 	system_add_devtype(b, dev->ifname);
 
