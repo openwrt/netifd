@@ -71,6 +71,9 @@ static inline void vlist_simple_add(struct vlist_simple_tree *tree, struct vlist
 #define vlist_simple_for_each_element(tree, element, node_member) \
 	list_for_each_entry(element, &(tree)->list, node_member.list)
 
+#define vlist_simple_for_each_element_safe(tree, element, node_member, tmp) \
+	list_for_each_entry_safe(element, tmp, &(tree)->list, node_member.list)
+
 #define vlist_simple_empty(tree) \
 	list_empty(&(tree)->list)
 

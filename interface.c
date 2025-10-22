@@ -521,6 +521,40 @@ interface_remove_user(struct interface_user *dep)
 }
 
 static void
+interface_add_dns_server_list(struct interface_ip_settings *ip, struct blob_attr *list)
+{
+	struct blob_attr *cur;
+	size_t rem;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE)
+			continue;
+
+		if (!blobmsg_check_attr(cur, false))
+			continue;
+
+		interface_add_dns_server(ip, cur);
+	}
+}
+
+static void
+interface_add_dns_search_list(struct interface_ip_settings *ip, struct blob_attr *list)
+{
+	struct blob_attr *cur;
+	size_t rem;
+
+	blobmsg_for_each_attr(cur, list, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_TABLE)
+			continue;
+
+		if (!blobmsg_check_attr(cur, false))
+			continue;
+
+		interface_add_dns_search_domain(ip, cur);
+	}
+}
+
+static void
 interface_add_assignment_classes(struct interface *iface, struct blob_attr *list)
 {
 	struct blob_attr *cur;
@@ -773,6 +807,7 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 		iface->state = IFS_UP;
 		iface->start_time = system_get_rtime();
 		interface_event(iface, IFEV_UP);
+		interface_update_search_domain_conf(iface, true);
 		netifd_log_message(L_NOTICE, "Interface '%s' is now up\n", iface->name);
 		break;
 	case IFPEV_DOWN:
@@ -780,6 +815,7 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 			return;
 
 		netifd_log_message(L_NOTICE, "Interface '%s' is now down\n", iface->name);
+		interface_update_search_domain_conf(iface, false);
 		mark_interface_down(iface);
 		interface_write_resolv_conf(iface->jail);
 		if (iface->main_dev.dev && !(iface->config_state == IFC_NORMAL && iface->autostart && iface->available))
@@ -793,6 +829,7 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 			return;
 
 		netifd_log_message(L_NOTICE, "Interface '%s' has lost the connection\n", iface->name);
+		interface_update_search_domain_conf(iface, false);
 		mark_interface_down(iface);
 		iface->state = IFS_SETUP;
 		break;
@@ -1361,6 +1398,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		update_prefix_delegation = true;
 	}
 
+	interface_update_search_domain_conf(if_old, false);
 	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
 
@@ -1401,6 +1439,8 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_update_prefix_delegation(&if_old->proto_ip);
 
 	interface_write_resolv_conf(if_old->jail);
+	interface_update_search_domain_conf(if_old, true);
+
 	if (if_old->main_dev.dev)
 		interface_check_state(if_old);
 
