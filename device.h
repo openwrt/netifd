@@ -73,6 +73,7 @@ enum {
 	DEV_ATTR_MASTER,
 	DEV_ATTR_EEE,
 	DEV_ATTR_TAGS,
+	DEV_ATTR_RXHASH,
 	__DEV_ATTR_MAX,
 };
 
@@ -145,6 +146,7 @@ enum {
 	DEV_OPT_GRO			= (1ULL << 37),
 	DEV_OPT_MASTER			= (1ULL << 38),
 	DEV_OPT_EEE			= (1ULL << 39),
+	DEV_OPT_RXHASH			= (1ULL << 40),
 };
 
 /* events broadcasted to all users of a device */
@@ -230,6 +232,7 @@ struct device_settings {
 	bool gro;
 	int master_ifindex;
 	bool eee;
+	bool rxhash;
 };
 
 struct device_vlan_range {

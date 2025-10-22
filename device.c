@@ -76,6 +76,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_MASTER] = { .name = "conduit", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_EEE] = { .name = "eee", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_RXHASH] = { .name = "rxhash", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -310,6 +311,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->gro = s->flags & DEV_OPT_GRO ? s->gro : os->gro;
 	n->eee = s->flags & DEV_OPT_EEE ? s->eee : os->eee;
 	n->master_ifindex = s->flags & DEV_OPT_MASTER ? s->master_ifindex : os->master_ifindex;
+	n->rxhash = s->flags & DEV_OPT_RXHASH ? s->rxhash : os->rxhash;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -577,6 +579,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_EEE])) {
 		s->eee = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_EEE;
+	}
+
+	if ((cur = tb[DEV_ATTR_RXHASH])) {
+		s->rxhash = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_RXHASH;
 	}
 
 	/* Remember the settings present in UCI */
@@ -1437,6 +1444,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "gro", st.gro);
 		if (st.flags & DEV_OPT_EEE)
 			blobmsg_add_u8(b, "eee", st.eee);
+		if (st.flags & DEV_OPT_RXHASH)
+			blobmsg_add_u8(b, "rxhash", st.rxhash);
 	}
 
 	s = blobmsg_open_table(b, "statistics");
