@@ -209,21 +209,31 @@ wireless_vif_parse_encryption() {
 	auth_mode_shared=0
 	auth_type=none
 
-	if [ "$hwmode" = "ad" ]; then
-		wpa_cipher="GCMP"
-	else
-		wpa_cipher="CCMP"
-	fi
+	wpa_cipher="" 
 
-	case "$encryption" in
-		*tkip+aes|*tkip+ccmp|*aes+tkip|*ccmp+tkip) wpa_cipher="CCMP TKIP";;
-		*ccmp256) wpa_cipher="CCMP-256";;
-		*aes|*ccmp) wpa_cipher="CCMP";;
-		*tkip) wpa_cipher="TKIP";;
-		*gcmp256) wpa_cipher="GCMP-256";;
-		*gcmp) wpa_cipher="GCMP";;
-		wpa3-192*) wpa_cipher="GCMP-256";;
-	esac
+	for item in ${encryption//"+"/" "}; do
+		case "$item" in
+			tkip)     wpa_cipher="${wpa_cipher}TKIP " ;;
+			ccmp256)  wpa_cipher="${wpa_cipher}CCMP-256 " ;;			
+			ccmp|aes) wpa_cipher="${wpa_cipher}CCMP " ;;
+			gcmp256)  wpa_cipher="${wpa_cipher}GCMP-256 " ;;
+			gcmp)     wpa_cipher="${wpa_cipher}GCMP " ;;			
+		esac
+	done
+
+	if [ "$hwmode" = "ad" ]; then
+		wpa_cipher="GCMP " 		
+	fi
+	
+	if [ "${wpa_cipher}" = "" ]; then		
+		case "$encryption" in
+			wpa3-192*) wpa_cipher="GCMP-256 ";;
+			sae*|wpa3*) wpa_cipher="CCMP CCMP-256 GCMP GCMP-256 "	;;
+			psk2*|wpa2*) wpa_cipher="TKIP CCMP CCMP-256 "	;;
+			psk*|wpa*) wpa_cipher="TKIP CCMP "	;;
+			owe*) wpa_cipher="CCMP "	;;
+		esac
+	fi
 
 	# 802.11n requires CCMP for WPA
 	[ "$enable_ht:$wpa_cipher" = "1:TKIP" ] && wpa_cipher="CCMP TKIP"
