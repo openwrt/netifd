@@ -446,6 +446,7 @@ init_proto() {
 				available=0
 				renew_handler=0
 				teardown_on_l3_link_down=0
+				peer_detect=0
 
 				add_default_handler "proto_$1_init_config"
 
@@ -459,6 +460,7 @@ init_proto() {
 				json_add_boolean no-proto-task "$no_proto_task"
 				json_add_boolean available "$available"
 				json_add_boolean renew-handler "$renew_handler"
+				json_add_boolean peer-detect "$peer_detect"
 				json_add_boolean lasterror "$lasterror"
 				json_add_boolean teardown-on-l3-link-down "$teardown_on_l3_link_down"
 				json_dump

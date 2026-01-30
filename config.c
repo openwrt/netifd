@@ -39,6 +39,7 @@ static struct blob_buf b;
 static LIST_HEAD(config_vlans);
 static LIST_HEAD(config_ifaces);
 
+static uint64_t config_compute_peer_hash(const char *proto, const char *ifname);
 struct vlan_config_entry {
 	struct list_head list;
 	struct blob_attr *data;
@@ -174,6 +175,11 @@ config_parse_interface(struct uci_section *s, bool alias)
 
 	if (!bridge && uci_to_blob(&b, s, simple_device_type.config_params))
 		iface->device_config = true;
+
+	/* compute hash of peer-related anonymous sections for this interface/proto
+	 * only when the protocol handler requests peer-detection */
+	if (iface->proto_handler && (iface->proto_handler->flags & PROTO_FLAG_PEER_DETECTION))
+		iface->peer_hash = config_compute_peer_hash(iface->proto_handler->name, iface->name);
 
 	config = blob_memdup(b.head);
 	if (!config)
@@ -596,6 +602,11 @@ config_procd_interface_cb(struct blob_attr *data)
 	}
 
 	iface->config = data;
+	/* compute peer hash based on current uci package for this proto/iface
+	 * only when the protocol handler requests peer-detection */
+	if (iface->proto_handler && (iface->proto_handler->flags & PROTO_FLAG_PEER_DETECTION))
+		iface->peer_hash = config_compute_peer_hash(iface->proto_handler->name, iface->name);
+
 	list_add(&iface->node.avl.list, &config_ifaces);
 }
 
@@ -760,6 +771,77 @@ const char *config_get_default_conduit(const char *ifname)
 		return NULL;
 
 	return blobmsg_get_string(cur);
+}
+
+/*
+ * Compute a simple 64-bit FNV-1a based hash of anonymous config sections whose
+ * type matches the pattern "<proto>_<ifname>". This allows protocols that
+ * create peer sections (e.g. wireguard) to detect changes to those sections
+ * and trigger a renew or reload of the associated interface.
+ */
+static uint64_t fnv1a_update(uint64_t h, const void *data, size_t len)
+{
+	const unsigned char *p = data;
+
+	for (size_t i = 0; i < len; i++)
+		h = (h ^ p[i]) * 1099511628211ULL;
+
+	return h;
+}
+
+static uint64_t config_compute_peer_hash(const char *proto, const char *ifname)
+{
+	struct uci_element *e;
+	size_t prefix_len;
+	char *prefix;
+	uint64_t combined = 0;
+
+	if (!proto || !uci_network || !ifname)
+		return 0;
+
+	prefix_len = strlen(proto) + 1 + strlen(ifname);
+	prefix = alloca(prefix_len + 1);
+	sprintf(prefix, "%s_%s", proto, ifname);
+
+	uci_foreach_element(&uci_network->sections, e) {
+		struct uci_section *s = uci_to_section(e);
+
+		/* only match sections where the section type starts with proto_ifname */
+		if (strncmp(s->type, prefix, prefix_len) != 0)
+			continue;
+
+		/* safely iterate options in the section and hash name/value pairs */
+		uint64_t h = 14695981039346656037ULL; /* FNV offset basis */
+		if (s->type)
+			h = fnv1a_update(h, s->type, strlen(s->type));
+		if (s->e.name)
+			h = fnv1a_update(h, s->e.name, strlen(s->e.name));
+
+		struct uci_element *opt;
+		uci_foreach_element(&s->options, opt) {
+			struct uci_option *o = uci_to_option(opt);
+
+			/* include option name */
+			if (opt->name)
+				h = fnv1a_update(h, opt->name, strlen(opt->name));
+
+			if (o) {
+				if (o->type == UCI_TYPE_LIST) {
+					struct uci_element *v;
+					uci_foreach_element(&o->v.list, v) {
+						if (v->name)
+							h = fnv1a_update(h, v->name, strlen(v->name));
+					}
+				} else if (o->type == UCI_TYPE_STRING && o->v.string) {
+					h = fnv1a_update(h, o->v.string, strlen(o->v.string));
+				}
+			}
+		}
+
+		combined ^= h;
+	}
+
+	return combined;
 }
 
 static void

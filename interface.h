@@ -160,6 +160,8 @@ struct interface {
 	int dns_metric;
 	unsigned int ip4table;
 	unsigned int ip6table;
+	/* hash of peer-related config sections (e.g. proto_iface anonymous sections) */
+	unsigned long long peer_hash;
 
 	/* IPv6 assignment parameters */
 	enum interface_id_selection_type assignment_iface_id_selection;

@@ -605,6 +605,7 @@ proto_dump_handlers(struct blob_buf *b)
 		blobmsg_add_u8(b, "no_device", !!(p->flags & PROTO_FLAG_NODEV));
 		blobmsg_add_u8(b, "init_available", !!(p->flags & PROTO_FLAG_INIT_AVAILABLE));
 		blobmsg_add_u8(b, "renew_available", !!(p->flags & PROTO_FLAG_RENEW_AVAILABLE));
+		blobmsg_add_u8(b, "peer_detect", !!(p->flags & PROTO_FLAG_PEER_DETECTION));
 		blobmsg_add_u8(b, "force_link_default", !!(p->flags & PROTO_FLAG_FORCE_LINK_DEFAULT));
 		blobmsg_add_u8(b, "last_error", !!(p->flags & PROTO_FLAG_LASTERROR));
 		blobmsg_add_u8(b, "teardown_on_l3_link_down", !!(p->flags & PROTO_FLAG_TEARDOWN_ON_L3_LINK_DOWN));

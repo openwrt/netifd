@@ -928,6 +928,11 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_RENEW_AVAILABLE;
 
+	/* peer-detect: handler wants netifd to watch anonymous peer sections named <proto>_<iface> */
+	tmp = json_get_field(obj, "peer-detect", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_PEER_DETECTION;
+
 	tmp = json_get_field(obj, "lasterror", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_LASTERROR;

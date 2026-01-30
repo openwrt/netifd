@@ -929,6 +929,9 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 
 	iface->proto_ip.no_delegation = !blobmsg_get_bool_default(tb[IFACE_ATTR_DELEGATE], true);
 
+	/* initialize peer hash to 0; will be computed when parsing full config */
+	iface->peer_hash = 0;
+
 	iface->config_autostart = iface->autostart;
 	iface->jail = NULL;
 
@@ -1320,8 +1323,26 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		__var |= __changed;					\
 	})
 
+	/* detect changes to peer-related anonymous sections (proto_ifname) */
+	if (if_old->peer_hash != if_new->peer_hash) {
+		D(INTERFACE, "Peer config changed for '%s'", if_old->name);
+
+		if (if_old->renew && (if_old->proto_handler && (if_old->proto_handler->flags & PROTO_FLAG_RENEW_AVAILABLE)) && if_old->proto) {
+			D(INTERFACE, "Trigger renew for interface '%s' due to peer config change", if_old->name);
+			/* acknowledge the change to avoid repeated renew triggers */
+			if_old->peer_hash = if_new->peer_hash;
+			interface_proto_event(if_old->proto, PROTO_CMD_RENEW, false);
+			/* do not proceed with further changes here */
+			goto out;
+		} else {
+			reload = true;
+		}
+	}
+
 	if_old->config = if_new->config;
 	if_old->tags = if_new->tags;
+	/* copy computed peer hash so future changes can be detected */
+	if_old->peer_hash = if_new->peer_hash;
 	if (if_old->config_autostart != if_new->config_autostart) {
 		if (if_old->config_autostart)
 			reload = true;
