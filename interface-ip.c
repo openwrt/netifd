@@ -1425,7 +1425,7 @@ interface_add_dns_server(struct interface_ip_settings *ip, const char *str)
 		goto add;
 
 	s->af = AF_INET6;
-	if (inet_pton(s->af, str, &s->addr.in))
+	if (inet_pton(s->af, str, &s->addr.in6))
 		goto add;
 
 	free(s);
