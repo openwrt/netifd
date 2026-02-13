@@ -169,8 +169,12 @@ config_parse_interface(struct uci_section *s, bool alias)
 	if (!iface)
 		return;
 
-	if (iface->proto_handler && iface->proto_handler->config_params)
-		uci_to_blob(&b, s, iface->proto_handler->config_params);
+	if (iface->proto_handler) {
+		if (iface->proto_handler->config_load)
+			iface->proto_handler->config_load(iface->proto_handler, s, &b);
+		else if (iface->proto_handler->config_params)
+			uci_to_blob(&b, s, iface->proto_handler->config_params);
+	}
 
 	if (!bridge && uci_to_blob(&b, s, simple_device_type.config_params))
 		iface->device_config = true;

@@ -17,6 +17,8 @@
 struct interface;
 struct interface_proto_state;
 struct proto_handler;
+struct uci_section;
+struct blob_buf;
 
 enum interface_proto_event {
 	IFPEV_UP,
@@ -64,6 +66,8 @@ struct proto_handler {
 
 	const char *name;
 	const struct uci_blob_param_list *config_params;
+	void (*config_load)(const struct proto_handler *h,
+		struct uci_section *s, struct blob_buf *b);
 
 	struct interface_proto_state *(*attach)(const struct proto_handler *h,
 		struct interface *iface, struct blob_attr *attr);
