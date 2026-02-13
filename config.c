@@ -811,11 +811,11 @@ config_init_all(void)
 	config_init_devices(true);
 	config_init_vlans();
 	config_init_devices(false);
+	netifd_ucode_config_load(false);
 	config_init_interfaces();
 	config_init_ip();
 	config_init_rules();
 	config_init_globals();
-	netifd_ucode_config_load(false);
 
 	config_init = false;
 
