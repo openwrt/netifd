@@ -116,6 +116,11 @@ enum bridge_opt {
 	BRIDGE_OPT_LAST_MEMBER_INTERVAL	    = (1 << 4),
 };
 
+enum vlan_proto {
+	VLAN_PROTO_8021Q = 0x8100,
+	VLAN_PROTO_8021AD = 0x88A8
+};
+
 struct bridge_config {
 	enum bridge_opt flags;
 	bool stp;
@@ -138,6 +143,7 @@ struct bridge_config {
 	int max_age;
 	int hash_max;
 
+	enum vlan_proto vlan_protocol;
 	bool vlan_filtering;
 };
 
@@ -164,11 +170,6 @@ struct veth_config {
 	unsigned char macaddr[6];
 	char peer_name[IFNAMSIZ];
 	unsigned char peer_macaddr[6];
-};
-
-enum vlan_proto {
-	VLAN_PROTO_8021Q = 0x8100,
-	VLAN_PROTO_8021AD = 0x88A8
 };
 
 struct vlan_qos_mapping {

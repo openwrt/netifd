@@ -43,6 +43,7 @@ enum {
 	BRIDGE_ATTR_HAS_VLANS,
 	BRIDGE_ATTR_STP_KERNEL,
 	BRIDGE_ATTR_STP_PROTO,
+	BRIDGE_ATTR_VLAN_PROTOCOL,
 	__BRIDGE_ATTR_MAX
 };
 
@@ -66,6 +67,7 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_HAS_VLANS] = { "__has_vlans", BLOBMSG_TYPE_BOOL }, /* internal */
 	[BRIDGE_ATTR_STP_KERNEL] = { "stp_kernel", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_STP_PROTO] = { "stp_proto", BLOBMSG_TYPE_STRING },
+	[BRIDGE_ATTR_VLAN_PROTOCOL] = { "vlan_protocol", BLOBMSG_TYPE_INT32 },
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -1129,6 +1131,7 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 	blobmsg_add_u8(b, "stp_kernel", cfg->stp_kernel);
 	if (cfg->stp_proto)
 		blobmsg_add_string(b, "stp_proto", cfg->stp_proto);
+	blobmsg_add_u32(b, "vlan_protocol", cfg->vlan_protocol);
 
 	blobmsg_close_table(b, c);
 
@@ -1260,6 +1263,12 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 
 	if ((cur = tb[BRIDGE_ATTR_VLAN_FILTERING]))
 		cfg->vlan_filtering = blobmsg_get_bool(cur);
+
+	if ((cur = tb[BRIDGE_ATTR_VLAN_PROTOCOL]))
+		cfg->vlan_protocol = blobmsg_get_u32(cur);
+
+	if (cfg->vlan_protocol != VLAN_PROTO_8021AD)
+		cfg->vlan_protocol = VLAN_PROTO_8021Q;
 }
 
 static enum dev_change_type
