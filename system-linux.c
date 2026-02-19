@@ -1558,6 +1558,7 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	}
 
 	nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, !!cfg->vlan_filtering);
+	nla_put_u16(msg, IFLA_BR_VLAN_PROTOCOL, htons(cfg->vlan_protocol));
 	nla_put_u16(msg, IFLA_BR_PRIORITY, cfg->priority);
 	nla_put_u32(msg, IFLA_BR_HELLO_TIME, sec_to_jiffies(cfg->hello_time));
 	nla_put_u32(msg, IFLA_BR_MAX_AGE, sec_to_jiffies(cfg->max_age));
