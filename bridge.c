@@ -778,13 +778,16 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		if (bridge_enable_member(bm))
 			break;
 
+		if (ev == DEV_EVENT_ADD && bst->n_present == 1) {
+			bridge_reset_primary(bst);
+		}
 		/*
 		 * Adding a bridge member can overwrite the bridge mtu
 		 * in the kernel, apply the bridge settings in case the
 		 * bridge mtu is set
 		 */
 		system_if_apply_settings(&bst->dev, &bst->dev.settings,
-					 DEV_OPT_MTU | DEV_OPT_MTU6);
+					 DEV_OPT_MTU | DEV_OPT_MTU6 | DEV_OPT_MACADDR);
 		break;
 	case DEV_EVENT_LINK_UP:
 		if (!bst->has_vlans)
