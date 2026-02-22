@@ -3829,6 +3829,7 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC };
 	struct blob_attr *cur;
 	int ret = 0, ttl = 0;
+	uint32_t tun_flags = IP6_TNL_F_IGN_ENCAP_LIMIT;
 
 	if (!nlm)
 		return -1;
@@ -3880,7 +3881,6 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 
 	if ((cur = tb[TUNNEL_ATTR_DATA])) {
 		struct blob_attr *tb_data[__IPIP6_DATA_ATTR_MAX];
-		uint32_t tun_flags = IP6_TNL_F_IGN_ENCAP_LIMIT;
 
 		blobmsg_parse_attr(ipip6_data_attr_list.params, __IPIP6_DATA_ATTR_MAX,
 				   tb_data, cur);
@@ -3969,9 +3969,9 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 			nla_nest_end(nlm, fmrs);
 		}
 #endif
-		if (tun_flags)
-			nla_put_u32(nlm, IFLA_IPTUN_FLAGS, tun_flags);
 	}
+
+	nla_put_u32(nlm, IFLA_IPTUN_FLAGS, tun_flags | IP6_TNL_F_USE_ORIG_TCLASS);
 
 	nla_nest_end(nlm, infodata);
 	nla_nest_end(nlm, linkinfo);
