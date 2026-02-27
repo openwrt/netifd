@@ -64,6 +64,9 @@
 #define IFA_FLAGS (IFA_MULTICAST + 1)
 #endif
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -83,6 +86,30 @@
 #include "device.h"
 #include "system.h"
 #include "utils.h"
+
+// Map types for attribute mapping in ethtool_* functions
+typedef enum {
+	ETHTOOL_NONE,
+	ETHTOOL_BOOL,
+	ETHTOOL_S32,
+	ETHTOOL_U8,
+	ETHTOOL_U16,
+	ETHTOOL_U32,
+	ETHTOOL_U64,
+	ETHTOOL_BE16,
+	ETHTOOL_IP4,
+	ETHTOOL_STR,
+	ETHTOOL_FLAG,
+	ETHTOOL_MAC,
+} ethtool_flag_type_t;
+
+struct ethtool_flag_map {
+	const char *name;
+	ethtool_flag_type_t type;
+	bool *wanted;
+	void *requested_state;
+	void *current_state;
+};
 
 struct event_socket {
 	struct uloop_fd uloop;
@@ -254,7 +281,7 @@ create_raw_event_socket(struct event_socket *ev, int protocol, int groups,
 
 static bool
 create_event_socket(struct event_socket *ev, int protocol,
-		    int (*cb)(struct nl_msg *msg, void *arg))
+			int (*cb)(struct nl_msg *msg, void *arg))
 {
 	if (!create_raw_event_socket(ev, protocol, 0, handler_nl_event, ULOOP_ERROR_CB))
 		return false;
@@ -275,7 +302,7 @@ create_event_socket(struct event_socket *ev, int protocol,
 
 static bool
 create_hotplug_event_socket(struct event_socket *ev, int protocol,
-			    void (*cb)(struct uloop_fd *u, unsigned int events))
+				void (*cb)(struct uloop_fd *u, unsigned int events))
 {
 	if (!create_raw_event_socket(ev, protocol, 1, cb, ULOOP_ERROR_CB))
 		return false;
@@ -372,7 +399,7 @@ int system_init(void)
 		return -1;
 
 	if (!create_hotplug_event_socket(&hotplug_event, NETLINK_KOBJECT_UEVENT,
-					 handle_hotplug_event))
+					handle_hotplug_event))
 		return -1;
 
 	/* Receive network link events form kernel */
@@ -433,14 +460,14 @@ dev_sysfs_path(const char *ifname, const char *file)
 
 static void
 system_set_dev_sysctl(const char *prefix, const char *file, const char *ifname,
-		      const char *val)
+			const char *val)
 {
 	write_file(dev_sysctl_path(prefix, ifname, file), val);
 }
 
 static int
 system_get_dev_sysctl(const char *prefix, const char *file, const char *ifname,
-		      char *buf, size_t buf_sz)
+			char *buf, size_t buf_sz)
 {
 	return read_file(dev_sysctl_path(prefix, ifname, file), buf, buf_sz);
 }
@@ -614,55 +641,55 @@ static void system_bridge_set_unicast_flood(struct device *dev, const char *val)
 static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/conf", "disable_ipv6",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_ip6segmentrouting(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/conf", "seg6_enabled",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_rpfilter(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv4/conf", "rp_filter",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_acceptlocal(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv4/conf", "accept_local",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_igmpversion(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv4/conf", "force_igmp_version",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_mldversion(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/conf", "force_mld_version",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh4reachabletime(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv4/neigh", "base_reachable_time_ms",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh6reachabletime(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/neigh", "base_reachable_time_ms",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh4gcstaletime(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv4/neigh", "gc_stale_time",
-				     dev->ifname, buf, buf_sz);
+					dev->ifname, buf, buf_sz);
 }
 
 static int system_get_neigh6gcstaletime(struct device *dev, char *buf, const size_t buf_sz)
@@ -966,7 +993,7 @@ system_bridge_set_wireless(struct device *bridge, struct device *dev)
 	if (dev->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST)
 		mcast_to_ucast = dev->settings.multicast_to_unicast;
 	else if (bridge->settings.flags & DEV_OPT_MULTICAST_TO_UNICAST &&
-	         !bridge->settings.multicast_to_unicast)
+			!bridge->settings.multicast_to_unicast)
 		mcast_to_ucast = false;
 
 	hairpin = mcast_to_ucast || dev->wireless_proxyarp;
@@ -997,7 +1024,7 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 			break;
 
 		D(SYSTEM, "Failed to add device '%s' to bridge '%s' (tries=%d): %s",
-		  dev->ifname, bridge->ifname, tries, strerror(errno));
+		dev->ifname, bridge->ifname, tries, strerror(errno));
 	}
 
 	if (dev->wireless)
@@ -1009,19 +1036,19 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 	}
 
 	if (dev->settings.flags & DEV_OPT_MULTICAST_FAST_LEAVE &&
-	    dev->settings.multicast_fast_leave)
+		dev->settings.multicast_fast_leave)
 		system_bridge_set_multicast_fast_leave(dev, "1");
 
 	if (dev->settings.flags & DEV_OPT_LEARNING &&
-	    !dev->settings.learning)
+		!dev->settings.learning)
 		system_bridge_set_learning(dev, "0");
 
 	if (dev->settings.flags & DEV_OPT_UNICAST_FLOOD &&
-	    !dev->settings.unicast_flood)
+		!dev->settings.unicast_flood)
 		system_bridge_set_unicast_flood(dev, "0");
 
 	if (dev->settings.flags & DEV_OPT_ISOLATE &&
-	    dev->settings.isolate)
+		dev->settings.isolate)
 		system_bridge_set_isolated(dev, "1");
 
 	if (dev->bpdu_filter)
@@ -1177,7 +1204,7 @@ retry:
 		ret = system_vrf_if(vrf->ifindex, dev);
 		tries++;
 		D(SYSTEM, "Failed to add device '%s' to vrf '%s' (tries=%d): %s\n",
-		  dev->ifname, vrf->ifname, tries, strerror(errno));
+		dev->ifname, vrf->ifname, tries, strerror(errno));
 		if (tries <= 3)
 			goto retry;
 	}
@@ -1220,8 +1247,8 @@ int system_bonding_set_device(struct device *dev, struct bonding_config *cfg)
 	system_set_dev_sysfs_int("bonding/all_slaves_active", ifname, cfg->all_ports_active);
 
 	if (cfg->policy == BONDING_MODE_BALANCE_XOR ||
-	    cfg->policy == BONDING_MODE_BALANCE_TLB ||
-	    cfg->policy == BONDING_MODE_8023AD)
+		cfg->policy == BONDING_MODE_BALANCE_TLB ||
+		cfg->policy == BONDING_MODE_8023AD)
 		system_set_dev_sysfs("bonding/xmit_hash_policy", ifname, cfg->xmit_hash_policy);
 
 	if (cfg->policy == BONDING_MODE_8023AD) {
@@ -1236,7 +1263,7 @@ int system_bonding_set_device(struct device *dev, struct bonding_config *cfg)
 		system_set_dev_sysfs_int("bonding/packets_per_slave", ifname, cfg->packets_per_port);
 
 	if (cfg->policy == BONDING_MODE_BALANCE_TLB ||
-	    cfg->policy == BONDING_MODE_BALANCE_ALB)
+		cfg->policy == BONDING_MODE_BALANCE_ALB)
 		system_set_dev_sysfs_int("bonding/lp_interval", ifname, cfg->lp_interval);
 
 	if (cfg->policy == BONDING_MODE_BALANCE_TLB)
@@ -1247,8 +1274,8 @@ int system_bonding_set_device(struct device *dev, struct bonding_config *cfg)
 	system_set_dev_sysfs("bonding/fail_over_mac", ifname, cfg->failover_mac);
 
 	system_set_dev_sysfs_int((cfg->monitor_arp ?
-				  "bonding/arp_interval" :
-				  "bonding/miimon"), ifname, cfg->monitor_interval);
+				"bonding/arp_interval" :
+				"bonding/miimon"), ifname, cfg->monitor_interval);
 
 	blobmsg_for_each_attr(cur, cfg->arp_target, rem) {
 		snprintf(buf, sizeof(buf), "+%s", blobmsg_get_string(cur));
@@ -1280,7 +1307,7 @@ int system_bonding_set_port(struct device *dev, struct device *port, bool add, b
 
 	if (primary)
 		system_set_dev_sysfs("bonding/primary", dev->ifname,
-				     add ? port_name : "");
+					add ? port_name : "");
 
 	return 0;
 }
@@ -1329,7 +1356,7 @@ static bool check_route(struct nlmsghdr *hdr, int ifindex)
 	struct nlattr *tb[__RTA_MAX];
 
 	if (r->rtm_protocol == RTPROT_KERNEL &&
-	    r->rtm_family == AF_INET6)
+		r->rtm_family == AF_INET6)
 		return false;
 
 	nlmsg_parse(hdr, sizeof(struct rtmsg), tb, __RTA_MAX - 1, NULL);
@@ -1384,8 +1411,8 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 		D(SYSTEM, "Remove a rule");
 	else
 		D(SYSTEM, "Remove %s from device %s",
-		  type == RTM_DELADDR ? "an address" : "a route",
-		  clr->dev->ifname);
+		type == RTM_DELADDR ? "an address" : "a route",
+		clr->dev->ifname);
 
 	memcpy(nlmsg_hdr(clr->msg), hdr, hdr->nlmsg_len);
 	hdr = nlmsg_hdr(clr->msg);
@@ -1560,8 +1587,8 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 		nla_put_u64(msg, IFLA_BR_MCAST_LAST_MEMBER_INTVL, cfg->last_member_interval);
 
 	if (cfg->flags & BRIDGE_OPT_ROBUSTNESS ||
-	    cfg->flags & BRIDGE_OPT_QUERY_INTERVAL ||
-	    cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL) {
+		cfg->flags & BRIDGE_OPT_QUERY_INTERVAL ||
+		cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL) {
 		val = cfg->robustness * cfg->query_interval +
 			cfg->query_response_interval;
 
@@ -1865,7 +1892,7 @@ struct if_get_master_data {
 };
 
 static void if_get_master_dsa_linkinfo_attr(struct if_get_master_data *data,
-			       struct rtattr *attr)
+					struct rtattr *attr)
 {
 	struct rtattr *cur;
 	int rem = RTA_PAYLOAD(attr);
@@ -1879,7 +1906,7 @@ static void if_get_master_dsa_linkinfo_attr(struct if_get_master_data *data,
 }
 
 static void if_get_master_linkinfo_attr(struct if_get_master_data *data,
-			       struct rtattr *attr)
+					struct rtattr *attr)
 {
 	struct rtattr *cur;
 	int rem = RTA_PAYLOAD(attr);
@@ -1963,7 +1990,7 @@ static int system_if_get_master_ifindex(struct device *dev)
 		goto out;
 
 	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
-	    nla_put_string(msg, IFLA_IFNAME, dev->ifname))
+		nla_put_string(msg, IFLA_IFNAME, dev->ifname))
 		goto free;
 
 	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_if_get_master_valid, &data);
@@ -2125,7 +2152,7 @@ system_set_ethtool_pause(struct device *dev, struct device_settings *s)
 		}
 
 		if (s->flags & DEV_OPT_ASYM_PAUSE &&
-		    !s->asym_pause && (pp.rx_pause != pp.tx_pause))
+			!s->asym_pause && (pp.rx_pause != pp.tx_pause))
 			pp.rx_pause = pp.tx_pause = false;
 	} else {
 		pp.autoneg = AUTONEG_ENABLE;
@@ -2440,6 +2467,12 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	__u32 *supported, *advertising;
 
 	system_set_ethtool_pause(dev, s);
+	if (dev->ethtool_ring)
+		system_set_ethtool_ring(dev, s);
+	if (dev->ethtool_priv)
+		system_set_ethtool_priv(dev, s);
+	if (dev->ethtool_channels)
+		system_set_ethtool_channels(dev, s);
 
 	if (s->flags & DEV_OPT_EEE)
 		system_set_ethtool_eee_settings(dev, s);
@@ -2453,15 +2486,15 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 
 	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
-	    ecmd.req.link_mode_masks_nwords >= 0 ||
-	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		ecmd.req.link_mode_masks_nwords >= 0 ||
+		ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
 		return;
 
 	ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
 
 	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
-	    ecmd.req.link_mode_masks_nwords <= 0 ||
-	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		ecmd.req.link_mode_masks_nwords <= 0 ||
+		ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
 		return;
 
 	nwords = ecmd.req.link_mode_masks_nwords;
@@ -2477,7 +2510,7 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 				ethtool_link_mode_clear_bit(nwords, ethtool_modes[i].bit_full, advertising);
 		}
 		if (!(s->flags & DEV_OPT_SPEED) ||
-		    s->speed == ethtool_modes[i].speed)
+			s->speed == ethtool_modes[i].speed)
 			continue;
 
 		ethtool_link_mode_clear_bit(nwords, ethtool_modes[i].bit_full, advertising);
@@ -2510,8 +2543,760 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 static void
 system_set_ethtool_settings_after_up(struct device *dev, struct device_settings *s)
 {
+	if (dev->ethtool_offload)
+		system_set_ethtool_offload(dev, s);
+	if (dev->ethtool_coalesce)
+		system_set_ethtool_coalesce(dev, s);
 	if (s->flags & DEV_OPT_GRO)
 		system_set_ethtool_gro(dev, s);
+}
+
+static void str_clean(char *s, bool replace_underscore)
+{
+    // Trim leading whitespace
+    while (isspace((unsigned char)*s)) s++;
+    // Move string to start if trimmed
+    if (s != s) memmove(s, s, strlen(s) + 1);
+
+    // Trim trailing whitespace
+    char *end = s + strlen(s) - 1;
+    while (end > s && isspace((unsigned char)*end)) *end-- = '\0';
+
+    // Lowercase and replace '_' with '-' if requested
+    for (char *p = s; *p; p++) {
+        *p = tolower((unsigned char)*p);
+        if (replace_underscore && *p == '_')
+            *p = '-';
+    }
+}
+
+static bool parse_blobmsg_kv(struct blob_attr *attr, char **key_out, char **val_out)
+{
+    if (blobmsg_type(attr) != BLOBMSG_TYPE_STRING)
+        return false;
+
+    char *kv = blobmsg_get_string(attr);
+    char *val = strchr(kv, ' ');
+    if (!val)
+        return false;
+
+    *val++ = '\0';
+    str_clean(kv, true);   // key: lower, trim, replace '_'
+    str_clean(val, false); // val: lower, trim
+
+    *key_out = kv;
+    *val_out = val;
+    return true;
+}
+
+/* Ethtool tunable handlers: stubs for each family */
+void system_set_ethtool_offload(struct device *dev, struct device_settings *s) {
+	/* Extract blob from device struct, not argument */
+	struct blob_attr *blob = dev->ethtool_offload;
+	if (!blob)
+		return;
+
+	struct offload_alias {
+		const char *alias;
+		const char *canonical;
+	};
+	static const struct offload_alias offload_aliases[] = {
+		{ "sg", "scatter-gather" },
+		{ "scatter-gather", "sg" },
+		{ "tso", "tcp-segmentation-offload" },
+		{ "tcp-segmentation-offload", "tso" },
+		{ "ufo", "udp-fragmentation-offload" },
+		{ "udp-fragmentation-offload", "ufo" },
+		{ "gso", "generic-segmentation-offload" },
+		{ "generic-segmentation-offload", "gso" },
+		{ "gro", "generic-receive-offload" },
+		{ "generic-receive-offload", "gro" },
+		{ "lro", "large-receive-offload" },
+		{ "large-receive-offload", "lro" },
+		{ "rxvlan", "rx-vlan-offload" },
+		{ "rx-vlan-offload", "rxvlan" },
+		{ "txvlan", "tx-vlan-offload" },
+		{ "tx-vlan-offload", "txvlan" },
+		{ "rxhash", "receive-hashing" },
+		{ "receive-hashing", "rxhash" },
+		{ "ntuple", "ntuple-filters" },
+		{ "ntuple-filters", "ntuple" },
+	};
+
+	// Get number of features supported by the driver
+	int n_features = ethtool_feature_count(dev->ifname);
+	if (n_features <= 0) {
+		netifd_log_message(L_WARNING, "%s: cannot determine number of offload features", dev->ifname);
+		return;
+	}
+
+	// Get known feature names
+	struct ethtool_gstrings *feature_names;
+	feature_names = calloc(1, sizeof(*feature_names) + n_features * ETH_GSTRING_LEN);
+	if (!feature_names) {
+		netifd_log_message(L_WARNING, "%s: cannot allocate memory for offload feature names", dev->ifname);
+		return;
+	}
+
+	feature_names->cmd = ETHTOOL_GSTRINGS;
+	feature_names->string_set = ETH_SS_FEATURES;
+	feature_names->len = n_features;
+
+	struct ifreq getnames_ifr = {0};
+	strncpy(getnames_ifr.ifr_name, dev->ifname, sizeof(getnames_ifr.ifr_name) - 1);
+	getnames_ifr.ifr_data = (void *)feature_names;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &getnames_ifr) < 0) {
+		free(feature_names);
+		netifd_log_message(L_WARNING, "%s: failed to query offload feature names", dev->ifname);
+		return;
+	}
+
+	// Get all available features
+	int nblocks = DIV_ROUND_UP(n_features, 32);
+	struct ethtool_gfeatures *gfeatures = calloc(1,
+		sizeof(*gfeatures) + sizeof(gfeatures->features[0]) * nblocks);
+	if (!gfeatures) {
+		free(feature_names);
+		netifd_log_message(L_WARNING, "%s: cannot allocate memory for offload features", dev->ifname);
+		return;
+	}
+
+	gfeatures->cmd = ETHTOOL_GFEATURES;
+	gfeatures->size = nblocks;
+	struct ethtool_get_features_block *feature_block = &gfeatures->features[0];
+
+	struct ifreq get_ifr = {0};
+	strncpy(get_ifr.ifr_name, dev->ifname, sizeof(get_ifr.ifr_name) - 1);
+	get_ifr.ifr_data = (void *)gfeatures;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &get_ifr) < 0) {
+		free(gfeatures);
+		free(feature_names);
+		netifd_log_message(L_WARNING, "%s: failed to query current offload features", dev->ifname);
+		return;
+	}
+
+	// Prepare structure for setting features
+	struct ethtool_sfeatures *sfeatures = calloc(1,
+		sizeof(*sfeatures) + sizeof(sfeatures->features[0]) * nblocks);
+	if (!sfeatures) {
+		free(gfeatures);
+		free(feature_names);
+		netifd_log_message(L_WARNING, "%s: cannot allocate memory for setting offload features", dev->ifname);
+		return;
+	}
+
+	sfeatures->cmd = ETHTOOL_SFEATURES;
+	sfeatures->size = nblocks;
+	struct ethtool_set_features_block *sfeature_block = &sfeatures->features[0];
+
+	// Parse blob attributes and try to set features
+	bool need_update = false;
+	struct blob_attr *cur;
+	size_t rem;
+	blobmsg_for_each_attr(cur, blob, rem) {
+		char *key, *val;
+		if (!parse_blobmsg_kv(cur, &key, &val))
+			continue;
+
+		// Normalize key using alias table
+		for (unsigned int i = 0; i < sizeof(offload_aliases)/sizeof(offload_aliases[0]); i++) {
+			if (!strcmp(key, offload_aliases[i].alias)) {
+				key = (char *)offload_aliases[i].canonical;
+				break;
+			}
+		}
+
+		// Get desired state value
+		bool enable = false;
+		if (!strcmp(val, "on") || !strcmp(val, "1") || !strcmp(val, "true"))
+			enable = true;
+		else if (!strcmp(val, "off") || !strcmp(val, "0") || !strcmp(val, "false"))
+			enable = false;
+		else {
+			netifd_log_message(L_WARNING, "%s: offload feature '%s' has invalid value '%s'", dev->ifname, key, val);
+			continue;
+		}
+
+		// Find feature index by known name
+		int idx = -1;
+		for (int i = 0; i < n_features; i++) {
+			if (!strncmp(key, feature_names->data[i].name, ETH_GSTRING_LEN)) {
+				idx = i;
+				break;
+			}
+		}
+		if (idx < 0) {
+			netifd_log_message(L_WARNING, "%s: offload feature '%s' is unknown", dev->ifname, key);
+			continue;
+		}
+
+		// Get current feature state
+		gfeature_block = &gfeatures->features[idx / 32U];
+		uint32_t feature_bit = (1U << (idx % 32));
+		bool available = (gfeature_block->available & feature_bit) ? true : false;
+		bool active = (gfeature_block->active & feature_bit) ? true : false;
+		bool requested = (gfeature_block->requested & feature_bit) ? true : false;
+		bool never_changed = (gfeature_block->never_changed & feature_bit) ? true : false;
+
+		// Check if feature can be changed
+		if (never_changed) {
+			netifd_log_message(L_WARNING, "%s: offload feature '%s' cannot be changed [fixed]", dev->ifname, key);
+			continue;
+		} else if (!available) {
+			netifd_log_message(L_WARNING, "%s: offload feature '%s' is not available", dev->ifname, key);
+			continue;
+		}
+
+		// Compare desired vs active vs requested vs available vs never_changed
+		sfeature_block = &sfeatures->features[idx / 32U];
+		uint32_t set_feature_bit = (1U << (idx % 32));
+		if (enable && active) {
+			// Already enabled
+			continue;
+		} else if (!enable && !active) {
+			// Already disabled
+			continue;
+		} else if (enable && !active && requested) {
+			// Already requested to enable but trying to enable again, set valid and requested bits to force re-apply
+			sfeature_block->valid |= set_feature_bit;
+			sfeature_block->requested |= set_feature_bit;
+			need_update = true;
+		} else if (!enable && active && !requested) {
+			// Already requested to disable but trying to disable again, set valid bit and clear requested bit to force re-apply
+			sfeature_block->valid |= set_feature_bit;
+			sfeature_block->requested &= ~set_feature_bit;
+			need_update = true;
+		} else if (enable && !active && !requested) {
+			// Need to enable, set valid and requested bits
+			sfeature_block->valid |= set_feature_bit;
+			sfeature_block->requested |= set_feature_bit;
+			need_update = true;
+		} else if (!enable && active && requested) {
+			// Need to disable, set valid bit and clear requested bit
+			sfeature_block->valid |= set_feature_bit;
+			sfeature_block->requested &= ~set_feature_bit;
+			need_update = true;
+		} else {
+			// Should not happen
+			netifd_log_message(L_WARNING, "%s: offload feature '%s' state is inconsistent (active=%d, requested=%d)", dev->ifname, key, active ? 1 : 0, requested ? 1 : 0);
+			continue;
+		}
+	}
+
+	if (need_update) {
+		// Keep a copy of current requested state for comparison later
+		struct ifreq set_ifr = {0};
+		strncpy(set_ifr.ifr_name, dev->ifname, sizeof(set_ifr.ifr_name) - 1);
+		set_ifr.ifr_data = (void *)sfeatures;
+		if (ioctl(sock_ioctl, SIOCETHTOOL, &set_ifr) < 0) {
+			netifd_log_message(L_WARNING, "%s: failed to set offload features", dev->ifname);
+		}
+		else {
+			// Success, print summary of changes from resulting state by re-querying current features
+			if (ioctl(sock_ioctl, SIOCETHTOOL, &get_ifr) < 0) {
+				netifd_log_message(L_WARNING, "%s: failed to re-query current offload features", dev->ifname);
+				free(feature_names);
+				free(sfeatures);
+				free(gfeatures);
+				return;
+			}
+			for (int i = 0; i < n_features; i++) {
+				gfeature_block = &gfeatures->features[i / 32U];
+				sfeature_block = &sfeatures->features[i / 32U];
+				uint32_t feature_bit = (1U << (i % 32));
+				bool available = (gfeature_block->available & feature_bit) ? true : false;
+				bool active = (gfeature_block->active & feature_bit) ? true : false;
+				bool requested = (gfeature_block->requested & feature_bit) ? true : false;
+				bool never_changed = (gfeature_block->never_changed & feature_bit) ? true : false;
+				bool was_requested = (sfeature_block->valid & feature_bit) ? true : false;
+				bool requested_value = (sfeature_block->requested & feature_bit) ? true : false;
+				if (!available || never_changed)
+					continue;
+				// Print only features that were changed or attempted to change
+				if (active == requested_value) {
+					netifd_log_message(L_INFO, "%s: offload feature '%s' set to %s", dev->ifname, feature_names->data[i].name, active ? "on" : "off");
+				} else if (active != requested_value && was_requested) {
+					netifd_log_message(L_WARNING, "%s: offload feature '%s' is '%s' [requested to '%s']", dev->ifname, feature_names->data[i].name, active ? "on" : "off", requested ? "on" : "off");
+				}
+			}
+		}
+	} else {
+		netifd_log_message(L_INFO, "%s: offload features already set as requested", dev->ifname);
+	}
+
+	free(feature_names);
+	free(sfeatures);
+	free(gfeatures);
+}
+
+void system_set_ethtool_ring(struct device *dev, struct device_settings *s)
+{
+    struct blob_attr *blob = dev->ethtool_ring;
+    if (!blob)
+        return;
+
+    struct ethtool_ringparam current_state = { .cmd = ETHTOOL_GRINGPARAM };
+    struct ifreq ifr = {0};
+    strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+    ifr.ifr_data = (void *)&current_state;
+    if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0) {
+        netifd_log_message(L_WARNING, "%s: failed to query current ring parameters", dev->ifname);
+        return;
+    }
+
+    struct ethtool_ringparam requested_state;
+	memcpy(&requested_state, &current_state, sizeof(current_state));
+	requested_state.cmd = ETHTOOL_SRINGPARAM;
+    bool need_update = false;
+    struct blob_attr *cur;
+    size_t rem;
+
+	bool rx_requested = false;
+	bool rx_mini_requested = false;
+	bool rx_jumbo_requested = false;
+	bool tx_requested = false;
+	struct ethtool_flag_map ring_map[] = {
+		{ "rx", ETHTOOL_U32, &rx_requested, &requested_state.rx_pending, &current_state.rx_pending },
+		{ "rx-mini", ETHTOOL_U32, &rx_mini_requested, &requested_state.rx_mini_pending, &current_state.rx_mini_pending },
+		{ "rx-jumbo", ETHTOOL_U32, &rx_jumbo_requested, &requested_state.rx_jumbo_pending, &current_state.rx_jumbo_pending },
+		{ "tx", ETHTOOL_U32, &tx_requested, &requested_state.tx_pending, &current_state.tx_pending },
+	};
+	size_t ring_map_len = sizeof(ring_map) / sizeof(ring_map[0]);
+
+	blobmsg_for_each_attr(cur, blob, rem) {
+		char *key, *val;
+		if (!parse_blobmsg_kv(cur, &key, &val))
+			continue;
+		bool found = false;
+		for (size_t i = 0; i < ring_map_len; i++) {
+			if (!strcmp(key, ring_map[i].name)) {
+				found = true;
+				ring_map[i].wanted = true;
+				int32_t v = strtol(val, NULL, 0);
+				int32_t *field = (int32_t *)ring_map[i].requested_state;
+				if (*field != v) {
+					need_update = true;
+					*field = v;
+				}
+				break;
+			}
+		}
+		if (!found) {
+			netifd_log_message(L_WARNING, "%s: ring parameter '%s' is unknown", dev->ifname, key);
+		}
+	}
+
+    if (need_update) {
+		// If the interface does not have separate RX mini and/or jumbo rings, these will be 0
+		if (current_state.rx_mini_max_pending == 0) {
+			requested_state.rx_mini_pending = 0;
+			//set wanted to false to avoid logging
+			rx_mini_requested = false;
+		}
+		if (current_state.rx_jumbo_max_pending == 0) {
+			requested_state.rx_jumbo_pending = 0;
+			rx_jumbo_requested = false;
+		}
+		// Send the request to set ring parameters
+        struct ifreq set_ifr = {0};
+        strncpy(set_ifr.ifr_name, dev->ifname, sizeof(set_ifr.ifr_name) - 1);
+        set_ifr.ifr_data = (void *)&requested_state;
+        if (ioctl(sock_ioctl, SIOCETHTOOL, &set_ifr) < 0) {
+            netifd_log_message(L_WARNING, "%s: failed to set ring parameters", dev->ifname);
+			free(current_state);
+			free(requested_state);
+			return;
+		} else {
+			// Success, print summary of changes from resulting state by re-querying current ring parameters
+			if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0) {
+				netifd_log_message(L_WARNING, "%s: failed to re-query current ring parameters", dev->ifname);
+				free(current_state);
+				free(requested_state);
+				return;
+			}
+			for (size_t i = 0; i < ring_map_len; i++) {
+				if (*(ring_map[i].wanted)) {
+					int32_t *current = (int32_t *)ring_map[i].current_state;
+					int32_t *requested = (int32_t *)ring_map[i].requested_state;
+					if (*current == *requested) {
+						netifd_log_message(L_INFO, "%s: ring parameter '%s' set to %d", dev->ifname, ring_map[i].name, *current);
+					} else {
+						netifd_log_message(L_WARNING, "%s: ring parameter '%s' is %d [requested %d]", dev->ifname, ring_map[i].name, *current, *requested);
+					}
+				}
+			}
+		}
+    } else {
+        netifd_log_message(L_INFO, "%s: ring parameters already set as requested", dev->ifname);
+    }
+
+	free(current_state);
+	free(requested_state);
+}
+
+void system_set_ethtool_coalesce(struct device *dev, struct device_settings *s)
+{
+    struct blob_attr *blob = dev->ethtool_coalesce;
+    if (!blob)
+        return;
+
+    struct ethtool_coalesce current_state = { .cmd = ETHTOOL_GCOALESCE };
+    struct ifreq ifr = {0};
+    strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+    ifr.ifr_data = (void *)&current_state;
+    if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0) {
+        netifd_log_message(L_WARNING, "%s: failed to query current coalesce parameters", dev->ifname);
+        return;
+    }
+
+    struct ethtool_coalesce requested_state;
+	memcpy(&requested_state, &current_state, sizeof(current_state));
+	requested_state.cmd = ETHTOOL_SCOALESCE;
+	bool need_update = false;
+	struct blob_attr *cur;
+	size_t rem;
+
+	bool adaptive_rx_requested = false;
+	bool adaptive_tx_requested = false;
+	bool sample_interval_requested = false;
+	bool stats_block_usecs_requested = false;
+	bool pkt_rate_low_requested = false;
+	bool pkt_rate_high_requested = false;
+	bool rx_usecs_requested = false;
+	bool rx_frames_requested = false;
+	bool rx_usecs_irq_requested = false;
+	bool rx_frames_irq_requested = false;
+	bool tx_usecs_requested = false;
+	bool tx_frames_requested = false;
+	bool tx_usecs_irq_requested = false;
+	bool tx_frames_irq_requested = false;
+	bool rx_usecs_low_requested = false;
+	bool rx_frames_low_requested = false;
+	bool tx_usecs_low_requested = false;
+	bool tx_frames_low_requested = false;
+	bool rx_usecs_high_requested = false;
+	bool rx_frames_high_requested = false;
+	bool tx_usecs_high_requested = false;
+	bool tx_frames_high_requested = false;
+	struct ethtool_flag_map coal_map[] = {
+		{ "adaptive-rx", ETHTOOL_BOOL, &adaptive_rx_requested, &requested_state.use_adaptive_rx_coalesce, &current_state.use_adaptive_rx_coalesce },
+		{ "adaptive-tx", ETHTOOL_BOOL, &adaptive_tx_requested, &requested_state.use_adaptive_tx_coalesce, &current_state.use_adaptive_tx_coalesce },
+		{ "sample-interval", ETHTOOL_U32, &sample_interval_requested, &requested_state.rate_sample_interval, &current_state.rate_sample_interval },
+		{ "stats-block-usecs", ETHTOOL_U32, &stats_block_usecs_requested, &requested_state.stats_block_coalesce_usecs, &current_state.stats_block_coalesce_usecs },
+		{ "pkt-rate-low", ETHTOOL_U32, &pkt_rate_low_requested, &requested_state.pkt_rate_low, &current_state.pkt_rate_low },
+		{ "pkt-rate-high", ETHTOOL_U32, &pkt_rate_high_requested, &requested_state.pkt_rate_high, &current_state.pkt_rate_high },
+		{ "rx-usecs", ETHTOOL_U32, &rx_usecs_requested, &requested_state.rx_coalesce_usecs, &current_state.rx_coalesce_usecs },
+		{ "rx-frames", ETHTOOL_U32, &rx_frames_requested, &requested_state.rx_max_coalesced_frames, &current_state.rx_max_coalesced_frames },
+		{ "rx-usecs-irq", ETHTOOL_U32, &rx_usecs_irq_requested, &requested_state.rx_coalesce_usecs_irq, &current_state.rx_coalesce_usecs_irq },
+		{ "rx-frames-irq", ETHTOOL_U32, &rx_frames_irq_requested, &requested_state.rx_max_coalesced_frames_irq, &current_state.rx_max_coalesced_frames_irq },
+		{ "tx-usecs", ETHTOOL_U32, &tx_usecs_requested, &requested_state.tx_coalesce_usecs, &current_state.tx_coalesce_usecs },
+		{ "tx-frames", ETHTOOL_U32, &tx_frames_requested, &requested_state.tx_max_coalesced_frames, &current_state.tx_max_coalesced_frames },
+		{ "tx-usecs-irq", ETHTOOL_U32, &tx_usecs_irq_requested, &requested_state.tx_coalesce_usecs_irq, &current_state.tx_coalesce_usecs_irq },
+		{ "tx-frames-irq", ETHTOOL_U32, &tx_frames_irq_requested, &requested_state.tx_max_coalesced_frames_irq, &current_state.tx_max_coalesced_frames_irq },
+		{ "rx-usecs-low", ETHTOOL_U32, &rx_usecs_low_requested, &requested_state.rx_coalesce_usecs_low, &current_state.rx_coalesce_usecs_low },
+		{ "rx-frames-low", ETHTOOL_U32, &rx_frames_low_requested, &requested_state.rx_max_coalesced_frames_low, &current_state.rx_max_coalesced_frames_low },
+		{ "tx-usecs-low", ETHTOOL_U32, &tx_usecs_low_requested, &requested_state.tx_coalesce_usecs_low, &current_state.tx_coalesce_usecs_low },
+		{ "tx-frames-low", ETHTOOL_U32, &tx_frames_low_requested, &requested_state.tx_max_coalesced_frames_low, &current_state.tx_max_coalesced_frames_low },
+		{ "rx-usecs-high", ETHTOOL_U32, &rx_usecs_high_requested, &requested_state.rx_coalesce_usecs_high, &current_state.rx_coalesce_usecs_high },
+		{ "rx-frames-high", ETHTOOL_U32, &rx_frames_high_requested, &requested_state.rx_max_coalesced_frames_high, &current_state.rx_max_coalesced_frames_high },
+		{ "tx-usecs-high", ETHTOOL_U32, &tx_usecs_high_requested, &requested_state.tx_coalesce_usecs_high, &current_state.tx_coalesce_usecs_high },
+		{ "tx-frames-high", ETHTOOL_U32, &tx_frames_high_requested, &requested_state.tx_max_coalesced_frames_high, &current_state.tx_max_coalesced_frames_high },
+	};
+	size_t coal_map_len = sizeof(coal_map) / sizeof(coal_map[0]);
+
+	blobmsg_for_each_attr(cur, blob, rem) {
+		char *key, *val;
+		if (!parse_blobmsg_kv(cur, &key, &val))
+			continue;
+		bool found = false;
+		for (size_t i = 0; i < coal_map_len; i++) {
+			if (!strcmp(key, coal_map[i].name)) {
+				found = true;
+				coal_map[i].wanted = true;
+				if (coal_map[i].type == ETHTOOL_BOOL) {
+					uint32_t requested_state = (!strcmp(val, "on") || !strcmp(val, "1") || !strcmp(val, "true")) ? 1 : 0;
+					uint32_t *field = (uint32_t *)coal_map[i].requested_state;
+					if (*field < requested_state) {
+						need_update = true;
+						*field = requested_state;
+					}
+				} else {
+					uint32_t v = strtoul(val, NULL, 0);
+					uint32_t *field = (uint32_t *)coal_map[i].requested_state;
+					if (*field != v) {
+						need_update = true;
+						*field = v;
+					}
+				}
+				break;
+			}
+		}
+		if (!found) {
+			netifd_log_message(L_WARNING, "%s: coalesce parameter '%s' is unknown", dev->ifname, key);
+		}
+	}
+
+	if (need_update) {
+		// Validate coalesce settings before applying
+		if (((rx_usecs_requested || rx_frames_requested) && requested_state.rx_coalesce_usecs == 0 && requested_state.rx_max_coalesced_frames == 0)
+		|| ((tx_usecs_requested || tx_frames_requested) && requested_state.tx_coalesce_usecs == 0 && requested_state.tx_max_coalesced_frames == 0)
+		|| ((rx_usecs_irq_requested || rx_frames_irq_requested) && requested_state.rx_coalesce_usecs_irq == 0 && requested_state.rx_max_coalesced_frames_irq == 0)
+		|| ((tx_usecs_irq_requested || tx_frames_irq_requested) && requested_state.tx_coalesce_usecs_irq == 0 && requested_state.tx_max_coalesced_frames_irq == 0))
+		{
+			netifd_log_message(L_WARNING, "%s: illegal coalesce: rx-usecs='%u' rx-frames='%u' tx-usecs='%u' tx-frames='%u' rx-usecs-irq='%u' rx-frames-irq='%u' tx-usecs-irq='%u' tx-frames-irq='%u' (usecs and frames cannot both be 0)",
+				dev->ifname,
+				requested_state.rx_coalesce_usecs,
+				requested_state.rx_max_coalesced_frames,
+				requested_state.tx_coalesce_usecs,
+				requested_state.tx_max_coalesced_frames,
+				requested_state.rx_coalesce_usecs_irq,
+				requested_state.rx_max_coalesced_frames_irq,
+				requested_state.tx_coalesce_usecs_irq,
+				requested_state.tx_max_coalesced_frames_irq);
+			free(current_state);
+			free(requested_state);
+			free(coal_map);
+			free(blob);
+			return;
+		}
+		// Send the request to set coalesce parameters
+		struct ifreq set_ifr = {0};
+		strncpy(set_ifr.ifr_name, dev->ifname, sizeof(set_ifr.ifr_name) - 1);
+		set_ifr.ifr_data = (void *)&requested_state;
+		if (ioctl(sock_ioctl, SIOCETHTOOL, &set_ifr) < 0) {
+			netifd_log_message(L_WARNING, "%s: failed to set coalesce parameters", dev->ifname);
+			free(current_state);
+			free(requested_state);
+			free(coal_map);
+			free(blob);
+			return;
+		} else {
+			// Success, print summary of changes from resulting state by re-querying current coalesce parameters
+			if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0) {
+				netifd_log_message(L_WARNING, "%s: failed to re-query current coalesce parameters", dev->ifname);
+				free(current_state);
+				free(requested_state);
+				free(coal_map);
+				free(blob);
+				return;
+			}
+			for (size_t i = 0; i < coal_map_len; i++) {
+				if (coal_map[i].wanted) {
+					uint32_t *requested_state = (uint32_t *)coal_map[i].requested_state;
+					uint32_t *current_state = (uint32_t *)coal_map[i].current_state;
+					if (*requested_state == *current_state) {
+						if (coal_map[i].type == ETHTOOL_BOOL) {
+							netifd_log_message(L_INFO, "%s: coalesce parameter '%s' set to %s", dev->ifname, coal_map[i].name, (*requested_state > 0) ? "on" : "off");
+						} else {
+							netifd_log_message(L_INFO, "%s: coalesce parameter '%s' set to %u", dev->ifname, coal_map[i].name, *requested_state);
+						}
+					} else {
+						if (coal_map[i].type == ETHTOOL_BOOL) {
+							netifd_log_message(L_WARNING, "%s: coalesce parameter set failed, '%s' is %s [requested %s]", dev->ifname, coal_map[i].name, (*current_state > 0) ? "on" : "off", (*requested_state > 0) ? "on" : "off");
+						} else {
+							netifd_log_message(L_WARNING, "%s: coalesce parameter set failed, '%s' is %u [requested %u]", dev->ifname, coal_map[i].name, *current_state, *requested_state);
+						}
+					}
+				}
+			}
+		}
+	} else {
+		netifd_log_message(L_INFO, "%s: coalesce parameters already set as requested", dev->ifname);
+	}
+
+    free(current_state);
+    free(requested_state);
+	free(coal_map);
+	free(blob);
+}
+
+void system_set_ethtool_channels(struct device *dev, struct device_settings *s)
+{
+    struct blob_attr *blob = dev->ethtool_channels;
+    if (!blob)
+        return;
+
+    struct ethtool_channels current_state = { .cmd = ETHTOOL_GCHANNELS };
+    struct ifreq ifr = {0};
+    strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+    ifr.ifr_data = (void *)&current_state;
+    if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0) {
+        netifd_log_message(L_WARNING, "%s: failed to query current channel parameters", dev->ifname);
+        return;
+    }
+
+    struct ethtool_channels requested_state;
+	memcpy(&requested_state, &current_state, sizeof(current_state));
+	requested_state.cmd = ETHTOOL_SCHANNELS;
+    bool need_update = false;
+    struct blob_attr *cur;
+    size_t rem;
+
+	bool rx_requested = false;
+	bool tx_requested = false;
+	bool combined_requested = false;
+	bool other_requested = false;
+	struct ethtool_flag_map channel_map[] = {
+		{ "rx", ETHTOOL_U32, &rx_requested, &requested_state.rx_count, &current_state.rx_count },
+		{ "tx", ETHTOOL_U32, &tx_requested, &requested_state.tx_count, &current_state.tx_count },
+		{ "combined", ETHTOOL_U32, &combined_requested, &requested_state.combined_count, &current_state.combined_count },
+		{ "other", ETHTOOL_U32, &other_requested, &requested_state.other_count, &current_state.other_count },
+	};
+	size_t channel_map_len = sizeof(channel_map) / sizeof(channel_map[0]);
+
+    blobmsg_for_each_attr(cur, blob, rem) {
+        char *key, *val;
+		if (!parse_blobmsg_kv(cur, &key, &val))
+			continue;
+        bool found = false;
+		for (size_t i = 0; i < channel_map_len; i++) {
+			if (!strcmp(key, channel_map[i].name)) {
+				found = true;
+				long v = strtol(val, NULL, 0);
+				if (channel_map[i].current != v) {
+					need_update = true;
+					channel_map[i].requested = v;
+				} else {
+					channel_map[i].requested = channel_map[i].current;
+				}
+			}
+		}
+		if (!found) {
+			netifd_log_message(L_WARNING, "%s: unknown channels parameter '%s'", dev->ifname, key);
+		}
+	}
+
+    if (need_update) {
+        struct ifreq set_ifr = {0};
+        strncpy(set_ifr.ifr_name, dev->ifname, sizeof(set_ifr.ifr_name) - 1);
+        set_ifr.ifr_data = (void *)&requested_state;
+        if (ioctl(sock_ioctl, SIOCETHTOOL, &set_ifr) < 0) {
+            netifd_log_message(L_WARNING, "%s: failed to set channels parameters", dev->ifname);
+			free(current_state);
+			free(requested_state);
+			return;
+		} else {
+			// Success, print summary of changes from resulting state by re-querying current channels parameters
+			if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0) {
+				netifd_log_message(L_WARNING, "%s: failed to re-query current channels parameters", dev->ifname);
+				free(current_state);
+				free(requested_state);
+				return;
+			}
+			for (size_t i = 0; i < channel_map_len; i++) {
+				if (*(channel_map[i].wanted)) {
+					int32_t *current = (int32_t *)channel_map[i].current_state;
+					int32_t *requested = (int32_t *)channel_map[i].requested_state;
+					if (*current == *requested) {
+						netifd_log_message(L_INFO, "%s: channels parameter '%s' set to %d", dev->ifname, channel_map[i].name, *current);
+					} else {
+						netifd_log_message(L_WARNING, "%s: channels parameter '%s' is %d [requested %d]", dev->ifname, channel_map[i].name, *current, *requested);
+					}
+				}
+			}
+		}
+    } else {
+        netifd_log_message(L_INFO, "%s: channels parameters already set as requested", dev->ifname);
+    }
+
+	free(current_state);
+	free(requested_state);
+}
+
+void system_set_ethtool_priv(struct device *dev, struct device_settings *s)
+{
+	struct blob_attr *blob = dev->ethtool_priv;
+	if (!blob)
+		return;
+
+	// Get number of private flags supported by the driver
+	int n_flags = ethtool_priv_count(dev->ifname);
+	if (n_flags <= 0) {
+		netifd_log_message(L_WARNING, "%s: failed to get priv flag count", dev->ifname);
+		return;
+	}
+
+	// Get names of private flags
+	struct ethtool_gstrings *flag_names;
+	flag_names = calloc(1, sizeof(*flag_names) + n_flags * ETH_GSTRING_LEN);
+	if (!flag_names) {
+		netifd_log_message(L_WARNING, "%s: failed to allocate memory for priv flag names", dev->ifname);
+		return;
+	}
+
+	flag_names->cmd = ETHTOOL_GSTRINGS;
+	flag_names->string_set = ETH_SS_PRIV_FLAGS;
+	flag_names->len = n_flags;
+
+	struct ifreq getnames_ifr = {0};
+	strncpy(getnames_ifr.ifr_name, dev->ifname, sizeof(getnames_ifr.ifr_name) - 1);
+	getnames_ifr.ifr_data = (void *)flag_names;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &getnames_ifr) < 0) {
+		netifd_log_message(L_WARNING, "%s: failed to get priv flag names", dev->ifname);
+		free(flag_names);
+		return;
+	}
+
+	// Get current private flags
+	uint32_t current_flags = 0;
+	if (!ethtool_priv_get(dev->ifname, &current_flags)) {
+		netifd_log_message(L_WARNING, "%s: failed to get priv flags", dev->ifname);
+		free(flag_names);
+		return;
+	}
+
+	// Prepare for processing requested flags
+	uint32_t requested_flags = current_flags;
+
+	// Parse blob attributes and try to set requested flags
+	bool need_update = false;
+	struct blob_attr *cur;
+	size_t rem;
+	blobmsg_for_each_attr(cur, blob, rem) {
+		char *key, *val;
+		if (!parse_blobmsg_kv(cur, &key, &val))
+			continue;
+
+		// Get desired state
+		bool enable = (!strcmp(val, "on") || !strcmp(val, "1") || !strcmp(val, "true")) ? true : false;
+
+		// Find index of the flag
+		int idx = -1;
+		for (int i = 0; i < n_flags; i++) {
+			if (!strncmp(key, flag_names->data[i].name, ETH_GSTRING_LEN)) {
+				idx = i;
+				break;
+			}
+		}
+		if (idx < 0) {
+			netifd_log_message(L_WARNING, "%s: priv flag '%s' is unknown", dev->ifname, key);
+			continue;
+		}
+
+		// Get the current state of the flag and compare with desired state
+		uint32_t flag_bit = (1U << idx);
+		bool is_set = (current_flags & flag_bit) ? true : false;
+
+		// Update requested_flags if needed
+		if (is_set != enable) {
+			if (enable)
+				requested_flags |= flag_bit;
+			else
+				requested_flags &= ~flag_bit;
+			need_update = true;
+		}
+	}
+
+	if (need_update) {
+		if (ethtool_priv_set(dev->ifname, requested_flags)) {
+			netifd_log_message(L_WARNING, "%s: failed to set priv flags", dev->ifname);
+		} else {
+			netifd_log_message(L_INFO, "%s: priv flags updated", dev->ifname);
+		}
+	} else {
+		netifd_log_message(L_INFO, "%s: priv flags already set as requested", dev->ifname);
+	}
+	free(flag_names);
 }
 
 void
@@ -2708,7 +3493,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	}
 	if (apply_mask & DEV_OPT_PROMISC) {
 		if (system_if_flags(dev->ifname, s->promisc ? IFF_PROMISC : 0,
-				    !s->promisc ? IFF_PROMISC : 0) < 0)
+					!s->promisc ? IFF_PROMISC : 0) < 0)
 			s->flags &= ~DEV_OPT_PROMISC;
 	}
 	if (apply_mask & DEV_OPT_RPFILTER) {
@@ -2747,7 +3532,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	}
 	if (apply_mask & DEV_OPT_MULTICAST) {
 		if (system_if_flags(dev->ifname, s->multicast ? IFF_MULTICAST : 0,
-				    !s->multicast ? IFF_MULTICAST : 0) < 0)
+					!s->multicast ? IFF_MULTICAST : 0) < 0)
 			s->flags &= ~DEV_OPT_MULTICAST;
 	}
 	if (apply_mask & DEV_OPT_SENDREDIRECTS)
@@ -2826,8 +3611,8 @@ struct bridge_vlan_check_data {
 };
 
 static void bridge_vlan_check_port(struct bridge_vlan_check_data *data,
-				   struct bridge_vlan_port *port,
-				   struct bridge_vlan_info *vinfo)
+					struct bridge_vlan_port *port,
+					struct bridge_vlan_info *vinfo)
 {
 	uint16_t flags = 0, diff, mask;
 
@@ -2847,7 +3632,7 @@ static void bridge_vlan_check_port(struct bridge_vlan_check_data *data,
 }
 
 static void bridge_vlan_check_attr(struct bridge_vlan_check_data *data,
-				   struct rtattr *attr)
+					struct rtattr *attr)
 {
 	struct bridge_vlan_hotplug_port *port;
 	struct bridge_vlan_info *vinfo;
@@ -3028,7 +3813,7 @@ int system_if_check(struct device *dev)
 		goto out;
 
 	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
-	    nla_put_string(msg, IFLA_IFNAME, dev->ifname))
+		nla_put_string(msg, IFLA_IFNAME, dev->ifname))
 		goto free;
 
 	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_if_check_valid, &chk);
@@ -3206,6 +3991,47 @@ ethtool_feature_count(const char *ifname)
 	return req.buf;
 }
 
+static bool
+ethtool_feature_names(const char *ifname, char **names, int32_t n_features)
+{
+	// n_features must be obtained by ethtool_feature_count() before
+	struct ethtool_gstrings *feature_names;
+	struct ifreq ifr = { 0 };
+	uint32_t i;
+
+	feature_names = calloc(1, sizeof(*feature_names) + n_features * ETH_GSTRING_LEN);
+
+	if (!feature_names)
+		return false;
+
+	feature_names->cmd = ETHTOOL_GSTRINGS;
+	feature_names->string_set = ETH_SS_FEATURES;
+	feature_names->len = n_features;
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)feature_names;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0) {
+		free(feature_names);
+
+		return false;
+	}
+
+	for (i = 0; i < feature_names->len; i++) {
+		names[i] = strndup((char *)&feature_names->data[i * ETH_GSTRING_LEN], ETH_GSTRING_LEN);
+		if (!names[i]) {
+			while (i-- > 0)
+				free(names[i]);
+			free(feature_names);
+			return false;
+		}
+	}
+
+	free(feature_names);
+
+	return true;
+}
+
 static int32_t
 ethtool_feature_index(const char *ifname, const char *keyname)
 {
@@ -3283,11 +4109,152 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 	}
 
 	feature_block = &feature_values->features[feature_idx / 32];
-	active = feature_block->active & (1U << feature_idx % 32);
+	active = (feature_block->active & (1U << feature_idx % 32)) ? true : false;
 
 	free(feature_values);
 
 	return active;
+}
+
+static bool
+ethtool_feature_state(const char *ifname, const char *keyname,
+				bool *available, bool *requested,
+				bool *active, bool *fixed)
+{
+	struct ethtool_get_features_block *feature_block;
+	struct ethtool_gfeatures *feature_values;
+	struct ifreq ifr = { 0 };
+	int32_t feature_idx;
+
+	feature_idx = ethtool_feature_index(ifname, keyname);
+	if (feature_idx < 0)
+		return false;
+
+	int nblocks = DIV_ROUND_UP(feature_idx, 32);
+	feature_values = calloc(1,
+		sizeof(*feature_values) +
+		sizeof(feature_values->features[0]) * nblocks);
+	if (!feature_values)
+		return false;
+
+	feature_values->cmd = ETHTOOL_GFEATURES;
+	feature_values->size = nblocks;
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)feature_values;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0) {
+		free(feature_values);
+		return false;
+	}
+
+	feature_block = &feature_values->features[feature_idx / 32];
+	uint32_t feature_bit = 1U << ((feature_idx) % 32U);
+
+	*available = (feature_block->available & feature_bit) ? true : false;
+	*requested = (feature_block->requested & feature_bit) ? true : false;
+	*active = (feature_block->active & feature_bit) ? true : false;
+	*fixed = (feature_block->never_changed & feature_bit) ? true : false;
+
+	free(feature_values);
+
+	return true;
+}
+
+static int ethtool_priv_count(const char *ifname)
+{
+	struct ethtool_drvinfo drvinfo = { .cmd = ETHTOOL_GDRVINFO };
+	struct ifreq ifr = {0};
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)&drvinfo;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0)
+		return -1;
+	return drvinfo.n_priv_flags;
+}
+
+static bool ethtool_priv_names(const char *ifname, char **names, int count)
+{
+	struct ethtool_gstrings *priv_names;
+	priv_names = calloc(1, sizeof(*priv_names) + count * ETH_GSTRING_LEN);
+	if (!priv_names)
+		return false;
+	priv_names->cmd = ETHTOOL_GSTRINGS;
+	priv_names->string_set = ETH_SS_PRIV_FLAGS;
+	priv_names->len = count;
+	struct ifreq names_ifr = {0};
+	strncpy(names_ifr.ifr_name, ifname, sizeof(names_ifr.ifr_name) - 1);
+	names_ifr.ifr_data = (void *)priv_names;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &names_ifr) < 0) {
+		free(priv_names);
+		return -1;
+	}
+	for (int i = 0; i < count; i++) {
+		names[i] = calloc(1, ETH_GSTRING_LEN + 1);
+		strncpy(names[i], (char *)&priv_names->data[i * ETH_GSTRING_LEN], ETH_GSTRING_LEN);
+		names[i][ETH_GSTRING_LEN] = '\0';
+	}
+	free(priv_names);
+	return true;
+}
+
+static uint32_t ethtool_priv_index(const char *ifname, const char *keyname)
+{
+	struct ifreq ifr = { 0 };
+	int32_t n_priv;
+	uint32_t i;
+
+	n_priv = ethtool_priv_count(ifname);
+
+	if (n_priv <= 0)
+		return -1;
+
+	char **priv_names = calloc(n_priv, sizeof(char *));
+	if (!priv_names)
+		return -1;
+
+	if (!ethtool_priv_names(ifname, priv_names, n_priv)) {
+		free(priv_names);
+		return -1;
+	}
+
+	for (i = 0; i < n_priv; i++) {
+		if (!strcmp(priv_names[i], keyname))
+			break;
+		free(priv_names[i]);
+	}
+
+	if (i >= n_priv)
+		i = -1;
+
+	for (int j = i; j < n_priv; j++)
+		free(priv_names[j]);
+
+	free(priv_names);
+
+	return i;
+}
+
+static bool ethtool_priv_get(const char *ifname, uint32_t *flags)
+{
+	struct ethtool_value eval = { .cmd = ETHTOOL_GPFLAGS };
+	struct ifreq ifr = {0};
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)&eval;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0)
+		return false;
+	*flags = eval.data;
+	return true;
+}
+
+static bool ethtool_priv_set(const char *ifname, uint32_t flags)
+{
+	struct ethtool_value eval = { .cmd = ETHTOOL_SPFLAGS, .data = flags };
+	struct ifreq ifr = {0};
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)&eval;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0)
+		return false;
+	return true;
 }
 
 static void
@@ -3338,7 +4305,7 @@ system_add_pause_modes(__s8 nwords, struct blob_buf *b, __u32 *mask)
 
 static void
 system_add_ethtool_pause_an(struct blob_buf *b, __s8 nwords,
-			    __u32 *advertising, __u32 *lp_advertising)
+				__u32 *advertising, __u32 *lp_advertising)
 {
 	bool an_rx = false, an_tx = false;
 	void *d;
@@ -3349,26 +4316,26 @@ system_add_ethtool_pause_an(struct blob_buf *b, __s8 nwords,
 	 * IEEE 802.3-2005 table 28B-3.
 	 */
 	if (ethtool_link_mode_test_bit(nwords,
-				       ETHTOOL_LINK_MODE_Pause_BIT,
-				       advertising) &&
-	    ethtool_link_mode_test_bit(nwords,
-				       ETHTOOL_LINK_MODE_Pause_BIT,
-				       lp_advertising)) {
+				ETHTOOL_LINK_MODE_Pause_BIT,
+				advertising) &&
+			ethtool_link_mode_test_bit(nwords,
+				ETHTOOL_LINK_MODE_Pause_BIT,
+				lp_advertising)) {
 		an_tx = true;
 		an_rx = true;
 	} else if (ethtool_link_mode_test_bit(nwords,
-					      ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-					      advertising) &&
-		   ethtool_link_mode_test_bit(nwords,
-					      ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-					      lp_advertising)) {
+				ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+				advertising) &&
+			ethtool_link_mode_test_bit(nwords,
+				ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+				lp_advertising)) {
 		if (ethtool_link_mode_test_bit(nwords,
-					       ETHTOOL_LINK_MODE_Pause_BIT,
-					       advertising))
+				ETHTOOL_LINK_MODE_Pause_BIT,
+				advertising))
 			an_rx = true;
 		else if (ethtool_link_mode_test_bit(nwords,
-						    ETHTOOL_LINK_MODE_Pause_BIT,
-						    lp_advertising))
+				ETHTOOL_LINK_MODE_Pause_BIT,
+				lp_advertising))
 			an_tx = true;
 	}
 	if (an_tx)
@@ -3426,15 +4393,15 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 
 	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
-	    ecmd.req.link_mode_masks_nwords >= 0 ||
-	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		ecmd.req.link_mode_masks_nwords >= 0 ||
+		ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
 		return -EOPNOTSUPP;
 
 	ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
 
 	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
-	    ecmd.req.link_mode_masks_nwords <= 0 ||
-	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		ecmd.req.link_mode_masks_nwords <= 0 ||
+		ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
 		return -EIO;
 
 	nwords = ecmd.req.link_mode_masks_nwords;
@@ -3455,8 +4422,8 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	blobmsg_close_array(b, c);
 
 	if (ethtool_validate_speed(ecmd.req.speed) &&
-	    (ecmd.req.speed != (__u32)SPEED_UNKNOWN) &&
-	    (ecmd.req.speed != 0)) {
+		(ecmd.req.speed != (__u32)SPEED_UNKNOWN) &&
+		(ecmd.req.speed != 0)) {
 		s = blobmsg_alloc_string_buffer(b, "speed", 10);
 		snprintf(s, 8, "%d%c", ecmd.req.speed,
 			ecmd.req.duplex == DUPLEX_HALF ? 'H' : 'F');
@@ -3483,7 +4450,7 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 
 	if (pause_autoneg) {
 		system_add_ethtool_pause_an(b, nwords, advertising,
-					    lp_advertising);
+						lp_advertising);
 	} else {
 		d = blobmsg_open_array(b, "selected");
 		if (rx_pause)
@@ -3613,14 +4580,14 @@ int
 system_if_dump_stats(struct device *dev, struct blob_buf *b)
 {
 	const char *const counters[] = {
-		"collisions",     "rx_frame_errors",   "tx_compressed",
-		"multicast",      "rx_length_errors",  "tx_dropped",
-		"rx_bytes",       "rx_missed_errors",  "tx_errors",
-		"rx_compressed",  "rx_over_errors",    "tx_fifo_errors",
-		"rx_crc_errors",  "rx_packets",        "tx_heartbeat_errors",
-		"rx_dropped",     "tx_aborted_errors", "tx_packets",
-		"rx_errors",      "tx_bytes",          "tx_window_errors",
-		"rx_fifo_errors", "tx_carrier_errors",
+		"collisions",		"rx_frame_errors",		"tx_compressed",
+		"multicast",		"rx_length_errors",		"tx_dropped",
+		"rx_bytes",			"rx_missed_errors",		"tx_errors",
+		"rx_compressed",	"rx_over_errors",		"tx_fifo_errors",
+		"rx_crc_errors",	"rx_packets",			"tx_heartbeat_errors",
+		"rx_dropped",		"tx_aborted_errors",	"tx_packets",
+		"rx_errors",		"tx_bytes",				"tx_window_errors",
+		"rx_fifo_errors",	"tx_carrier_errors",
 	};
 	int stats_dir;
 	size_t i;
@@ -3793,7 +4760,7 @@ static int system_rt(struct device *dev, struct device_route *route, int cmd)
 		rtm.rtm_type = route->type;
 		if (!(route->flags & (DEVROUTE_TABLE | DEVROUTE_SRCTABLE))) {
 			if (rtm.rtm_type == RTN_LOCAL || rtm.rtm_type == RTN_BROADCAST ||
-			    rtm.rtm_type == RTN_NAT || rtm.rtm_type == RTN_ANYCAST)
+				rtm.rtm_type == RTN_NAT || rtm.rtm_type == RTN_ANYCAST)
 				rtm.rtm_table = RT_TABLE_LOCAL;
 		}
 
@@ -4206,7 +5173,7 @@ time_t system_get_rtime(void)
 }
 
 #ifndef IP_DF
-#define IP_DF       0x4000
+#define IP_DF 0x4000
 #endif
 
 static int tunnel_ioctl(const char *name, int cmd, void *p)
@@ -4221,7 +5188,7 @@ static int tunnel_ioctl(const char *name, int cmd, void *p)
 
 #ifdef IFLA_IPTUN_MAX
 static int system_add_ip6_tunnel(const char *name, const unsigned int link,
-				 struct blob_attr **tb)
+				struct blob_attr **tb)
 {
 	struct nl_msg *nlm = nlmsg_alloc_simple(RTM_NEWLINK,
 				NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
@@ -4282,7 +5249,7 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 		uint32_t tun_flags = IP6_TNL_F_IGN_ENCAP_LIMIT;
 
 		blobmsg_parse_attr(ipip6_data_attr_list.params, __IPIP6_DATA_ATTR_MAX,
-				   tb_data, cur);
+					tb_data, cur);
 
 		if ((cur = tb_data[IPIP6_DATA_ENCAPLIMIT])) {
 			char *str = blobmsg_get_string(cur);
@@ -4319,7 +5286,7 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 				unsigned ip4len, ip6len, ealen, offset;
 
 				blobmsg_parse_attr(fmr_data_attr_list.params, __FMR_DATA_ATTR_MAX,
-						   tb_fmr, rcur);
+							tb_fmr, rcur);
 
 				if (!(tb_cur = tb_fmr[FMR_DATA_PREFIX6]) ||
 						!parse_ip_and_netmask(AF_INET6,
@@ -4386,7 +5353,7 @@ failure:
 #ifdef IFLA_IPTUN_MAX
 #define IP6_FLOWINFO_TCLASS	htonl(0x0FF00000)
 static int system_add_gre_tunnel(const char *name, const char *kind,
-				 const unsigned int link, struct blob_attr **tb, bool v6)
+				const unsigned int link, struct blob_attr **tb, bool v6)
 {
 	struct nl_msg *nlm;
 	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
@@ -4449,7 +5416,7 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 		struct blob_attr *tb_data[__GRE_DATA_ATTR_MAX];
 
 		blobmsg_parse_attr(gre_data_attr_list.params, __GRE_DATA_ATTR_MAX,
-				   tb_data, cur);
+					tb_data, cur);
 
 		if ((cur = tb_data[GRE_DATA_IKEY])) {
 			if ((ikey = blobmsg_get_u32(cur)))
@@ -4605,7 +5572,7 @@ failure:
 
 #ifdef IFLA_VTI_MAX
 static int system_add_vti_tunnel(const char *name, const char *kind,
-				 const unsigned int link, struct blob_attr **tb, bool v6)
+				const unsigned int link, struct blob_attr **tb, bool v6)
 {
 	struct nl_msg *nlm;
 	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
@@ -4679,7 +5646,7 @@ static int system_add_vti_tunnel(const char *name, const char *kind,
 		uint32_t ikey = 0, okey = 0;
 
 		blobmsg_parse_attr(vti_data_attr_list.params, __VTI_DATA_ATTR_MAX,
-				   tb_data, cur);
+					tb_data, cur);
 
 		if ((cur = tb_data[VTI_DATA_IKEY])) {
 			if ((ikey = blobmsg_get_u32(cur)))
@@ -4705,7 +5672,7 @@ failure:
 
 #ifdef IFLA_XFRM_MAX
 static int system_add_xfrm_tunnel(const char *name, const char *kind,
-				 const unsigned int link, struct blob_attr **tb)
+				const unsigned int link, struct blob_attr **tb)
 {
 	struct nl_msg *nlm;
 	struct ifinfomsg ifi = { .ifi_family = AF_UNSPEC, };
@@ -4740,7 +5707,7 @@ static int system_add_xfrm_tunnel(const char *name, const char *kind,
 		uint32_t if_id = 0;
 
 		blobmsg_parse_attr(xfrm_data_attr_list.params, __XFRM_DATA_ATTR_MAX,
-				   tb_data, cur);
+					tb_data, cur);
 
 		if ((cur = tb_data[XFRM_DATA_IF_ID])) {
 			if ((if_id = blobmsg_get_u32(cur)))
@@ -4770,7 +5737,7 @@ static void system_vxlan_map_bool_attr(struct nl_msg *msg, struct blob_attr **tb
 
 		if ((attrtype == IFLA_VXLAN_GBP) && val)
 			nla_put_flag(msg, attrtype);
-		else 
+		else
 			nla_put_u8(msg, attrtype, val);
 
 	}
@@ -4787,7 +5754,7 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 
 	if ((cur = tb[TUNNEL_ATTR_DATA]))
 		blobmsg_parse_attr(vxlan_data_attr_list.params, __VXLAN_DATA_ATTR_MAX,
-				   tb_data, cur);
+					tb_data, cur);
 	else
 		return -EINVAL;
 
@@ -4987,7 +5954,7 @@ static int system_add_sit_tunnel(const char *name, const unsigned int link, stru
 		struct ip_tunnel_6rd p6;
 
 		blobmsg_parse_attr(sixrd_data_attr_list.params, __SIXRD_DATA_ATTR_MAX,
-				   tb_data, cur);
+					tb_data, cur);
 
 		memset(&p6, 0, sizeof(p6));
 

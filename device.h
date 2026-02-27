@@ -73,6 +73,11 @@ enum {
 	DEV_ATTR_MASTER,
 	DEV_ATTR_EEE,
 	DEV_ATTR_TAGS,
+	DEV_ATTR_OFFLOAD,
+	DEV_ATTR_RING,
+	DEV_ATTR_COALESCE,
+	DEV_ATTR_CHANNELS,
+	DEV_ATTR_PRIV,
 	DEV_ATTR_PSE,
 	DEV_ATTR_PSE_PODL,
 	DEV_ATTR_PSE_POWER_LIMIT,
@@ -264,6 +269,11 @@ struct device {
 	struct blob_attr *config_auth_vlans;
 	struct blob_attr *auth_vlans;
 	struct blob_attr *tags;
+	struct blob_attr *ethtool_offload;
+	struct blob_attr *ethtool_ring;
+	struct blob_attr *ethtool_coalesce;
+	struct blob_attr *ethtool_channels;
+	struct blob_attr *ethtool_priv;
 
 	char ifname[IFNAMSIZ];
 	int ifindex;
