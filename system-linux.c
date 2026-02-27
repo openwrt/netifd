@@ -2690,7 +2690,7 @@ void system_set_ethtool_offload(struct device *dev, struct device_settings *s) {
 	struct ethtool_set_features_block *sfeature_block = &sfeatures->features[0];
 
 	// Parse blob attributes and try to set features
-	int need_update = 0;
+	bool need_update = false;
 	struct blob_attr *cur;
 	size_t rem;
 	blobmsg_for_each_attr(cur, blob, rem) {
@@ -2760,22 +2760,22 @@ void system_set_ethtool_offload(struct device *dev, struct device_settings *s) {
 			// Already requested to enable but trying to enable again, set valid and requested bits to force re-apply
 			sfeature_block->valid |= set_feature_bit;
 			sfeature_block->requested |= set_feature_bit;
-			need_update = 1;
+			need_update = true;
 		} else if (!enable && active && !requested) {
 			// Already requested to disable but trying to disable again, set valid bit and clear requested bit to force re-apply
 			sfeature_block->valid |= set_feature_bit;
 			sfeature_block->requested &= ~set_feature_bit;
-			need_update = 1;
+			need_update = true;
 		} else if (enable && !active && !requested) {
 			// Need to enable, set valid and requested bits
 			sfeature_block->valid |= set_feature_bit;
 			sfeature_block->requested |= set_feature_bit;
-			need_update = 1;
+			need_update = true;
 		} else if (!enable && active && requested) {
 			// Need to disable, set valid bit and clear requested bit
 			sfeature_block->valid |= set_feature_bit;
 			sfeature_block->requested &= ~set_feature_bit;
-			need_update = 1;
+			need_update = true;
 		} else {
 			// Should not happen
 			netifd_log_message(L_WARNING, "%s: offload feature '%s' state is inconsistent (active=%d, requested=%d)", dev->ifname, key, active ? 1 : 0, requested ? 1 : 0);
@@ -2847,7 +2847,7 @@ void system_set_ethtool_ring(struct device *dev, struct device_settings *s)
     struct ethtool_ringparam requested_state;
 	memcpy(&requested_state, &current_state, sizeof(current_state));
 	requested_state.cmd = ETHTOOL_SRINGPARAM;
-    int need_update = 0;
+    bool need_update = false;
     struct blob_attr *cur;
     size_t rem;
 
@@ -2875,7 +2875,7 @@ void system_set_ethtool_ring(struct device *dev, struct device_settings *s)
 				int32_t v = strtol(val, NULL, 0);
 				int32_t *field = (int32_t *)ring_map[i].requested_state;
 				if (*field != v) {
-					need_update = 1;
+					need_update = true;
 					*field = v;
 				}
 				break;
@@ -2952,7 +2952,7 @@ void system_set_ethtool_coalesce(struct device *dev, struct device_settings *s)
     struct ethtool_coalesce requested_state;
 	memcpy(&requested_state, &current_state, sizeof(current_state));
 	requested_state.cmd = ETHTOOL_SCOALESCE;
-	int need_update = 0;
+	bool need_update = false;
 	struct blob_attr *cur;
 	size_t rem;
 
@@ -3017,14 +3017,14 @@ void system_set_ethtool_coalesce(struct device *dev, struct device_settings *s)
 					uint32_t requested_state = (!strcmp(val, "on") || !strcmp(val, "1") || !strcmp(val, "true")) ? 1 : 0;
 					uint32_t *field = (uint32_t *)coal_map[i].requested_state;
 					if (*field < requested_state) {
-						need_update = 1;
+						need_update = true;
 						*field = requested_state;
 					}
 				} else {
 					uint32_t v = strtoul(val, NULL, 0);
 					uint32_t *field = (uint32_t *)coal_map[i].requested_state;
 					if (*field != v) {
-						need_update = 1;
+						need_update = true;
 						*field = v;
 					}
 				}
@@ -3128,7 +3128,7 @@ void system_set_ethtool_channels(struct device *dev, struct device_settings *s)
     struct ethtool_channels requested_state;
 	memcpy(&requested_state, &current_state, sizeof(current_state));
 	requested_state.cmd = ETHTOOL_SCHANNELS;
-    int need_update = 0;
+    bool need_update = false;
     struct blob_attr *cur;
     size_t rem;
 
@@ -3154,7 +3154,7 @@ void system_set_ethtool_channels(struct device *dev, struct device_settings *s)
 				found = true;
 				long v = strtol(val, NULL, 0);
 				if (channel_map[i].current != v) {
-					need_update = 1;
+					need_update = true;
 					channel_map[i].requested = v;
 				} else {
 					channel_map[i].requested = channel_map[i].current;
@@ -3249,7 +3249,7 @@ void system_set_ethtool_priv(struct device *dev, struct device_settings *s)
 	uint32_t requested_flags = current_flags;
 
 	// Parse blob attributes and try to set requested flags
-	int need_update = 0;
+	bool need_update = false;
 	struct blob_attr *cur;
 	size_t rem;
 	blobmsg_for_each_attr(cur, blob, rem) {
@@ -3283,7 +3283,7 @@ void system_set_ethtool_priv(struct device *dev, struct device_settings *s)
 				requested_flags |= flag_bit;
 			else
 				requested_flags &= ~flag_bit;
-			need_update = 1;
+			need_update = true;
 		}
 	}
 
