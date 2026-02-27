@@ -169,8 +169,12 @@ config_parse_interface(struct uci_section *s, bool alias)
 	if (!iface)
 		return;
 
-	if (iface->proto_handler && iface->proto_handler->config_params)
-		uci_to_blob(&b, s, iface->proto_handler->config_params);
+	if (iface->proto_handler) {
+		if (iface->proto_handler->config_load)
+			iface->proto_handler->config_load(iface->proto_handler, s, &b);
+		else if (iface->proto_handler->config_params)
+			uci_to_blob(&b, s, iface->proto_handler->config_params);
+	}
 
 	if (!bridge && uci_to_blob(&b, s, simple_device_type.config_params))
 		iface->device_config = true;
@@ -807,11 +811,11 @@ config_init_all(void)
 	config_init_devices(true);
 	config_init_vlans();
 	config_init_devices(false);
+	netifd_ucode_config_load(false);
 	config_init_interfaces();
 	config_init_ip();
 	config_init_rules();
 	config_init_globals();
-	netifd_ucode_config_load(false);
 
 	config_init = false;
 

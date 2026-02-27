@@ -81,6 +81,10 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_COALESCE] = { .name = "ethtool_coalesce", .type = BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_CHANNELS] = { .name = "ethtool_channels", .type = BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_PRIV] = { .name = "ethtool_priv", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_PSE] = { .name = "pse", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_PSE_PODL] = { .name = "pse_podl", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_PSE_POWER_LIMIT] = { .name = "pse_power_limit", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_PSE_PRIORITY] = { .name = "pse_priority", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -315,6 +319,10 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->gro = s->flags & DEV_OPT_GRO ? s->gro : os->gro;
 	n->eee = s->flags & DEV_OPT_EEE ? s->eee : os->eee;
 	n->master_ifindex = s->flags & DEV_OPT_MASTER ? s->master_ifindex : os->master_ifindex;
+	n->pse = s->flags & DEV_OPT_PSE ? s->pse : os->pse;
+	n->pse_podl = s->flags & DEV_OPT_PSE_PODL ? s->pse_podl : os->pse_podl;
+	n->pse_power_limit = s->flags & DEV_OPT_PSE_POWER_LIMIT ? s->pse_power_limit : os->pse_power_limit;
+	n->pse_priority = s->flags & DEV_OPT_PSE_PRIORITY ? s->pse_priority : os->pse_priority;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -582,6 +590,26 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_EEE])) {
 		s->eee = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_EEE;
+	}
+
+	if ((cur = tb[DEV_ATTR_PSE])) {
+		s->pse = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_PSE;
+	}
+
+	if ((cur = tb[DEV_ATTR_PSE_PODL])) {
+		s->pse_podl = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_PSE_PODL;
+	}
+
+	if ((cur = tb[DEV_ATTR_PSE_POWER_LIMIT])) {
+		s->pse_power_limit = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_PSE_POWER_LIMIT;
+	}
+
+	if ((cur = tb[DEV_ATTR_PSE_PRIORITY])) {
+		s->pse_priority = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_PSE_PRIORITY;
 	}
 
 	/* Remember the settings present in UCI */

@@ -18,8 +18,9 @@
 #include "device.h"
 #include "interface.h"
 #include "ucode.h"
+#include "proto-ucode.h"
 
-static uc_vm_t vm;
+uc_vm_t vm;
 static uc_value_t *netifd_obj;
 static struct blob_buf b;
 
@@ -514,6 +515,7 @@ static const uc_function_list_t netifd_fns[] = {
 	{ "interface_get_enabled",	uc_netifd_interface_get_enabled },
 	{ "interface_handle_link",	uc_netifd_interface_handle_link },
 	{ "interface_get_bridge",	uc_netifd_interface_get_bridge },
+	{ "add_proto",			uc_netifd_add_proto_fn },
 };
 
 
@@ -541,6 +543,8 @@ void netifd_ucode_init(void)
 	uc_vm_init(&vm, &config);
 	uc_stdlib_load(uc_vm_scope_get(&vm));
 	uc_type_declare(&vm, "netifd.process", proc_fns, close_proc);
+	static const uc_function_list_t proto_handler_fns[] = {};
+	uc_type_declare(&vm, "netifd.proto_handler", proto_handler_fns, NULL);
 
 	obj = netifd_obj = ucv_object_new(&vm);
 

@@ -68,6 +68,8 @@ veth_set_up(struct veth *veth)
 {
 	int ret;
 
+	system_veth_del(&veth->dev);
+
 	ret = system_veth_add(&veth->dev, &veth->config);
 	if (ret < 0)
 		return ret;

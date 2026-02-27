@@ -11,19 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef __NETIFD_PROTO_UCODE_H
+#define __NETIFD_PROTO_UCODE_H
 
-#ifndef __NETIFD_UCODE_H
-#define __NETIFD_UCODE_H
-
-#include <stdbool.h>
 #include <ucode/vm.h>
 
-extern uc_vm_t vm;
-
-void netifd_ucode_config_load(bool start);
-void netifd_ucode_check_network_enabled(void);
-void netifd_ucode_hotplug_event(const char *name, bool add);
-void netifd_ucode_init(void);
-void netifd_ucode_free(void);
+uc_value_t *uc_netifd_add_proto_fn(uc_vm_t *vm, size_t nargs);
 
 #endif

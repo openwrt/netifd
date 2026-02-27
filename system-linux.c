@@ -76,7 +76,11 @@
 #include <netlink/msg.h>
 #include <netlink/attr.h>
 #include <netlink/socket.h>
+#include <netlink/genl/genl.h>
+#include <netlink/genl/ctrl.h>
 #include <libubox/uloop.h>
+
+#include <linux/ethtool_netlink.h>
 
 #include "netifd.h"
 #include "device.h"
@@ -115,6 +119,8 @@ struct event_socket {
 
 static int sock_ioctl = -1;
 static struct nl_sock *sock_rtnl = NULL;
+static struct nl_sock *sock_genl = NULL;
+static int ethtool_family = -1;
 
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
@@ -373,6 +379,21 @@ int system_init(void)
 	sock_rtnl = create_socket(NETLINK_ROUTE, 0);
 	if (!sock_rtnl)
 		return -1;
+
+	/* Prepare genetlink socket for ethtool PSE control (optional) */
+	sock_genl = nl_socket_alloc();
+	if (sock_genl) {
+		if (genl_connect(sock_genl) == 0) {
+			ethtool_family = genl_ctrl_resolve(sock_genl, "ethtool");
+			if (ethtool_family < 0) {
+				nl_socket_free(sock_genl);
+				sock_genl = NULL;
+			}
+		} else {
+			nl_socket_free(sock_genl);
+			sock_genl = NULL;
+		}
+	}
 
 	if (!create_event_socket(&rtnl_event, NETLINK_ROUTE, cb_rtnl_event))
 		return -1;
@@ -759,8 +780,12 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	struct ifinfomsg *ifi = NLMSG_DATA(nh);
 	struct nlattr *nla[__IFLA_MAX];
 	struct device *dev;
+	unsigned int flags;
 
-	if (nh->nlmsg_type != RTM_NEWLINK)
+	if (nh->nlmsg_type != RTM_NEWLINK && nh->nlmsg_type != RTM_DELLINK)
+		return 0;
+
+	if (ifi->ifi_family != AF_UNSPEC)
 		return 0;
 
 	nlmsg_parse(nh, sizeof(struct ifinfomsg), nla, __IFLA_MAX - 1, NULL);
@@ -771,7 +796,8 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (!dev)
 		return 0;
 
-	system_device_update_state(dev, ifi->ifi_flags);
+	flags = (nh->nlmsg_type == RTM_DELLINK) ? 0 : ifi->ifi_flags;
+	system_device_update_state(dev, flags);
 	return 0;
 }
 
@@ -2156,6 +2182,276 @@ system_set_ethtool_eee_settings(struct device *dev, struct device_settings *s)
 		netifd_log_message(L_WARNING, "cannot set eee %d for device %s", s->eee, dev->ifname);
 }
 
+/*
+ * PSE (Power Sourcing Equipment) genetlink functions
+ * Uses ethtool netlink interface to get/set PoE port configuration
+ */
+struct pse_reply_data {
+	bool valid;
+	/* IEEE 802.3 Clause 33 (standard PoE) */
+	uint32_t c33_admin_state;
+	uint32_t c33_pw_status;
+	uint32_t c33_pw_class;
+	uint32_t c33_actual_pw;
+	uint32_t c33_avail_pw_limit;
+	/* IEEE 802.3 PoDL (Power over Data Line, e.g. single-pair Ethernet) */
+	uint32_t podl_admin_state;
+	uint32_t podl_pw_status;
+	/* Port priority for power budget management */
+	uint32_t pse_prio_max;
+	uint32_t pse_prio;
+};
+
+static int cb_pse_get_reply(struct nl_msg *msg, void *arg)
+{
+	struct pse_reply_data *data = arg;
+	struct nlmsghdr *nlh = nlmsg_hdr(msg);
+	struct nlattr *tb[ETHTOOL_A_PSE_MAX + 1];
+	struct genlmsghdr *ghdr;
+
+	if (nlh->nlmsg_type != ethtool_family)
+		return NL_SKIP;
+
+	ghdr = nlmsg_data(nlh);
+	if (nla_parse(tb, ETHTOOL_A_PSE_MAX, genlmsg_attrdata(ghdr, 0),
+		      genlmsg_attrlen(ghdr, 0), NULL) < 0)
+		return NL_SKIP;
+
+	data->valid = true;
+
+	if (tb[ETHTOOL_A_C33_PSE_ADMIN_STATE])
+		data->c33_admin_state = nla_get_u32(tb[ETHTOOL_A_C33_PSE_ADMIN_STATE]);
+	if (tb[ETHTOOL_A_C33_PSE_PW_D_STATUS])
+		data->c33_pw_status = nla_get_u32(tb[ETHTOOL_A_C33_PSE_PW_D_STATUS]);
+	if (tb[ETHTOOL_A_C33_PSE_PW_CLASS])
+		data->c33_pw_class = nla_get_u32(tb[ETHTOOL_A_C33_PSE_PW_CLASS]);
+	if (tb[ETHTOOL_A_C33_PSE_ACTUAL_PW])
+		data->c33_actual_pw = nla_get_u32(tb[ETHTOOL_A_C33_PSE_ACTUAL_PW]);
+	if (tb[ETHTOOL_A_C33_PSE_AVAIL_PW_LIMIT])
+		data->c33_avail_pw_limit = nla_get_u32(tb[ETHTOOL_A_C33_PSE_AVAIL_PW_LIMIT]);
+	if (tb[ETHTOOL_A_PODL_PSE_ADMIN_STATE])
+		data->podl_admin_state = nla_get_u32(tb[ETHTOOL_A_PODL_PSE_ADMIN_STATE]);
+	if (tb[ETHTOOL_A_PODL_PSE_PW_D_STATUS])
+		data->podl_pw_status = nla_get_u32(tb[ETHTOOL_A_PODL_PSE_PW_D_STATUS]);
+	if (tb[ETHTOOL_A_PSE_PRIO_MAX])
+		data->pse_prio_max = nla_get_u32(tb[ETHTOOL_A_PSE_PRIO_MAX]);
+	if (tb[ETHTOOL_A_PSE_PRIO])
+		data->pse_prio = nla_get_u32(tb[ETHTOOL_A_PSE_PRIO]);
+
+	return NL_OK;
+}
+
+struct pse_get_cb_data {
+	struct pse_reply_data *data;
+	int pending;
+	int err;
+};
+
+static int cb_pse_get_ack(struct nl_msg *msg, void *arg)
+{
+	struct pse_get_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	return NL_STOP;
+}
+
+static int cb_pse_get_error(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
+{
+	struct pse_get_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	cb_data->err = nlerr->error;
+	return NL_STOP;
+}
+
+static int cb_pse_get_valid_wrapper(struct nl_msg *msg, void *arg)
+{
+	struct pse_get_cb_data *cb_data = arg;
+	return cb_pse_get_reply(msg, cb_data->data);
+}
+
+static int system_pse_get(struct device *dev, struct pse_reply_data *data)
+{
+	struct nl_msg *msg;
+	struct nlattr *hdr;
+	struct nl_cb *cb;
+	struct pse_get_cb_data cb_data;
+	int ret;
+
+	memset(data, 0, sizeof(*data));
+
+	if (!sock_genl || ethtool_family < 0) {
+		return -EOPNOTSUPP;
+	}
+
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!cb)
+		return -ENOMEM;
+
+	msg = nlmsg_alloc();
+	if (!msg) {
+		nl_cb_put(cb);
+		return -ENOMEM;
+	}
+
+	if (!genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, ethtool_family,
+			 0, 0, ETHTOOL_MSG_PSE_GET, 1)) {
+		nlmsg_free(msg);
+		nl_cb_put(cb);
+		return -ENOMEM;
+	}
+
+	hdr = nla_nest_start(msg, ETHTOOL_A_PSE_HEADER);
+	if (!hdr) {
+		nlmsg_free(msg);
+		nl_cb_put(cb);
+		return -ENOMEM;
+	}
+	nla_put_string(msg, ETHTOOL_A_HEADER_DEV_NAME, dev->ifname);
+	nla_nest_end(msg, hdr);
+
+	cb_data.data = data;
+	cb_data.pending = 1;
+	cb_data.err = 0;
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_pse_get_valid_wrapper, &cb_data);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_pse_get_ack, &cb_data);
+	nl_cb_err(cb, NL_CB_CUSTOM, cb_pse_get_error, &cb_data);
+
+	ret = nl_send_auto_complete(sock_genl, msg);
+	nlmsg_free(msg);
+	if (ret < 0) {
+		nl_cb_put(cb);
+		return ret;
+	}
+
+	while (cb_data.pending > 0) {
+		ret = nl_recvmsgs(sock_genl, cb);
+		if (ret < 0) {
+			cb_data.pending = 0;
+			cb_data.err = ret;
+		}
+	}
+
+	nl_cb_put(cb);
+
+	if (cb_data.err) {
+		return cb_data.err;
+	}
+
+	return data->valid ? 0 : -EOPNOTSUPP;
+}
+
+struct pse_set_cb_data {
+	int pending;
+	int err;
+};
+
+static int cb_pse_set_ack(struct nl_msg *msg, void *arg)
+{
+	struct pse_set_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	return NL_STOP;
+}
+
+static int cb_pse_set_error(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
+{
+	struct pse_set_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	cb_data->err = nlerr->error;
+	return NL_STOP;
+}
+
+static int system_pse_set(struct device *dev, struct device_settings *s)
+{
+	struct nl_msg *msg;
+	struct nlattr *hdr;
+	struct nl_cb *cb;
+	struct pse_set_cb_data cb_data;
+	int ret;
+
+	/* Early return if no PSE settings requested */
+	if (!(s->flags & (DEV_OPT_PSE | DEV_OPT_PSE_PODL |
+			  DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY)))
+		return 0;
+
+	if (!sock_genl || ethtool_family < 0) {
+		netifd_log_message(L_WARNING, "PSE: genetlink not available for %s", dev->ifname);
+		return -EOPNOTSUPP;
+	}
+
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!cb)
+		return -ENOMEM;
+
+	msg = nlmsg_alloc();
+	if (!msg) {
+		nl_cb_put(cb);
+		return -ENOMEM;
+	}
+
+	if (!genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, ethtool_family,
+			 0, 0, ETHTOOL_MSG_PSE_SET, 1)) {
+		nlmsg_free(msg);
+		nl_cb_put(cb);
+		return -ENOMEM;
+	}
+
+	hdr = nla_nest_start(msg, ETHTOOL_A_PSE_HEADER);
+	if (!hdr) {
+		nlmsg_free(msg);
+		nl_cb_put(cb);
+		return -ENOMEM;
+	}
+	nla_put_string(msg, ETHTOOL_A_HEADER_DEV_NAME, dev->ifname);
+	nla_nest_end(msg, hdr);
+
+	if (s->flags & DEV_OPT_PSE)
+		nla_put_u32(msg, ETHTOOL_A_C33_PSE_ADMIN_CONTROL,
+			    s->pse ? ETHTOOL_C33_PSE_ADMIN_STATE_ENABLED :
+				     ETHTOOL_C33_PSE_ADMIN_STATE_DISABLED);
+
+	if (s->flags & DEV_OPT_PSE_PODL)
+		nla_put_u32(msg, ETHTOOL_A_PODL_PSE_ADMIN_CONTROL,
+			    s->pse_podl ? ETHTOOL_PODL_PSE_ADMIN_STATE_ENABLED :
+					  ETHTOOL_PODL_PSE_ADMIN_STATE_DISABLED);
+
+	if (s->flags & DEV_OPT_PSE_POWER_LIMIT)
+		nla_put_u32(msg, ETHTOOL_A_C33_PSE_AVAIL_PW_LIMIT, s->pse_power_limit);
+
+	if (s->flags & DEV_OPT_PSE_PRIORITY)
+		nla_put_u32(msg, ETHTOOL_A_PSE_PRIO, s->pse_priority);
+
+	cb_data.pending = 1;
+	cb_data.err = 0;
+
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_pse_set_ack, &cb_data);
+	nl_cb_err(cb, NL_CB_CUSTOM, cb_pse_set_error, &cb_data);
+
+	ret = nl_send_auto_complete(sock_genl, msg);
+	nlmsg_free(msg);
+	if (ret < 0) {
+		netifd_log_message(L_WARNING, "PSE: send failed for %s: %d", dev->ifname, ret);
+		nl_cb_put(cb);
+		return ret;
+	}
+
+	while (cb_data.pending > 0) {
+		ret = nl_recvmsgs(sock_genl, cb);
+		if (ret < 0) {
+			cb_data.pending = 0;
+			cb_data.err = ret;
+		}
+	}
+
+	nl_cb_put(cb);
+
+	if (cb_data.err) {
+		netifd_log_message(L_WARNING, "PSE: set failed for %s: %d", dev->ifname, cb_data.err);
+		return cb_data.err;
+	}
+
+	return 0;
+}
+
 static void
 system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 {
@@ -2180,6 +2476,10 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 
 	if (s->flags & DEV_OPT_EEE)
 		system_set_ethtool_eee_settings(dev, s);
+
+	/* Apply PSE (PoE) settings if configured */
+	if (s->flags & (DEV_OPT_PSE | DEV_OPT_PSE_PODL | DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
+		system_pse_set(dev, s);
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
@@ -4168,6 +4468,110 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 		ethtool_feature_value(dev->ifname, "hw-tc-offload"));
 
 	system_add_devtype(b, dev->ifname);
+
+	/* Add PSE (PoE) status if available */
+	{
+		struct pse_reply_data pse_data;
+		if (system_pse_get(dev, &pse_data) == 0) {
+			void *pse_tbl = blobmsg_open_table(b, "pse");
+
+			/* C33 (Clause 33 PoE) status */
+			if (pse_data.c33_admin_state) {
+				const char *state = "unknown";
+				switch (pse_data.c33_admin_state) {
+				case ETHTOOL_C33_PSE_ADMIN_STATE_DISABLED:
+					state = "disabled";
+					break;
+				case ETHTOOL_C33_PSE_ADMIN_STATE_ENABLED:
+					state = "enabled";
+					break;
+				}
+				blobmsg_add_string(b, "c33-admin-state", state);
+			}
+
+			if (pse_data.c33_pw_status) {
+				const char *status = "unknown";
+				switch (pse_data.c33_pw_status) {
+				case ETHTOOL_C33_PSE_PW_D_STATUS_DISABLED:
+					status = "disabled";
+					break;
+				case ETHTOOL_C33_PSE_PW_D_STATUS_SEARCHING:
+					status = "searching";
+					break;
+				case ETHTOOL_C33_PSE_PW_D_STATUS_DELIVERING:
+					status = "delivering";
+					break;
+				case ETHTOOL_C33_PSE_PW_D_STATUS_TEST:
+					status = "test";
+					break;
+				case ETHTOOL_C33_PSE_PW_D_STATUS_FAULT:
+					status = "fault";
+					break;
+				case ETHTOOL_C33_PSE_PW_D_STATUS_OTHERFAULT:
+					status = "otherfault";
+					break;
+				}
+				blobmsg_add_string(b, "c33-power-status", status);
+			}
+
+			if (pse_data.c33_pw_class)
+				blobmsg_add_u32(b, "c33-power-class", pse_data.c33_pw_class);
+
+			if (pse_data.c33_actual_pw)
+				blobmsg_add_u32(b, "c33-actual-power", pse_data.c33_actual_pw);
+
+			if (pse_data.c33_avail_pw_limit)
+				blobmsg_add_u32(b, "c33-available-power-limit", pse_data.c33_avail_pw_limit);
+
+			/* PoDL (Power over Data Line) status */
+			if (pse_data.podl_admin_state) {
+				const char *state = "unknown";
+				switch (pse_data.podl_admin_state) {
+				case ETHTOOL_PODL_PSE_ADMIN_STATE_DISABLED:
+					state = "disabled";
+					break;
+				case ETHTOOL_PODL_PSE_ADMIN_STATE_ENABLED:
+					state = "enabled";
+					break;
+				}
+				blobmsg_add_string(b, "podl-admin-state", state);
+			}
+
+			if (pse_data.podl_pw_status) {
+				const char *status = "unknown";
+				switch (pse_data.podl_pw_status) {
+				case ETHTOOL_PODL_PSE_PW_D_STATUS_DISABLED:
+					status = "disabled";
+					break;
+				case ETHTOOL_PODL_PSE_PW_D_STATUS_SEARCHING:
+					status = "searching";
+					break;
+				case ETHTOOL_PODL_PSE_PW_D_STATUS_DELIVERING:
+					status = "delivering";
+					break;
+				case ETHTOOL_PODL_PSE_PW_D_STATUS_SLEEP:
+					status = "sleep";
+					break;
+				case ETHTOOL_PODL_PSE_PW_D_STATUS_IDLE:
+					status = "idle";
+					break;
+				case ETHTOOL_PODL_PSE_PW_D_STATUS_ERROR:
+					status = "error";
+					break;
+				}
+				blobmsg_add_string(b, "podl-power-status", status);
+			}
+
+			/* Priority settings */
+			if (pse_data.pse_prio_max)
+				blobmsg_add_u32(b, "priority-max", pse_data.pse_prio_max);
+
+			if (pse_data.pse_prio)
+				blobmsg_add_u32(b, "priority", pse_data.pse_prio);
+
+			blobmsg_close_table(b, pse_tbl);
+		}
+	}
 
 	return 0;
 }

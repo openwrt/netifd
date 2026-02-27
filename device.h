@@ -78,6 +78,10 @@ enum {
 	DEV_ATTR_COALESCE,
 	DEV_ATTR_CHANNELS,
 	DEV_ATTR_PRIV,
+	DEV_ATTR_PSE,
+	DEV_ATTR_PSE_PODL,
+	DEV_ATTR_PSE_POWER_LIMIT,
+	DEV_ATTR_PSE_PRIORITY,
 	__DEV_ATTR_MAX,
 };
 
@@ -150,6 +154,10 @@ enum {
 	DEV_OPT_GRO			= (1ULL << 37),
 	DEV_OPT_MASTER			= (1ULL << 38),
 	DEV_OPT_EEE			= (1ULL << 39),
+	DEV_OPT_PSE			= (1ULL << 40),
+	DEV_OPT_PSE_PODL		= (1ULL << 41),
+	DEV_OPT_PSE_POWER_LIMIT		= (1ULL << 42),
+	DEV_OPT_PSE_PRIORITY		= (1ULL << 43),
 };
 
 /* events broadcasted to all users of a device */
@@ -235,6 +243,10 @@ struct device_settings {
 	bool gro;
 	int master_ifindex;
 	bool eee;
+	bool pse;
+	bool pse_podl;
+	unsigned int pse_power_limit;
+	unsigned int pse_priority;
 };
 
 struct device_vlan_range {
