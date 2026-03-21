@@ -1339,6 +1339,14 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		__var |= __changed;					\
 	})
 
+#define CHECK(field, __var) ({						\
+		__var |= (if_old->field != if_new->field);		\
+	})
+
+#define APPLY(field) ({							\
+		if_old->field = if_new->field;				\
+	})
+
 	if_old->config = if_new->config;
 	if_old->tags = if_new->tags;
 	if (if_old->config_autostart != if_new->config_autostart) {
@@ -1383,16 +1391,17 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
 
-	UPDATE(metric, reload_ip);
-	UPDATE(proto_ip.no_defaultroute, reload_ip);
-	UPDATE(ip4table, reload_ip);
-	UPDATE(ip6table, reload_ip);
-	UPDATE(ip4table_local, reload_ip);
-	UPDATE(ip6table_local, reload_ip);
-	UPDATE(disable_addr_rules, reload_ip);
+	CHECK(metric, reload_ip);
+	CHECK(proto_ip.no_defaultroute, reload_ip);
+	CHECK(ip4table, reload_ip);
+	CHECK(ip6table, reload_ip);
+	CHECK(ip4table_local, reload_ip);
+	CHECK(ip6table_local, reload_ip);
+	CHECK(disable_addr_rules, reload_ip);
 	interface_merge_assignment_data(if_old, if_new);
 
 #undef UPDATE
+#undef CHECK
 
 	if (!reload) {
 		struct device *old_dev = if_old->main_dev.dev;
@@ -1405,6 +1414,18 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		D(INTERFACE, "Reload interface '%s' because of config changes",
 		  if_old->name);
 		interface_clear_errors(if_old);
+
+		interface_ip_set_enabled(&if_old->config_ip, false);
+		interface_ip_set_enabled(&if_old->proto_ip, false);
+
+		APPLY(metric);
+		APPLY(proto_ip.no_defaultroute);
+		APPLY(ip4table);
+		APPLY(ip6table);
+		APPLY(ip4table_local);
+		APPLY(ip6table_local);
+		APPLY(disable_addr_rules);
+
 		set_config_state(if_old, IFC_RELOAD);
 		goto out;
 	}
@@ -1415,9 +1436,20 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 		interface_ip_set_enabled(&if_old->config_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, false);
+
+		APPLY(metric);
+		APPLY(proto_ip.no_defaultroute);
+		APPLY(ip4table);
+		APPLY(ip6table);
+		APPLY(ip4table_local);
+		APPLY(ip6table_local);
+		APPLY(disable_addr_rules);
+
 		interface_ip_set_enabled(&if_old->proto_ip, proto_ip_enabled);
 		interface_ip_set_enabled(&if_old->config_ip, config_ip_enabled);
 	}
+
+#undef APPLY
 
 	if (update_prefix_delegation)
 		interface_update_prefix_delegation(&if_old->proto_ip);
