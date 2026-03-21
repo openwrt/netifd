@@ -125,6 +125,7 @@ struct interface {
 	bool policy_rules_set;
 	bool link_up_event;
 	bool renew;
+	bool disable_addr_rules;
 
 	time_t start_time;
 	enum interface_state state;

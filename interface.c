@@ -59,6 +59,7 @@ enum {
 	IFACE_ATTR_IP6IFACEID,
 	IFACE_ATTR_FORCE_LINK,
 	IFACE_ATTR_IP6WEIGHT,
+	IFACE_ATTR_DISABLE_ADDR_RULES,
 	IFACE_ATTR_TAGS,
 	IFACE_ATTR_MAX
 };
@@ -92,6 +93,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6IFACEID] = { .name = "ip6ifaceid", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6WEIGHT] = { .name = "ip6weight", .type = BLOBMSG_TYPE_INT32 },
+	[IFACE_ATTR_DISABLE_ADDR_RULES] = { .name = "disable_addr_rules", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
 };
 
@@ -862,6 +864,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
 	iface->renew = blobmsg_get_bool_default(tb[IFACE_ATTR_RENEW], true);
 	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], force_link);
+	iface->disable_addr_rules = blobmsg_get_bool_default(tb[IFACE_ATTR_DISABLE_ADDR_RULES], false);
 	iface->dynamic = dynamic;
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
@@ -1386,6 +1389,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	UPDATE(ip6table, reload_ip);
 	UPDATE(ip4table_local, reload_ip);
 	UPDATE(ip6table_local, reload_ip);
+	UPDATE(disable_addr_rules, reload_ip);
 	interface_merge_assignment_data(if_old, if_new);
 
 #undef UPDATE

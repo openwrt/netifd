@@ -741,7 +741,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 			 * only the network-rule will cause packets to be routed through the
 			 * first matching network (source IP matches both masks)
 			 */
-			if (a_old->policy_table)
+			if (a_old->policy_table && !iface->disable_addr_rules)
 				interface_add_addr_rules(iface, a_old, false);
 
 			if (!(a_old->flags & DEVADDR_EXTERNAL)) {
@@ -807,7 +807,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 					system_add_route(NULL, &route);
 				}
 
-				if (a_new->policy_table)
+				if (a_new->policy_table && !iface->disable_addr_rules)
 					interface_add_addr_rules(iface, a_new, true);
 			}
 		}
@@ -1029,11 +1029,11 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 				addr.valid_until = now + 7200;
 		}
 
-		if (iface->ip6table_local)
+		if (iface->ip6table_local && !iface->disable_addr_rules)
 			set_ip_source_policy(false, true, IPRULE_PRIORITY_ADDR_MASK, &addr.addr,
 					addr.mask < 64 ? 64 : addr.mask, iface->ip6table_local, NULL, NULL, false);
 
-		if (prefix->iface) {
+		if (prefix->iface && !iface->disable_addr_rules) {
 			if (prefix->iface->ip6table_local)
 				set_ip_source_policy(false, true, IPRULE_PRIORITY_NW_LOCAL, &addr.addr,
 						addr.mask, prefix->iface->ip6table_local, iface, NULL, true);
@@ -1073,11 +1073,11 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			return;
 
 		if (!assignment->enabled) {
-			if (iface->ip6table_local)
+			if (iface->ip6table_local && !iface->disable_addr_rules)
 				set_ip_source_policy(true, true, IPRULE_PRIORITY_ADDR_MASK, &addr.addr,
 						addr.mask < 64 ? 64 : addr.mask, iface->ip6table_local, NULL, NULL, false);
 
-			if (prefix->iface) {
+			if (prefix->iface && !iface->disable_addr_rules) {
 				set_ip_source_policy(true, true, IPRULE_PRIORITY_REJECT, &addr.addr,
 						addr.mask, 0, iface, "unreachable", true);
 
@@ -1742,7 +1742,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 				system_add_route(NULL, &route);
 			}
 
-			if (addr->policy_table)
+			if (addr->policy_table && !iface->disable_addr_rules)
 				interface_add_addr_rules(iface, addr, true);
 		} else {
 			interface_handle_subnet_route(iface, addr, false);
@@ -1763,7 +1763,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 				system_del_route(NULL, &route);
 			}
 
-			if (addr->policy_table)
+			if (addr->policy_table && !iface->disable_addr_rules)
 				interface_add_addr_rules(iface, addr, false);
 		}
 		addr->enabled = enabled;
