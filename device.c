@@ -890,11 +890,19 @@ struct device *
 __device_get(const char *name, int create, bool check_vlan)
 {
 	struct device *dev;
+	const char *dot;
 
 	dev = avl_find_element(&devices, name, dev, avl);
 
-	if (!dev && check_vlan && strchr(name, '.'))
-		return get_vlan_device_chain(name, create);
+	if (!dev && check_vlan && (dot = strchr(name, '.')))
+	{
+		char parent[IFNAMSIZ];
+		int len = dot - name;
+		memcpy(parent, name, len);
+		parent[len] = '\0';
+		if (if_nametoindex(parent))
+			return get_vlan_device_chain(name, create);
+	}
 
 	if (name[0] == '@')
 		return device_alias_get(name + 1);
