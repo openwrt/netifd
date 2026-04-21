@@ -161,9 +161,9 @@ veth_apply_settings(struct veth *veth, struct blob_attr **tb)
 }
 
 static enum dev_change_type
-veth_reload(struct device *dev, struct blob_attr *attr)
+veth_reload(struct device *dev, struct blob_attr *attr,
+	    struct blob_attr **tb_dev)
 {
-	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_mv[__VETH_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	struct veth *veth;
@@ -171,21 +171,12 @@ veth_reload(struct device *dev, struct blob_attr *attr)
 	veth = container_of(dev, struct veth, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
 	blobmsg_parse_attr(veth_attrs, __VETH_ATTR_MAX, tb_mv, attr);
 
-	device_init_settings(dev, tb_dev);
 	veth_apply_settings(veth, tb_mv);
 
 	if (veth->config_data) {
-		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_mv[__VETH_ATTR_MAX];
-
-		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-				   veth->config_data);
-
-		if (uci_blob_diff(tb_dev, otb_dev, &device_attr_list, NULL))
-		    ret = DEV_CONFIG_RESTART;
 
 		blobmsg_parse_attr(veth_attrs, __VETH_ATTR_MAX, otb_mv,
 				   veth->config_data);
@@ -226,7 +217,7 @@ veth_create(const char *name, struct device_type *devtype,
 
 	dev->hotplug_ops = NULL;
 
-	veth_reload(dev, attr);
+	device_init_config(dev, attr);
 
 	return dev;
 }

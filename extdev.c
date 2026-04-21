@@ -888,7 +888,8 @@ __reload(struct extdev_device *edev, struct blob_attr *config)
 }
 
 static enum dev_change_type
-extdev_reload(struct device *dev, struct blob_attr *config)
+extdev_reload(struct device *dev, struct blob_attr *config,
+	      struct blob_attr **tb_dev)
 {
 	struct extdev_type *etype;
 	struct extdev_device *edev;

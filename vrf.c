@@ -37,7 +37,8 @@ static void vrf_config_init(struct device *dev);
 static void vrf_free(struct device *dev);
 static void vrf_dump_info(struct device *dev, struct blob_buf *b);
 static enum dev_change_type
-vrf_reload(struct device *dev, struct blob_attr *attr);
+vrf_reload(struct device *dev, struct blob_attr *attr,
+	   struct blob_attr **tb_dev);
 
 static struct device_type vrf_state_type = {
 	.name = "vrf",
@@ -566,44 +567,29 @@ vrf_apply_settings(struct vrf_state *vst, struct blob_attr **tb)
 }
 
 static enum dev_change_type
-vrf_reload(struct device *dev, struct blob_attr *attr)
+vrf_reload(struct device *dev, struct blob_attr *attr,
+	   struct blob_attr **tb_dev)
 {
-	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_v[__VRF_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	struct vrf_state *vst;
 	unsigned long diff[2];
 
 	BUILD_BUG_ON(sizeof(diff) < __VRF_ATTR_MAX / BITS_PER_LONG);
-	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / BITS_PER_LONG);
 
 	vst = container_of(dev, struct vrf_state, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
 	blobmsg_parse_attr(vrf_attrs, __VRF_ATTR_MAX, tb_v, attr);
 
 	if (tb_dev[DEV_ATTR_MACADDR])
 		vst->primary_port = NULL;
 
 	vst->ports = tb_v[VRF_ATTR_PORTS];
-	device_init_settings(dev, tb_dev);
 	vrf_apply_settings(vst, tb_v);
 
 	if (vst->config_data) {
-		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_v[__VRF_ATTR_MAX];
-
-		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-				   vst->config_data);
-
-		diff[0] = diff[1] = 0;
-		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
-		if (diff[0] | diff[1]) {
-			ret = DEV_CONFIG_RESTART;
-			D(DEVICE, "Vrf %s device attributes have changed, diff=[%lx %lx]\n",
-			  dev->ifname, diff[1], diff[0]);
-		}
 
 		blobmsg_parse_attr(vrf_attrs, __VRF_ATTR_MAX, otb_v,
 				   vst->config_data);
@@ -674,7 +660,7 @@ vrf_create(const char *name, struct device_type *devtype,
 	vlist_init(&vst->members, avl_strcmp, vrf_member_update);
 	vst->members.keep_old = true;
 
-	vrf_reload(dev, attr);
+	device_init_config(dev, attr);
 
 	return dev;
 }

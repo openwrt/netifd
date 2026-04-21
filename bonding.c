@@ -454,21 +454,19 @@ bonding_apply_settings(struct bonding_device *bdev, struct blob_attr **tb)
 }
 
 static enum dev_change_type
-bonding_reload(struct device *dev, struct blob_attr *attr)
+bonding_reload(struct device *dev, struct blob_attr *attr,
+	       struct blob_attr **tb_dev)
 {
-	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_b[__BOND_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	unsigned long diff[2] = {};
 	struct bonding_device *bdev;
 
 	BUILD_BUG_ON(sizeof(diff[0]) < __BOND_ATTR_MAX / 8);
-	BUILD_BUG_ON(sizeof(diff) < __DEV_ATTR_MAX / 8);
 
 	bdev = container_of(dev, struct bonding_device, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
 	blobmsg_parse_attr(bonding_attrs, __BOND_ATTR_MAX, tb_b, attr);
 
 	bdev->has_macaddr = tb_dev[DEV_ATTR_MACADDR];
@@ -477,24 +475,14 @@ bonding_reload(struct device *dev, struct blob_attr *attr)
 		bdev->primary_port = NULL;
 
 	bdev->port_list = tb_b[BOND_ATTR_PORTS];
-	device_init_settings(dev, tb_dev);
 	bonding_apply_settings(bdev, tb_b);
 
 	if (bdev->config_data) {
-		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_b[__BOND_ATTR_MAX];
-
-		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-				   bdev->config_data);
-
-		uci_blob_diff(tb_dev, otb_dev, &device_attr_list, diff);
-		if (diff[0] | diff[1])
-		    ret = DEV_CONFIG_RESTART;
 
 		blobmsg_parse_attr(bonding_attrs, __BOND_ATTR_MAX, otb_b,
 				   bdev->config_data);
 
-		diff[0] = 0;
 		uci_blob_diff(tb_b, otb_b, &bonding_attr_list, diff);
 		if (diff[0] & ~(1 << BOND_ATTR_PORTS))
 		    ret = DEV_CONFIG_RESTART;
@@ -732,7 +720,7 @@ bonding_create(const char *name, struct device_type *devtype,
 	vlist_init(&bdev->ports, avl_strcmp, bonding_port_update);
 	bdev->ports.keep_old = true;
 
-	bonding_reload(dev, attr);
+	device_init_config(dev, attr);
 
 	return dev;
 }

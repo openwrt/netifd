@@ -41,20 +41,13 @@ tunnel_set_state(struct device *dev, bool up)
 }
 
 static enum dev_change_type
-tunnel_reload(struct device *dev, struct blob_attr *attr)
+tunnel_reload(struct device *dev, struct blob_attr *attr,
+	      struct blob_attr **tb_dev)
 {
-	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	const struct uci_blob_param_list *cfg = dev->type->config_params;
 
 	if (uci_blob_check_equal(dev->config, attr, cfg))
 		return DEV_CONFIG_NO_CHANGE;
-
-	memset(tb_dev, 0, sizeof(tb_dev));
-
-	if (attr)
-		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
-
-	device_init_settings(dev, tb_dev);
 
 	return DEV_CONFIG_RESTART;
 }

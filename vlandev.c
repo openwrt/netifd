@@ -336,9 +336,9 @@ vlandev_apply_settings(struct vlandev_device *mvdev, struct blob_attr **tb)
 }
 
 static enum dev_change_type
-vlandev_reload(struct device *dev, struct blob_attr *attr)
+vlandev_reload(struct device *dev, struct blob_attr *attr,
+	       struct blob_attr **tb_dev)
 {
-	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_mv[__VLANDEV_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	struct vlandev_device *mvdev;
@@ -346,23 +346,14 @@ vlandev_reload(struct device *dev, struct blob_attr *attr)
 	mvdev = container_of(dev, struct vlandev_device, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
 	blobmsg_parse_attr(vlandev_attrs, __VLANDEV_ATTR_MAX, tb_mv, attr);
 
-	device_init_settings(dev, tb_dev);
 	vlandev_apply_settings(mvdev, tb_mv);
 	mvdev->ifname = tb_mv[VLANDEV_ATTR_IFNAME];
 	mvdev->vid = tb_mv[VLANDEV_ATTR_VID];
 
 	if (mvdev->config_data) {
-		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_mv[__VLANDEV_ATTR_MAX];
-
-		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-				   mvdev->config_data);
-
-		if (uci_blob_diff(tb_dev, otb_dev, &device_attr_list, NULL))
-		    ret = DEV_CONFIG_RESTART;
 
 		blobmsg_parse_attr(vlandev_attrs, __VLANDEV_ATTR_MAX, otb_mv,
 				   mvdev->config_data);
@@ -410,7 +401,7 @@ vlandev_create(const char *name, struct device_type *devtype,
 	dev->hotplug_ops = NULL;
 	mvdev->parent.cb = vlandev_base_cb;
 
-	vlandev_reload(dev, attr);
+	device_init_config(dev, attr);
 
 	return dev;
 }

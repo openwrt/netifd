@@ -1195,32 +1195,95 @@ device_check_ip6segmentrouting(void)
 	return ip6segmentrouting;
 }
 
+void
+device_init_config(struct device *dev, struct blob_attr *attr)
+{
+	struct blob_attr *tb[__DEV_ATTR_MAX];
+
+	memset(tb, 0, sizeof(tb));
+	if (attr)
+		blobmsg_parse_attr(dev_attrs, __DEV_ATTR_MAX, tb, attr);
+
+	device_init_settings(dev, tb);
+
+	if (dev->type->reload)
+		dev->type->reload(dev, attr, tb);
+}
+
 static enum dev_change_type
 device_set_config(struct device *dev, struct device_type *type,
 		  struct blob_attr *attr)
 {
 	struct blob_attr *tb[__DEV_ATTR_MAX];
+	struct blob_attr *tb_old[__DEV_ATTR_MAX];
 	const struct uci_blob_param_list *cfg = type->config_params;
+	unsigned long diff[2] = {};
+	enum dev_change_type ret = DEV_CONFIG_APPLIED;
+	bool has_old;
 
 	if (type != dev->type)
 		return DEV_CONFIG_RECREATE;
 
-	if (dev->type->reload)
-		return dev->type->reload(dev, attr);
-
-	if (uci_blob_check_equal(dev->config, attr, cfg))
+	/*
+	 * Fast equality check for simple devices whose entire config is
+	 * device_attr_list. Types with a reload hook fold their own subtype
+	 * attrs into the diff below, so skip the shortcut for them.
+	 */
+	if (!dev->type->reload && cfg == &device_attr_list &&
+	    uci_blob_check_equal(dev->config, attr, cfg))
 		return DEV_CONFIG_NO_CHANGE;
 
-	if (cfg == &device_attr_list) {
-		memset(tb, 0, sizeof(tb));
+	memset(tb, 0, sizeof(tb));
+	if (attr)
+		blobmsg_parse_attr(dev_attrs, __DEV_ATTR_MAX, tb, attr);
 
-		if (attr)
-			blobmsg_parse_attr(dev_attrs, __DEV_ATTR_MAX, tb, attr);
+	has_old = dev->config != NULL;
+	memset(tb_old, 0, sizeof(tb_old));
+	if (has_old)
+		blobmsg_parse_attr(dev_attrs, __DEV_ATTR_MAX, tb_old, dev->config);
 
-		device_init_settings(dev, tb);
-		return DEV_CONFIG_RESTART;
-	} else
-		return DEV_CONFIG_RECREATE;
+	if (has_old)
+		uci_blob_diff(tb, tb_old, &device_attr_list, diff);
+
+	device_init_settings(dev, tb);
+
+	if (has_old && (diff[0] | diff[1]))
+		ret = DEV_CONFIG_RESTART;
+	else if (!has_old && !dev->type->reload && cfg == &device_attr_list)
+		/*
+		 * Pre-refactor simple-device path returned RESTART whenever the
+		 * blob equality check failed, including the first apply with
+		 * dev->config == NULL. Match that so dev->present transitions
+		 * stay bisect-identical.
+		 */
+		ret = DEV_CONFIG_RESTART;
+
+	if (dev->type->reload) {
+		enum dev_change_type sub_ret = dev->type->reload(dev, attr, tb);
+
+		if (sub_ret == DEV_CONFIG_RECREATE)
+			return DEV_CONFIG_RECREATE;
+		/*
+		 * Preserve pre-refactor behaviour: some hooks (e.g. tunnel)
+		 * report NO_CHANGE based on their own sub-attr equality check
+		 * and expect the caller to treat the whole config as
+		 * unchanged. Propagate that verdict regardless of whether the
+		 * device-attr diff saw any changes.
+		 */
+		if (sub_ret == DEV_CONFIG_NO_CHANGE)
+			return DEV_CONFIG_NO_CHANGE;
+		if (sub_ret == DEV_CONFIG_RESTART)
+			ret = DEV_CONFIG_RESTART;
+	} else if (cfg != &device_attr_list) {
+		/*
+		 * Type has no reload hook but a custom config_params. Pre-refactor
+		 * this path returned DEV_CONFIG_RECREATE for any blob difference.
+		 */
+		if (has_old && (diff[0] | diff[1]))
+			return DEV_CONFIG_RECREATE;
+	}
+
+	return ret;
 }
 
 enum dev_change_type

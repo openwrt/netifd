@@ -179,9 +179,9 @@ macvlan_apply_settings(struct macvlan_device *mvdev, struct blob_attr **tb)
 }
 
 static enum dev_change_type
-macvlan_reload(struct device *dev, struct blob_attr *attr)
+macvlan_reload(struct device *dev, struct blob_attr *attr,
+	       struct blob_attr **tb_dev)
 {
-	struct blob_attr *tb_dev[__DEV_ATTR_MAX];
 	struct blob_attr *tb_mv[__MACVLAN_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	struct macvlan_device *mvdev;
@@ -189,22 +189,13 @@ macvlan_reload(struct device *dev, struct blob_attr *attr)
 	mvdev = container_of(dev, struct macvlan_device, dev);
 	attr = blob_memdup(attr);
 
-	blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, tb_dev, attr);
 	blobmsg_parse_attr(macvlan_attrs, __MACVLAN_ATTR_MAX, tb_mv, attr);
 
-	device_init_settings(dev, tb_dev);
 	macvlan_apply_settings(mvdev, tb_mv);
 	mvdev->ifname = tb_mv[MACVLAN_ATTR_IFNAME];
 
 	if (mvdev->config_data) {
-		struct blob_attr *otb_dev[__DEV_ATTR_MAX];
 		struct blob_attr *otb_mv[__MACVLAN_ATTR_MAX];
-
-		blobmsg_parse_attr(device_attr_list.params, __DEV_ATTR_MAX, otb_dev,
-				   mvdev->config_data);
-
-		if (uci_blob_diff(tb_dev, otb_dev, &device_attr_list, NULL))
-		    ret = DEV_CONFIG_RESTART;
 
 		blobmsg_parse_attr(macvlan_attrs, __MACVLAN_ATTR_MAX, otb_mv,
 				   mvdev->config_data);
@@ -246,7 +237,7 @@ macvlan_create(const char *name, struct device_type *devtype,
 	dev->hotplug_ops = NULL;
 	mvdev->parent.cb = macvlan_base_cb;
 
-	macvlan_reload(dev, attr);
+	device_init_config(dev, attr);
 
 	return dev;
 }

@@ -111,7 +111,8 @@ struct device_type {
 	struct device *(*create)(const char *name, struct device_type *devtype,
 		struct blob_attr *attr);
 	void (*config_init)(struct device *);
-	enum dev_change_type (*reload)(struct device *, struct blob_attr *);
+	enum dev_change_type (*reload)(struct device *, struct blob_attr *,
+				       struct blob_attr **tb_dev);
 	void (*vlan_update)(struct device *);
 	void (*dump_info)(struct device *, struct blob_buf *buf);
 	void (*dump_stats)(struct device *, struct blob_buf *buf);
@@ -382,6 +383,11 @@ struct device *device_create(const char *name, struct device_type *type,
 			     struct blob_attr *config);
 void device_merge_settings(struct device *dev, struct device_settings *n);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
+/*
+ * Parse device-attr blob into tb_dev, seed dev->settings, and invoke the
+ * type-specific reload hook for initial configuration during *_create().
+ */
+void device_init_config(struct device *dev, struct blob_attr *attr);
 void device_init_pending(void);
 
 enum dev_change_type
