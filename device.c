@@ -1195,6 +1195,56 @@ device_check_ip6segmentrouting(void)
 	return ip6segmentrouting;
 }
 
+bool
+device_diff_live_apply(unsigned long *diff, uint64_t *apply_mask)
+{
+	uint64_t d;
+
+	if (sizeof(unsigned long) >= 8)
+		d = (uint64_t)diff[0];
+	else
+		d = (uint64_t)diff[0] | ((uint64_t)diff[1] << 32);
+
+	if (d & ~DEV_OPT_LIVE_APPLY_MASK) {
+		*apply_mask = 0;
+		return false;
+	}
+
+	*apply_mask = d;
+	return true;
+}
+
+void
+device_apply_live_settings(struct device *dev, uint64_t apply_mask)
+{
+	struct device_settings *s = &dev->settings;
+	struct device_settings *os = &dev->orig_settings;
+	uint64_t added   = apply_mask &  s->flags;
+	uint64_t removed = apply_mask & ~s->flags;
+
+	if (added)
+		system_if_apply_settings(dev, s, added);
+
+	/*
+	 * For attrs dropped from UCI, restore the value captured at bringup.
+	 * orig_settings.flags still holds these bits because the previous
+	 * settings.flags did, and set_device_state() intersects the two.
+	 */
+	if (removed) {
+		uint64_t restore = removed & os->valid_flags & os->flags;
+
+		if (restore)
+			system_if_apply_settings(dev, os, restore);
+	}
+
+	/*
+	 * Rebalance orig_settings.flags to match the new settings.flags so
+	 * an eventual teardown restores the right set.
+	 */
+	os->flags &= ~apply_mask;
+	os->flags |= added & os->valid_flags;
+}
+
 void
 device_init_config(struct device *dev, struct blob_attr *attr)
 {
@@ -1218,6 +1268,7 @@ device_set_config(struct device *dev, struct device_type *type,
 	struct blob_attr *tb_old[__DEV_ATTR_MAX];
 	const struct uci_blob_param_list *cfg = type->config_params;
 	unsigned long diff[2] = {};
+	uint64_t apply_mask = 0;
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	bool has_old;
 
@@ -1247,7 +1298,7 @@ device_set_config(struct device *dev, struct device_type *type,
 
 	device_init_settings(dev, tb);
 
-	if (has_old && (diff[0] | diff[1]))
+	if (has_old && !device_diff_live_apply(diff, &apply_mask))
 		ret = DEV_CONFIG_RESTART;
 	else if (!has_old && !dev->type->reload && cfg == &device_attr_list)
 		/*
@@ -1282,6 +1333,9 @@ device_set_config(struct device *dev, struct device_type *type,
 		if (has_old && (diff[0] | diff[1]))
 			return DEV_CONFIG_RECREATE;
 	}
+
+	if (ret == DEV_CONFIG_APPLIED && apply_mask && dev->active)
+		device_apply_live_settings(dev, apply_mask);
 
 	return ret;
 }

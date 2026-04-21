@@ -390,6 +390,22 @@ void device_init_settings(struct device *dev, struct blob_attr **tb);
 void device_init_config(struct device *dev, struct blob_attr *attr);
 void device_init_pending(void);
 
+/*
+ * Inspect a DEV_ATTR_* diff bitmap produced by uci_blob_diff against
+ * &device_attr_list. If every set bit falls into the live-applicable
+ * group, return true and set *apply_mask to the corresponding DEV_OPT_*
+ * bits. Return false with *apply_mask = 0 if any other bit is set.
+ */
+bool device_diff_live_apply(unsigned long *diff, uint64_t *apply_mask);
+
+/*
+ * Push dev->settings values for the attributes covered by apply_mask to
+ * the kernel via system_if_apply_settings(), restoring originals for
+ * attributes that have been dropped from UCI. Caller must guarantee
+ * dev->active.
+ */
+void device_apply_live_settings(struct device *dev, uint64_t apply_mask);
+
 enum dev_change_type
 device_apply_config(struct device *dev, struct device_type *type,
 		    struct blob_attr *config);
