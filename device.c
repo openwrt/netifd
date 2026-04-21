@@ -257,6 +257,8 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	struct device_settings *os = &dev->orig_settings;
 	struct device_settings *s = &dev->settings;
 
+	BUILD_BUG_ON(__DEV_ATTR_MAX > 64);
+
 	memset(n, 0, sizeof(*n));
 	n->mtu = s->flags & DEV_OPT_MTU ? s->mtu : os->mtu;
 	n->mtu6 = s->flags & DEV_OPT_MTU6 ? s->mtu6 : os->mtu6;
