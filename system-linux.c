@@ -2448,6 +2448,10 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	if (s->flags & (DEV_OPT_PSE | DEV_OPT_PSE_PODL | DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
 		system_pse_set(dev, s);
 
+	/* Avoid a rmw ioctl call if nothing needs to be changed. */
+	if (!(s->flags & (DEV_OPT_AUTONEG | DEV_OPT_SPEED | DEV_OPT_DUPLEX | DEV_OPT_PAUSE | DEV_OPT_ASYM_PAUSE)))
+		return;
+
 	memset(&ecmd, 0, sizeof(ecmd));
 	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
