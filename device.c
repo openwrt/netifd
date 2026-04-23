@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <net/if.h>
 #include <assert.h>
 
 #include <sys/types.h>
@@ -895,8 +896,16 @@ __device_get(const char *name, int create, bool check_vlan)
 
 	dev = avl_find_element(&devices, name, dev, avl);
 
-	if (!dev && check_vlan && strchr(name, '.'))
-		return get_vlan_device_chain(name, create);
+	if (!dev && check_vlan && strchr(name, '.')) {
+		/*
+		 * Only treat dotted names as VLAN-style if the full name does
+		 * NOT already exist as a real kernel netdev.  Externally managed
+		 * interfaces (e.g. ModemManager QMI mux links: qmapmux0.0) are
+		 * valid kernel devices whose names happen to contain a dot.
+		 */
+		if (!if_nametoindex(name))
+			return get_vlan_device_chain(name, create);
+	}
 
 	if (name[0] == '@')
 		return device_alias_get(name + 1);
