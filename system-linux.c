@@ -2762,7 +2762,13 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 		system_set_drop_unsolicited_na(dev, s->drop_unsolicited_na ? "1" : "0");
 	if (apply_mask & DEV_OPT_ARP_ACCEPT)
 		system_set_arp_accept(dev, s->arp_accept ? "1" : "0");
-	system_set_ethtool_settings(dev, s);
+	if (apply_mask & (DEV_OPT_SPEED | DEV_OPT_DUPLEX |
+			  DEV_OPT_PAUSE | DEV_OPT_ASYM_PAUSE |
+			  DEV_OPT_RXPAUSE | DEV_OPT_TXPAUSE |
+			  DEV_OPT_AUTONEG | DEV_OPT_EEE |
+			  DEV_OPT_PSE | DEV_OPT_PSE_PODL |
+			  DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
+		system_set_ethtool_settings(dev, s);
 }
 
 void system_if_apply_settings_after_up(struct device *dev, struct device_settings *s)
