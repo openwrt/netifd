@@ -12,10 +12,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <libgen.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 
 #include <limits.h>
@@ -1578,6 +1580,22 @@ __interface_write_dns_entries(FILE *f, const char *jail)
 void
 interface_write_resolv_conf(const char *jail)
 {
+	/*
+	 * This implementation writes to a temporary file, calculates its CRC
+	 * and compares it to the existing resolv.conf file CRC. If they differ,
+	 * the existing resolv.conf is overwritten. This avoids unnecessary writes
+	 * to resolv.conf which may trigger unnecessary reloads in dependent
+	 * services. The existing resolv.conf is exclusively locked (flock)
+	 * to prevent the possibility of concurrent writes (although this should
+	 * not happen).
+	 *
+	 * The reason for not renaming the temporary file over the existing
+	 * resolv.conf is that this causes issues with ujail environments where
+	 * the jail has bind-mounted resolv.conf from the host. In this case,
+	 * the new file would not be visible inside the jail until the jail was
+	 * restarted.
+	 */
+
 	size_t plen = (jail ? strlen(jail) + 1 : 0 ) +
 	    (strlen(resolv_conf) >= strlen(DEFAULT_RESOLV_CONF) ?
 	    strlen(resolv_conf) : strlen(DEFAULT_RESOLV_CONF) ) + 1;
@@ -1596,34 +1614,57 @@ interface_write_resolv_conf(const char *jail)
 		strcpy(path, resolv_conf);
 	}
 
+	/* Write DNS entries to temporary resolv.conf file */
 	sprintf(tmppath, "%s.tmp", path);
 	unlink(tmppath);
 	f = fopen(tmppath, "w+");
 	if (!f) {
-		D(INTERFACE, "Failed to open %s for writing", path);
+		netifd_log_message(L_WARNING, "Failed to open temporary resolv.conf "
+			"(%s) for writing: %s", tmppath, strerror(errno));
 		return;
 	}
 
 	__interface_write_dns_entries(f, jail);
 
+	/* Calculate CRC of temporary file */
 	fflush(f);
 	rewind(f);
 	crcnew = crc32_file(f);
 	fclose(f);
 
-	crcold = crcnew + 1;
-	f = fopen(path, "r");
-	if (f) {
-		crcold = crc32_file(f);
-		fclose(f);
+	/* Open existing resolv.conf */
+	f = fopen(path, "w+");
+	if (!f) {
+		netifd_log_message(L_WARNING, "Failed to open resolv.conf (%s) "
+			"for writing: %s", path, strerror(errno));
+		return;
 	}
 
-	if (crcold == crcnew) {
-		unlink(tmppath);
-	} else if (rename(tmppath, path) < 0) {
-		D(INTERFACE, "Failed to replace %s", path);
-		unlink(tmppath);
+	/* Calculate CRC of existing resolv.conf */
+	crcold = crc32_file(f);
+
+	/* Overwrite resolv.conf if changed */
+	if (crcold != crcnew) {
+		/* Lock the file */
+		if (flock(fileno(f), LOCK_EX | LOCK_NB) < 0) {
+			netifd_log_message(L_WARNING, "Failed to exclusively lock "
+				"resolv.conf (%s): %s", path, strerror(errno));
+			fclose(f);
+			return;
+		}
+
+		__interface_write_dns_entries(f, jail);
+
+		/* Unlock the file */
+		flock(fileno(f), LOCK_UN);
+
+		D(INTERFACE, "Updated resolv.conf (%s) content", path);
+	} else {
+		D(INTERFACE, "No change in resolv.conf (%s), no update needed", path);
 	}
+
+	fclose(f);
+	unlink(tmppath);
 }
 
 static void
