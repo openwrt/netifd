@@ -52,11 +52,14 @@ enum {
 	IFACE_ATTR_IP6HINT,
 	IFACE_ATTR_IP4TABLE,
 	IFACE_ATTR_IP6TABLE,
+	IFACE_ATTR_IP4TABLE_LOCAL,
+	IFACE_ATTR_IP6TABLE_LOCAL,
 	IFACE_ATTR_IP6CLASS,
 	IFACE_ATTR_DELEGATE,
 	IFACE_ATTR_IP6IFACEID,
 	IFACE_ATTR_FORCE_LINK,
 	IFACE_ATTR_IP6WEIGHT,
+	IFACE_ATTR_DISABLE_ADDR_RULES,
 	IFACE_ATTR_TAGS,
 	IFACE_ATTR_MAX
 };
@@ -83,11 +86,14 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6HINT] = { .name = "ip6hint", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP4TABLE] = { .name = "ip4table", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6TABLE] = { .name = "ip6table", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IP4TABLE_LOCAL] = { .name = "ip4table_local", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_IP6TABLE_LOCAL] = { .name = "ip6table_local", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6CLASS] = { .name = "ip6class", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DELEGATE] = { .name = "delegate", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6IFACEID] = { .name = "ip6ifaceid", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6WEIGHT] = { .name = "ip6weight", .type = BLOBMSG_TYPE_INT32 },
+	[IFACE_ATTR_DISABLE_ADDR_RULES] = { .name = "disable_addr_rules", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
 };
 
@@ -858,6 +864,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
 	iface->renew = blobmsg_get_bool_default(tb[IFACE_ATTR_RENEW], true);
 	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], force_link);
+	iface->disable_addr_rules = blobmsg_get_bool_default(tb[IFACE_ATTR_DISABLE_ADDR_RULES], false);
 	iface->dynamic = dynamic;
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
@@ -924,6 +931,18 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 
 	if ((cur = tb[IFACE_ATTR_IP6TABLE])) {
 		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip6table))
+			D(INTERFACE, "Failed to resolve routing table: %s", (char *) blobmsg_data(cur));
+	}
+
+	iface->ip4table_local = iface->ip4table;
+	if ((cur = tb[IFACE_ATTR_IP4TABLE_LOCAL])) {
+		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip4table_local))
+			D(INTERFACE, "Failed to resolve routing table: %s", (char *) blobmsg_data(cur));
+	}
+
+	iface->ip6table_local = iface->ip6table;
+	if ((cur = tb[IFACE_ATTR_IP6TABLE_LOCAL])) {
+		if (!system_resolve_rt_table(blobmsg_data(cur), &iface->ip6table_local))
 			D(INTERFACE, "Failed to resolve routing table: %s", (char *) blobmsg_data(cur));
 	}
 
@@ -1320,6 +1339,14 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		__var |= __changed;					\
 	})
 
+#define CHECK(field, __var) ({						\
+		__var |= (if_old->field != if_new->field);		\
+	})
+
+#define APPLY(field) ({							\
+		if_old->field = if_new->field;				\
+	})
+
 	if_old->config = if_new->config;
 	if_old->tags = if_new->tags;
 	if (if_old->config_autostart != if_new->config_autostart) {
@@ -1364,13 +1391,17 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->proto_ip.no_dns = if_new->proto_ip.no_dns;
 	interface_replace_dns(&if_old->config_ip, &if_new->config_ip);
 
-	UPDATE(metric, reload_ip);
-	UPDATE(proto_ip.no_defaultroute, reload_ip);
-	UPDATE(ip4table, reload_ip);
-	UPDATE(ip6table, reload_ip);
+	CHECK(metric, reload_ip);
+	CHECK(proto_ip.no_defaultroute, reload_ip);
+	CHECK(ip4table, reload_ip);
+	CHECK(ip6table, reload_ip);
+	CHECK(ip4table_local, reload_ip);
+	CHECK(ip6table_local, reload_ip);
+	CHECK(disable_addr_rules, reload_ip);
 	interface_merge_assignment_data(if_old, if_new);
 
 #undef UPDATE
+#undef CHECK
 
 	if (!reload) {
 		struct device *old_dev = if_old->main_dev.dev;
@@ -1383,6 +1414,18 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		D(INTERFACE, "Reload interface '%s' because of config changes",
 		  if_old->name);
 		interface_clear_errors(if_old);
+
+		interface_ip_set_enabled(&if_old->config_ip, false);
+		interface_ip_set_enabled(&if_old->proto_ip, false);
+
+		APPLY(metric);
+		APPLY(proto_ip.no_defaultroute);
+		APPLY(ip4table);
+		APPLY(ip6table);
+		APPLY(ip4table_local);
+		APPLY(ip6table_local);
+		APPLY(disable_addr_rules);
+
 		set_config_state(if_old, IFC_RELOAD);
 		goto out;
 	}
@@ -1393,9 +1436,20 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 		interface_ip_set_enabled(&if_old->config_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, false);
+
+		APPLY(metric);
+		APPLY(proto_ip.no_defaultroute);
+		APPLY(ip4table);
+		APPLY(ip6table);
+		APPLY(ip4table_local);
+		APPLY(ip6table_local);
+		APPLY(disable_addr_rules);
+
 		interface_ip_set_enabled(&if_old->proto_ip, proto_ip_enabled);
 		interface_ip_set_enabled(&if_old->config_ip, config_ip_enabled);
 	}
+
+#undef APPLY
 
 	if (update_prefix_delegation)
 		interface_update_prefix_delegation(&if_old->proto_ip);
