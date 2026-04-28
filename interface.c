@@ -450,6 +450,20 @@ interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 	case DEV_EVENT_DOWN:
 		interface_set_enabled(iface, false);
 		break;
+	case DEV_EVENT_UPDATE_IFINDEX:
+		/*
+		 * External devices can briefly exist without a resolvable
+		 * ifindex. If an autostart interface tried to claim such a
+		 * device, retry setup once the ifindex becomes available.
+		 */
+		if (iface->autostart &&
+		    iface->state == IFS_DOWN &&
+		    iface->available &&
+		    dep->dev &&
+		    dep->dev->external &&
+		    dep->dev->ifindex)
+			interface_set_up(iface);
+		break;
 	case DEV_EVENT_AUTH_UP:
 	case DEV_EVENT_LINK_UP:
 	case DEV_EVENT_LINK_DOWN:
@@ -1151,7 +1165,8 @@ interface_set_up(struct interface *iface)
 			ret = device_claim(&iface->main_dev);
 			if (!ret)
 				interface_check_state(iface);
-			else
+			else if (!(iface->main_dev.dev->external &&
+				   !iface->main_dev.dev->ifindex))
 				error = "DEVICE_CLAIM_FAILED";
 		} else {
 			ret = __interface_set_up(iface);
