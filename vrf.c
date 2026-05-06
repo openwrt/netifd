@@ -40,7 +40,7 @@ static enum dev_change_type
 vrf_reload(struct device *dev, struct blob_attr *attr,
 	   struct blob_attr **tb_dev);
 
-static struct device_type vrf_state_type = {
+static struct device_type vrf_device_type = {
 	.name = "vrf",
 	.config_params = &vrf_attr_list,
 
@@ -412,7 +412,6 @@ vrf_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		device_add_user(&vm->dev, dev);
 	}
 
-
 	if (node_old) {
 		vm = container_of(node_old, struct vrf_member, node);
 		vrf_free_member(vm);
@@ -646,7 +645,7 @@ vrf_create(const char *name, struct device_type *devtype,
 	return dev;
 }
 
-static void __init vrf_state_type_init(void)
+static void __init vrf_device_type_init(void)
 {
-	device_type_add(&vrf_state_type);
+	device_type_add(&vrf_device_type);
 }
