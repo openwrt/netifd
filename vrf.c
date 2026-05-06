@@ -59,7 +59,6 @@ struct vrf_state {
 
 	struct blob_attr *config_data;
 	unsigned int table;
-	bool vrf_empty;
 	struct blob_attr *ports;
 	bool active;
 	bool force_active;
@@ -215,13 +214,6 @@ vrf_remove_member(struct vrf_member *vm)
 
 	if (vm == vst->primary_port)
 		vrf_reset_primary(vst);
-
-	if (vst->vrf_empty)
-		return;
-
-	vst->force_active = false;
-	if (vst->n_present == 0)
-		device_set_present(&vst->dev, false);
 }
 
 static void
@@ -531,10 +523,8 @@ vrf_config_init(struct device *dev)
 
 	vst = container_of(dev, struct vrf_state, dev);
 
-	if (vst->vrf_empty) {
-		vst->force_active = true;
-		device_set_present(&vst->dev, true);
-	}
+	vst->force_active = true;
+	device_set_present(&vst->dev, true);
 
 	vst->n_failed = 0;
 	vlist_update(&vst->members);
@@ -553,9 +543,7 @@ vrf_apply_settings(struct vrf_state *vst, struct blob_attr **tb)
 {
 	struct blob_attr *cur;
 
-	vst->vrf_empty = true;
-	// default vrf routing table
-	vst->table = 10;
+	vst->table = 10; /* default VRF routing table */
 	if ((cur = tb[VRF_ATTR_TABLE]))
 		system_resolve_rt_table(blobmsg_data(cur), &vst->table);
 }
