@@ -186,7 +186,7 @@ vrf_enable_member(struct vrf_member *vm)
 
 	ret = system_vrf_addif(&vst->dev, vm->dev.dev);
 	if (ret < 0) {
-		D(DEVICE, "Vrf device %s could not be added\n", vm->dev.dev->ifname);
+		D(DEVICE, "Vrf device %s could not be added", vm->dev.dev->ifname);
 		goto error;
 	}
 
@@ -245,7 +245,7 @@ vrf_free_member(struct vrf_member *vm)
 	 * Ensure that claiming the device is retried by toggling its present
 	 * state
 	 */
-	if (dev->present) {
+	if (dev->present && !dev->active) {
 		device_set_present(dev, false);
 		device_set_present(dev, true);
 	}
@@ -573,7 +573,7 @@ vrf_reload(struct device *dev, struct blob_attr *attr,
 	struct blob_attr *tb_v[__VRF_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	struct vrf_state *vst;
-	unsigned long diff[2];
+	unsigned long diff[2] = {};
 
 	BUILD_BUG_ON(sizeof(diff) < __VRF_ATTR_MAX / BITS_PER_LONG);
 
@@ -594,11 +594,10 @@ vrf_reload(struct device *dev, struct blob_attr *attr,
 		blobmsg_parse_attr(vrf_attrs, __VRF_ATTR_MAX, otb_v,
 				   vst->config_data);
 
-		diff[0] = diff[1] = 0;
 		uci_blob_diff(tb_v, otb_v, &vrf_attr_list, diff);
 		if (diff[0] & ~(1 << VRF_ATTR_PORTS)) {
 			ret = DEV_CONFIG_RESTART;
-			D(DEVICE, "Vrf %s attributes have changed, diff=[%lx %lx]\n",
+			D(DEVICE, "Vrf %s attributes have changed, diff=[%lx %lx]",
 			  dev->ifname, diff[1], diff[0]);
 		}
 
