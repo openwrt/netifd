@@ -167,12 +167,6 @@ vrf_enable_member(struct vrf_member *vm)
 	if (ret)
 		goto error;
 
-	/* Disable IPv6 for vrf ports */
-	if (!(vm->dev.dev->settings.flags & DEV_OPT_IPV6)) {
-		vm->dev.dev->settings.ipv6 = 0;
-		vm->dev.dev->settings.flags |= DEV_OPT_IPV6;
-	}
-
 	ret = device_claim(&vm->dev);
 	if (ret < 0)
 		goto error;
