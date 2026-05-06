@@ -1,3 +1,18 @@
+/*
+ * netifd - network interface daemon
+ * Copyright (C) 2021 Felix Fietkau <nbd@nbd.name>
+ * Copyright (C) 2026 Maxim Anisimov <maxim.anisimov.ua@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,7 +55,7 @@ static enum dev_change_type
 vrf_reload(struct device *dev, struct blob_attr *attr,
 	   struct blob_attr **tb_dev);
 
-static struct device_type vrf_state_type = {
+static struct device_type vrf_device_type = {
 	.name = "vrf",
 	.config_params = &vrf_attr_list,
 
@@ -59,7 +74,6 @@ struct vrf_state {
 
 	struct blob_attr *config_data;
 	unsigned int table;
-	bool vrf_empty;
 	struct blob_attr *ports;
 	bool active;
 	bool force_active;
@@ -167,12 +181,6 @@ vrf_enable_member(struct vrf_member *vm)
 	if (ret)
 		goto error;
 
-	/* Disable IPv6 for vrf ports */
-	if (!(vm->dev.dev->settings.flags & DEV_OPT_IPV6)) {
-		vm->dev.dev->settings.ipv6 = 0;
-		vm->dev.dev->settings.flags |= DEV_OPT_IPV6;
-	}
-
 	ret = device_claim(&vm->dev);
 	if (ret < 0)
 		goto error;
@@ -186,7 +194,7 @@ vrf_enable_member(struct vrf_member *vm)
 
 	ret = system_vrf_addif(&vst->dev, vm->dev.dev);
 	if (ret < 0) {
-		D(DEVICE, "Vrf device %s could not be added\n", vm->dev.dev->ifname);
+		D(DEVICE, "Vrf device %s could not be added", vm->dev.dev->ifname);
 		goto error;
 	}
 
@@ -221,13 +229,6 @@ vrf_remove_member(struct vrf_member *vm)
 
 	if (vm == vst->primary_port)
 		vrf_reset_primary(vst);
-
-	if (vst->vrf_empty)
-		return;
-
-	vst->force_active = false;
-	if (vst->n_present == 0)
-		device_set_present(&vst->dev, false);
 }
 
 static void
@@ -245,7 +246,7 @@ vrf_free_member(struct vrf_member *vm)
 	 * Ensure that claiming the device is retried by toggling its present
 	 * state
 	 */
-	if (dev->present) {
+	if (dev->present && !dev->active) {
 		device_set_present(dev, false);
 		device_set_present(dev, true);
 	}
@@ -426,7 +427,6 @@ vrf_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		device_add_user(&vm->dev, dev);
 	}
 
-
 	if (node_old) {
 		vm = container_of(node_old, struct vrf_member, node);
 		vrf_free_member(vm);
@@ -537,10 +537,8 @@ vrf_config_init(struct device *dev)
 
 	vst = container_of(dev, struct vrf_state, dev);
 
-	if (vst->vrf_empty) {
-		vst->force_active = true;
-		device_set_present(&vst->dev, true);
-	}
+	vst->force_active = true;
+	device_set_present(&vst->dev, true);
 
 	vst->n_failed = 0;
 	vlist_update(&vst->members);
@@ -559,9 +557,7 @@ vrf_apply_settings(struct vrf_state *vst, struct blob_attr **tb)
 {
 	struct blob_attr *cur;
 
-	vst->vrf_empty = true;
-	// default vrf routing table
-	vst->table = 10;
+	vst->table = 10; /* default VRF routing table */
 	if ((cur = tb[VRF_ATTR_TABLE]))
 		system_resolve_rt_table(blobmsg_data(cur), &vst->table);
 }
@@ -573,7 +569,7 @@ vrf_reload(struct device *dev, struct blob_attr *attr,
 	struct blob_attr *tb_v[__VRF_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
 	struct vrf_state *vst;
-	unsigned long diff[2];
+	unsigned long diff[2] = {};
 
 	BUILD_BUG_ON(sizeof(diff) < __VRF_ATTR_MAX / BITS_PER_LONG);
 
@@ -594,11 +590,10 @@ vrf_reload(struct device *dev, struct blob_attr *attr,
 		blobmsg_parse_attr(vrf_attrs, __VRF_ATTR_MAX, otb_v,
 				   vst->config_data);
 
-		diff[0] = diff[1] = 0;
 		uci_blob_diff(tb_v, otb_v, &vrf_attr_list, diff);
 		if (diff[0] & ~(1 << VRF_ATTR_PORTS)) {
 			ret = DEV_CONFIG_RESTART;
-			D(DEVICE, "Vrf %s attributes have changed, diff=[%lx %lx]\n",
+			D(DEVICE, "Vrf %s attributes have changed, diff=[%lx %lx]",
 			  dev->ifname, diff[1], diff[0]);
 		}
 
@@ -665,7 +660,7 @@ vrf_create(const char *name, struct device_type *devtype,
 	return dev;
 }
 
-static void __init vrf_state_type_init(void)
+static void __init vrf_device_type_init(void)
 {
-	device_type_add(&vrf_state_type);
+	device_type_add(&vrf_device_type);
 }
