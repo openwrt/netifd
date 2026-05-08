@@ -2138,8 +2138,28 @@ system_set_ethtool_pause(struct device *dev, struct device_settings *s)
 	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
 }
 
-static void
-system_set_ethtool_eee_settings(struct device *dev, struct device_settings *s)
+struct eth_set_cb_data {
+	int pending;
+	int err;
+};
+
+static int cb_eth_set_ack(struct nl_msg *msg, void *arg)
+{
+	struct eth_set_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	return NL_STOP;
+}
+
+static int cb_eth_set_error(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
+{
+	struct eth_set_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	cb_data->err = nlerr->error;
+	return NL_STOP;
+}
+
+static int
+system_set_ethtool_eee_legacy(struct device *dev, struct device_settings *s)
 {
 	struct ethtool_eee eeecmd;
 	struct ifreq ifr = {
@@ -2149,10 +2169,277 @@ system_set_ethtool_eee_settings(struct device *dev, struct device_settings *s)
 	memset(&eeecmd, 0, sizeof(eeecmd));
 	eeecmd.cmd = ETHTOOL_SEEE;
 	eeecmd.eee_enabled = s->eee;
+	if (s->flags & DEV_OPT_EEE_TX_LPI)
+		eeecmd.tx_lpi_enabled = s->eee_tx_lpi;
+	if (s->flags & DEV_OPT_EEE_TX_LPI_TIMER)
+		eeecmd.tx_lpi_timer = s->eee_tx_lpi_timer;
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
 
-	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0)
-		netifd_log_message(L_WARNING, "cannot set eee %d for device %s", s->eee, dev->ifname);
+	return ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
+}
+
+struct eth_eee_supported {
+	uint32_t nbits;
+	uint32_t words[16];
+	bool valid;
+};
+
+static int cb_eth_eee_get_reply(struct nl_msg *msg, void *arg)
+{
+	struct eth_eee_supported *out = arg;
+	struct nlmsghdr *nlh = nlmsg_hdr(msg);
+	struct nlattr *tb[ETHTOOL_A_EEE_MAX + 1];
+	struct nlattr *mtb[ETHTOOL_A_BITSET_MAX + 1];
+	struct genlmsghdr *ghdr;
+	uint32_t nbits, nwords;
+	struct nlattr *mask;
+
+	if (nlh->nlmsg_type != ethtool_family)
+		return NL_SKIP;
+
+	ghdr = nlmsg_data(nlh);
+	if (nla_parse(tb, ETHTOOL_A_EEE_MAX, genlmsg_attrdata(ghdr, 0),
+		      genlmsg_attrlen(ghdr, 0), NULL) < 0)
+		return NL_SKIP;
+	if (!tb[ETHTOOL_A_EEE_MODES_OURS])
+		return NL_SKIP;
+	if (nla_parse_nested(mtb, ETHTOOL_A_BITSET_MAX,
+			     tb[ETHTOOL_A_EEE_MODES_OURS], NULL))
+		return NL_SKIP;
+	if (!mtb[ETHTOOL_A_BITSET_SIZE] || !mtb[ETHTOOL_A_BITSET_MASK])
+		return NL_SKIP;
+
+	nbits = nla_get_u32(mtb[ETHTOOL_A_BITSET_SIZE]);
+	nwords = (nbits + 31) / 32;
+	if (nwords > ARRAY_SIZE(out->words))
+		return NL_SKIP;
+
+	mask = mtb[ETHTOOL_A_BITSET_MASK];
+	if (nla_len(mask) < (int)(nwords * sizeof(uint32_t)))
+		return NL_SKIP;
+
+	memcpy(out->words, nla_data(mask), nwords * sizeof(uint32_t));
+	out->nbits = nbits;
+	out->valid = true;
+	return NL_OK;
+}
+
+struct eth_eee_get_cb_data {
+	struct eth_eee_supported *data;
+	int pending;
+	int err;
+};
+
+static int cb_eth_eee_get_ack(struct nl_msg *msg, void *arg)
+{
+	struct eth_eee_get_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	return NL_STOP;
+}
+
+static int cb_eth_eee_get_error(struct sockaddr_nl *nla,
+				struct nlmsgerr *nlerr, void *arg)
+{
+	struct eth_eee_get_cb_data *cb_data = arg;
+	cb_data->pending = 0;
+	cb_data->err = nlerr->error;
+	return NL_STOP;
+}
+
+static int cb_eth_eee_get_valid(struct nl_msg *msg, void *arg)
+{
+	struct eth_eee_get_cb_data *cb_data = arg;
+	return cb_eth_eee_get_reply(msg, cb_data->data);
+}
+
+static int
+system_get_ethtool_eee_supported(struct device *dev,
+				 struct eth_eee_supported *out)
+{
+	struct eth_eee_get_cb_data cb_data;
+	struct nl_msg *msg = NULL;
+	struct nl_cb *cb = NULL;
+	struct nlattr *hdr;
+	int ret = -ENOMEM;
+
+	memset(out, 0, sizeof(*out));
+
+	if (!sock_genl || ethtool_family < 0)
+		return -EOPNOTSUPP;
+
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
+	msg = nlmsg_alloc();
+	if (!cb || !msg)
+		goto out;
+
+	if (!genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, ethtool_family,
+			 0, 0, ETHTOOL_MSG_EEE_GET, 1))
+		goto out;
+
+	hdr = nla_nest_start(msg, ETHTOOL_A_EEE_HEADER);
+	if (!hdr)
+		goto out;
+	nla_put_string(msg, ETHTOOL_A_HEADER_DEV_NAME, dev->ifname);
+	nla_put_u32(msg, ETHTOOL_A_HEADER_FLAGS, ETHTOOL_FLAG_COMPACT_BITSETS);
+	nla_nest_end(msg, hdr);
+
+	cb_data.data = out;
+	cb_data.pending = 1;
+	cb_data.err = 0;
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_eth_eee_get_valid, &cb_data);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_eth_eee_get_ack, &cb_data);
+	nl_cb_err(cb, NL_CB_CUSTOM, cb_eth_eee_get_error, &cb_data);
+
+	ret = nl_send_auto_complete(sock_genl, msg);
+	if (ret < 0)
+		goto out;
+
+	while (cb_data.pending > 0) {
+		ret = nl_recvmsgs(sock_genl, cb);
+		if (ret < 0) {
+			cb_data.pending = 0;
+			cb_data.err = ret;
+		}
+	}
+
+	if (cb_data.err)
+		ret = cb_data.err;
+	else
+		ret = out->valid ? 0 : -EOPNOTSUPP;
+
+out:
+	nlmsg_free(msg);
+	nl_cb_put(cb);
+	return ret;
+}
+
+static int
+system_set_ethtool_eee_netlink(struct device *dev, struct device_settings *s)
+{
+	struct eth_eee_supported supported;
+	struct eth_set_cb_data cb_data;
+	bool advertise_all = false;
+	struct nl_msg *msg = NULL;
+	struct nl_cb *cb = NULL;
+	struct nlattr *hdr, *modes_nest, *bits_nest;
+	int ret = -ENOMEM;
+
+	if (!sock_genl || ethtool_family < 0)
+		return -EOPNOTSUPP;
+
+	if (!(s->flags & DEV_OPT_EEE_ADVERTISE) &&
+	    (s->flags & DEV_OPT_EEE) && s->eee &&
+	    system_get_ethtool_eee_supported(dev, &supported) == 0 &&
+	    supported.nbits > 0)
+		advertise_all = true;
+
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
+	msg = nlmsg_alloc();
+	if (!cb || !msg)
+		goto out;
+
+	if (!genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, ethtool_family,
+			 0, 0, ETHTOOL_MSG_EEE_SET, 1))
+		goto out;
+
+	hdr = nla_nest_start(msg, ETHTOOL_A_EEE_HEADER);
+	if (!hdr)
+		goto out;
+	nla_put_string(msg, ETHTOOL_A_HEADER_DEV_NAME, dev->ifname);
+	nla_nest_end(msg, hdr);
+
+	if (s->flags & DEV_OPT_EEE)
+		nla_put_u8(msg, ETHTOOL_A_EEE_ENABLED, s->eee);
+
+	if (s->flags & DEV_OPT_EEE_TX_LPI)
+		nla_put_u8(msg, ETHTOOL_A_EEE_TX_LPI_ENABLED, s->eee_tx_lpi);
+
+	if (s->flags & DEV_OPT_EEE_TX_LPI_TIMER)
+		nla_put_u32(msg, ETHTOOL_A_EEE_TX_LPI_TIMER, s->eee_tx_lpi_timer);
+
+	if (dev->eee_advertise) {
+		struct blob_attr *cur;
+		size_t rem;
+
+		modes_nest = nla_nest_start(msg, ETHTOOL_A_EEE_MODES_OURS);
+		if (!modes_nest)
+			goto out;
+		nla_put_flag(msg, ETHTOOL_A_BITSET_NOMASK);
+		bits_nest = nla_nest_start(msg, ETHTOOL_A_BITSET_BITS);
+		if (!bits_nest)
+			goto out;
+		blobmsg_for_each_attr(cur, dev->eee_advertise, rem) {
+			struct nlattr *bit;
+
+			if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+				continue;
+			bit = nla_nest_start(msg, ETHTOOL_A_BITSET_BITS_BIT);
+			if (!bit)
+				goto out;
+			nla_put_string(msg, ETHTOOL_A_BITSET_BIT_NAME,
+				       blobmsg_get_string(cur));
+			nla_nest_end(msg, bit);
+		}
+		nla_nest_end(msg, bits_nest);
+		nla_nest_end(msg, modes_nest);
+	} else if (advertise_all) {
+		uint32_t nwords = (supported.nbits + 31) / 32;
+
+		modes_nest = nla_nest_start(msg, ETHTOOL_A_EEE_MODES_OURS);
+		if (!modes_nest)
+			goto out;
+		nla_put_flag(msg, ETHTOOL_A_BITSET_NOMASK);
+		nla_put_u32(msg, ETHTOOL_A_BITSET_SIZE, supported.nbits);
+		nla_put(msg, ETHTOOL_A_BITSET_VALUE,
+			nwords * sizeof(uint32_t), supported.words);
+		nla_nest_end(msg, modes_nest);
+	}
+
+	cb_data.pending = 1;
+	cb_data.err = 0;
+
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_eth_set_ack, &cb_data);
+	nl_cb_err(cb, NL_CB_CUSTOM, cb_eth_set_error, &cb_data);
+
+	ret = nl_send_auto_complete(sock_genl, msg);
+	if (ret < 0)
+		goto out;
+
+	while (cb_data.pending > 0) {
+		ret = nl_recvmsgs(sock_genl, cb);
+		if (ret < 0) {
+			cb_data.pending = 0;
+			cb_data.err = ret;
+		}
+	}
+
+	ret = cb_data.err;
+
+out:
+	nlmsg_free(msg);
+	nl_cb_put(cb);
+	return ret;
+}
+
+static void
+system_set_ethtool_eee_settings(struct device *dev, struct device_settings *s)
+{
+	int ret;
+
+	ret = system_set_ethtool_eee_netlink(dev, s);
+	if (!ret)
+		return;
+
+	if (ret != -EOPNOTSUPP && ret != -ENOSYS)
+		netifd_log_message(L_NOTICE,
+			"EEE: netlink set failed for %s (%d), trying legacy ioctl",
+			dev->ifname, ret);
+
+	if (system_set_ethtool_eee_legacy(dev, s) != 0)
+		netifd_log_message(L_WARNING,
+			"cannot set eee %d for device %s (netlink ret %d)",
+			s->eee, dev->ifname, ret);
 }
 
 /*
@@ -2313,32 +2600,12 @@ static int system_pse_get(struct device *dev, struct pse_reply_data *data)
 	return data->valid ? 0 : -EOPNOTSUPP;
 }
 
-struct pse_set_cb_data {
-	int pending;
-	int err;
-};
-
-static int cb_pse_set_ack(struct nl_msg *msg, void *arg)
-{
-	struct pse_set_cb_data *cb_data = arg;
-	cb_data->pending = 0;
-	return NL_STOP;
-}
-
-static int cb_pse_set_error(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
-{
-	struct pse_set_cb_data *cb_data = arg;
-	cb_data->pending = 0;
-	cb_data->err = nlerr->error;
-	return NL_STOP;
-}
-
 static int system_pse_set(struct device *dev, struct device_settings *s)
 {
 	struct nl_msg *msg;
 	struct nlattr *hdr;
 	struct nl_cb *cb;
-	struct pse_set_cb_data cb_data;
+	struct eth_set_cb_data cb_data;
 	int ret;
 
 	/* Early return if no PSE settings requested */
@@ -2396,8 +2663,8 @@ static int system_pse_set(struct device *dev, struct device_settings *s)
 	cb_data.pending = 1;
 	cb_data.err = 0;
 
-	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_pse_set_ack, &cb_data);
-	nl_cb_err(cb, NL_CB_CUSTOM, cb_pse_set_error, &cb_data);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_eth_set_ack, &cb_data);
+	nl_cb_err(cb, NL_CB_CUSTOM, cb_eth_set_error, &cb_data);
 
 	ret = nl_send_auto_complete(sock_genl, msg);
 	nlmsg_free(msg);
@@ -2440,9 +2707,6 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	__u32 *supported, *advertising;
 
 	system_set_ethtool_pause(dev, s);
-
-	if (s->flags & DEV_OPT_EEE)
-		system_set_ethtool_eee_settings(dev, s);
 
 	/* Apply PSE (PoE) settings if configured */
 	if (s->flags & (DEV_OPT_PSE | DEV_OPT_PSE_PODL | DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
@@ -2514,6 +2778,10 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 static void
 system_set_ethtool_settings_after_up(struct device *dev, struct device_settings *s)
 {
+	if (s->flags & (DEV_OPT_EEE | DEV_OPT_EEE_TX_LPI |
+			DEV_OPT_EEE_TX_LPI_TIMER | DEV_OPT_EEE_ADVERTISE))
+		system_set_ethtool_eee_settings(dev, s);
+
 	if (s->flags & DEV_OPT_GRO)
 		system_set_ethtool_gro(dev, s);
 }
@@ -2769,7 +3037,7 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	if (apply_mask & (DEV_OPT_SPEED | DEV_OPT_DUPLEX |
 			  DEV_OPT_PAUSE | DEV_OPT_ASYM_PAUSE |
 			  DEV_OPT_RXPAUSE | DEV_OPT_TXPAUSE |
-			  DEV_OPT_AUTONEG | DEV_OPT_EEE |
+			  DEV_OPT_AUTONEG |
 			  DEV_OPT_PSE | DEV_OPT_PSE_PODL |
 			  DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
 		system_set_ethtool_settings(dev, s);

@@ -77,6 +77,9 @@ enum {
 	DEV_ATTR_GRO,
 	DEV_ATTR_MASTER,
 	DEV_ATTR_EEE,
+	DEV_ATTR_EEE_TX_LPI,
+	DEV_ATTR_EEE_TX_LPI_TIMER,
+	DEV_ATTR_EEE_ADVERTISE,
 	DEV_ATTR_PSE,
 	DEV_ATTR_PSE_PODL,
 	DEV_ATTR_PSE_POWER_LIMIT,
@@ -170,6 +173,9 @@ enum {
 	DEV_OPT_GRO				= 1ULL << DEV_ATTR_GRO,
 	DEV_OPT_MASTER				= 1ULL << DEV_ATTR_MASTER,
 	DEV_OPT_EEE				= 1ULL << DEV_ATTR_EEE,
+	DEV_OPT_EEE_TX_LPI			= 1ULL << DEV_ATTR_EEE_TX_LPI,
+	DEV_OPT_EEE_TX_LPI_TIMER		= 1ULL << DEV_ATTR_EEE_TX_LPI_TIMER,
+	DEV_OPT_EEE_ADVERTISE			= 1ULL << DEV_ATTR_EEE_ADVERTISE,
 	DEV_OPT_PSE				= 1ULL << DEV_ATTR_PSE,
 	DEV_OPT_PSE_PODL			= 1ULL << DEV_ATTR_PSE_PODL,
 	DEV_OPT_PSE_POWER_LIMIT			= 1ULL << DEV_ATTR_PSE_POWER_LIMIT,
@@ -264,6 +270,8 @@ struct device_settings {
 	bool gro;
 	int master_ifindex;
 	bool eee;
+	bool eee_tx_lpi;
+	unsigned int eee_tx_lpi_timer;
 	bool pse;
 	bool pse_podl;
 	unsigned int pse_power_limit;
@@ -290,6 +298,7 @@ struct device {
 	struct blob_attr *config_auth_vlans;
 	struct blob_attr *auth_vlans;
 	struct blob_attr *tags;
+	struct blob_attr *eee_advertise;
 
 	char ifname[IFNAMSIZ];
 	int ifindex;
