@@ -382,8 +382,8 @@ rule_cmp(const void *k1, const void *k2, void *ptr)
 
 	/* First compare the interface names */
 	if (r1->flags & IPRULE_IN || r2->flags & IPRULE_IN) {
-		char *str1 = r1->flags & IPRULE_IN ? r1->in_iface : "";
-		char *str2 = r2->flags & IPRULE_IN ? r2->in_iface : "";
+		const char *str1 = r1->flags & IPRULE_IN ? r1->in_iface : "";
+		const char *str2 = r2->flags & IPRULE_IN ? r2->in_iface : "";
 
 		ret = strcmp(str1, str2);
 		if (ret)
@@ -391,8 +391,8 @@ rule_cmp(const void *k1, const void *k2, void *ptr)
 	}
 
 	if (r1->flags & IPRULE_OUT || r2->flags & IPRULE_OUT) {
-		char *str1 = r1->flags & IPRULE_OUT ? r1->out_iface : "";
-		char *str2 = r2->flags & IPRULE_OUT ? r2->out_iface : "";
+		const char *str1 = r1->flags & IPRULE_OUT ? r1->out_iface : "";
+		const char *str2 = r2->flags & IPRULE_OUT ? r2->out_iface : "";
 
 		ret = strcmp(str1, str2);
 		if (ret)
