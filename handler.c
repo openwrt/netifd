@@ -312,7 +312,7 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 
 		attrs[i].name = str_cur;
 		str_cur += sprintf(str_cur, "%s", name) + 1;
-		delim = strchr(attrs[i].name, ':');
+		delim = (char *)strchr(attrs[i].name, ':');
 		if (delim) {
 			*delim = '\0';
 			validate[i] = ++delim;
