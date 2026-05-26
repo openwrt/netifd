@@ -31,6 +31,35 @@ int system_init(void)
 	return 0;
 }
 
+#ifdef DEVLINK_PORT_SPLIT
+int system_devlink_port_from_ifname(const char *ifname,
+				    struct system_devlink_port *port)
+{
+	return 0;
+}
+
+int system_devlink_port_wait_ifname(const char *ifname,
+				    struct system_devlink_port *port,
+				    unsigned int timeout_ms)
+{
+	return 0;
+}
+
+int system_devlink_port_split(const struct system_devlink_port *port,
+			      uint32_t count,
+			      struct system_devlink_port *member,
+			      uint32_t *split_group)
+{
+	return 0;
+}
+
+int system_devlink_port_unsplit(const struct system_devlink_port *port)
+{
+	return 0;
+}
+
+#endif
+
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
 	return 0;

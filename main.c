@@ -28,6 +28,10 @@
 #include "extdev.h"
 #include "ucode.h"
 
+#ifdef DEVLINK_PORT_SPLIT
+#include "port-split.h"
+#endif
+
 unsigned int debug_mask = 0;
 const char *main_path = DEFAULT_MAIN_PATH;
 const char *config_path = DEFAULT_CONFIG_PATH;
@@ -270,6 +274,9 @@ netifd_kill_process(struct netifd_process *proc)
 
 static void netifd_do_restart(struct uloop_timeout *timeout)
 {
+#ifdef DEVLINK_PORT_SPLIT
+	port_split_shutdown();
+#endif
 	execvp(global_argv[0], global_argv);
 }
 
