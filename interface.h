@@ -113,6 +113,7 @@ struct interface {
 	char *jail_device;
 	char *host_device;
 	int netns_fd;
+	bool jail_pending;
 
 	bool available;
 	bool autostart;
