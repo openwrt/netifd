@@ -430,6 +430,16 @@ interface_ext_dev_cb(struct device_user *dep, enum device_event ev)
 }
 
 static void
+interface_jail_pending_clear(struct interface *iface)
+{
+	if (iface->netns_fd >= 0) {
+		close(iface->netns_fd);
+		iface->netns_fd = -1;
+	}
+	iface->jail_pending = false;
+}
+
+static void
 interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 {
 	struct interface *iface;
@@ -438,6 +448,9 @@ interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 	switch (ev) {
 	case DEV_EVENT_ADD:
 		interface_set_available(iface, true);
+		if (iface->jail_pending &&
+		    !system_link_netns_move(iface->main_dev.dev, iface->netns_fd, iface->jail_device))
+			interface_jail_pending_clear(iface);
 		break;
 	case DEV_EVENT_REMOVE:
 		interface_set_available(iface, false);
@@ -709,6 +722,8 @@ void interface_free(struct interface *iface)
 	free(iface->jail);
 	free(iface->jail_device);
 	free(iface->host_device);
+	if (iface->netns_fd >= 0)
+		close(iface->netns_fd);
 	free(iface);
 }
 
@@ -838,6 +853,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	avl_init(&iface->data, avl_strcmp, false, NULL);
 	iface->config_ip.enabled = false;
 
+	iface->netns_fd = -1;
 	iface->main_dev.cb = interface_main_dev_cb;
 	iface->l3_dev.cb = interface_l3_dev_cb;
 	iface->ext_dev.cb = interface_ext_dev_cb;
@@ -1207,7 +1223,15 @@ interface_start_jail(int netns_fd, const char *jail)
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
-		system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_device);
+		interface_jail_pending_clear(iface);
+
+		if (!system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_device))
+			continue;
+
+		/* device not present yet: keep a reference to the jail netns and
+		 * complete the move once the device shows up (DEV_EVENT_ADD). */
+		iface->netns_fd = dup(netns_fd);
+		iface->jail_pending = iface->netns_fd >= 0;
 	}
 }
 
@@ -1218,6 +1242,10 @@ interface_stop_jail(int netns_fd)
 	char *orig_ifname;
 
 	vlist_for_each_element(&interfaces, iface, node) {
+		if (iface->jail_pending) {
+			interface_jail_pending_clear(iface);
+			continue;
+		}
 		orig_ifname = iface->host_device;
 		interface_set_down(iface);
 		system_link_netns_move(iface->main_dev.dev, netns_fd, orig_ifname);
