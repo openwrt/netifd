@@ -313,6 +313,7 @@ struct device {
 	bool current_config;
 	bool iface_config;
 	bool default_config;
+	bool dynamic;
 	bool wireless;
 	bool wireless_ap;
 	bool wireless_proxyarp;

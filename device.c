@@ -1406,7 +1406,8 @@ device_reset_config(void)
 	struct device *dev;
 
 	avl_for_each_element(&devices, dev, avl)
-		dev->current_config = false;
+		if (!dev->dynamic)
+			dev->current_config = false;
 }
 
 void
