@@ -123,6 +123,7 @@ struct interface {
 	bool link_state;
 	bool force_link;
 	bool dynamic;
+	bool persistent;
 	bool policy_rules_set;
 	bool link_up_event;
 	bool renew;
