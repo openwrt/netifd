@@ -989,8 +989,13 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 	for (tries = 0; tries < 3; tries++) {
 		ret = 0;
 		oldbr = system_get_bridge(dev->ifname, dev_buf, sizeof(dev_buf));
-		if (oldbr && !strcmp(oldbr, bridge->ifname))
-			break;
+		if (oldbr) {
+			if (!strcmp(oldbr, bridge->ifname))
+				break;
+
+			/* still enslaved in a stale bridge; detach first to avoid EBUSY */
+			system_bridge_if(oldbr, dev, SIOCBRDELIF, NULL);
+		}
 
 		ret = system_bridge_if(bridge->ifname, dev, SIOCBRADDIF, NULL);
 		if (!ret)
