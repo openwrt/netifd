@@ -308,11 +308,12 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 	str_cur = str_buf;
 	for (i = 0; i < config->n_params; i++) {
 		const char *name = attrs[i].name;
+		char *dest = str_cur;
 		char *delim;
 
-		attrs[i].name = str_cur;
-		str_cur += sprintf(str_cur, "%s", name) + 1;
-		delim = strchr(attrs[i].name, ':');
+		attrs[i].name = dest;
+		str_cur += sprintf(dest, "%s", name) + 1;
+		delim = strchr(dest, ':');
 		if (delim) {
 			*delim = '\0';
 			validate[i] = ++delim;

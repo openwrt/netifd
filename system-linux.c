@@ -3162,7 +3162,7 @@ system_add_devtype(struct blob_buf *b, const char *ifname)
 		const char *line = strtok_r(buf, "\r\n", &context);
 
 		while (line != NULL) {
-			char *index = strstr(line, info);
+			const char *index = strstr(line, info);
 
 			if (index != NULL) {
 				blobmsg_add_string(b, "devtype", index + strlen(info));
