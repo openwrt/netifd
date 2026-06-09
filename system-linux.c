@@ -1181,19 +1181,21 @@ system_vrf_if(int vrf_index, struct device *dev)
 int system_vrf_addif(struct device *vrf, struct device *dev)
 {
 	char *oldvrf;
-	int tries = 0;
+	int tries;
 	int ret;
 
-retry:
-	ret = 0;
-	oldvrf = system_get_vrf(dev->ifname, dev_buf, sizeof(dev_buf));
-	if (!oldvrf || strcmp(oldvrf, vrf->ifname) != 0) {
+	for (tries = 0; tries < 3; tries++) {
+		ret = 0;
+		oldvrf = system_get_vrf(dev->ifname, dev_buf, sizeof(dev_buf));
+		if (oldvrf && !strcmp(oldvrf, vrf->ifname))
+			break;
+
 		ret = system_vrf_if(vrf->ifindex, dev);
-		tries++;
+		if (!ret)
+			break;
+
 		D(SYSTEM, "Failed to add device '%s' to vrf '%s' (tries=%d): %s\n",
 		  dev->ifname, vrf->ifname, tries, strerror(errno));
-		if (tries <= 3)
-			goto retry;
 	}
 
 	return ret;
