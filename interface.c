@@ -728,13 +728,22 @@ void interface_free(struct interface *iface)
 }
 
 static void
+interface_free_cb(struct uloop_timeout *timeout)
+{
+	struct interface *iface = container_of(timeout, struct interface, remove_timer);
+
+	interface_free(iface);
+}
+
+static void
 interface_do_remove(struct interface *iface)
 {
 	interface_event(iface, IFEV_FREE);
 	interface_cleanup(iface);
 	netifd_ubus_remove_interface(iface);
 	avl_delete(&interfaces.avl, &iface->node.avl);
-	interface_free(iface);
+	iface->remove_timer.cb = interface_free_cb;
+	uloop_timeout_set(&iface->remove_timer, 1);
 }
 
 static void
