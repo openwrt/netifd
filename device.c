@@ -1456,8 +1456,10 @@ device_create(const char *name, struct device_type *type,
 		return NULL;
 
 	dev = type->create(name, type, config);
-	if (!dev)
+	if (!dev) {
+		free(config);
 		return NULL;
+	}
 
 	dev->current_config = true;
 	dev->config = config;
