@@ -327,6 +327,7 @@ struct device {
 	device_state_cb set_state;
 
 	const struct device_hotplug_ops *hotplug_ops;
+	struct blob_attr *hotplug_link;
 
 	struct device_user parent;
 

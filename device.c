@@ -1119,6 +1119,7 @@ device_free(struct device *dev)
 	__devlock++;
 	free(dev->auth_vlans);
 	free(dev->config);
+	free(dev->hotplug_link);
 	device_cleanup(dev);
 	free(dev->tags);
 	free(dev->config_auth_vlans);

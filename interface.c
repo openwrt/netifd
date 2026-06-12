@@ -29,6 +29,20 @@
 
 struct vlist_tree interfaces;
 static LIST_HEAD(iface_all_users);
+static struct blob_buf b;
+
+enum {
+	LINK_ATTR_NETWORK,
+	LINK_ATTR_DEVICE,
+	LINK_ATTR_VLAN,
+	__LINK_ATTR_MAX,
+};
+
+static const struct blobmsg_policy link_policy[__LINK_ATTR_MAX] = {
+	[LINK_ATTR_NETWORK] = { "network", BLOBMSG_TYPE_STRING },
+	[LINK_ATTR_DEVICE] = { "device", BLOBMSG_TYPE_STRING },
+	[LINK_ATTR_VLAN] = { "vlan", BLOBMSG_TYPE_ARRAY },
+};
 
 enum {
 	IFACE_ATTR_DEVICE,
@@ -1113,24 +1127,99 @@ interface_add_link(struct interface *iface, struct device *dev,
 	return 0;
 }
 
+/*
+ * Drop a hotplug member from the master it was last assigned to. The previous
+ * assignment is described entirely by stored data (master ifname + vlan), so it
+ * can be released even when the device was reassigned without a netdev down/up
+ * cycle. A missing master or member is harmless: the release is a no-op.
+ */
+static void
+interface_hotplug_link_release(struct device *dev)
+{
+	struct blob_attr *tb[__LINK_ATTR_MAX];
+	struct blob_attr *vlan;
+	struct device *mdev;
+	struct interface *iface;
+
+	if (!dev->hotplug_link)
+		return;
+
+	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb, dev->hotplug_link);
+	vlan = tb[LINK_ATTR_VLAN];
+
+	if (tb[LINK_ATTR_DEVICE]) {
+		mdev = device_get(blobmsg_get_string(tb[LINK_ATTR_DEVICE]), 0);
+		if (mdev && mdev->hotplug_ops)
+			mdev->hotplug_ops->del(mdev, dev, vlan);
+	} else if (tb[LINK_ATTR_NETWORK]) {
+		iface = vlist_find(&interfaces, blobmsg_get_string(tb[LINK_ATTR_NETWORK]), iface, node);
+		if (iface)
+			interface_remove_link(iface, dev, vlan);
+	}
+
+	free(dev->hotplug_link);
+	dev->hotplug_link = NULL;
+}
+
 int
 interface_handle_link(struct interface *iface, const char *name,
 		      struct blob_attr *vlan, bool add, bool link_ext)
 {
-	struct device *dev;
+	struct device *dev, *mdev;
+	const char *master;
+	struct blob_attr *link = NULL;
+	int ret;
 
 	dev = device_get(name, add ? (link_ext ? 2 : 1) : 0);
 	if (!dev)
 		return UBUS_STATUS_NOT_FOUND;
 
-	if (!add)
-		return interface_remove_link(iface, dev, vlan);
+	if (!add) {
+		ret = interface_remove_link(iface, dev, vlan);
+		if (!ret) {
+			free(dev->hotplug_link);
+			dev->hotplug_link = NULL;
+		}
+		return ret;
+	}
 
 	interface_set_device_config(iface, dev);
 	if (!link_ext)
 		device_set_present(dev, true);
 
-	return interface_add_link(iface, dev, vlan, link_ext);
+	/*
+	 * The master is the interface's configured device, or none when the
+	 * device is hotplug-assigned directly as the interface's main device
+	 * (unbridged interface without a configured device).
+	 */
+	mdev = iface->main_dev.dev;
+	master = (mdev && !iface->main_dev.hotplug) ? mdev->ifname : NULL;
+
+	blob_buf_init(&b, 0);
+	blobmsg_add_string(&b, "network", iface->name);
+	if (master)
+		blobmsg_add_string(&b, "device", master);
+	if (vlan)
+		blobmsg_add_field(&b, blobmsg_type(vlan), "vlan",
+				  blobmsg_data(vlan), blobmsg_data_len(vlan));
+	if (!dev->hotplug_link || !blob_attr_equal(dev->hotplug_link, b.head)) {
+		link = blob_memdup(b.head);
+		if (dev->hotplug_link)
+			interface_hotplug_link_release(dev);
+	}
+
+	ret = interface_add_link(iface, dev, vlan, link_ext);
+	if (ret) {
+		free(link);
+		return ret;
+	}
+
+	if (link) {
+		free(dev->hotplug_link);
+		dev->hotplug_link = link;
+	}
+
+	return 0;
 }
 
 void
