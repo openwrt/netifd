@@ -2795,6 +2795,17 @@ int system_if_down(struct device *dev)
 	return system_if_flags(dev->ifname, 0, IFF_UP);
 }
 
+bool system_if_is_point_to_point(struct device *dev)
+{
+	struct ifreq ifr = {};
+
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) < 0)
+		return false;
+
+	return ifr.ifr_flags & IFF_POINTOPOINT;
+}
+
 struct if_check_data {
 	struct device *dev;
 	int pending;
@@ -3707,7 +3718,8 @@ static int system_addr(struct device *dev, struct device_addr *addr, int cmd)
 
 		nla_put(msg, IFA_CACHEINFO, sizeof(cinfo), &cinfo);
 
-		if (cmd == RTM_NEWADDR && (addr->flags & DEVADDR_OFFLINK))
+		if (cmd == RTM_NEWADDR && (addr->flags & DEVADDR_OFFLINK) &&
+		    !system_if_is_point_to_point(dev))
 			nla_put_u32(msg, IFA_FLAGS, IFA_F_NOPREFIXROUTE);
 	}
 

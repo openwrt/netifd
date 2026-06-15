@@ -141,6 +141,11 @@ int system_if_check(struct device *dev)
 	return 0;
 }
 
+bool system_if_is_point_to_point(struct device *dev)
+{
+	return false;
+}
+
 int system_if_resolve(struct device *dev)
 {
 	return 1;

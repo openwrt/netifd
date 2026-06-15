@@ -110,6 +110,24 @@ clear_if_addr(union if_addr *a, int mask)
 }
 
 static bool
+addr_is_offlink(struct device *dev, struct device_addr *addr)
+{
+	/*
+	 * The offlink mechanism (suppress the kernel connected route and add an
+	 * unreachable prefix route as a loop guard) only makes sense on shared
+	 * segments. A point-to-point link has a single peer and no loop risk, so
+	 * the kernel connected route is the correct way to reach the prefix there.
+	 *
+	 * Query the device state live rather than caching it: this is only called
+	 * while applying an address to a device that is already up, so the flag is
+	 * guaranteed to be available, with none of the ordering races a cached
+	 * value would introduce.
+	 */
+	return (addr->flags & DEVADDR_OFFLINK) &&
+	       !(dev && system_if_is_point_to_point(dev));
+}
+
+static bool
 match_if_addr(union if_addr *a1, union if_addr *a2, int mask)
 {
 	union if_addr *p1, *p2;
@@ -597,7 +615,7 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 	struct device *dev = iface->l3_dev.dev;
 	struct device_route *r = &addr->subnet;
 
-	if (addr->flags & DEVADDR_OFFLINK)
+	if (addr_is_offlink(dev, addr))
 		return;
 
 	if (!add) {
@@ -714,7 +732,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				interface_handle_subnet_route(iface, a_old, false);
 				system_del_address(dev, a_old);
 
-				if ((a_old->flags & DEVADDR_OFFLINK) && (a_old->mask < (v6 ? 128 : 32))) {
+				if (addr_is_offlink(dev, a_old) && (a_old->mask < (v6 ? 128 : 32))) {
 					struct device_route route;
 
 					memset(&route, 0, sizeof(route));
@@ -754,7 +772,7 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 			if (!keep) {
 				if (!(a_new->flags & DEVADDR_EXTERNAL) &&
-				    (a_new->flags & DEVADDR_OFFLINK) &&
+				    addr_is_offlink(dev, a_new) &&
 				    (a_new->mask < (v6 ? 128 : 32))) {
 					struct device_route route;
 
@@ -1682,7 +1700,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			if (iface->metric || addr->policy_table)
 				interface_handle_subnet_route(iface, addr, true);
 
-			if ((addr->flags & DEVADDR_OFFLINK) && (addr->mask < (v6 ? 128 : 32))) {
+			if (addr_is_offlink(dev, addr) && (addr->mask < (v6 ? 128 : 32))) {
 				struct device_route route;
 
 				memset(&route, 0, sizeof(route));
@@ -1706,7 +1724,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			interface_handle_subnet_route(iface, addr, false);
 			system_del_address(dev, addr);
 
-			if ((addr->flags & DEVADDR_OFFLINK) && (addr->mask < (v6 ? 128 : 32))) {
+			if (addr_is_offlink(dev, addr) && (addr->mask < (v6 ? 128 : 32))) {
 				struct device_route route;
 
 				memset(&route, 0, sizeof(route));
