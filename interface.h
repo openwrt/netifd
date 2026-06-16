@@ -126,6 +126,9 @@ struct interface {
 	bool link_up_event;
 	bool renew;
 
+	unsigned int carrier_loss_delay;
+	struct uloop_timeout carrier_loss_timer;
+
 	time_t start_time;
 	enum interface_state state;
 	enum interface_config_state config_state;

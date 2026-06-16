@@ -31,6 +31,8 @@ struct vlist_tree interfaces;
 static LIST_HEAD(iface_all_users);
 static struct blob_buf b;
 
+#define CARRIER_LOSS_DELAY_MAX 3600
+
 enum {
 	LINK_ATTR_NETWORK,
 	LINK_ATTR_DEVICE,
@@ -72,6 +74,7 @@ enum {
 	IFACE_ATTR_FORCE_LINK,
 	IFACE_ATTR_IP6WEIGHT,
 	IFACE_ATTR_TAGS,
+	IFACE_ATTR_CARRIER_LOSS_DELAY,
 	IFACE_ATTR_MAX
 };
 
@@ -103,6 +106,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6WEIGHT] = { .name = "ip6weight", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
+	[IFACE_ATTR_CARRIER_LOSS_DELAY] = { .name = "carrier_loss_delay", .type = BLOBMSG_TYPE_INT32 },
 };
 
 const struct uci_blob_param_list interface_attr_list = {
@@ -310,6 +314,7 @@ mark_interface_down(struct interface *iface)
 	if (state == IFS_DOWN)
 		return;
 
+	uloop_timeout_cancel(&iface->carrier_loss_timer);
 	iface->link_up_event = false;
 	iface->state = IFS_DOWN;
 	switch (state) {
@@ -343,6 +348,7 @@ __interface_set_down(struct interface *iface, bool force)
 	switch (state) {
 	case IFS_UP:
 	case IFS_SETUP:
+		uloop_timeout_cancel(&iface->carrier_loss_timer);
 		iface->state = IFS_TEARDOWN;
 		if (iface->dynamic)
 			__set_config_state(iface, IFC_REMOVE);
@@ -383,12 +389,14 @@ __interface_set_up(struct interface *iface)
 static void
 interface_check_state(struct interface *iface)
 {
-	bool link_state = iface->link_state || interface_force_link(iface);
+	bool link_state = iface->link_state || interface_force_link(iface) ||
+			  iface->carrier_loss_timer.pending;
 
 	switch (iface->state) {
 	case IFS_UP:
 	case IFS_SETUP:
 		if (!iface->enabled || !link_state) {
+			uloop_timeout_cancel(&iface->carrier_loss_timer);
 			iface->state = IFS_TEARDOWN;
 			if (iface->dynamic)
 				__set_config_state(iface, IFC_REMOVE);
@@ -420,6 +428,20 @@ interface_set_enabled(struct interface *iface, bool new_state)
 }
 
 static void
+interface_carrier_loss_timeout(struct uloop_timeout *t)
+{
+	struct interface *iface = container_of(t, struct interface, carrier_loss_timer);
+
+	if (iface->link_state)
+		return;
+
+	netifd_log_message(L_NOTICE,
+			   "Interface '%s' carrier-loss grace expired; tearing down\n",
+			   iface->name);
+	interface_check_state(iface);
+}
+
+static void
 interface_set_link_state(struct interface *iface, bool new_state)
 {
 	if (iface->link_state == new_state)
@@ -427,6 +449,25 @@ interface_set_link_state(struct interface *iface, bool new_state)
 
 	netifd_log_message(L_NOTICE, "Interface '%s' has link connectivity %s\n", iface->name, new_state ? "" : "loss");
 	iface->link_state = new_state;
+
+	if (!new_state && iface->carrier_loss_delay && iface->state == IFS_UP &&
+	    !interface_force_link(iface)) {
+		iface->carrier_loss_timer.cb = interface_carrier_loss_timeout;
+		uloop_timeout_set(&iface->carrier_loss_timer,
+				  iface->carrier_loss_delay * 1000);
+		netifd_log_message(L_NOTICE,
+				   "Interface '%s' holding teardown for %us after carrier loss\n",
+				   iface->name, iface->carrier_loss_delay);
+		return;
+	}
+
+	if (new_state && iface->carrier_loss_timer.pending) {
+		uloop_timeout_cancel(&iface->carrier_loss_timer);
+		netifd_log_message(L_NOTICE,
+				   "Interface '%s' carrier returned within grace window; cancelling teardown\n",
+				   iface->name);
+	}
+
 	interface_check_state(iface);
 
 	if (new_state && interface_force_link(iface) &&
@@ -703,6 +744,7 @@ interface_cleanup(struct interface *iface)
 	struct interface_user *dep, *tmp;
 
 	uloop_timeout_cancel(&iface->remove_timer);
+	uloop_timeout_cancel(&iface->carrier_loss_timer);
 	device_remove_user(&iface->ext_dev);
 
 	if (iface->parent_iface.iface)
@@ -872,6 +914,13 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	iface->autostart = blobmsg_get_bool_default(tb[IFACE_ATTR_AUTO], true);
 	iface->renew = blobmsg_get_bool_default(tb[IFACE_ATTR_RENEW], true);
 	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], force_link);
+	if ((cur = tb[IFACE_ATTR_CARRIER_LOSS_DELAY])) {
+		uint32_t delay = blobmsg_get_u32(cur);
+
+		if (delay > CARRIER_LOSS_DELAY_MAX)
+			delay = CARRIER_LOSS_DELAY_MAX;
+		iface->carrier_loss_delay = delay;
+	}
 	iface->dynamic = dynamic;
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
@@ -1443,6 +1492,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->dynamic = if_new->dynamic;
 	if_old->proto_handler = if_new->proto_handler;
 	if_old->force_link = if_new->force_link;
+	if_old->carrier_loss_delay = if_new->carrier_loss_delay;
 	if_old->dns_metric = if_new->dns_metric;
 
 	if (if_old->proto_ip.no_delegation != if_new->proto_ip.no_delegation) {
