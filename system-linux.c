@@ -611,6 +611,11 @@ static void system_bridge_set_unicast_flood(struct device *dev, const char *val)
 	system_set_dev_sysfs("brport/unicast_flood", dev->ifname, val);
 }
 
+static void system_bridge_set_broadcast_flood(struct device *dev, const char *val)
+{
+	system_set_dev_sysfs("brport/broadcast_flood", dev->ifname, val);
+}
+
 static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/conf", "disable_ipv6",
@@ -1024,6 +1029,10 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 	if (dev->settings.flags & DEV_OPT_UNICAST_FLOOD &&
 	    !dev->settings.unicast_flood)
 		system_bridge_set_unicast_flood(dev, "0");
+
+	if (dev->settings.flags & DEV_OPT_BROADCAST_FLOOD &&
+	    !dev->settings.broadcast_flood)
+		system_bridge_set_broadcast_flood(dev, "0");
 
 	if (dev->settings.flags & DEV_OPT_ISOLATE &&
 	    dev->settings.isolate)

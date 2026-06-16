@@ -54,6 +54,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_MULTICAST] = { .name ="multicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_LEARNING] = { .name ="learning", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_UNICAST_FLOOD] = { .name ="unicast_flood", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_BROADCAST_FLOOD] = { .name ="broadcast_flood", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_SENDREDIRECTS] = { .name = "sendredirects", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_NEIGHLOCKTIME] = { .name = "neighlocktime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
@@ -293,6 +294,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->multicast_fast_leave = s->multicast_fast_leave;
 	n->learning = s->learning;
 	n->unicast_flood = s->unicast_flood;
+	n->broadcast_flood = s->broadcast_flood;
 	n->sendredirects = s->flags & DEV_OPT_SENDREDIRECTS ?
 		s->sendredirects : os->sendredirects;
 	n->drop_v4_unicast_in_l2_multicast = s->flags & DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST ?
@@ -496,6 +498,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_UNICAST_FLOOD])) {
 		s->unicast_flood = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_UNICAST_FLOOD;
+	}
+
+	if ((cur = tb[DEV_ATTR_BROADCAST_FLOOD])) {
+		s->broadcast_flood = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_BROADCAST_FLOOD;
 	}
 
 	if ((cur = tb[DEV_ATTR_SENDREDIRECTS])) {
@@ -1567,6 +1574,8 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "learning", st.learning);
 		if (st.flags & DEV_OPT_UNICAST_FLOOD)
 			blobmsg_add_u8(b, "unicast_flood", st.unicast_flood);
+		if (st.flags & DEV_OPT_BROADCAST_FLOOD)
+			blobmsg_add_u8(b, "broadcast_flood", st.broadcast_flood);
 		if (st.flags & DEV_OPT_SENDREDIRECTS)
 			blobmsg_add_u8(b, "sendredirects", st.sendredirects);
 		if (st.flags & DEV_OPT_DROP_V4_UNICAST_IN_L2_MULTICAST)
