@@ -60,6 +60,14 @@ ADD_CUSTOM_TARGET(ethtool-modes-h DEPENDS ethtool-modes.h)
 IF("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" AND NOT DUMMY_MODE)
 	SET(SOURCES ${SOURCES} system-linux.c)
 	SET(LIBS ${LIBS} ${LIBNL_LIBS})
+	include(CheckCSourceCompiles)
+	check_c_source_compiles("
+#include <linux/ethtool_netlink.h>
+int main(void) { return ETHTOOL_A_PSE_PRIO; }
+" HAVE_ETHTOOL_A_PSE_PRIO)
+	IF(HAVE_ETHTOOL_A_PSE_PRIO)
+		ADD_DEFINITIONS(-DHAVE_ETHTOOL_A_PSE_PRIO)
+	ENDIF()
 ELSE()
 	ADD_DEFINITIONS(-DDUMMY_MODE=1)
 	SET(SOURCES ${SOURCES} system-dummy.c)

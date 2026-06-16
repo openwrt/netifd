@@ -2211,10 +2211,12 @@ static int cb_pse_get_reply(struct nl_msg *msg, void *arg)
 		data->podl_admin_state = nla_get_u32(tb[ETHTOOL_A_PODL_PSE_ADMIN_STATE]);
 	if (tb[ETHTOOL_A_PODL_PSE_PW_D_STATUS])
 		data->podl_pw_status = nla_get_u32(tb[ETHTOOL_A_PODL_PSE_PW_D_STATUS]);
+#ifdef HAVE_ETHTOOL_A_PSE_PRIO
 	if (tb[ETHTOOL_A_PSE_PRIO_MAX])
 		data->pse_prio_max = nla_get_u32(tb[ETHTOOL_A_PSE_PRIO_MAX]);
 	if (tb[ETHTOOL_A_PSE_PRIO])
 		data->pse_prio = nla_get_u32(tb[ETHTOOL_A_PSE_PRIO]);
+#endif
 
 	return NL_OK;
 }
@@ -2395,8 +2397,10 @@ static int system_pse_set(struct device *dev, struct device_settings *s)
 	if (s->flags & DEV_OPT_PSE_POWER_LIMIT)
 		nla_put_u32(msg, ETHTOOL_A_C33_PSE_AVAIL_PW_LIMIT, s->pse_power_limit);
 
+#ifdef HAVE_ETHTOOL_A_PSE_PRIO
 	if (s->flags & DEV_OPT_PSE_PRIORITY)
 		nla_put_u32(msg, ETHTOOL_A_PSE_PRIO, s->pse_priority);
+#endif
 
 	cb_data.pending = 1;
 	cb_data.err = 0;
