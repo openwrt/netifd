@@ -57,6 +57,7 @@ static_handler(struct interface_proto_state *proto,
 		break;
 	case PROTO_CMD_TEARDOWN:
 	case PROTO_CMD_RENEW:
+	case PROTO_CMD_RESTART:
 		break;
 	}
 

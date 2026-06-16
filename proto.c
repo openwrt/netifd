@@ -671,6 +671,7 @@ interface_proto_event(struct interface_proto_state *proto,
 		ev = IFPEV_DOWN;
 		break;
 	case PROTO_CMD_RENEW:
+	case PROTO_CMD_RESTART:
 		ev = IFPEV_RENEW;
 		break;
 	default:

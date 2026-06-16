@@ -31,6 +31,7 @@ enum interface_proto_cmd {
 	PROTO_CMD_SETUP,
 	PROTO_CMD_TEARDOWN,
 	PROTO_CMD_RENEW,
+	PROTO_CMD_RESTART,
 };
 
 enum {
@@ -43,6 +44,7 @@ enum {
 	PROTO_FLAG_TEARDOWN_ON_L3_LINK_DOWN = (1 << 6),
 	PROTO_FLAG_NO_TASK = (1 << 7),
 	PROTO_FLAG_NODEV_CONFIG = (1 << 8),
+	PROTO_FLAG_RESTART_AVAILABLE = (1 << 9),
 };
 
 struct interface_proto_state {

@@ -46,6 +46,11 @@ _proto_do_renew() {
 	eval "proto_$1_renew \"$interface\" \"$ifname\""
 }
 
+_proto_do_restart() {
+	json_load "$data"
+	eval "proto_$1_restart \"$interface\" \"$ifname\""
+}
+
 _proto_do_setup() {
 	json_load "$data"
 	_EXPORT_VAR=0
@@ -445,6 +450,8 @@ init_proto() {
 				no_proto_task=0
 				available=0
 				renew_handler=0
+				restart_handler=0
+				type "proto_$1_restart" >/dev/null 2>&1 && restart_handler=1
 				teardown_on_l3_link_down=0
 
 				add_default_handler "proto_$1_init_config"
@@ -459,12 +466,13 @@ init_proto() {
 				json_add_boolean no-proto-task "$no_proto_task"
 				json_add_boolean available "$available"
 				json_add_boolean renew-handler "$renew_handler"
+				json_add_boolean restart-handler "$restart_handler"
 				json_add_boolean lasterror "$lasterror"
 				json_add_boolean teardown-on-l3-link-down "$teardown_on_l3_link_down"
 				json_dump
 			}
 		;;
-		setup|teardown|renew)
+		setup|teardown|renew|restart)
 			interface="$1"; shift
 			data="$1"; shift
 			ifname="$1"; shift
@@ -476,6 +484,7 @@ init_proto() {
 					setup) _proto_do_setup "$1";;
 					teardown) _proto_do_teardown "$1" ;;
 					renew) _proto_do_renew "$1" ;;
+					restart) _proto_do_restart "$1" ;;
 					*) return 1 ;;
 				esac
 			}

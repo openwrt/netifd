@@ -747,6 +747,16 @@ proto_ext_run(struct proto_ext_state *state,
 
 		state->renew_pending = false;
 		action = "renew";
+	} else if (cmd == PROTO_CMD_RESTART) {
+		if (!(proto->handler->flags & PROTO_FLAG_RESTART_AVAILABLE))
+			return 0;
+
+		/* Don't queue a restart while a script task is mid-run; the
+		 * caller can retry once it has finished. */
+		if (state->script_task.uloop.pending)
+			return 0;
+
+		action = "restart";
 	} else {
 		switch (state->sm) {
 		case S_SETUP:

@@ -224,6 +224,10 @@ uc_netifd_add_proto_fn(uc_vm_t *vm, size_t nargs)
 	if (ucv_is_truish(flag_val))
 		proto->flags |= PROTO_FLAG_RENEW_AVAILABLE;
 
+	flag_val = ucv_object_get(obj, "restart", NULL);
+	if (ucv_is_callable(flag_val))
+		proto->flags |= PROTO_FLAG_RESTART_AVAILABLE;
+
 	flag_val = ucv_object_get(obj, "lasterror", NULL);
 	if (ucv_is_truish(flag_val))
 		proto->flags |= PROTO_FLAG_LASTERROR;

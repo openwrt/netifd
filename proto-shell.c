@@ -128,6 +128,10 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_RENEW_AVAILABLE;
 
+	tmp = json_get_field(obj, "restart-handler", json_type_boolean);
+	if (tmp && json_object_get_boolean(tmp))
+		handler->proto.flags |= PROTO_FLAG_RESTART_AVAILABLE;
+
 	tmp = json_get_field(obj, "lasterror", json_type_boolean);
 	if (tmp && json_object_get_boolean(tmp))
 		handler->proto.flags |= PROTO_FLAG_LASTERROR;

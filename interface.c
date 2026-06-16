@@ -118,6 +118,8 @@ static void
 interface_set_main_dev(struct interface *iface, struct device *dev);
 static void
 interface_event(struct interface *iface, enum interface_event ev);
+static void
+set_config_state(struct interface *iface, enum interface_config_state s);
 
 static void
 interface_error_flush(struct interface *iface)
@@ -1323,6 +1325,28 @@ interface_renew(struct interface *iface)
 		return -1;
 
 	return interface_proto_event(iface->proto, PROTO_CMD_RENEW, false);
+}
+
+int
+interface_restart(struct interface *iface)
+{
+	if (iface->state == IFS_TEARDOWN || iface->state == IFS_DOWN)
+		return -1;
+
+	if (iface->proto->handler->flags & PROTO_FLAG_RESTART_AVAILABLE)
+		return interface_proto_event(iface->proto, PROTO_CMD_RESTART, false);
+
+	/*
+	 * Without a restart handler, bounce the interface via a full reload.
+	 * A dynamic interface would be removed rather than reloaded, so leave
+	 * it untouched.
+	 */
+	if (iface->dynamic)
+		return -1;
+
+	set_config_state(iface, IFC_RELOAD);
+
+	return 0;
 }
 
 void

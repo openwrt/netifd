@@ -489,6 +489,19 @@ netifd_handle_renew(struct ubus_context *ctx, struct ubus_object *obj,
 	return 0;
 }
 
+static int
+netifd_handle_iface_restart(struct ubus_context *ctx, struct ubus_object *obj,
+			    struct ubus_request_data *req, const char *method,
+			    struct blob_attr *msg)
+{
+	struct interface *iface;
+
+	iface = container_of(obj, struct interface, ubus);
+	interface_restart(iface);
+
+	return 0;
+}
+
 static void
 netifd_add_interface_errors(struct blob_buf *b, struct interface *iface)
 {
@@ -1099,6 +1112,7 @@ static struct ubus_method iface_object_methods[] = {
 	{ .name = "up", .handler = netifd_handle_up },
 	{ .name = "down", .handler = netifd_handle_down },
 	{ .name = "renew", .handler = netifd_handle_renew },
+	{ .name = "restart", .handler = netifd_handle_iface_restart },
 	{ .name = "status", .handler = netifd_handle_status },
 	{ .name = "prepare", .handler = netifd_handle_iface_prepare },
 	{ .name = "dump", .handler = netifd_handle_dump },
