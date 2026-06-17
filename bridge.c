@@ -1046,7 +1046,8 @@ bridge_free(struct device *dev)
 
 	system_bridge_delbr(dev);
 
-	kvlist_free(&dev->vlan_aliases);
+	if (dev->vlan_aliases.get_len)
+		kvlist_free(&dev->vlan_aliases);
 	free(bst->config_data);
 	free(bst);
 }

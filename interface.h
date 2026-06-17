@@ -113,6 +113,7 @@ struct interface {
 	char *jail_device;
 	char *host_device;
 	int netns_fd;
+	bool jail_pending;
 
 	bool available;
 	bool autostart;
@@ -122,6 +123,7 @@ struct interface {
 	bool link_state;
 	bool force_link;
 	bool dynamic;
+	bool persistent;
 	bool policy_rules_set;
 	bool link_up_event;
 	bool renew;

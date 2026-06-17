@@ -19,6 +19,7 @@
 
 #include "netifd.h"
 #include "interface.h"
+#include "device.h"
 #include "proto.h"
 #include "ubus.h"
 #include "system.h"
@@ -202,12 +203,88 @@ netifd_netns_updown(struct ubus_context *ctx, struct ubus_object *obj,
 	return UBUS_STATUS_OK;
 }
 
+enum {
+	CDEV_NAME,
+	CDEV_TYPE,
+	__CDEV_MAX
+};
+
+static const struct blobmsg_policy create_device_policy[__CDEV_MAX] = {
+	[CDEV_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
+	[CDEV_TYPE] = { .name = "type", .type = BLOBMSG_TYPE_STRING },
+};
+
+static int
+netifd_create_device(struct ubus_context *ctx, struct ubus_object *obj,
+		     struct ubus_request_data *req, const char *method,
+		     struct blob_attr *msg)
+{
+	struct blob_attr *tb[__CDEV_MAX];
+	struct device_type *type;
+	struct device *dev;
+
+	blobmsg_parse_attr(create_device_policy, __CDEV_MAX, tb, msg);
+
+	if (!tb[CDEV_NAME] || !tb[CDEV_TYPE])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	type = device_type_get(blobmsg_get_string(tb[CDEV_TYPE]));
+	if (!type || !type->create)
+		return UBUS_STATUS_NOT_SUPPORTED;
+
+	dev = device_create(blobmsg_get_string(tb[CDEV_NAME]), type, msg);
+	if (!dev)
+		return UBUS_STATUS_UNKNOWN_ERROR;
+
+	dev->dynamic = true;
+
+	return UBUS_STATUS_OK;
+}
+
+enum {
+	DDEV_NAME,
+	__DDEV_MAX
+};
+
+static const struct blobmsg_policy delete_device_policy[__DDEV_MAX] = {
+	[DDEV_NAME] = { .name = "name", .type = BLOBMSG_TYPE_STRING },
+};
+
+static int
+netifd_delete_device(struct ubus_context *ctx, struct ubus_object *obj,
+		     struct ubus_request_data *req, const char *method,
+		     struct blob_attr *msg)
+{
+	struct blob_attr *tb[__DDEV_MAX];
+	struct device *dev;
+
+	blobmsg_parse_attr(delete_device_policy, __DDEV_MAX, tb, msg);
+
+	if (!tb[DDEV_NAME])
+		return UBUS_STATUS_INVALID_ARGUMENT;
+
+	dev = device_find(blobmsg_get_string(tb[DDEV_NAME]));
+	if (!dev)
+		return UBUS_STATUS_NOT_FOUND;
+
+	if (!dev->dynamic)
+		return UBUS_STATUS_PERMISSION_DENIED;
+
+	dev->dynamic = false;
+	dev->current_config = false;
+	device_free_unused();
+
+	return UBUS_STATUS_OK;
+}
+
 static struct ubus_method main_object_methods[] = {
 	{ .name = "restart", .handler = netifd_handle_restart },
 	{ .name = "reload", .handler = netifd_handle_reload },
 	UBUS_METHOD("add_host_route", netifd_add_host_route, route_policy),
 	{ .name = "get_proto_handlers", .handler = netifd_get_proto_handlers },
 	UBUS_METHOD("add_dynamic", netifd_add_dynamic, dynamic_policy),
+	UBUS_METHOD("create_device", netifd_create_device, create_device_policy),
+	UBUS_METHOD("delete_device", netifd_delete_device, delete_device_policy),
 	UBUS_METHOD("netns_updown", netifd_netns_updown, netns_updown_policy),
 };
 
@@ -815,6 +892,7 @@ netifd_dump_status(struct interface *iface)
 	blobmsg_add_u8(&b, "available", iface->available);
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
 	blobmsg_add_u8(&b, "dynamic", iface->dynamic);
+	blobmsg_add_u8(&b, "persistent", iface->persistent);
 
 	if (iface->state == IFS_UP) {
 		time_t cur = system_get_rtime();

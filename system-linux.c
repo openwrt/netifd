@@ -1670,6 +1670,9 @@ int system_link_netns_move(struct device *dev, int netns_fd, const char *target_
 		return -1;
 
 	index = system_if_resolve(dev);
+	if (index <= 0)
+		return -1;
+
 	msg = __system_ifinfo_msg(AF_UNSPEC, index, target_ifname, RTM_NEWLINK, 0);
 	if (!msg)
 		return -1;

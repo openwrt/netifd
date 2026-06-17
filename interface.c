@@ -72,6 +72,7 @@ enum {
 	IFACE_ATTR_FORCE_LINK,
 	IFACE_ATTR_IP6WEIGHT,
 	IFACE_ATTR_TAGS,
+	IFACE_ATTR_PERSISTENT,
 	IFACE_ATTR_MAX
 };
 
@@ -103,6 +104,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_FORCE_LINK] = { .name = "force_link", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6WEIGHT] = { .name = "ip6weight", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
+	[IFACE_ATTR_PERSISTENT] = { .name = "persistent", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list interface_attr_list = {
@@ -114,6 +116,8 @@ static void
 interface_set_main_dev(struct interface *iface, struct device *dev);
 static void
 interface_event(struct interface *iface, enum interface_event ev);
+static void
+interface_handle_config_change(struct interface *iface);
 
 static void
 interface_error_flush(struct interface *iface)
@@ -390,7 +394,7 @@ interface_check_state(struct interface *iface)
 	case IFS_SETUP:
 		if (!iface->enabled || !link_state) {
 			iface->state = IFS_TEARDOWN;
-			if (iface->dynamic)
+			if (iface->dynamic && (!iface->persistent || !iface->enabled))
 				__set_config_state(iface, IFC_REMOVE);
 
 			interface_proto_event(iface->proto, PROTO_CMD_TEARDOWN, false);
@@ -444,19 +448,52 @@ interface_ext_dev_cb(struct device_user *dep, enum device_event ev)
 }
 
 static void
+interface_jail_pending_clear(struct interface *iface)
+{
+	if (iface->netns_fd >= 0) {
+		close(iface->netns_fd);
+		iface->netns_fd = -1;
+	}
+	iface->jail_pending = false;
+}
+
+static void
 interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 {
+	enum interface_state state;
 	struct interface *iface;
 
 	iface = container_of(dep, struct interface, main_dev);
+	state = iface->state;
 	switch (ev) {
 	case DEV_EVENT_ADD:
 		interface_set_available(iface, true);
+		if (iface->jail_pending &&
+		    !system_link_netns_move(iface->main_dev.dev, iface->netns_fd, iface->jail_device))
+			interface_jail_pending_clear(iface);
 		break;
 	case DEV_EVENT_REMOVE:
 		interface_set_available(iface, false);
 		if (dep->dev && dep->dev->external && !dep->dev->sys_present)
 			interface_set_main_dev(iface, NULL);
+
+		if (!iface->dynamic || !iface->persistent)
+			break;
+
+		/* persistent interfaces skip self-removal on teardown, remove
+		 * them here instead once the device itself is gone */
+		switch (state) {
+		case IFS_DOWN:
+			__set_config_state(iface, IFC_REMOVE);
+			interface_handle_config_change(iface);
+			break;
+		case IFS_TEARDOWN:
+			if (iface->config_state == IFC_NORMAL)
+				__set_config_state(iface, IFC_REMOVE);
+			break;
+		default:
+			break;
+		}
 		break;
 	case DEV_EVENT_UP:
 		interface_set_enabled(iface, true);
@@ -723,7 +760,17 @@ void interface_free(struct interface *iface)
 	free(iface->jail);
 	free(iface->jail_device);
 	free(iface->host_device);
+	if (iface->netns_fd >= 0)
+		close(iface->netns_fd);
 	free(iface);
+}
+
+static void
+interface_free_cb(struct uloop_timeout *timeout)
+{
+	struct interface *iface = container_of(timeout, struct interface, remove_timer);
+
+	interface_free(iface);
 }
 
 static void
@@ -733,7 +780,8 @@ interface_do_remove(struct interface *iface)
 	interface_cleanup(iface);
 	netifd_ubus_remove_interface(iface);
 	avl_delete(&interfaces.avl, &iface->node.avl);
-	interface_free(iface);
+	iface->remove_timer.cb = interface_free_cb;
+	uloop_timeout_set(&iface->remove_timer, 1);
 }
 
 static void
@@ -852,6 +900,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	avl_init(&iface->data, avl_strcmp, false, NULL);
 	iface->config_ip.enabled = false;
 
+	iface->netns_fd = -1;
 	iface->main_dev.cb = interface_main_dev_cb;
 	iface->l3_dev.cb = interface_l3_dev_cb;
 	iface->ext_dev.cb = interface_ext_dev_cb;
@@ -873,6 +922,7 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	iface->renew = blobmsg_get_bool_default(tb[IFACE_ATTR_RENEW], true);
 	iface->force_link = blobmsg_get_bool_default(tb[IFACE_ATTR_FORCE_LINK], force_link);
 	iface->dynamic = dynamic;
+	iface->persistent = blobmsg_get_bool_default(tb[IFACE_ATTR_PERSISTENT], false);
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
 	iface->proto_ip.no_dns =
@@ -1296,7 +1346,15 @@ interface_start_jail(int netns_fd, const char *jail)
 		if (!iface->jail || strcmp(iface->jail, jail))
 			continue;
 
-		system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_device);
+		interface_jail_pending_clear(iface);
+
+		if (!system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_device))
+			continue;
+
+		/* device not present yet: keep a reference to the jail netns and
+		 * complete the move once the device shows up (DEV_EVENT_ADD). */
+		iface->netns_fd = dup(netns_fd);
+		iface->jail_pending = iface->netns_fd >= 0;
 	}
 }
 
@@ -1307,6 +1365,10 @@ interface_stop_jail(int netns_fd)
 	char *orig_ifname;
 
 	vlist_for_each_element(&interfaces, iface, node) {
+		if (iface->jail_pending) {
+			interface_jail_pending_clear(iface);
+			continue;
+		}
 		orig_ifname = iface->host_device;
 		interface_set_down(iface);
 		system_link_netns_move(iface->main_dev.dev, netns_fd, orig_ifname);
@@ -1441,6 +1503,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->device = if_new->device;
 	if_old->parent_ifname = if_new->parent_ifname;
 	if_old->dynamic = if_new->dynamic;
+	if_old->persistent = if_new->persistent;
 	if_old->proto_handler = if_new->proto_handler;
 	if_old->force_link = if_new->force_link;
 	if_old->dns_metric = if_new->dns_metric;

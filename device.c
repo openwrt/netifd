@@ -1407,7 +1407,8 @@ device_reset_config(void)
 	struct device *dev;
 
 	avl_for_each_element(&devices, dev, avl)
-		dev->current_config = false;
+		if (!dev->dynamic)
+			dev->current_config = false;
 }
 
 void
@@ -1457,8 +1458,10 @@ device_create(const char *name, struct device_type *type,
 		return NULL;
 
 	dev = type->create(name, type, config);
-	if (!dev)
+	if (!dev) {
+		free(config);
 		return NULL;
+	}
 
 	dev->current_config = true;
 	dev->config = config;
