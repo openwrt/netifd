@@ -815,6 +815,7 @@ netifd_dump_status(struct interface *iface)
 	blobmsg_add_u8(&b, "available", iface->available);
 	blobmsg_add_u8(&b, "autostart", iface->autostart);
 	blobmsg_add_u8(&b, "dynamic", iface->dynamic);
+	blobmsg_add_u8(&b, "disable_addr_rules", iface->disable_addr_rules);
 
 	if (iface->state == IFS_UP) {
 		time_t cur = system_get_rtime();
@@ -859,6 +860,10 @@ netifd_dump_status(struct interface *iface)
 			blobmsg_add_u32(&b, "ip4table", iface->ip4table);
 		if (iface->ip6table)
 			blobmsg_add_u32(&b, "ip6table", iface->ip6table);
+		if (iface->ip4table_local)
+			blobmsg_add_u32(&b, "ip4table_local", iface->ip4table_local);
+		if (iface->ip6table_local)
+			blobmsg_add_u32(&b, "ip6table_local", iface->ip6table_local);
 		blobmsg_add_u32(&b, "metric", iface->metric);
 		blobmsg_add_u32(&b, "dns_metric", iface->dns_metric);
 		blobmsg_add_u8(&b, "delegation", !iface->proto_ip.no_delegation);

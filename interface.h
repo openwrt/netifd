@@ -125,6 +125,7 @@ struct interface {
 	bool policy_rules_set;
 	bool link_up_event;
 	bool renew;
+	bool disable_addr_rules;
 
 	time_t start_time;
 	enum interface_state state;
@@ -160,6 +161,8 @@ struct interface {
 	int dns_metric;
 	unsigned int ip4table;
 	unsigned int ip6table;
+	unsigned int ip4table_local;
+	unsigned int ip6table_local;
 
 	/* IPv6 assignment parameters */
 	enum interface_id_selection_type assignment_iface_id_selection;
