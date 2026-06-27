@@ -822,6 +822,7 @@ config_init_all(void)
 	device_reset_old();
 	device_init_pending();
 	vlist_flush(&interfaces);
+	interface_depends_validate();
 	interface_refresh_assignments(false);
 	interface_start_pending();
 	netifd_ucode_config_load(true);

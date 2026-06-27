@@ -33,6 +33,7 @@ static struct blob_buf b;
 
 #define CARRIER_LOSS_DELAY_MAX 3600
 
+
 enum {
 	LINK_ATTR_NETWORK,
 	LINK_ATTR_DEVICE,
@@ -75,6 +76,7 @@ enum {
 	IFACE_ATTR_IP6WEIGHT,
 	IFACE_ATTR_TAGS,
 	IFACE_ATTR_CARRIER_LOSS_DELAY,
+	IFACE_ATTR_DEPENDS,
 	IFACE_ATTR_MAX
 };
 
@@ -107,6 +109,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6WEIGHT] = { .name = "ip6weight", .type = BLOBMSG_TYPE_INT32 },
 	[IFACE_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_CARRIER_LOSS_DELAY] = { .name = "carrier_loss_delay", .type = BLOBMSG_TYPE_INT32 },
+	[IFACE_ATTR_DEPENDS] = { .name = "depends", .type = BLOBMSG_TYPE_STRING },
 };
 
 const struct uci_blob_param_list interface_attr_list = {
@@ -130,6 +133,224 @@ interface_error_flush(struct interface *iface)
 		list_del(&error->list);
 		free(error);
 	}
+}
+
+static void
+interface_depends_free(struct interface *iface)
+{
+	// Release parsed dependency storage owned by this interface.
+	free(iface->depv);
+	free(iface->depends);
+	iface->depv = NULL;
+	iface->depends = NULL;
+	iface->depc = 0;
+}
+
+static int
+interface_depends_parse(struct interface *iface, const char *depends)
+{
+	char *p, *save, *dep;
+	unsigned int depc = 0, i = 0;
+	bool in_dep = false;
+
+	if (!depends || !*depends){
+		netifd_log_message(L_NOTICE, "Interface '%s' has no dependencies\n", iface->name);
+		return 0;
+	}
+
+	// Count dependency names before allocating the pointer array.
+	for (p = (char *) depends; *p; p++) {
+		switch (*p) {
+		case ' ':
+		case '\t':
+		case '\r':
+		case '\n':
+			in_dep = false;
+			continue;
+		}
+
+		if (in_dep)
+			continue;
+
+		depc++;
+		in_dep = true;
+	}
+
+	if (!depc)
+		return 0;
+
+	iface->depends = strdup(depends);
+	if (!iface->depends)
+		return -1;
+
+	iface->depv = malloc(depc * sizeof(*iface->depv));
+	if (!iface->depv) {
+		free(iface->depends);
+		iface->depends = NULL;
+		return -1;
+	}
+
+	for (p = iface->depends; (dep = strtok_r(p, " \t\r\n", &save)); p = NULL)
+		iface->depv[i++] = dep;
+
+	iface->depc = i;
+
+	return 0;
+}
+
+static bool
+interface_depends_ready(struct interface *iface, const char **dep_name,
+			const char **reason)
+{
+	struct interface *dep;
+	unsigned int i;
+
+	// An invalid graph can never become runnable until the config changes.
+	if (iface->dep_invalid) {
+		if (dep_name)
+			*dep_name = NULL;
+		if (reason)
+			*reason = "invalid";
+		return false;
+	}
+
+	for (i = 0; i < iface->depc; i++) {
+		dep = vlist_find(&interfaces, iface->depv[i], dep, node);
+		if (!dep) {
+			if (dep_name)
+				*dep_name = iface->depv[i];
+			if (reason)
+				*reason = "missing";
+			return false;
+		}
+
+		if (dep->state != IFS_UP) {
+			if (dep_name)
+				*dep_name = dep->name;
+			if (reason)
+				*reason = "not_up";
+			return false;
+		}
+	}
+
+	if (dep_name)
+		*dep_name = NULL;
+	if (reason)
+		*reason = NULL;
+
+	return true;
+}
+
+static bool
+interface_depends_log_state(struct interface *iface)
+{
+	const char *dep_name = NULL;
+	const char *reason = NULL;
+
+	if (!iface->depc) {
+		iface->dep_blocked = false;
+		return true;
+	}
+
+	// Log the first blocked attempt, then stay quiet until dependencies recover.
+	if (!interface_depends_ready(iface, &dep_name, &reason)) {
+		if (!iface->dep_blocked) {
+			if (dep_name && reason && !strcmp(reason, "not_up"))
+				netifd_log_message(L_NOTICE,
+						   "Interface '%s' setup deferred, waiting for dependency '%s' to be up\n",
+						   iface->name, dep_name);
+			else if (dep_name && reason && !strcmp(reason, "missing"))
+				netifd_log_message(L_NOTICE,
+						   "Interface '%s' setup deferred, dependency '%s' is missing\n",
+						   iface->name, dep_name);
+			else
+				netifd_log_message(L_NOTICE,
+						   "Interface '%s' setup deferred by invalid dependency graph\n",
+						   iface->name);
+		}
+
+		iface->dep_blocked = true;
+		return false;
+	}
+
+	if (iface->dep_blocked)
+		netifd_log_message(L_NOTICE,
+				   "Interface '%s' retrying setup after dependencies are up\n",
+				   iface->name);
+
+	iface->dep_blocked = false;
+	return true;
+}
+
+static void
+interface_depends_mark_invalid(struct interface *iface, const char *reason)
+{
+	if (iface->dep_invalid)
+		return;
+
+	// Latch the error once so later readiness checks fail cheaply.
+	iface->dep_invalid = true;
+	iface->dep_blocked = false;
+	netifd_log_message(L_WARNING, "interface: %s invalid dependency %s\n",
+			  iface->name, reason);
+}
+
+static bool
+interface_depends_visit(struct interface *iface)
+{
+	struct interface *dep;
+	unsigned int i;
+
+	// Walk the graph once per reload and reject self-references and cycles.
+	if (iface->dep_stack) {
+		interface_depends_mark_invalid(iface, "cycle");
+		return false;
+	}
+
+	if (iface->dep_seen)
+		return !iface->dep_invalid;
+
+	iface->dep_seen = true;
+	iface->dep_stack = true;
+
+	for (i = 0; i < iface->depc; i++) {
+		if (!strcmp(iface->name, iface->depv[i])) {
+			interface_depends_mark_invalid(iface, "self");
+			continue;
+		}
+
+		dep = vlist_find(&interfaces, iface->depv[i], dep, node);
+		if (!dep)
+			continue;
+
+		if (dep->dep_stack) {
+			interface_depends_mark_invalid(dep, "cycle");
+			interface_depends_mark_invalid(iface, "cycle");
+			continue;
+		}
+
+		if (!interface_depends_visit(dep) && dep->dep_invalid)
+			interface_depends_mark_invalid(iface, "cycle");
+	}
+
+	iface->dep_stack = false;
+	return !iface->dep_invalid;
+}
+
+void
+interface_depends_validate(void)
+{
+	struct interface *iface;
+
+	// Reload rebuilds the graph, so all DFS markers must be reset first.
+	vlist_for_each_element(&interfaces, iface, node) {
+		iface->dep_invalid = false;
+		iface->dep_seen = false;
+		iface->dep_stack = false;
+	}
+
+	vlist_for_each_element(&interfaces, iface, node)
+		interface_depends_visit(iface);
 }
 
 static bool
@@ -410,8 +631,12 @@ interface_check_state(struct interface *iface)
 		if (!iface->available)
 			return;
 
-		if (iface->autostart && iface->enabled && link_state && !config_init)
+		if (iface->autostart && iface->enabled && link_state && !config_init) {
+			// Delay setup until every named dependency is already up.
+			if (!interface_depends_log_state(iface))
+				return;
 			__interface_set_up(iface);
+		}
 		break;
 	default:
 		break;
@@ -767,6 +992,7 @@ void interface_free(struct interface *iface)
 	free(iface->jail);
 	free(iface->jail_device);
 	free(iface->host_device);
+	interface_depends_free(iface);
 	free(iface);
 }
 
@@ -832,6 +1058,8 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 		iface->start_time = system_get_rtime();
 		interface_event(iface, IFEV_UP);
 		netifd_log_message(L_NOTICE, "Interface '%s' is now up\n", iface->name);
+		// A dependency becoming up can unblock other autostart interfaces.
+		interface_start_pending();
 		break;
 	case IFPEV_DOWN:
 		if (iface->state == IFS_DOWN)
@@ -923,6 +1151,12 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 			delay = CARRIER_LOSS_DELAY_MAX;
 		iface->carrier_loss_delay = delay;
 	}
+
+	if ((cur = tb[IFACE_ATTR_DEPENDS]) &&
+	    interface_depends_parse(iface, blobmsg_get_string(cur)))
+		netifd_log_message(L_WARNING,
+				  "interface: iface %s failed to parse depends\n",
+				  iface->name);
 	iface->dynamic = dynamic;
 	iface->proto_ip.no_defaultroute =
 		!blobmsg_get_bool_default(tb[IFACE_ATTR_DEFAULTROUTE], true);
@@ -1285,6 +1519,10 @@ interface_set_up(struct interface *iface)
 	if (iface->state != IFS_DOWN)
 		return;
 
+	// Manual ifup uses the same dependency gate as autostart.
+	if (!interface_depends_log_state(iface))
+		return;
+
 	interface_clear_errors(iface);
 	if (iface->available) {
 		if (iface->main_dev.dev) {
@@ -1355,8 +1593,14 @@ interface_start_pending(void)
 	struct interface *iface;
 
 	vlist_for_each_element(&interfaces, iface, node) {
-		if (iface->autostart)
-			interface_set_up(iface);
+		if (!iface->autostart)
+			continue;
+
+		if (iface->dep_invalid)
+			continue;
+
+		// Retry interfaces that were delayed only by dependency ordering.
+		interface_set_up(iface);
 	}
 }
 
@@ -1510,6 +1754,15 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	free(if_old->host_device);
 	if_old->host_device = if_new->host_device;
+
+	if (FIELD_CHANGED_STR(depends))
+		reload = true;
+	interface_depends_free(if_old);
+	if_old->depends = if_new->depends;
+	if_old->depv = if_new->depv;
+	if_old->depc = if_new->depc;
+	if_old->dep_invalid = if_new->dep_invalid;
+	if_old->dep_blocked = false;
 
 	if_old->device = if_new->device;
 	if_old->parent_ifname = if_new->parent_ifname;

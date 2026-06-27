@@ -112,6 +112,9 @@ struct interface {
 	char *jail;
 	char *jail_device;
 	char *host_device;
+	char *depends;
+	char **depv;
+	unsigned int depc;
 	int netns_fd;
 
 	bool available;
@@ -125,6 +128,11 @@ struct interface {
 	bool policy_rules_set;
 	bool link_up_event;
 	bool renew;
+	bool dep_invalid;
+	bool dep_seen;
+	bool dep_stack;
+	// Suppress repeated deferred logs until the dependency state changes.
+	bool dep_blocked;
 
 	unsigned int carrier_loss_delay;
 	struct uloop_timeout carrier_loss_timer;
@@ -215,6 +223,8 @@ int interface_parse_data(struct interface *iface, const struct blob_attr *attr);
 
 void interface_update_start(struct interface *iface, const bool keep_old);
 void interface_update_complete(struct interface *iface);
+
+void interface_depends_validate(void);
 
 void interface_start_pending(void);
 void interface_start_jail(int netns_fd, const char *jail);
