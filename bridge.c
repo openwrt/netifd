@@ -822,6 +822,7 @@ bridge_set_down(struct bridge_state *bst)
 {
 	struct bridge_member *bm;
 
+	uloop_timeout_cancel(&bst->retry);
 	bst->set_state(&bst->dev, false);
 
 	vlist_for_each_element(&bst->members, bm, node)
@@ -1041,6 +1042,7 @@ bridge_free(struct device *dev)
 	struct bridge_state *bst;
 
 	bst = container_of(dev, struct bridge_state, dev);
+	uloop_timeout_cancel(&bst->retry);
 	vlist_flush_all(&bst->members);
 	vlist_flush_all(&dev->vlans);
 
