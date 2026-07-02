@@ -4847,11 +4847,13 @@ static void system_vxlan_map_bool_attr(struct nl_msg *msg, struct blob_attr **tb
 		if (invert)
 			val = !val;
 
-		if ((attrtype == IFLA_VXLAN_GBP) && val)
-			nla_put_flag(msg, attrtype);
-		else 
-			nla_put_u8(msg, attrtype, val);
+		if (attrtype == IFLA_VXLAN_GBP) {
+			if (val)
+				nla_put_flag(msg, attrtype);
+			return;
+		}
 
+		nla_put_u8(msg, attrtype, val);
 	}
 }
 
