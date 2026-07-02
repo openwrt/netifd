@@ -265,6 +265,8 @@ config_device_add(const char *name, struct device_type *devtype,
 
 	if (devtype) {
 		dev = device_create(name, devtype, config);
+		if (!dev)
+			return;
 	} else {
 		dev = device_get(name, 1);
 		if (!dev)
