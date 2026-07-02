@@ -139,7 +139,8 @@ macvlan_dump_info(struct device *dev, struct blob_buf *b)
 	struct macvlan_device *mvdev;
 
 	mvdev = container_of(dev, struct macvlan_device, dev);
-	blobmsg_add_string(b, "parent", mvdev->parent.dev->ifname);
+	if (mvdev->parent.dev)
+		blobmsg_add_string(b, "parent", mvdev->parent.dev->ifname);
 	system_if_dump_info(dev, b);
 }
 
