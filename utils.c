@@ -219,5 +219,5 @@ uci_get_validate_string(const struct uci_blob_param_list *p, int i)
 	else if (uci_validate_name[p->params[i].type])
 		return uci_validate_name[p->params[i].type];
 
-	return p->validate[BLOBMSG_TYPE_STRING];
+	return uci_validate_name[BLOBMSG_TYPE_STRING];
 }
