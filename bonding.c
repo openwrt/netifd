@@ -263,6 +263,8 @@ error:
 	bdev->n_failed++;
 	bp->present = false;
 	bdev->n_present--;
+	if (bp == bdev->primary_port)
+		bonding_reset_primary(bdev);
 release:
 	device_release(&bp->dev);
 
