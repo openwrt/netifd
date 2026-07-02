@@ -988,8 +988,15 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	if ((cur = tb[IFACE_ATTR_METRIC]))
 		iface->metric = blobmsg_get_u32(cur);
 
-	if ((cur = tb[IFACE_ATTR_IP6ASSIGN]))
-		iface->assignment_length = blobmsg_get_u32(cur);
+	if ((cur = tb[IFACE_ATTR_IP6ASSIGN])) {
+		uint32_t assign = blobmsg_get_u32(cur);
+
+		if (assign <= 64)
+			iface->assignment_length = assign;
+		else
+			netifd_log_message(L_WARNING, "Invalid ip6assign value %u for interface '%s'\n",
+					   assign, iface->name);
+	}
 
 	/* defaults */
 	iface->assignment_iface_id_selection = IFID_FIXED;
@@ -1019,9 +1026,9 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 	}
 
 	iface->assignment_hint = -1;
-	if ((cur = tb[IFACE_ATTR_IP6HINT]))
+	if ((cur = tb[IFACE_ATTR_IP6HINT]) && iface->assignment_length)
 		iface->assignment_hint = strtol(blobmsg_get_string(cur), NULL, 16) &
-				~((1 << (64 - iface->assignment_length)) - 1);
+				~((1ull << (64 - iface->assignment_length)) - 1);
 
 	if ((cur = tb[IFACE_ATTR_IP6CLASS]))
 		interface_add_assignment_classes(iface, cur);
