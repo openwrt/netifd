@@ -1898,6 +1898,10 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 			if (route->valid_until && route->valid_until < now)
 				vlist_delete(&iface->proto_ip.route, &route->node);
 
+		vlist_for_each_element_safe(&iface->config_ip.route, route, node, routep)
+			if (route->valid_until && route->valid_until < now)
+				vlist_delete(&iface->config_ip.route, &route->node);
+
 		vlist_for_each_element_safe(&iface->proto_ip.prefix, pref, node, prefp)
 			if (pref->valid_until && pref->valid_until < now)
 				vlist_delete(&iface->proto_ip.prefix, &pref->node);
