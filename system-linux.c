@@ -4356,7 +4356,7 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 				struct blob_attr *tb_fmr[__FMR_DATA_ATTR_MAX], *tb_cur;
 				struct in6_addr ip6prefix;
 				struct in_addr ip4prefix;
-				unsigned ip4len, ip6len, ealen, offset;
+				unsigned ip4len = 32, ip6len = 128, ealen, offset;
 
 				blobmsg_parse_attr(fmr_data_attr_list.params, __FMR_DATA_ATTR_MAX,
 						   tb_fmr, rcur);
