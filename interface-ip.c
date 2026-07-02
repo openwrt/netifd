@@ -669,7 +669,6 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	struct device_addr *a_new = NULL, *a_old = NULL;
 	bool replace = false;
 	bool keep = false;
-	bool v6 = false;
 
 	ip = container_of(tree, struct interface_ip_settings, addr);
 	iface = ip->iface;
@@ -718,6 +717,8 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	}
 
 	if (node_old) {
+		bool v6 = (a_old->flags & DEVADDR_FAMILY) == DEVADDR_INET6;
+
 		if (a_old->enabled && !keep) {
 			/*
 			 * This is needed for source routing to work correctly. If a device
@@ -754,11 +755,9 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	}
 
 	if (node_new) {
+		bool v6 = (a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6;
+
 		a_new->enabled = true;
-
-		if ((a_new->flags & DEVADDR_FAMILY) == DEVADDR_INET6)
-			v6 = true;
-
 		a_new->policy_table = (v6) ? iface->ip6table : iface->ip4table;
 
 		if (!keep || replace) {
