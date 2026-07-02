@@ -1096,26 +1096,41 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 	}
 }
 
+/*
+ * Size of a sub-prefix in /64 units, saturated to the representable
+ * assignment space: prefixes shorter than /34 exceed the int32_t offset
+ * range used for assignments
+ */
+static int32_t prefix_assignment_space(uint8_t length)
+{
+	if (length < 34)
+		return INT32_MAX;
+
+	return 1 << (64 - length);
+}
+
 static bool interface_prefix_assign(struct list_head *list,
 		struct device_prefix_assignment *assign)
 {
-	int32_t current = 0, asize = (1 << (64 - assign->length)) - 1;
+	int32_t asize = (1 << (64 - assign->length)) - 1;
+	int64_t current = 0;
 	struct device_prefix_assignment *c;
+
 	list_for_each_entry(c, list, head) {
 		if (assign->assigned != -1) {
-			if (assign->assigned >= current && assign->assigned + asize < c->assigned) {
+			if (assign->assigned >= current && assign->assigned + (int64_t)asize < c->assigned) {
 				list_add_tail(&assign->head, &c->head);
 				return true;
 			}
 		} else if (assign->assigned == -1) {
-			current = (current + asize) & (~asize);
+			current = (current + asize) & ~(int64_t)asize;
 			if (current + asize < c->assigned) {
 				assign->assigned = current;
 				list_add_tail(&assign->head, &c->head);
 				return true;
 			}
 		}
-		current = (c->assigned + (1 << (64 - c->length)));
+		current = (int64_t)c->assigned + prefix_assignment_space(c->length);
 	}
 	return false;
 }
@@ -1162,7 +1177,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 	if (!c)
 		return;
 
-	c->assigned = 1 << (64 - prefix->length);
+	c->assigned = prefix_assignment_space(prefix->length);
 	c->length = 64;
 	c->name[0] = 0;
 	c->addr = in6addr_any;
@@ -1173,8 +1188,12 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 		const char name[] = "!excluded";
 		c = malloc(sizeof(*c) + sizeof(name));
 		if (c) {
-			c->assigned = ntohl(prefix->excl_addr.s6_addr32[1]) &
-					((1 << (64 - prefix->length)) - 1);
+			int32_t mask = prefix_assignment_space(prefix->length);
+
+			if (mask != INT32_MAX)
+				mask -= 1;
+
+			c->assigned = ntohl(prefix->excl_addr.s6_addr32[1]) & mask;
 			c->length = prefix->excl_length;
 			c->addr = in6addr_any;
 			memcpy(c->name, name, sizeof(name));

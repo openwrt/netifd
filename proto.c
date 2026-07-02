@@ -353,11 +353,23 @@ parse_prefix_option(struct interface *iface, const char *str, size_t len)
 
 		if (!strcmp(key, "excluded")) {
 			char *sep = strchr(val, '/');
+			int excl;
+
 			if (!sep)
 				return false;
 
 			*sep = 0;
-			excl_length = atoi(sep + 1);
+			excl = atoi(sep + 1);
+			if (excl < length || excl > 128)
+				return false;
+
+			/*
+			 * Assignments are made in /64 granularity: represent a
+			 * longer exclusion by excluding the containing /64
+			 */
+			if (excl > 64)
+				excl = 64;
+			excl_length = excl;
 
 			if (inet_pton(AF_INET6, val, &excluded) < 1)
 				return false;
