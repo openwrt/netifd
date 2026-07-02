@@ -750,6 +750,16 @@ interface_update_proto_addr(struct vlist_tree *tree,
 
 			}
 		}
+
+		/*
+		 * Keep the subnet route state so it can be deleted later. With
+		 * replace set the add path rebuilds it instead, and the copied
+		 * metric would poison the metric-agnostic delete of the
+		 * kernel-created prefix route there
+		 */
+		if (keep && !replace)
+			a_new->subnet = a_old->subnet;
+
 		free(a_old->pclass);
 		free(a_old);
 	}
