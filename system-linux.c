@@ -3171,18 +3171,18 @@ system_if_get_parent(struct device *dev)
 }
 
 static bool
-read_string_file(int dir_fd, const char *file, char *buf, int len)
+read_string_file(int dir_fd, const char *file, char *buf, int size)
 {
 	bool ret = false;
 	char *c;
-	int fd;
+	int fd, len;
 
 	fd = openat(dir_fd, file, O_RDONLY);
 	if (fd < 0)
 		return false;
 
 retry:
-	len = read(fd, buf, len - 1);
+	len = read(fd, buf, size - 1);
 	if (len < 0) {
 		if (errno == EINTR)
 			goto retry;
