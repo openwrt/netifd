@@ -188,17 +188,17 @@ bool check_pid_path(int pid, const char *exe)
 	proc_exe_len = proc_pidpath(pid, proc_exe_buf, sizeof(proc_exe_buf));
 #else
 	char proc_exe[32];
-	char *proc_exe_buf = alloca(exe_len);
+	char *proc_exe_buf = alloca(exe_len + deleted_len + 1);
 
 	sprintf(proc_exe, "/proc/%d/exe", pid);
-	proc_exe_len = readlink(proc_exe, proc_exe_buf, exe_len);
+	proc_exe_len = readlink(proc_exe, proc_exe_buf, exe_len + deleted_len + 1);
 #endif
 
 	if (proc_exe_len == exe_len)
 		return !memcmp(exe, proc_exe_buf, exe_len);
 	else if (proc_exe_len == exe_len + deleted_len)
 		return !memcmp(exe, proc_exe_buf, exe_len) &&
-			!memcmp(exe + exe_len, deleted, deleted_len);
+			!memcmp(proc_exe_buf + exe_len, deleted, deleted_len);
 	else
 		return false;
 }
