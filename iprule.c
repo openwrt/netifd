@@ -439,6 +439,19 @@ iprule_update_rule(struct vlist_tree *tree,
 	rule_old = container_of(node_old, struct iprule, node);
 	rule_new = container_of(node_new, struct iprule, node);
 
+	/*
+	 * An unchanged rule with an unchanged kernel priority can be kept
+	 * installed; interface-bound rules are managed through interface
+	 * events and keep the delete/re-add cycle
+	 */
+	if (node_new && node_old &&
+	    !(rule_new->flags & (IPRULE_IN | IPRULE_OUT)) &&
+	    ((rule_new->flags & IPRULE_PRIORITY) ||
+	     rule_new->order == rule_old->order)) {
+		free(rule_old);
+		return;
+	}
+
 	if (node_old) {
 		if (rule_ready(rule_old))
 			system_del_iprule(rule_old);
