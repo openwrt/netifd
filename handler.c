@@ -256,10 +256,16 @@ netifd_init_extdev_handlers(int dir_fd, create_extdev_handler_cb cb)
 	int prev_fd;
 
 	prev_fd = netifd_dir_push(dir_fd);
-	glob("*.json", 0, NULL, &g);
+	if (glob("*.json", 0, NULL, &g)) {
+		netifd_dir_pop(prev_fd);
+		return;
+	}
+
 	for (size_t i = 0; i < g.gl_pathc; i++)
 		netifd_parse_extdev_handler(g.gl_pathv[i], cb);
 	netifd_dir_pop(prev_fd);
+
+	globfree(&g);
 }
 
 char *
