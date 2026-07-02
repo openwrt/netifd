@@ -727,6 +727,7 @@ restart:
 		device_set_present(dev, true);
 	}
 
+	free(bm->extra_vlan);
 	free(bm);
 }
 
