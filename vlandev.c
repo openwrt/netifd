@@ -250,7 +250,7 @@ static uint16_t
 vlandev_get_vid(struct device *dev, const char *id_str)
 {
 	unsigned long id;
-	uint16_t *alias_id;
+	unsigned int *alias_id;
 	char *err;
 
 	id = strtoul(id_str, &err, 10);
