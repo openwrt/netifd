@@ -162,6 +162,8 @@ netifd_parse_script_handler(const char *name, script_dump_cb cb)
 			continue;
 
 		len = strlen(start);
+		if (!len)
+			continue;
 
 		if (!tok)
 			tok = json_tokener_new();
@@ -203,6 +205,8 @@ netifd_parse_extdev_handler(const char *path_to_file, create_extdev_handler_cb c
 			continue;
 
 		len = strlen(start);
+		if (!len)
+			continue;
 
 		if (!tok)
 			tok = json_tokener_new();
