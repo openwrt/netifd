@@ -475,6 +475,7 @@ proto_ext_run_command(struct proto_ext_state *state, struct blob_attr **tb)
 	if (!fill_string_list(tb[NOTIFY_ENV], env, ARRAY_SIZE(env)))
 		goto error;
 
+	state->proto_task_killed = false;
 	netifd_start_process((const char **) argv, (char **) env, &state->proto_task);
 
 	return 0;
