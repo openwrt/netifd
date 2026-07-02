@@ -241,6 +241,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 	}
 
 	if ((cur = tb[RULE_SRC]) != NULL) {
+		rule->src_mask = (af == AF_INET6) ? 128 : 32;
 		if (!parse_ip_and_netmask(af, blobmsg_data(cur), &rule->src_addr, &rule->src_mask)) {
 			D(INTERFACE, "Failed to parse rule source: %s", (char *) blobmsg_data(cur));
 			goto error;
@@ -249,6 +250,7 @@ iprule_add(struct blob_attr *attr, bool v6)
 	}
 
 	if ((cur = tb[RULE_DEST]) != NULL) {
+		rule->dest_mask = (af == AF_INET6) ? 128 : 32;
 		if (!parse_ip_and_netmask(af, blobmsg_data(cur), &rule->dest_addr, &rule->dest_mask)) {
 			D(INTERFACE, "Failed to parse rule destination: %s", (char *) blobmsg_data(cur));
 			goto error;
