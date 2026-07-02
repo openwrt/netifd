@@ -481,7 +481,7 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 
 		if (*end == '-') {
 			vid_end = strtoul(end + 1, &end, 0);
-			if (vid_end < vid)
+			if (vid_end < vid || vid_end > 4095)
 				continue;
 		}
 
