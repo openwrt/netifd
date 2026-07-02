@@ -577,7 +577,7 @@ bonding_free_port(struct bonding_port *bp)
 	 * Ensure that claiming the device is retried by toggling its present
 	 * state
 	 */
-	if (dev->present) {
+	if (dev->present && !dev->active) {
 		device_set_present(dev, false);
 		device_set_present(dev, true);
 	}
