@@ -626,6 +626,7 @@ bonding_set_down(struct bonding_device *bdev)
 {
 	struct bonding_port *bp;
 
+	uloop_timeout_cancel(&bdev->retry);
 	bdev->set_state(&bdev->dev, false);
 
 	vlist_for_each_element(&bdev->ports, bp, node)
@@ -731,6 +732,7 @@ bonding_free(struct device *dev)
 	struct bonding_device *bdev;
 
 	bdev = container_of(dev, struct bonding_device, dev);
+	uloop_timeout_cancel(&bdev->retry);
 	vlist_flush_all(&bdev->ports);
 	free(bdev->config_data);
 	free(bdev);
