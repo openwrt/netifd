@@ -792,13 +792,29 @@ proto_ext_run(struct proto_ext_state *state,
 
 	D(INTERFACE, "run %s for interface '%s'", action, proto->iface->name);
 	config = blobmsg_format_json(state->config, true);
-	if (!config)
-		return -1;
+	if (!config) {
+		ret = -1;
+		goto error;
+	}
 
 	envp[j] = NULL;
 
 	ret = start_cb(state, action, config, envp);
 	free(config);
+	if (ret)
+		goto error;
+
+	return 0;
+
+error:
+	/*
+	 * Roll back the setup transition: nothing is running that could
+	 * advance the state machine, and teardown on an interface that never
+	 * came up does not reach the proto handler, so a stuck S_SETUP would
+	 * block every future setup attempt
+	 */
+	if (cmd == PROTO_CMD_SETUP)
+		state->sm = S_IDLE;
 
 	return ret;
 }
