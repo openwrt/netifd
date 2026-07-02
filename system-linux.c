@@ -4933,7 +4933,7 @@ static int system_add_vxlan(const char *name, const unsigned int link, struct bl
 
 	if ((cur = tb_data[VXLAN_DATA_ATTR_ID])) {
 		uint32_t id = blobmsg_get_u32(cur);
-		if (id >= (1u << 24) - 1) {
+		if (id >= (1u << 24)) {
 			ret = -EINVAL;
 			goto failure;
 		}
