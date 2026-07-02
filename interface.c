@@ -662,6 +662,20 @@ interface_alias_cb(struct interface_user *dep, struct interface *iface, enum int
 	struct interface *alias = container_of(dep, struct interface, parent_iface);
 	struct device *dev = iface->l3_dev.dev;
 
+	if (!dep->iface) {
+		/*
+		 * Registered on the global list while waiting for the parent
+		 * interface to appear: ignore events from other interfaces and
+		 * move over to the parent once it shows up
+		 */
+		if (ev == IFEV_FREE || strcmp(iface->name, alias->parent_ifname))
+			return;
+
+		interface_remove_user(dep);
+		interface_add_user(dep, iface);
+		return;
+	}
+
 	switch (ev) {
 	case IFEV_UP:
 		if (!dev)
@@ -699,13 +713,21 @@ interface_set_device_config(struct interface *iface, struct device *dev)
 }
 
 static void
+interface_remove_parent_user(struct interface *iface)
+{
+	if (!iface->parent_iface.list.prev)
+		return;
+
+	interface_remove_user(&iface->parent_iface);
+}
+
+static void
 interface_claim_device(struct interface *iface)
 {
 	struct interface *parent;
 	struct device *dev = NULL;
 
-	if (iface->parent_iface.iface)
-		interface_remove_user(&iface->parent_iface);
+	interface_remove_parent_user(iface);
 
 	if (iface->parent_ifname) {
 		parent = vlist_find(&interfaces, iface->parent_ifname, parent, node);
@@ -749,8 +771,7 @@ interface_cleanup(struct interface *iface)
 	uloop_timeout_cancel(&iface->carrier_loss_timer);
 	device_remove_user(&iface->ext_dev);
 
-	if (iface->parent_iface.iface)
-		interface_remove_user(&iface->parent_iface);
+	interface_remove_parent_user(iface);
 
 	list_for_each_entry_safe(dep, tmp, &iface->users, list)
 		interface_remove_user(dep);
@@ -1493,8 +1514,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		  strcmp(if_old->field, if_new->field) != 0))
 
 	if (FIELD_CHANGED_STR(parent_ifname)) {
-		if (if_old->parent_iface.iface)
-			interface_remove_user(&if_old->parent_iface);
+		interface_remove_parent_user(if_old);
 		reload = true;
 	}
 
