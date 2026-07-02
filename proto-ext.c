@@ -139,7 +139,10 @@ proto_ext_task_finish(struct proto_ext_state *state,
 			state->proto.cb(&state->proto, PROTO_CMD_TEARDOWN,
 					false);
 		else if (task == &state->script_task) {
-			if (state->renew_pending)
+			if (state->restart_pending)
+				state->proto.cb(&state->proto,
+						PROTO_CMD_RESTART, false);
+			else if (state->renew_pending)
 				state->proto.cb(&state->proto,
 						PROTO_CMD_RENEW, false);
 			else if (!(state->proto.handler->flags & PROTO_FLAG_NO_TASK) &&
@@ -741,6 +744,16 @@ proto_ext_run(struct proto_ext_state *state,
 		if (!(proto->handler->flags & PROTO_FLAG_RENEW_AVAILABLE))
 			return 0;
 
+		/*
+		 * A teardown is already in progress and its completion paths do
+		 * not consume pending flags; a flag queued here would go stale
+		 * and fire against the freshly started client after the next
+		 * setup. The client is being bounced anyway, so drop the
+		 * request.
+		 */
+		if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
+			return 0;
+
 		if (state->script_task.uloop.pending) {
 			state->renew_pending = true;
 			return 0;
@@ -752,11 +765,15 @@ proto_ext_run(struct proto_ext_state *state,
 		if (!(proto->handler->flags & PROTO_FLAG_RESTART_AVAILABLE))
 			return 0;
 
-		/* Don't queue a restart while a script task is mid-run; the
-		 * caller can retry once it has finished. */
-		if (state->script_task.uloop.pending)
+		if (state->sm == S_TEARDOWN || state->sm == S_SETUP_ABORT)
 			return 0;
 
+		if (state->script_task.uloop.pending) {
+			state->restart_pending = true;
+			return 0;
+		}
+
+		state->restart_pending = false;
 		action = "restart";
 	} else {
 		switch (state->sm) {
@@ -767,6 +784,7 @@ proto_ext_run(struct proto_ext_state *state,
 				if (state->proto_task.uloop.pending)
 					kill(state->proto_task.uloop.pid, SIGTERM);
 				state->renew_pending = false;
+				state->restart_pending = false;
 				state->sm = S_SETUP_ABORT;
 				return 0;
 			}
@@ -774,6 +792,7 @@ proto_ext_run(struct proto_ext_state *state,
 		case S_IDLE:
 			action = "teardown";
 			state->renew_pending = false;
+			state->restart_pending = false;
 			state->sm = S_TEARDOWN;
 			if (state->last_error >= 0) {
 				snprintf(error_buf, sizeof(error_buf), "ERROR=%d", state->last_error);

@@ -41,6 +41,7 @@ struct proto_ext_state {
 	enum proto_ext_sm sm;
 	bool proto_task_killed;
 	bool renew_pending;
+	bool restart_pending;
 
 	int last_error;
 
