@@ -1462,11 +1462,13 @@ device_create(const char *name, struct device_type *type,
 
 	config = blob_memdup(config);
 	if (!config)
-		return NULL;
+		goto error;
 
 	dev = type->create(name, type, config);
-	if (!dev)
-		return NULL;
+	if (!dev) {
+		free(config);
+		goto error;
+	}
 
 	dev->current_config = true;
 	dev->config = config;
@@ -1481,6 +1483,19 @@ device_create(const char *name, struct device_type *type,
 	device_check_state(dev);
 
 	return dev;
+
+error:
+	/*
+	 * Re-insert the device removed for recreation: leaving it outside the
+	 * tree would strand it and its users permanently, since
+	 * __device_free_unused() only walks the tree
+	 */
+	if (odev) {
+		odev->avl.key = odev->ifname;
+		avl_insert(&devices, &odev->avl);
+	}
+
+	return NULL;
 }
 
 void
