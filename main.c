@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <syslog.h>
+#include <errno.h>
 
 #include "netifd.h"
 #include "ubus.h"
@@ -271,6 +272,10 @@ netifd_kill_process(struct netifd_process *proc)
 static void netifd_do_restart(struct uloop_timeout *timeout)
 {
 	execvp(global_argv[0], global_argv);
+
+	/* all interfaces are already down; exit so procd can respawn us */
+	netifd_log_message(L_CRIT, "Failed to restart netifd: %s\n", strerror(errno));
+	exit(1);
 }
 
 int netifd_reload(void)
