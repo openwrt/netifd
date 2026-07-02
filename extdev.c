@@ -1305,20 +1305,6 @@ extdev_add_devtype(const char *cfg_file, const char *tname, const char *ubus_nam
 		devtype->name_prefix = name_prefix;
 	}
 
-	/* subscribe to external device handler */
-	sprintf(ubus_obj_name, "%s%s", OBJ_PREFIX,  ubus_name);
-	etype->ubus_sub.obj.name = ubus_obj_name;
-	etype->ubus_sub.obj.type = &extdev_ubus_object_type;
-	ret = ubus_register_subscriber(ubus_ctx, &etype->ubus_sub);
-	if (ret) {
-		fprintf(stderr, "Failed to register subscriber object '%s'\n",
-			etype->ubus_sub.obj.name);
-		goto error;
-	}
-	etype->obj_wait.cb = extdev_wait_ev_cb;
-	etype->ubus_sub.remove_cb = extdev_ext_handler_remove_cb;
-	extdev_subscribe(etype);
-
 	/* parse config params from JSON object */
 	etype->config_strbuf = netifd_handler_parse_config(etype->config_params, cfg_obj);
 	if (!etype->config_strbuf)
@@ -1342,22 +1328,38 @@ extdev_add_devtype(const char *cfg_file, const char *tname, const char *ubus_nam
 			devtype->dump_stats = NULL;
 	}
 
+	/* subscribe to external device handler */
+	sprintf(ubus_obj_name, "%s%s", OBJ_PREFIX,  ubus_name);
+	etype->ubus_sub.obj.name = ubus_obj_name;
+	etype->ubus_sub.obj.type = &extdev_ubus_object_type;
+	etype->obj_wait.cb = extdev_wait_ev_cb;
+	etype->ubus_sub.remove_cb = extdev_ext_handler_remove_cb;
+	ret = ubus_register_subscriber(ubus_ctx, &etype->ubus_sub);
+	if (ret) {
+		fprintf(stderr, "Failed to register subscriber object '%s'\n",
+			etype->ubus_sub.obj.name);
+		goto error_free_strbufs;
+	}
+	extdev_subscribe(etype);
+
 	ret = device_type_add(devtype);
 	if (ret)
-		goto config_error;
+		goto error_unregister;
 
 	return;
 
-config_error:
+error_unregister:
+	if (etype->obj_wait.obj.id)
+		ubus_unregister_event_handler(ubus_ctx, &etype->obj_wait);
+	ubus_unregister_subscriber(ubus_ctx, &etype->ubus_sub);
+error_free_strbufs:
 	free(etype->config_strbuf);
 	free(etype->info_strbuf);
 	free(etype->stats_strbuf);
-
 error:
 	fprintf(stderr, "Failed to create device handler for device"
 		"type '%s' from file '%s'\n", tname, cfg_file);
-	free(ubus_obj_name);
-	free(devtype_name);
+	free((char *)devtype->name_prefix);
 	free(etype);
 }
 
