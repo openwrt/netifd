@@ -290,6 +290,7 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 	config->validate = validate;
 	for (i = 0; i < config->n_params; i++) {
 		json_object *cur, *name, *type;
+		int type_val;
 
 		cur = json_check_type(json_object_array_get_idx(obj, i), json_type_array);
 		if (!cur)
@@ -303,10 +304,12 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 		if (!type)
 			goto error;
 
-		attrs[i].name = json_object_get_string(name);
-		attrs[i].type = json_object_get_int(type);
-		if (attrs[i].type > BLOBMSG_TYPE_LAST)
+		type_val = json_object_get_int(type);
+		if (type_val < 0 || type_val > BLOBMSG_TYPE_LAST)
 			goto error;
+
+		attrs[i].name = json_object_get_string(name);
+		attrs[i].type = type_val;
 
 		str_len += strlen(attrs[i].name) + 1;
 	}
