@@ -1211,7 +1211,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 		cfg->stp = blobmsg_get_bool(cur);
 
 	if ((cur = tb[BRIDGE_ATTR_STP_KERNEL]))
-		cfg->stp = blobmsg_get_bool(cur);
+		cfg->stp_kernel = blobmsg_get_bool(cur);
 
 	if ((cur = tb[BRIDGE_ATTR_STP_PROTO]))
 		cfg->stp_proto = blobmsg_get_string(cur);
