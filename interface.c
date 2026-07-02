@@ -1547,11 +1547,11 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		if_old->autostart = if_new->config_autostart;
 	}
 
-	if (FIELD_CHANGED_STR(zone)) {
-		free(if_old->zone);
-		if_old->zone = if_new->zone;
+	if (FIELD_CHANGED_STR(zone))
 		reload = true;
-	}
+
+	free(if_old->zone);
+	if_old->zone = if_new->zone;
 
 	if_old->device_config = if_new->device_config;
 	if_old->config_autostart = if_new->config_autostart;
