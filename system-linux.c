@@ -1360,11 +1360,23 @@ static bool check_rule(struct nlmsghdr *hdr, int ifindex)
 	return true;
 }
 
+static bool check_neigh(struct nlmsghdr *hdr, int ifindex)
+{
+	struct ndmsg *ndm = NLMSG_DATA(hdr);
+
+	if (ndm->ndm_ifindex != ifindex)
+		return false;
+
+	/* only clear entries netifd could have installed itself */
+	return (ndm->ndm_state & NUD_PERMANENT) || (ndm->ndm_flags & NTF_PROXY);
+}
+
 static int cb_clear_event(struct nl_msg *msg, void *arg)
 {
 	struct clear_data *clr = arg;
 	struct nlmsghdr *hdr = nlmsg_hdr(msg);
 	bool (*cb)(struct nlmsghdr *, int ifindex);
+	const char *obj_name;
 	int type, ret;
 
 	switch(clr->type) {
@@ -1389,6 +1401,13 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 
 		cb = check_rule;
 		break;
+	case RTM_GETNEIGH:
+		type = RTM_DELNEIGH;
+		if (hdr->nlmsg_type != RTM_NEWNEIGH)
+			return NL_SKIP;
+
+		cb = check_neigh;
+		break;
 	default:
 		return NL_SKIP;
 	}
@@ -1396,12 +1415,13 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 	if (!cb(hdr, clr->dev ? clr->dev->ifindex : 0))
 		return NL_SKIP;
 
+	obj_name = type == RTM_DELADDR ? "an address" :
+		   type == RTM_DELNEIGH ? "a neighbor" : "a route";
 	if (type == RTM_DELRULE)
 		D(SYSTEM, "Remove a rule");
 	else
 		D(SYSTEM, "Remove %s from device %s",
-		  type == RTM_DELADDR ? "an address" : "a route",
-		  clr->dev->ifname);
+		  obj_name, clr->dev->ifname);
 
 	memcpy(nlmsg_hdr(clr->msg), hdr, hdr->nlmsg_len);
 	hdr = nlmsg_hdr(clr->msg);
@@ -1415,8 +1435,7 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 			D(SYSTEM, "Error deleting a rule: %d", ret);
 		else
 			D(SYSTEM, "Error deleting %s from device '%s': %d",
-				type == RTM_DELADDR ? "an address" : "a route",
-				clr->dev->ifname, ret);
+				obj_name, clr->dev->ifname, ret);
 	}
 
 	nl_socket_enable_auto_ack(sock_rtnl);
@@ -1449,8 +1468,13 @@ system_if_clear_entries(struct device *dev, int type, int af)
 		.rtm_family = af,
 		.rtm_flags = RTM_F_CLONED,
 	};
+	struct ndmsg ndm = {
+		.ndm_family = af,
+	};
+	void *req = &rtm;
 	int flags = NLM_F_DUMP;
-	int pending = 1;
+	int n_dumps = 1;
+	int pending;
 
 	clr.af = af;
 	clr.dev = dev;
@@ -1463,6 +1487,12 @@ system_if_clear_entries(struct device *dev, int type, int af)
 	case RTM_GETROUTE:
 		clr.size = sizeof(struct rtmsg);
 		break;
+	case RTM_GETNEIGH:
+		req = &ndm;
+		clr.size = sizeof(struct ndmsg);
+		/* the kernel dumps proxy entries only when asked for them */
+		n_dumps = 2;
+		break;
 	default:
 		return;
 	}
@@ -1471,24 +1501,31 @@ system_if_clear_entries(struct device *dev, int type, int af)
 	if (!cb)
 		return;
 
-	clr.msg = nlmsg_alloc_simple(type, flags);
-	if (!clr.msg)
-		goto out;
-
-	nlmsg_append(clr.msg, &rtm, clr.size, 0);
 	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, cb_clear_event, &clr);
 	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, cb_finish_event, &pending);
 	nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &pending);
 
-	if (nl_send_auto_complete(sock_rtnl, clr.msg) < 0)
-		goto free;
+	for (int i = 0; i < n_dumps; i++) {
+		ndm.ndm_flags = i ? NTF_PROXY : 0;
 
-	while (pending > 0)
-		nl_recvmsgs(sock_rtnl, cb);
+		clr.msg = nlmsg_alloc_simple(type, flags);
+		if (!clr.msg)
+			break;
 
-free:
-	nlmsg_free(clr.msg);
-out:
+		nlmsg_append(clr.msg, req, clr.size, 0);
+
+		if (nl_send_auto_complete(sock_rtnl, clr.msg) < 0) {
+			nlmsg_free(clr.msg);
+			break;
+		}
+
+		pending = 1;
+		while (pending > 0)
+			nl_recvmsgs(sock_rtnl, cb);
+
+		nlmsg_free(clr.msg);
+	}
+
 	nl_cb_put(cb);
 }
 
