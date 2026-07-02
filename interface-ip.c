@@ -1430,23 +1430,20 @@ void
 interface_ip_set_ula_prefix(const char *prefix)
 {
 	char buf[INET6_ADDRSTRLEN + 4] = {0}, *saveptr;
+	char *prefixaddr, *prefixlen;
+	struct in6_addr addr;
+	int length;
+
 	if (prefix)
 		strncpy(buf, prefix, sizeof(buf) - 1);
-	char *prefixaddr = strtok_r(buf, "/", &saveptr);
+	prefixaddr = strtok_r(buf, "/", &saveptr);
 
-	struct in6_addr addr;
-	if (!prefixaddr || inet_pton(AF_INET6, prefixaddr, &addr) < 1) {
-		if (ula_prefix) {
-			interface_update_prefix(NULL, NULL, &ula_prefix->node);
-			ula_prefix = NULL;
-		}
-		return;
-	}
+	if (!prefixaddr || inet_pton(AF_INET6, prefixaddr, &addr) < 1)
+		goto invalid;
 
-	int length;
-	char *prefixlen = strtok_r(NULL, ",", &saveptr);
+	prefixlen = strtok_r(NULL, ",", &saveptr);
 	if (!prefixlen || (length = atoi(prefixlen)) < 1 || length > 64)
-		return;
+		goto invalid;
 
 	if (!ula_prefix || !IN6_ARE_ADDR_EQUAL(&addr, &ula_prefix->addr) ||
 			ula_prefix->length != length) {
@@ -1455,6 +1452,14 @@ interface_ip_set_ula_prefix(const char *prefix)
 
 		ula_prefix = interface_ip_add_device_prefix(NULL, &addr, length,
 				0, 0, NULL, 0, NULL);
+	}
+
+	return;
+
+invalid:
+	if (ula_prefix) {
+		interface_update_prefix(NULL, NULL, &ula_prefix->node);
+		ula_prefix = NULL;
 	}
 }
 
