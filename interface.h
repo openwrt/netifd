@@ -125,6 +125,7 @@ struct interface {
 	bool policy_rules_set;
 	bool link_up_event;
 	bool renew;
+	bool remove_pending;
 
 	unsigned int carrier_loss_delay;
 	struct uloop_timeout carrier_loss_timer;

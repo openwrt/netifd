@@ -781,6 +781,20 @@ interface_do_remove(struct interface *iface)
 }
 
 static void
+interface_remove_cb(struct uloop_timeout *timeout)
+{
+	struct interface *iface = container_of(timeout, struct interface, remove_timer);
+
+	if (iface->config_state != IFC_REMOVE) {
+		iface->remove_pending = false;
+		iface->remove_timer.cb = NULL;
+		return;
+	}
+
+	interface_do_remove(iface);
+}
+
+static void
 interface_do_reload(struct interface *iface)
 {
 	interface_event(iface, IFEV_RELOAD);
@@ -802,7 +816,19 @@ interface_handle_config_change(struct interface *iface)
 		interface_do_reload(iface);
 		break;
 	case IFC_REMOVE:
-		interface_do_remove(iface);
+		/*
+		 * Defer the removal: this runs from within interface_proto_event()
+		 * for immediate protos and from vlist walks whose callers still
+		 * dereference the interface afterwards, so freeing it here would
+		 * leave dangling pointers up the call stack
+		 */
+		__set_config_state(iface, IFC_REMOVE);
+		if (iface->remove_pending)
+			return;
+
+		iface->remove_pending = true;
+		iface->remove_timer.cb = interface_remove_cb;
+		uloop_timeout_set(&iface->remove_timer, 1);
 		return;
 	}
 	if (iface->autostart)
@@ -1279,6 +1305,9 @@ interface_set_up(struct interface *iface)
 	int ret;
 	const char *error = NULL;
 
+	if (iface->config_state == IFC_REMOVE)
+		return;
+
 	iface->autostart = true;
 	netifd_ucode_check_network_enabled();
 
@@ -1450,6 +1479,13 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
 	bool reload = false, reload_ip = false, update_prefix_delegation = false;
+
+	/*
+	 * The interface is being redefined: cancel a pending deferred removal,
+	 * which would otherwise free it once the remove timer fires
+	 */
+	if (if_old->config_state == IFC_REMOVE)
+		__set_config_state(if_old, IFC_NORMAL);
 
 #define FIELD_CHANGED_STR(field)					\
 		((!!if_old->field != !!if_new->field) ||		\
