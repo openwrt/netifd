@@ -1386,16 +1386,12 @@ device_apply_config(struct device *dev, struct device_type *type,
 }
 
 static void
-device_replace(struct device *dev, struct device *odev)
+device_migrate_users(struct list_head *head, struct device *dev)
 {
 	struct device_user *dep;
 
-	__devlock++;
-	if (odev->present)
-		device_set_present(odev, false);
-
-	while (!list_empty(&odev->users.list)) {
-		dep = list_first_entry(&odev->users.list, struct device_user, list.list);
+	while (!list_empty(head)) {
+		dep = list_first_entry(head, struct device_user, list.list);
 		device_release(dep);
 		if (!dep->dev)
 			continue;
@@ -1403,6 +1399,17 @@ device_replace(struct device *dev, struct device *odev)
 		safe_list_del(&dep->list);
 		__device_add_user(dep, dev);
 	}
+}
+
+static void
+device_replace(struct device *dev, struct device *odev)
+{
+	__devlock++;
+	if (odev->present)
+		device_set_present(odev, false);
+
+	device_migrate_users(&odev->users.list, dev);
+	device_migrate_users(&odev->aliases.list, dev);
 	__devlock--;
 
 	device_free(odev);
