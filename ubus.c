@@ -190,8 +190,10 @@ netifd_netns_updown(struct ubus_context *ctx, struct ubus_object *obj,
 	start = tb[NETNS_UPDOWN_START] && blobmsg_get_bool(tb[NETNS_UPDOWN_START]);
 
 	if (start) {
-		if (!tb[NETNS_UPDOWN_JAIL])
+		if (!tb[NETNS_UPDOWN_JAIL]) {
+			close(target_netns_fd);
 			return UBUS_STATUS_INVALID_ARGUMENT;
+		}
 
 		interface_start_jail(target_netns_fd, blobmsg_get_string(tb[NETNS_UPDOWN_JAIL]));
 	} else {
