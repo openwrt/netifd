@@ -499,7 +499,8 @@ netifd_handle_iface_restart(struct ubus_context *ctx, struct ubus_object *obj,
 	struct interface *iface;
 
 	iface = container_of(obj, struct interface, ubus);
-	interface_restart(iface);
+	if (interface_restart(iface))
+		return UBUS_STATUS_UNKNOWN_ERROR;
 
 	return 0;
 }
