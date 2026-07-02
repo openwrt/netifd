@@ -1329,6 +1329,8 @@ struct clear_data {
 	int type;
 	int size;
 	int af;
+	struct nl_msg **del;
+	int n_del;
 };
 
 
@@ -1376,8 +1378,9 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 	struct clear_data *clr = arg;
 	struct nlmsghdr *hdr = nlmsg_hdr(msg);
 	bool (*cb)(struct nlmsghdr *, int ifindex);
+	struct nl_msg **tmp, *del;
 	const char *obj_name;
-	int type, ret;
+	int type;
 
 	switch(clr->type) {
 	case RTM_GETADDR:
@@ -1423,22 +1426,29 @@ static int cb_clear_event(struct nl_msg *msg, void *arg)
 		D(SYSTEM, "Remove %s from device %s",
 		  obj_name, clr->dev->ifname);
 
-	memcpy(nlmsg_hdr(clr->msg), hdr, hdr->nlmsg_len);
-	hdr = nlmsg_hdr(clr->msg);
+	/*
+	 * Queue the deletion instead of sending it while the dump is still
+	 * being received: a kernel error reply to a request sent with the
+	 * dump's sequence number aborts the dump processing and desyncs the
+	 * socket's sequence accounting
+	 */
+	del = nlmsg_convert(hdr);
+	if (!del)
+		return NL_SKIP;
+
+	hdr = nlmsg_hdr(del);
 	hdr->nlmsg_type = type;
 	hdr->nlmsg_flags = NLM_F_REQUEST;
+	hdr->nlmsg_seq = NL_AUTO_SEQ;
 
-	nl_socket_disable_auto_ack(sock_rtnl);
-	ret = nl_send_auto_complete(sock_rtnl, clr->msg);
-	if (ret < 0) {
-		if (type == RTM_DELRULE)
-			D(SYSTEM, "Error deleting a rule: %d", ret);
-		else
-			D(SYSTEM, "Error deleting %s from device '%s': %d",
-				obj_name, clr->dev->ifname, ret);
+	tmp = realloc(clr->del, (clr->n_del + 1) * sizeof(*clr->del));
+	if (!tmp) {
+		nlmsg_free(del);
+		return NL_SKIP;
 	}
 
-	nl_socket_enable_auto_ack(sock_rtnl);
+	clr->del = tmp;
+	clr->del[clr->n_del++] = del;
 
 	return NL_SKIP;
 }
@@ -1479,6 +1489,8 @@ system_if_clear_entries(struct device *dev, int type, int af)
 	clr.af = af;
 	clr.dev = dev;
 	clr.type = type;
+	clr.del = NULL;
+	clr.n_del = 0;
 	switch (type) {
 	case RTM_GETADDR:
 	case RTM_GETRULE:
@@ -1525,6 +1537,14 @@ system_if_clear_entries(struct device *dev, int type, int af)
 
 		nlmsg_free(clr.msg);
 	}
+
+	for (int i = 0; i < clr.n_del; i++) {
+		int err = system_rtnl_call(clr.del[i]);
+
+		if (err)
+			D(SYSTEM, "Error deleting kernel entry: %d", err);
+	}
+	free(clr.del);
 
 	nl_cb_put(cb);
 }
