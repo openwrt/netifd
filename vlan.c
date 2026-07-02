@@ -279,6 +279,7 @@ struct device *get_vlan_device_chain(const char *ifname, int create)
 
 			if (next)
 				next[-1] = '.';
+			s = next;
 		} else {
 			dev = vldev;
 			s = next;
