@@ -3363,13 +3363,13 @@ ethtool_feature_value(const char *ifname, const char *keyname)
 
 	feature_values = calloc(1,
 		sizeof(*feature_values) +
-		sizeof(feature_values->features[0]) * DIV_ROUND_UP(feature_idx, 32));
+		sizeof(feature_values->features[0]) * (feature_idx / 32 + 1));
 
 	if (!feature_values)
 		return false;
 
 	feature_values->cmd = ETHTOOL_GFEATURES;
-	feature_values->size = DIV_ROUND_UP(feature_idx, 32);
+	feature_values->size = feature_idx / 32 + 1;
 
 	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
 	ifr.ifr_data = (void *)feature_values;
