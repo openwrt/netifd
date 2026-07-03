@@ -1353,6 +1353,9 @@ error_unregister:
 		ubus_unregister_event_handler(ubus_ctx, &etype->obj_wait);
 	ubus_unregister_subscriber(ubus_ctx, &etype->ubus_sub);
 error_free_strbufs:
+	netifd_handler_free_config(etype->config_params);
+	netifd_handler_free_config(etype->info_params);
+	netifd_handler_free_config(etype->stats_params);
 	free(etype->config_strbuf);
 	free(etype->info_strbuf);
 	free(etype->stats_strbuf);

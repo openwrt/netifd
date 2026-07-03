@@ -47,5 +47,6 @@ int netifd_open_subdir(const char *name);
 void netifd_init_script_handlers(int dir_fd, script_dump_cb cb);
 void netifd_init_extdev_handlers(int dir_fd, create_extdev_handler_cb cb);
 char *netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj);
+void netifd_handler_free_config(struct uci_blob_param_list *config);
 
 #endif

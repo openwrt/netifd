@@ -268,6 +268,16 @@ netifd_init_extdev_handlers(int dir_fd, create_extdev_handler_cb cb)
 	globfree(&g);
 }
 
+void
+netifd_handler_free_config(struct uci_blob_param_list *config)
+{
+	free((void *)config->params);
+	free((void *)config->validate);
+	config->params = NULL;
+	config->validate = NULL;
+	config->n_params = 0;
+}
+
 char *
 netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj)
 {
@@ -278,16 +288,13 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 	int i;
 
 	config->n_params = json_object_array_length(obj);
-	attrs = calloc(1, sizeof(*attrs) * config->n_params);
+	config->params = attrs = calloc(1, sizeof(*attrs) * config->n_params);
 	if (!attrs)
-		return NULL;
-
-	validate = calloc(1, sizeof(char*) * config->n_params);
-	if (!validate)
 		goto error;
 
-	config->params = attrs;
-	config->validate = validate;
+	config->validate = validate = calloc(1, sizeof(char*) * config->n_params);
+	if (!validate)
+		goto error;
 	for (i = 0; i < config->n_params; i++) {
 		json_object *cur, *name, *type;
 		int type_val;
@@ -338,9 +345,6 @@ netifd_handler_parse_config(struct uci_blob_param_list *config, json_object *obj
 	return str_buf;
 
 error:
-	free(attrs);
-	if (validate)
-		free(validate);
-	config->n_params = 0;
+	netifd_handler_free_config(config);
 	return NULL;
 }
