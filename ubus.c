@@ -158,7 +158,7 @@ netifd_add_dynamic(struct ubus_context *ctx, struct ubus_object *obj,
 error_free_config:
 	free(config);
 error:
-	free(iface);
+	interface_free(iface);
 	return UBUS_STATUS_UNKNOWN_ERROR;
 }
 

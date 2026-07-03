@@ -783,6 +783,7 @@ interface_cleanup(struct interface *iface)
 
 void interface_free(struct interface *iface)
 {
+	interface_cleanup(iface);
 	free(iface->config);
 	free(iface->zone);
 	free(iface->jail);
