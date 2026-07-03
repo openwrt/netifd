@@ -1533,7 +1533,8 @@ system_if_clear_entries(struct device *dev, int type, int af)
 
 		pending = 1;
 		while (pending > 0)
-			nl_recvmsgs(sock_rtnl, cb);
+			if (nl_recvmsgs(sock_rtnl, cb) < 0)
+				break;
 
 		nlmsg_free(clr.msg);
 	}
@@ -2048,7 +2049,8 @@ static int system_if_get_master_ifindex(struct device *dev)
 		goto free;
 
 	while (data.pending > 0)
-		nl_recvmsgs(sock_rtnl, cb);
+		if (nl_recvmsgs(sock_rtnl, cb) < 0)
+			break;
 
 	if (data.master_ifindex >= 0)
 		ret = data.master_ifindex;
@@ -3078,7 +3080,8 @@ int system_bridge_vlan_check(struct device *dev, char *ifname)
 
 	data.ret = 0;
 	while (data.pending)
-		nl_recvmsgs(sock_rtnl, cb);
+		if (nl_recvmsgs(sock_rtnl, cb) < 0)
+			break;
 
 	vlist_for_each_element(&dev->vlans, vlan, node) {
 		struct bridge_vlan_hotplug_port *port;
@@ -3138,7 +3141,8 @@ int system_if_check(struct device *dev)
 		goto free;
 
 	while (chk.pending > 0)
-		nl_recvmsgs(sock_rtnl, cb);
+		if (nl_recvmsgs(sock_rtnl, cb) < 0)
+			break;
 
 	ret = chk.pending;
 
