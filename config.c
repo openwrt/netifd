@@ -439,6 +439,10 @@ config_init_vlan_entry(struct vlan_config_entry *e)
 		return;
 
 	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
+		    !blobmsg_check_attr(cur, false))
+			continue;
+
 		name_len += strlen(blobmsg_get_string(cur)) + 1;
 		n_ports++;
 	}
@@ -459,6 +463,10 @@ config_init_vlan_entry(struct vlan_config_entry *e)
 
 	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
 		char *sep;
+
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
+		    !blobmsg_check_attr(cur, false))
+			continue;
 
 		port->ifname = name_buf;
 		port->flags = BRVLAN_F_UNTAGGED;
@@ -481,8 +489,13 @@ config_init_vlan_entry(struct vlan_config_entry *e)
 		port++;
 	}
 
-	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_ALIAS], rem)
+	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_ALIAS], rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
+		    !blobmsg_check_attr(cur, false))
+			continue;
+
 		kvlist_set(&dev->vlan_aliases, blobmsg_get_string(cur), &vid);
+	}
 
 	vlist_add(&dev->vlans, &vlan->node, &vlan->vid);
 }
