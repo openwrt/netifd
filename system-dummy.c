@@ -231,7 +231,7 @@ static int system_route_msg(struct device *dev, struct device_route *route, cons
 		sprintf(devstr, " dev %s", dev->ifname);
 
 	if (route->metric > 0)
-		sprintf(devstr, " metric %d", route->metric);
+		sprintf(devstr + strlen(devstr), " metric %d", route->metric);
 
 	D(SYSTEM, "route %s %s%s%s", type, addr, gw, devstr);
 	return 0;
