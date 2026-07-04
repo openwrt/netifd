@@ -88,8 +88,6 @@ const struct uci_blob_param_list device_attr_list = {
 	.params = dev_attrs,
 };
 
-static int __devlock = 0;
-
 int device_type_add(struct device_type *devtype)
 {
 	if (device_type_get(devtype->name)) {
@@ -1123,7 +1121,6 @@ void device_add_user(struct device_user *dep, struct device *dev)
 static void
 device_free(struct device *dev)
 {
-	__devlock++;
 	free(dev->auth_vlans);
 	free(dev->config);
 	free(dev->hotplug_link);
@@ -1132,7 +1129,6 @@ device_free(struct device *dev)
 	free(dev->config_auth_vlans);
 	free(dev->extra_vlan);
 	dev->type->free(dev);
-	__devlock--;
 }
 
 static void
@@ -1404,13 +1400,11 @@ device_migrate_users(struct list_head *head, struct device *dev)
 static void
 device_replace(struct device *dev, struct device *odev)
 {
-	__devlock++;
 	if (odev->present)
 		device_set_present(odev, false);
 
 	device_migrate_users(&odev->users.list, dev);
 	device_migrate_users(&odev->aliases.list, dev);
-	__devlock--;
 
 	device_free(odev);
 }
