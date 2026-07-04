@@ -829,14 +829,13 @@ __bridge_reload(struct extdev_bridge *ebr, struct blob_attr *config)
 			diff = 0;
 			uci_blob_diff(brtb, old_tb, config_params, &diff);
 			if (diff) {
-				if (diff & ~(1 << BRIDGE_IFNAMES)) {
+				if (diff & ~(1 << BRIDGE_IFNAMES))
 					change = DEV_CONFIG_RESTART;
-				} else {
+				else
 					change = __do_bridge_reload(ebr, config);
-				}
-
-				free(ebr->config);
 			}
+
+			free(ebr->config);
 		}
 
 		ebr->ifnames = tb[BRIDGE_IFNAMES];
