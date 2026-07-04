@@ -4103,7 +4103,7 @@ static int system_iprule(struct iprule *rule, int cmd)
 
 	if (rule->flags & IPRULE_PRIORITY)
 		nla_put_u32(msg, FRA_PRIORITY, rule->priority);
-	else if (cmd == RTM_NEWRULE)
+	else
 		nla_put_u32(msg, FRA_PRIORITY, rule->order);
 
 	if (rule->flags & IPRULE_FWMARK)
