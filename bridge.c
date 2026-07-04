@@ -278,12 +278,12 @@ bridge_set_vlan_state(struct bridge_state *bst, struct bridge_vlan *vlan, bool a
 {
 	struct bridge_member *bm;
 	struct bridge_vlan *vlan2;
-	bool clear_pvid = false;
 
 	bridge_set_local_vlan(bst, vlan, add);
 
 	vlist_for_each_element(&bst->members, bm, node) {
 		struct bridge_vlan_port *port;
+		bool clear_pvid = false;
 
 		port = bridge_find_vlan_member_port(bm, vlan);
 		if (!port)
