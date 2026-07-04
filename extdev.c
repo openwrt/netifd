@@ -1283,6 +1283,7 @@ extdev_add_devtype(const char *cfg_file, const char *tname, const char *ubus_nam
 
 	etype->config_params = config_params;
 	etype->info_params = info_params;
+	etype->stats_params = stats_params;
 	etype->name = strcpy(ext_dev_handler_name, ubus_name);
 
 	devtype = &etype->handler;
