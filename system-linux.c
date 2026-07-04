@@ -2052,8 +2052,7 @@ static int system_if_get_master_ifindex(struct device *dev)
 		if (nl_recvmsgs(sock_rtnl, cb) < 0)
 			break;
 
-	if (data.master_ifindex >= 0)
-		ret = data.master_ifindex;
+	ret = data.master_ifindex;
 
 free:
 	nlmsg_free(msg);
