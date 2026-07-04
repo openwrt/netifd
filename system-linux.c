@@ -3472,10 +3472,10 @@ system_add_ethtool_pause_an(struct blob_buf *b, __s8 nwords,
 						    lp_advertising))
 			an_tx = true;
 	}
-	if (an_tx)
+	if (an_rx)
 		blobmsg_add_string(b, NULL, "rx");
 
-	if (an_rx)
+	if (an_tx)
 		blobmsg_add_string(b, NULL, "tx");
 
 	blobmsg_close_array(b, d);
