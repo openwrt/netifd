@@ -1068,9 +1068,12 @@ extdev_free(struct device *dev)
 						dev->ifname);
 	}
 
+	uloop_timeout_cancel(&edev->retry);
+
 	if (dev->type->bridge_capability) {
 		ebr = container_of(dev, struct extdev_bridge, edev.dev);
 
+		uloop_timeout_cancel(&ebr->retry);
 		vlist_flush_all(&ebr->members);
 //		vlist_flush_all(&dev->vlans); TODO: do we need this?
 
