@@ -1021,16 +1021,15 @@ extdev_free(struct device *dev)
 	etype = container_of(dev->type, struct extdev_type, handler);
 	edev = container_of(dev, struct extdev_device, dev);
 
-	if (!etype->subscribed)
-		return;
+	if (etype->subscribed) {
+		blob_buf_init(&b, 0);
+		blobmsg_add_string(&b, "name", dev->ifname);
 
-	blob_buf_init(&b, 0);
-	blobmsg_add_string(&b, "name", dev->ifname);
-
-	ret = netifd_extdev_free(edev, b.head);
-
-	if (ret && ret != UBUS_STATUS_NOT_FOUND)
-		goto error;
+		ret = netifd_extdev_free(edev, b.head);
+		if (ret && ret != UBUS_STATUS_NOT_FOUND)
+			extdev_invocation_error(ret, __extdev_methods[METHOD_FREE],
+						dev->ifname);
+	}
 
 	if (dev->type->bridge_capability) {
 		ebr = container_of(dev, struct extdev_bridge, edev.dev);
@@ -1039,14 +1038,9 @@ extdev_free(struct device *dev)
 //		vlist_flush_all(&dev->vlans); TODO: do we need this?
 
 		free(ebr->config);
-		free(ebr);
 	}
 
-	return;
-
-error:
-	extdev_invocation_error(ret, __extdev_methods[METHOD_FREE],
-		dev->ifname);
+	free(edev);
 }
 
 static void
