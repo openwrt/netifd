@@ -322,6 +322,8 @@ uc_netifd_start_process(uc_value_t *dir, uc_value_t *arg, uc_value_t *env, int *
 		return pid;
 	}
 
+	close(pfds[0]);
+
 	switch (ucv_type(dir)) {
 	case UC_OBJECT:
 		fn = ucv_property_get(dir, "fileno");
