@@ -235,11 +235,11 @@ bonding_enable_port(struct bonding_port *bp)
 
 	ret = device_claim(&bp->dev);
 	if (ret < 0)
-		return ret;
+		goto error;
 
 	ret = bonding_set_active(bdev, true);
 	if (ret)
-		goto release;
+		goto error;
 
 	dev = bp->dev.dev;
 	if (dev->settings.auth && !dev->auth_status)
@@ -265,7 +265,6 @@ error:
 	bdev->n_present--;
 	if (bp == bdev->primary_port)
 		bonding_reset_primary(bdev);
-release:
 	device_release(&bp->dev);
 
 	return ret;
