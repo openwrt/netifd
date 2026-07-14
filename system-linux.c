@@ -529,6 +529,21 @@ static void system_set_dadtransmits(struct device *dev, const char *val)
 	system_set_dev_sysctl("ipv6/conf", "dad_transmits", dev->ifname, val);
 }
 
+static void system_set_rtrsolicits(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "router_solicitations", dev->ifname, val);
+}
+
+static void system_set_rtrsolicitinterval(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "router_solicitation_interval", dev->ifname, val);
+}
+
+static void system_set_neigh6retranstime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/neigh", "retrans_time_ms", dev->ifname, val);
+}
+
 static void system_set_sendredirects(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("ipv4/conf", "send_redirects", dev->ifname, val);
@@ -685,6 +700,24 @@ static int system_get_neigh4locktime(struct device *dev, char *buf, const size_t
 static int system_get_dadtransmits(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/conf", "dad_transmits",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_rtrsolicits(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("ipv6/conf", "router_solicitations",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_rtrsolicitinterval(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("ipv6/conf", "router_solicitation_interval",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_neigh6retranstime(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("ipv6/neigh", "retrans_time_ms",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -2743,6 +2776,21 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->flags |= DEV_OPT_DADTRANSMITS;
 	}
 
+	if (!system_get_rtrsolicits(dev, buf, sizeof(buf))) {
+		s->rtrsolicits = strtol(buf, NULL, 0);
+		s->flags |= DEV_OPT_RTRSOLICITS;
+	}
+
+	if (!system_get_rtrsolicitinterval(dev, buf, sizeof(buf))) {
+		s->rtrsolicitinterval = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_RTRSOLICITINTERVAL;
+	}
+
+	if (!system_get_neigh6retranstime(dev, buf, sizeof(buf))) {
+		s->neigh6retranstime = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_NEIGH6RETRANSTIME;
+	}
+
 	if (!system_get_sendredirects(dev, buf, sizeof(buf))) {
 		s->sendredirects = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_SENDREDIRECTS;
@@ -2876,6 +2924,18 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	if (apply_mask & DEV_OPT_DADTRANSMITS) {
 		snprintf(buf, sizeof(buf), "%u", s->dadtransmits);
 		system_set_dadtransmits(dev, buf);
+	}
+	if (apply_mask & DEV_OPT_RTRSOLICITS) {
+		snprintf(buf, sizeof(buf), "%d", s->rtrsolicits);
+		system_set_rtrsolicits(dev, buf);
+	}
+	if (apply_mask & DEV_OPT_RTRSOLICITINTERVAL) {
+		snprintf(buf, sizeof(buf), "%u", s->rtrsolicitinterval);
+		system_set_rtrsolicitinterval(dev, buf);
+	}
+	if (apply_mask & DEV_OPT_NEIGH6RETRANSTIME) {
+		snprintf(buf, sizeof(buf), "%u", s->neigh6retranstime);
+		system_set_neigh6retranstime(dev, buf);
 	}
 	if (apply_mask & DEV_OPT_MULTICAST) {
 		if (system_if_flags(dev->ifname, s->multicast ? IFF_MULTICAST : 0,
