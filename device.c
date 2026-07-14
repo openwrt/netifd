@@ -48,6 +48,9 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_NEIGHREACHABLETIME] = { .name = "neighreachabletime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_NEIGHGCSTALETIME] = { .name = "neighgcstaletime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_DADTRANSMITS] = { .name = "dadtransmits", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_RTRSOLICITS] = { .name = "rtrsolicits", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_RTRSOLICITINTERVAL] = { .name = "rtrsolicitinterval", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_NEIGH6RETRANSTIME] = { .name = "neigh6retranstime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MULTICAST_TO_UNICAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MULTICAST_ROUTER] = { .name = "multicast_router", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MULTICAST_FAST_LEAVE] = { .name = "multicast_fast_leave", . type = BLOBMSG_TYPE_BOOL },
@@ -312,6 +315,12 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->neigh4locktime : os->neigh4locktime;
 	n->dadtransmits = s->flags & DEV_OPT_DADTRANSMITS ?
 		s->dadtransmits : os->dadtransmits;
+	n->rtrsolicits = s->flags & DEV_OPT_RTRSOLICITS ?
+		s->rtrsolicits : os->rtrsolicits;
+	n->rtrsolicitinterval = s->flags & DEV_OPT_RTRSOLICITINTERVAL ?
+		s->rtrsolicitinterval : os->rtrsolicitinterval;
+	n->neigh6retranstime = s->flags & DEV_OPT_NEIGH6RETRANSTIME ?
+		s->neigh6retranstime : os->neigh6retranstime;
 	n->multicast = s->flags & DEV_OPT_MULTICAST ?
 		s->multicast : os->multicast;
 	n->multicast_to_unicast = s->multicast_to_unicast;
@@ -505,6 +514,21 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_DADTRANSMITS])) {
 		s->dadtransmits = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_DADTRANSMITS;
+	}
+
+	if ((cur = tb[DEV_ATTR_RTRSOLICITS])) {
+		s->rtrsolicits = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_RTRSOLICITS;
+	}
+
+	if ((cur = tb[DEV_ATTR_RTRSOLICITINTERVAL])) {
+		s->rtrsolicitinterval = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_RTRSOLICITINTERVAL;
+	}
+
+	if ((cur = tb[DEV_ATTR_NEIGH6RETRANSTIME])) {
+		s->neigh6retranstime = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGH6RETRANSTIME;
 	}
 
 	if ((cur = tb[DEV_ATTR_MULTICAST_TO_UNICAST])) {
@@ -1673,6 +1697,12 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "neigh4locktime", st.neigh4locktime);
 		if (st.flags & DEV_OPT_DADTRANSMITS)
 			blobmsg_add_u32(b, "dadtransmits", st.dadtransmits);
+		if (st.flags & DEV_OPT_RTRSOLICITS)
+			blobmsg_add_u32(b, "rtrsolicits", st.rtrsolicits);
+		if (st.flags & DEV_OPT_RTRSOLICITINTERVAL)
+			blobmsg_add_u32(b, "rtrsolicitinterval", st.rtrsolicitinterval);
+		if (st.flags & DEV_OPT_NEIGH6RETRANSTIME)
+			blobmsg_add_u32(b, "neigh6retranstime", st.neigh6retranstime);
 		if (st.flags & DEV_OPT_MULTICAST_TO_UNICAST)
 			blobmsg_add_u8(b, "multicast_to_unicast", st.multicast_to_unicast);
 		if (st.flags & DEV_OPT_MULTICAST_ROUTER)
