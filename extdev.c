@@ -1097,20 +1097,24 @@ extdev_config_init(struct device *dev)
 }
 
 static void
-extdev_buf_add_list(struct blob_attr *attr, size_t len, const char *name,
+extdev_buf_add_list(struct blob_attr *attr, const char *name,
 		     struct blob_buf *buf, bool array)
 {
 	struct blob_attr *cur;
 	struct blobmsg_hdr *hdr;
 	void *list;
 	int type;
+	size_t rem;
 
 	if (array)
 		list = blobmsg_open_array(buf, name);
 	else
 		list = blobmsg_open_table(buf, name);
 
-	blobmsg_for_each_attr(cur, attr, len) {
+	blobmsg_for_each_attr(cur, attr, rem) {
+		if (!blob_is_extended(cur) || !blobmsg_check_attr(cur, !array))
+			continue;
+
 		hdr = blob_data(cur);
 		type = blobmsg_type(cur);
 		switch (type) {
@@ -1120,8 +1124,8 @@ extdev_buf_add_list(struct blob_attr *attr, size_t len, const char *name,
 				break;
 			case BLOBMSG_TYPE_TABLE:
 			case BLOBMSG_TYPE_ARRAY:
-				extdev_buf_add_list(blobmsg_data(cur), blobmsg_data_len(cur),
-					(char *) hdr->name, buf, type == BLOBMSG_TYPE_ARRAY);
+				extdev_buf_add_list(cur, (char *) hdr->name, buf,
+					type == BLOBMSG_TYPE_ARRAY);
 				break;
 			case BLOBMSG_TYPE_INT64:
 				blobmsg_add_u64(buf, (char *) hdr->name, blobmsg_get_u64(cur));
@@ -1160,8 +1164,8 @@ add_parsed_data(struct blob_attr **tb, const struct blobmsg_policy *policy, int 
 				break;
 			case BLOBMSG_TYPE_ARRAY:
 			case BLOBMSG_TYPE_TABLE:
-				extdev_buf_add_list(blobmsg_data(tb[i]), blobmsg_data_len(tb[i]),
-					policy[i].name, buf, policy[i].type == BLOBMSG_TYPE_ARRAY);
+				extdev_buf_add_list(tb[i], policy[i].name, buf,
+					policy[i].type == BLOBMSG_TYPE_ARRAY);
 				break;
 			case BLOBMSG_TYPE_INT64:
 				blobmsg_add_u64(buf, policy[i].name, blobmsg_get_u64(tb[i]));
