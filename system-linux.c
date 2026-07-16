@@ -4652,13 +4652,15 @@ static int system_add_gre_tunnel(const char *name, const char *kind,
 			nla_put(nlm, IFLA_GRE_REMOTE, sizeof(inbuf), &inbuf);
 
 			if (IN_MULTICAST(ntohl(inbuf.s_addr))) {
+				/* okey/ikey are kept in host order and converted
+				 * via htonl() when added to the message */
 				if (!okey) {
-					okey = inbuf.s_addr;
+					okey = ntohl(inbuf.s_addr);
 					oflags |= GRE_KEY;
 				}
 
 				if (!ikey) {
-					ikey = inbuf.s_addr;
+					ikey = ntohl(inbuf.s_addr);
 					iflags |= GRE_KEY;
 				}
 			}
