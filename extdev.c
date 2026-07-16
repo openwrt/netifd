@@ -966,7 +966,11 @@ __bridge_create(const char *name, struct device_type *devtype, struct blob_attr 
 	if (!ebr)
 		return NULL;
 
-	device_init(&ebr->edev.dev, devtype, name);
+	if (device_init(&ebr->edev.dev, devtype, name)) {
+		free(ebr);
+		return NULL;
+	}
+
 	ebr->edev.dev.config_pending = true;
 	ebr->retry.cb = extdev_bridge_retry_enable_members;
 	ebr->edev.etype = container_of(devtype, struct extdev_type, handler);
