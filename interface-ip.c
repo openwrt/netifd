@@ -335,6 +335,7 @@ interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *if
 	route->mtu = r_next->mtu;
 	route->metric = r_next->metric;
 	route->table = r_next->table;
+	route->valid_until = r_next->valid_until;
 	route->iface = iface;
 	vlist_add(&iface->host_routes, &route->node, route);
 
@@ -1884,6 +1885,51 @@ interface_ip_update_start(struct interface_ip_settings *ip)
 	vlist_update(&ip->neighbor);
 }
 
+static void
+interface_host_routes_refresh(struct interface *iface)
+{
+	struct device_route *route, *tmp, *r_next, *r_new;
+
+	vlist_for_each_element_safe(&iface->host_routes, route, node, tmp) {
+		bool v6 = (route->flags & DEVADDR_FAMILY) == DEVADDR_INET6;
+
+		r_next = NULL;
+		interface_ip_find_route_target(iface, &route->addr, v6, &r_next);
+		if (!r_next) {
+			vlist_delete(&iface->host_routes, &route->node);
+			continue;
+		}
+
+		if (!memcmp(&route->nexthop, &r_next->nexthop, sizeof(route->nexthop)) &&
+		    route->mtu == r_next->mtu && route->metric == r_next->metric &&
+		    route->table == r_next->table) {
+			route->valid_until = r_next->valid_until;
+			continue;
+		}
+
+		r_new = calloc(1, sizeof(*r_new));
+		if (!r_new)
+			continue;
+
+		r_new->flags = route->flags;
+		r_new->mask = route->mask;
+		memcpy(&r_new->addr, &route->addr, sizeof(r_new->addr));
+		memcpy(&r_new->nexthop, &r_next->nexthop, sizeof(r_new->nexthop));
+		r_new->mtu = r_next->mtu;
+		r_new->metric = r_next->metric;
+		r_new->table = r_next->table;
+		r_new->valid_until = r_next->valid_until;
+		r_new->iface = iface;
+
+		/* metric/table are part of the vlist key; a changed key means
+		 * the old node is not replaced by the add below */
+		if (route_cmp(r_new, route, NULL))
+			vlist_delete(&iface->host_routes, &route->node);
+
+		vlist_add(&iface->host_routes, &r_new->node, r_new);
+	}
+}
+
 void
 interface_ip_update_complete(struct interface_ip_settings *ip)
 {
@@ -1893,6 +1939,10 @@ interface_ip_update_complete(struct interface_ip_settings *ip)
 	vlist_flush(&ip->addr);
 	vlist_flush(&ip->prefix);
 	vlist_flush(&ip->neighbor);
+
+	if (ip == &ip->iface->proto_ip)
+		interface_host_routes_refresh(ip->iface);
+
 	interface_write_resolv_conf(ip->iface->jail);
 }
 
@@ -1954,6 +2004,10 @@ interface_ip_valid_until_handler(struct uloop_timeout *t)
 		vlist_for_each_element_safe(&iface->config_ip.route, route, node, routep)
 			if (route->valid_until && route->valid_until < now)
 				vlist_delete(&iface->config_ip.route, &route->node);
+
+		vlist_for_each_element_safe(&iface->host_routes, route, node, routep)
+			if (route->valid_until && route->valid_until < now)
+				vlist_delete(&iface->host_routes, &route->node);
 
 		vlist_for_each_element_safe(&iface->proto_ip.prefix, pref, node, prefp)
 			if (pref->valid_until && pref->valid_until < now)
