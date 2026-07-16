@@ -1380,8 +1380,14 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	if (node_new)
 		vlan_new = container_of(node_new, struct bridge_vlan, node);
 
-	if (!bst->has_vlans || !bst->active)
+	if (!bst->has_vlans || !bst->active) {
+		/* preserve hotplug port bookkeeping even while no kernel
+		 * state needs to be touched */
+		if (node_new && node_old)
+			list_splice_init(&vlan_old->hotplug_ports,
+					 &vlan_new->hotplug_ports);
 		goto out;
+	}
 
 	if (node_new && node_old && bridge_vlan_equal(vlan_old, vlan_new)) {
 		list_splice_init(&vlan_old->hotplug_ports, &vlan_new->hotplug_ports);
