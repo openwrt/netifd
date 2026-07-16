@@ -145,7 +145,7 @@ config_parse_interface(struct uci_section *s, bool alias)
 	struct device_type *devtype = NULL;
 
 	disabled = uci_lookup_option_string(uci_ctx, s, "disabled");
-	if (disabled && !strcmp(disabled, "1"))
+	if (disabled && (!strcmp(disabled, "1") || !strcmp(disabled, "true")))
 		return;
 
 	blob_buf_init(&b, 0);
