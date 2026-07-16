@@ -340,7 +340,8 @@ static bool device_fill_vlan_range(struct device_vlan_range *r, const char *val)
 
 	if (*sep == '-')
 		cur_end = strtoul(sep + 1, &sep, 0);
-	if (*sep || cur_end < cur_start)
+	if (*sep || cur_end < cur_start ||
+	    !cur_start || cur_end > 4095)
 		return false;
 
 	r->start = cur_start;
