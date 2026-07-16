@@ -660,8 +660,8 @@ extdev_hotplug_remove(struct device *dev, struct device *member, struct blob_att
 	if (!ubm)
 		return UBUS_STATUS_NOT_FOUND;
 
+	/* the vlist update callback removes the member and frees it */
 	vlist_delete(&ebr->members, &ubm->node);
-	extdev_bridge_remove_member(ubm);
 
 	return 0;
 }
