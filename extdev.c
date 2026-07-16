@@ -217,6 +217,28 @@ extdev_ext_ubus_obj_wait(struct ubus_event_handler *h)
 	return ubus_register_event_handler(ubus_ctx, h, "ubus.object.add");
 }
 
+static void
+extdev_dev_resync(struct device *dev)
+{
+	struct extdev_bridge *ebr;
+	struct extdev_device *edev;
+
+	/* the external handler lost all state; replay the device creation
+	 * and bounce the present state to bring the members back */
+	if (dev->type->bridge_capability) {
+		ebr = container_of(dev, struct extdev_bridge, edev.dev);
+		ebr->active = false;
+	} else {
+		edev = container_of(dev, struct extdev_device, dev);
+		netifd_extdev_create(edev, dev->config);
+	}
+
+	if (dev->present) {
+		device_set_present(dev, false);
+		device_set_present(dev, true);
+	}
+}
+
 static int
 extdev_subscribe(struct extdev_type *etype)
 {
@@ -237,6 +259,7 @@ extdev_subscribe(struct extdev_type *etype)
 		netifd_log_message(L_NOTICE, "subscribed to external device handler '%s'\n",
 			etype->name);
 		etype->subscribed = true;
+		device_type_for_each(&etype->handler, extdev_dev_resync);
 	}
 
 	return ret;

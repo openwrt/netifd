@@ -145,6 +145,17 @@ void device_vlan_update(bool done)
 	}
 }
 
+void device_type_for_each(const struct device_type *type,
+			  void (*cb)(struct device *dev))
+{
+	struct device *dev, *tmp;
+
+	avl_for_each_element_safe(&devices, dev, avl, tmp) {
+		if (dev->type == type)
+			cb(dev);
+	}
+}
+
 void device_stp_init(void)
 {
 	struct device *dev;

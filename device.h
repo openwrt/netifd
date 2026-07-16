@@ -383,6 +383,8 @@ extern struct device_type tunnel_device_type;
 
 void device_vlan_update(bool done);
 void device_stp_init(void);
+void device_type_for_each(const struct device_type *type,
+			  void (*cb)(struct device *dev));
 
 int device_type_add(struct device_type *devtype);
 struct device_type *device_type_get(const char *tname);
