@@ -752,6 +752,9 @@ bridge_member_check_cb(struct uloop_timeout *t)
 	bm = container_of(t, struct bridge_member, check_timer);
 	bst = bm->bst;
 
+	if (!bm->active)
+		return;
+
 	if (system_bridge_vlan_check(&bst->dev, bm->dev.dev->ifname) <= 0)
 		return;
 
