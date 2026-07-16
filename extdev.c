@@ -225,6 +225,7 @@ extdev_subscribe(struct extdev_type *etype)
 	ret = extdev_lookup_id(etype);
 	if (ret) {
 		etype->subscribed = false;
+		extdev_ext_ubus_obj_wait(&etype->obj_wait);
 		return ret;
 	}
 
@@ -266,7 +267,12 @@ extdev_wait_ev_cb(struct ubus_context *ctx, struct ubus_event_handler *ev_handle
 	if (strcmp(etype->name, path))
 		return;
 
-	extdev_subscribe(etype);
+	if (extdev_subscribe(etype))
+		return;
+
+	/* devices of this type configured while the handler was absent
+	 * could not be created; replay the configuration */
+	netifd_reload();
 }
 
 static int
