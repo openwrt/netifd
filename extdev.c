@@ -1187,6 +1187,7 @@ add_parsed_data(struct blob_attr **tb, const struct blobmsg_policy *policy, int 
 
 struct dump_data {
 	const struct device *dev;
+	const struct uci_blob_param_list *params;
 	struct blob_buf *buf;
 };
 
@@ -1194,25 +1195,27 @@ static void
 dump_cb(struct ubus_request *req, int type, struct blob_attr *reply)
 {
 	struct dump_data *data;
-	struct extdev_type *etype;
-	const struct blobmsg_policy *info_policy;
+	const struct blobmsg_policy *policy;
 	int n_params;
 	struct blob_buf *buf;
 
 	data = req->priv;
-	etype = container_of(data->dev->type, struct extdev_type, handler);
-	info_policy = etype->info_params->params;
-	n_params = etype->info_params->n_params;
+	policy = data->params->params;
+	n_params = data->params->n_params;
 	buf = data->buf;
+
+	if (!policy || n_params <= 0)
+		return;
 
 	struct blob_attr *tb[n_params];
 
-	blobmsg_parse_attr(info_policy, n_params, tb, reply);
-	add_parsed_data(tb, info_policy, n_params, buf);
+	blobmsg_parse_attr(policy, n_params, tb, reply);
+	add_parsed_data(tb, policy, n_params, buf);
 }
 
 static void
-extdev_dump(const char *method, struct device *dev, struct blob_buf *buf)
+extdev_dump(const char *method, struct device *dev,
+	    const struct uci_blob_param_list *params, struct blob_buf *buf)
 {
 	static struct dump_data data;
 	struct extdev_type *etype;
@@ -1223,6 +1226,7 @@ extdev_dump(const char *method, struct device *dev, struct blob_buf *buf)
 		return;
 
 	data.dev = dev;
+	data.params = params;
 	data.buf = buf;
 
 	blob_buf_init(&b, 0);
@@ -1234,13 +1238,17 @@ extdev_dump(const char *method, struct device *dev, struct blob_buf *buf)
 static void
 extdev_dump_info(struct device *dev, struct blob_buf *buf)
 {
-	extdev_dump(__extdev_methods[METHOD_DUMP_INFO], dev, buf);
+	struct extdev_type *etype = container_of(dev->type, struct extdev_type, handler);
+
+	extdev_dump(__extdev_methods[METHOD_DUMP_INFO], dev, etype->info_params, buf);
 }
 
 static void
 extdev_dump_stats(struct device *dev, struct blob_buf *buf)
 {
-	extdev_dump(__extdev_methods[METHOD_DUMP_STATS], dev, buf);
+	struct extdev_type *etype = container_of(dev->type, struct extdev_type, handler);
+
+	extdev_dump(__extdev_methods[METHOD_DUMP_STATS], dev, etype->stats_params, buf);
 }
 
 static void
