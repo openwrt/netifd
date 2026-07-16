@@ -4446,12 +4446,20 @@ static int system_add_ip6_tunnel(const char *name, const unsigned int link,
 					goto failure;
 				}
 				ealen = blobmsg_get_u32(tb_cur);
+				if (ealen > 255) {
+					ret = -EINVAL;
+					goto failure;
+				}
 
 				if (!(tb_cur = tb_fmr[FMR_DATA_OFFSET])) {
 					ret = -EINVAL;
 					goto failure;
 				}
 				offset = blobmsg_get_u32(tb_cur);
+				if (offset > 255) {
+					ret = -EINVAL;
+					goto failure;
+				}
 
 				struct nlattr *rule = nla_nest_start(nlm, ++fmrcnt);
 				if (!rule) {
