@@ -56,6 +56,7 @@ struct vlandev_device {
 	struct blob_attr *config_data;
 	struct blob_attr *ifname;
 	struct blob_attr *vid;
+	bool vid_invalid;
 
 	struct vlandev_config config;
 };
@@ -165,6 +166,9 @@ vlandev_set_up(struct vlandev_device *mvdev)
 {
 	int ret;
 
+	if (mvdev->vid_invalid)
+		return -EINVAL;
+
 	ret = device_claim(&mvdev->parent);
 	if (ret < 0)
 		return ret;
@@ -246,7 +250,7 @@ vlandev_dump_info(struct device *dev, struct blob_buf *b)
 	vlandev_qos_mapping_dump(b, "egress_qos_mapping", &mvdev->config.egress_qos_mapping_list);
 }
 
-static uint16_t
+static int
 vlandev_get_vid(struct device *dev, const char *id_str)
 {
 	unsigned long id;
@@ -256,16 +260,22 @@ vlandev_get_vid(struct device *dev, const char *id_str)
 	id = strtoul(id_str, &err, 10);
 	if (err && *err) {
 		if (!dev)
-			return 1;
+			return -1;
 
 		alias_id = kvlist_get(&dev->vlan_aliases, id_str);
-		if (!alias_id)
-			return 1;
+		if (!alias_id) {
+			D(DEVICE, "Failed to resolve vlan alias '%s'", id_str);
+			return -1;
+		}
 
 		id = *alias_id;
 	}
 
-	return (uint16_t)id;
+	/* the kernel rejects vids above 4094; 0 is valid (priority tagging) */
+	if (id > 4094)
+		return -1;
+
+	return (int)id;
 }
 
 static void
@@ -274,14 +284,17 @@ vlandev_config_init(struct device *dev)
 	struct vlandev_device *mvdev;
 	struct device *basedev = NULL;
 
+	int vid = 1;
+
 	mvdev = container_of(dev, struct vlandev_device, dev);
 	if (mvdev->ifname)
 		basedev = device_get(blobmsg_data(mvdev->ifname), true);
 
 	if (mvdev->vid)
-		mvdev->config.vid = vlandev_get_vid(basedev, blobmsg_get_string(mvdev->vid));
-	else
-		mvdev->config.vid = 1;
+		vid = vlandev_get_vid(basedev, blobmsg_get_string(mvdev->vid));
+
+	mvdev->vid_invalid = vid < 0;
+	mvdev->config.vid = vid < 0 ? 0 : vid;
 
 	device_add_user(&mvdev->parent, basedev);
 	vlandev_hotplug_check(mvdev);
