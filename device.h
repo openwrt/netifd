@@ -203,6 +203,9 @@ enum device_event {
 	/* Topology changed (i.e. bridge member added) */
 	DEV_EVENT_TOPO_CHANGE,
 
+	/* the vlan list of the device was updated */
+	DEV_EVENT_VLAN_UPDATE,
+
 	__DEV_EVENT_MAX
 };
 

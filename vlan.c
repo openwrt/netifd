@@ -174,6 +174,9 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		device_remove_user(&vldev->dep);
 		device_free_unused();
 		break;
+	case DEV_EVENT_VLAN_UPDATE:
+		vlan_hotplug_check(vldev, dep->dev);
+		break;
 	case DEV_EVENT_TOPO_CHANGE:
 		/* Propagate topo changes */
 		device_broadcast_event(&vldev->dev, DEV_EVENT_TOPO_CHANGE);

@@ -139,6 +139,8 @@ void device_vlan_update(bool done)
 
 			if (dev->type->vlan_update)
 				dev->type->vlan_update(dev);
+
+			device_broadcast_event(dev, DEV_EVENT_VLAN_UPDATE);
 		}
 	}
 }
@@ -674,6 +676,7 @@ const char *device_event_name(enum device_event ev)
 		[DEV_EVENT_LINK_UP] = "link_up",
 		[DEV_EVENT_LINK_DOWN] = "link_down",
 		[DEV_EVENT_TOPO_CHANGE] = "topo_change",
+		[DEV_EVENT_VLAN_UPDATE] = "vlan_update",
 	};
 
 	if (ev >= ARRAY_SIZE(event_names) || !event_names[ev])
