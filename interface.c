@@ -68,6 +68,7 @@ enum {
 	IFACE_ATTR_IP6HINT,
 	IFACE_ATTR_IP4TABLE,
 	IFACE_ATTR_IP6TABLE,
+	IFACE_ATTR_STRONGHOST_MARK,
 	IFACE_ATTR_IP6CLASS,
 	IFACE_ATTR_DELEGATE,
 	IFACE_ATTR_IP6IFACEID,
@@ -100,6 +101,7 @@ static const struct blobmsg_policy iface_attrs[IFACE_ATTR_MAX] = {
 	[IFACE_ATTR_IP6HINT] = { .name = "ip6hint", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP4TABLE] = { .name = "ip4table", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6TABLE] = { .name = "ip6table", .type = BLOBMSG_TYPE_STRING },
+	[IFACE_ATTR_STRONGHOST_MARK] = { .name = "stronghost_mark", .type = BLOBMSG_TYPE_STRING },
 	[IFACE_ATTR_IP6CLASS] = { .name = "ip6class", .type = BLOBMSG_TYPE_ARRAY },
 	[IFACE_ATTR_DELEGATE] = { .name = "delegate", .type = BLOBMSG_TYPE_BOOL },
 	[IFACE_ATTR_IP6IFACEID] = { .name = "ip6ifaceid", .type = BLOBMSG_TYPE_STRING },
@@ -113,6 +115,27 @@ const struct uci_blob_param_list interface_attr_list = {
 	.n_params = IFACE_ATTR_MAX,
 	.params = iface_attrs,
 };
+
+static bool
+interface_parse_stronghost_mark(const char *str, unsigned int *mark,
+				unsigned int *mask)
+{
+	char *end;
+	unsigned long value, value_mask;
+
+	value = strtoul(str, &end, 0);
+	if (end == str || *end != '/' || value > UINT32_MAX)
+		return false;
+
+	str = end + 1;
+	value_mask = strtoul(str, &end, 0);
+	if (end == str || *end || !value_mask || value_mask > UINT32_MAX)
+		return false;
+
+	*mark = value;
+	*mask = value_mask;
+	return *mark && !(*mark & ~*mask);
+}
 
 static void
 interface_set_main_dev(struct interface *iface, struct device *dev);
@@ -1047,6 +1070,14 @@ interface_alloc(const char *name, struct blob_attr *config, bool dynamic)
 			D(INTERFACE, "Failed to resolve routing table: %s", (char *) blobmsg_data(cur));
 	}
 
+	if ((cur = tb[IFACE_ATTR_STRONGHOST_MARK]) &&
+	    !interface_parse_stronghost_mark(blobmsg_data(cur),
+					     &iface->stronghost_mark,
+					     &iface->stronghost_mask))
+		netifd_log_message(L_WARNING,
+				   "Invalid stronghost_mark value '%s' for interface '%s'\n",
+				   (char *) blobmsg_data(cur), iface->name);
+
 	iface->proto_ip.no_delegation = !blobmsg_get_bool_default(tb[IFACE_ATTR_DELEGATE], true);
 
 	iface->config_autostart = iface->autostart;
@@ -1508,6 +1539,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 {
 	struct blob_attr *old_config = if_old->config;
 	bool reload = false, reload_ip = false, update_prefix_delegation = false;
+	bool stronghost_policy_changed;
 
 	/*
 	 * The interface is being redefined: cancel a pending deferred removal,
@@ -1545,6 +1577,15 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		if_old->field = if_new->field;				\
 		__var |= __changed;					\
 	})
+
+	stronghost_policy_changed =
+		if_old->ip4table != if_new->ip4table ||
+		if_old->ip6table != if_new->ip6table ||
+		if_old->stronghost_mark != if_new->stronghost_mark ||
+		if_old->stronghost_mask != if_new->stronghost_mask;
+
+	if (stronghost_policy_changed && if_old->policy_rules_set)
+		interface_ip_set_stronghost_policy(if_old, false);
 
 	if_old->config = if_new->config;
 	if_old->tags = if_new->tags;
@@ -1595,6 +1636,8 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	UPDATE(proto_ip.no_defaultroute, reload_ip);
 	UPDATE(ip4table, reload_ip);
 	UPDATE(ip6table, reload_ip);
+	UPDATE(stronghost_mark, reload_ip);
+	UPDATE(stronghost_mask, reload_ip);
 	interface_merge_assignment_data(if_old, if_new);
 
 #undef UPDATE
@@ -1622,6 +1665,11 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 		interface_ip_set_enabled(&if_old->proto_ip, false);
 		interface_ip_set_enabled(&if_old->proto_ip, proto_ip_enabled);
 		interface_ip_set_enabled(&if_old->config_ip, config_ip_enabled);
+	}
+
+	if (stronghost_policy_changed && if_old->state == IFS_UP) {
+		if_old->updated |= IUF_POLICY;
+		interface_event(if_old, IFEV_UPDATE);
 	}
 
 	if (update_prefix_delegation)
