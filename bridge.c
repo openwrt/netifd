@@ -137,6 +137,7 @@ struct bridge_member {
 	uint16_t pvid;
 	bool present;
 	bool active;
+	bool set_ipv6;
 	char name[];
 };
 
@@ -328,7 +329,8 @@ bridge_disable_member(struct bridge_member *bm, bool keep_dev)
 	if (!keep_dev)
 		device_release(&bm->dev);
 
-	if (bm->dev.dev->settings.flags & DEV_OPT_IPV6) {
+	if (bm->set_ipv6) {
+		bm->set_ipv6 = false;
 		bm->dev.dev->settings.ipv6 = 1;
 		bm->dev.dev->settings.flags &= ~DEV_OPT_IPV6;
 	}
@@ -613,6 +615,7 @@ bridge_enable_member(struct bridge_member *bm)
 	if (!(bm->dev.dev->settings.flags & DEV_OPT_IPV6)) {
 		bm->dev.dev->settings.ipv6 = 0;
 		bm->dev.dev->settings.flags |= DEV_OPT_IPV6;
+		bm->set_ipv6 = true;
 	}
 
 	ret = device_claim(&bm->dev);

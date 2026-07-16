@@ -46,6 +46,7 @@ struct bonding_port {
 	bool set_primary;
 	bool present;
 	bool active;
+	bool set_ipv6;
 	char name[];
 };
 
@@ -171,7 +172,8 @@ bonding_disable_port(struct bonding_port *bp, bool keep_dev)
 	if (!keep_dev)
 		device_release(&bp->dev);
 
-	if (bp->dev.dev->settings.flags & DEV_OPT_IPV6) {
+	if (bp->set_ipv6) {
+		bp->set_ipv6 = false;
 		bp->dev.dev->settings.ipv6 = 1;
 		bp->dev.dev->settings.flags &= ~DEV_OPT_IPV6;
 	}
@@ -231,6 +233,7 @@ bonding_enable_port(struct bonding_port *bp)
 	if (!(bp->dev.dev->settings.flags & DEV_OPT_IPV6)) {
 		bp->dev.dev->settings.ipv6 = 0;
 		bp->dev.dev->settings.flags |= DEV_OPT_IPV6;
+		bp->set_ipv6 = true;
 	}
 
 	ret = device_claim(&bp->dev);
