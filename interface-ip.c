@@ -568,6 +568,33 @@ addr_cmp(const void *k1, const void *k2, void *ptr)
 	return memcmp(k1+cmp_offset, k2+cmp_offset, cmp_size);
 }
 
+/*
+ * Look for a current node covering the same kernel address (the kernel
+ * matches addresses by family, local address and prefix length only)
+ */
+static struct device_addr *
+interface_addr_find_current(struct vlist_tree *tree, struct device_addr *a_old)
+{
+	struct device_addr *a;
+
+	if (tree->version == -1)
+		return NULL;
+
+	vlist_for_each_element(tree, a, node) {
+		if (a == a_old || a->node.version != tree->version)
+			continue;
+
+		if ((a->flags & DEVADDR_FAMILY) != (a_old->flags & DEVADDR_FAMILY) ||
+		    a->mask != a_old->mask ||
+		    memcmp(&a->addr, &a_old->addr, sizeof(a->addr)))
+			continue;
+
+		return a;
+	}
+
+	return NULL;
+}
+
 static int
 neighbor_cmp(const void *k1, const void *k2, void *ptr)
 {
@@ -720,6 +747,17 @@ interface_update_proto_addr(struct vlist_tree *tree,
 	if (node_old) {
 		bool v6 = (a_old->flags & DEVADDR_FAMILY) == DEVADDR_INET6;
 
+		/*
+		 * The same address re-announced under a different list index
+		 * is a different vlist node whose add path already ran, so
+		 * the flush of the stale node must not touch the kernel
+		 * state owned by the surviving node
+		 */
+		struct device_addr *a_kept = NULL;
+
+		if (!node_new)
+			a_kept = interface_addr_find_current(tree, a_old);
+
 		if (a_old->enabled && !keep) {
 			/*
 			 * This is needed for source routing to work correctly. If a device
@@ -731,10 +769,14 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				interface_add_addr_rules(a_old, false);
 
 			if (!(a_old->flags & DEVADDR_EXTERNAL)) {
-				interface_handle_subnet_route(iface, a_old, false);
-				system_del_address(dev, a_old);
+				if (!a_kept || !a_kept->subnet.iface)
+					interface_handle_subnet_route(iface, a_old, false);
 
-				if (addr_is_offlink(dev, a_old) && (a_old->mask < (v6 ? 128 : 32))) {
+				if (!a_kept)
+					system_del_address(dev, a_old);
+
+				if (!(a_kept && addr_is_offlink(dev, a_kept)) &&
+				    addr_is_offlink(dev, a_old) && (a_old->mask < (v6 ? 128 : 32))) {
 					struct device_route route;
 
 					memset(&route, 0, sizeof(route));
