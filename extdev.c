@@ -1057,7 +1057,7 @@ __bridge_config_init(struct extdev_bridge *ebr)
 
 	if (ebr->empty) {
 		ebr->force_active = true;
-		ret = netifd_extdev_create(&ebr->edev, ebr->config);
+		ret = extdev_bridge_enable_interface(ebr);
 		if (ret)
 			goto error;
 		device_set_present(&ebr->edev.dev, true);
