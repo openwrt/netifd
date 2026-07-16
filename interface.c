@@ -37,6 +37,7 @@ enum {
 	LINK_ATTR_NETWORK,
 	LINK_ATTR_DEVICE,
 	LINK_ATTR_VLAN,
+	LINK_ATTR_LINK_EXT,
 	__LINK_ATTR_MAX,
 };
 
@@ -44,6 +45,7 @@ static const struct blobmsg_policy link_policy[__LINK_ATTR_MAX] = {
 	[LINK_ATTR_NETWORK] = { "network", BLOBMSG_TYPE_STRING },
 	[LINK_ATTR_DEVICE] = { "device", BLOBMSG_TYPE_STRING },
 	[LINK_ATTR_VLAN] = { "vlan", BLOBMSG_TYPE_ARRAY },
+	[LINK_ATTR_LINK_EXT] = { "link-ext", BLOBMSG_TYPE_BOOL },
 };
 
 enum {
@@ -1235,37 +1237,47 @@ interface_add_link(struct interface *iface, struct device *dev,
 }
 
 /*
- * Drop a hotplug member from the master it was last assigned to. The previous
- * assignment is described entirely by stored data (master ifname + vlan), so it
- * can be released even when the device was reassigned without a netdev down/up
- * cycle. A missing master or member is harmless: the release is a no-op.
+ * Attach or drop a hotplug member to/from the master described by a stored
+ * assignment (master ifname + vlan), so it can be released or restored even
+ * when the device was reassigned without a netdev down/up cycle. A missing
+ * master or member is harmless: the operation is a no-op.
  */
 static void
-interface_hotplug_link_release(struct device *dev)
+interface_hotplug_link_op(struct device *dev, struct blob_attr *link, bool add)
 {
 	struct blob_attr *tb[__LINK_ATTR_MAX];
 	struct blob_attr *vlan;
 	struct device *mdev;
 	struct interface *iface;
 
-	if (!dev->hotplug_link)
+	if (!link)
 		return;
 
-	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb, dev->hotplug_link);
+	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb, link);
 	vlan = tb[LINK_ATTR_VLAN];
 
 	if (tb[LINK_ATTR_DEVICE]) {
 		mdev = device_get(blobmsg_get_string(tb[LINK_ATTR_DEVICE]), 0);
-		if (mdev && mdev->hotplug_ops)
+		if (!mdev || !mdev->hotplug_ops)
+			return;
+
+		if (add)
+			mdev->hotplug_ops->add(mdev, dev, vlan);
+		else
 			mdev->hotplug_ops->del(mdev, dev, vlan);
 	} else if (tb[LINK_ATTR_NETWORK]) {
+		bool link_ext = tb[LINK_ATTR_LINK_EXT] &&
+				blobmsg_get_bool(tb[LINK_ATTR_LINK_EXT]);
+
 		iface = vlist_find(&interfaces, blobmsg_get_string(tb[LINK_ATTR_NETWORK]), iface, node);
-		if (iface)
+		if (!iface)
+			return;
+
+		if (add)
+			interface_add_link(iface, dev, vlan, link_ext);
+		else
 			interface_remove_link(iface, dev, vlan);
 	}
-
-	free(dev->hotplug_link);
-	dev->hotplug_link = NULL;
 }
 
 int
@@ -1274,7 +1286,7 @@ interface_handle_link(struct interface *iface, const char *name,
 {
 	struct device *dev, *mdev;
 	const char *master;
-	struct blob_attr *link = NULL;
+	struct blob_attr *link = NULL, *old_link = NULL;
 	int ret;
 
 	dev = device_get(name, add ? (link_ext ? 2 : 1) : 0);
@@ -1309,22 +1321,33 @@ interface_handle_link(struct interface *iface, const char *name,
 	if (vlan)
 		blobmsg_add_field(&b, blobmsg_type(vlan), "vlan",
 				  blobmsg_data(vlan), blobmsg_data_len(vlan));
+	if (link_ext)
+		blobmsg_add_u8(&b, "link-ext", true);
 	if (!dev->hotplug_link || !blob_attr_equal(dev->hotplug_link, b.head)) {
 		link = blob_memdup(b.head);
-		if (dev->hotplug_link)
-			interface_hotplug_link_release(dev);
+		if (!link)
+			return UBUS_STATUS_UNKNOWN_ERROR;
+
+		old_link = dev->hotplug_link;
+		dev->hotplug_link = NULL;
+		interface_hotplug_link_op(dev, old_link, false);
 	}
 
 	ret = interface_add_link(iface, dev, vlan, link_ext);
 	if (ret) {
 		free(link);
+		/* restore the previous attachment instead of leaving the
+		 * device detached from its old master */
+		if (old_link) {
+			interface_hotplug_link_op(dev, old_link, true);
+			dev->hotplug_link = old_link;
+		}
 		return ret;
 	}
 
-	if (link) {
-		free(dev->hotplug_link);
+	free(old_link);
+	if (link)
 		dev->hotplug_link = link;
-	}
 
 	return 0;
 }
