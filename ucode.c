@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <string.h>
+
 #include <ucode/vm.h>
 #include <ucode/lib.h>
 #include <ucode/compiler.h>
@@ -591,4 +593,6 @@ void netifd_ucode_free(void)
 
 	uc_search_path_free(&vm.config->module_search_path);
 	uc_vm_free(&vm);
+	memset(&vm, 0, sizeof(vm));
+	netifd_obj = NULL;
 }
