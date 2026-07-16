@@ -500,7 +500,18 @@ interface_ip_add_route(struct interface *iface, struct blob_attr *attr, bool v6)
 			goto error;
 		}
 
-		route->sourcemask = (mask) ? atoi(mask) : ((af == AF_INET6) ? 128 : 32);
+		if (mask) {
+			char *e;
+
+			route->sourcemask = strtoul(mask, &e, 10);
+			if (e == mask || *e ||
+			    route->sourcemask > ((af == AF_INET6) ? 128 : 32)) {
+				D(INTERFACE, "Invalid route source mask: %s", mask);
+				goto error;
+			}
+		} else {
+			route->sourcemask = (af == AF_INET6) ? 128 : 32;
+		}
 	}
 
 	if ((cur = tb[ROUTE_ONLINK]) != NULL && blobmsg_get_bool(cur))
