@@ -766,7 +766,9 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	if (ifi->ifi_family != AF_UNSPEC)
 		return 0;
 
-	nlmsg_parse(nh, sizeof(struct ifinfomsg), nla, __IFLA_MAX - 1, NULL);
+	if (nlmsg_parse(nh, sizeof(struct ifinfomsg), nla, __IFLA_MAX - 1, NULL))
+		return 0;
+
 	if (!nla[IFLA_IFNAME])
 		return 0;
 
