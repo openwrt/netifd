@@ -158,9 +158,16 @@ static void vlan_dev_cb(struct device_user *dep, enum device_event ev)
 		vlan_hotplug_check(vldev, dep->dev);
 		vldev->dev.hidden = dep->dev->hidden;
 		if (snprintf(name, sizeof(name), "%s.%d", dep->dev->ifname,
-			     vldev->id) >= (int)sizeof(name) ||
-		    device_set_ifname(&vldev->dev, name))
-			free_vlan_if(&vldev->dev);
+			     vldev->id) < (int)sizeof(name) &&
+		    !device_set_ifname(&vldev->dev, name))
+			break;
+
+		/* freeing the device here would leave dangling device_user
+		 * entries behind; detach it and let device_free_unused()
+		 * reap it once the last user is gone */
+		device_set_present(&vldev->dev, false);
+		device_remove_user(&vldev->dep);
+		device_free_unused();
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
 		/* Propagate topo changes */
