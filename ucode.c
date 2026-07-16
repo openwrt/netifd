@@ -272,6 +272,9 @@ static void
 uc_netifd_process_cb(struct netifd_process *proc, int ret)
 {
 	struct uc_netifd_process *up = container_of(proc, struct uc_netifd_process, proc);
+	/* the callback may drop the last script reference; hold one for the
+	 * cleanup below */
+	uc_value_t *res = ucv_get(up->res);
 
 	uc_vm_stack_push(&vm, ucv_get(up->res));
 	uc_vm_stack_push(&vm, ucv_get(ucv_resource_value_get(up->res, 0)));
@@ -279,6 +282,10 @@ uc_netifd_process_cb(struct netifd_process *proc, int ret)
 
 	if (uc_vm_call(&vm, true, 1) == EXCEPTION_NONE)
 		ucv_put(uc_vm_stack_pop(&vm));
+
+	ucv_resource_persistent_set(res, false);
+	ucv_resource_value_set(res, 0, NULL);
+	ucv_put(res);
 }
 
 static bool
