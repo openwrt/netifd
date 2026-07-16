@@ -1606,6 +1606,7 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 	if_old->force_link = if_new->force_link;
 	if_old->carrier_loss_delay = if_new->carrier_loss_delay;
 	if_old->dns_metric = if_new->dns_metric;
+	if_old->renew = if_new->renew;
 
 	if (if_old->proto_ip.no_delegation != if_new->proto_ip.no_delegation) {
 		if_old->proto_ip.no_delegation = if_new->proto_ip.no_delegation;
