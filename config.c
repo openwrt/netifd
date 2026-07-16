@@ -561,13 +561,20 @@ config_init_vlans(void)
 	struct vlan_config_entry *e;
 
 	device_vlan_update(false);
-	while (!list_empty(&config_vlans)) {
-		e = list_first_entry(&config_vlans, struct vlan_config_entry, list);
-		list_del(&e->list);
+	list_for_each_entry(e, &config_vlans, list)
 		config_init_vlan_entry(e);
+	device_vlan_update(true);
+}
+
+static void
+config_free_vlans(void)
+{
+	struct vlan_config_entry *e, *tmp;
+
+	list_for_each_entry_safe(e, tmp, &config_vlans, list) {
+		list_del(&e->list);
 		free(e);
 	}
-	device_vlan_update(true);
 }
 
 static struct uci_package *
@@ -829,6 +836,7 @@ config_init_all(void)
 	config_init_devices(false);
 	netifd_ucode_config_load(false);
 	config_init_interfaces();
+	config_free_vlans();
 	config_init_ip();
 	config_init_rules();
 	config_init_globals();
