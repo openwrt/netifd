@@ -20,8 +20,6 @@
 #include "netifd.h"
 #include "system.h"
 
-static struct blob_buf b;
-
 struct vlan_device {
 	struct device dev;
 	struct device_user dep;
@@ -44,7 +42,11 @@ static int
 __vlan_hotplug_op(struct device *dev, struct device *member, struct blob_attr *vlan, bool add)
 {
 	struct vlan_device *vldev = container_of(dev, struct vlan_device, dev);
+	/* local buffer: chained vlan devices re-enter this function with
+	 * the vlan attribute pointing into the caller's buffer */
+	struct blob_buf b = {};
 	void *a;
+	int ret;
 
 	dev = vldev->dep.dev;
 	if (!dev || !dev->hotplug_ops)
@@ -58,9 +60,12 @@ __vlan_hotplug_op(struct device *dev, struct device *member, struct blob_attr *v
 	blobmsg_close_array(&b, a);
 
 	if (add)
-		return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+		ret = dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
 	else
-		return dev->hotplug_ops->del(dev, member, blobmsg_data(b.head));
+		ret = dev->hotplug_ops->del(dev, member, blobmsg_data(b.head));
+
+	blob_buf_free(&b);
+	return ret;
 }
 
 static int

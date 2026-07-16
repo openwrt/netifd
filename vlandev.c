@@ -45,7 +45,6 @@ static const struct uci_blob_param_list vlandev_attr_list = {
 };
 
 static struct device_type vlan8021q_device_type;
-static struct blob_buf b;
 
 struct vlandev_device {
 	struct device dev;
@@ -65,7 +64,11 @@ static int
 __vlandev_hotplug_op(struct device *dev, struct device *member, struct blob_attr *vlan, bool add)
 {
 	struct vlandev_device *mvdev = container_of(dev, struct vlandev_device, dev);
+	/* local buffer: chained vlan devices re-enter this function with
+	 * the vlan attribute pointing into the caller's buffer */
+	struct blob_buf b = {};
 	void *a;
+	int ret;
 
 	dev = mvdev->parent.dev;
 	if (!dev || !dev->hotplug_ops)
@@ -79,9 +82,12 @@ __vlandev_hotplug_op(struct device *dev, struct device *member, struct blob_attr
 	blobmsg_close_array(&b, a);
 
 	if (add)
-		return dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+		ret = dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
 	else
-		return dev->hotplug_ops->del(dev, member, blobmsg_data(b.head));
+		ret = dev->hotplug_ops->del(dev, member, blobmsg_data(b.head));
+
+	blob_buf_free(&b);
+	return ret;
 }
 
 static int
