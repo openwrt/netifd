@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -120,11 +121,23 @@ static int vlan_set_device_state(struct device *dev, bool up)
 	if (ret < 0)
 		return ret;
 
-	system_vlan_add(vldev->dep.dev, vldev->id);
+	/* tolerate a vlan device left behind by a previous netifd run */
+	if (system_vlan_add(vldev->dep.dev, vldev->id) < 0 &&
+	    errno != EEXIST) {
+		ret = -1;
+		goto release;
+	}
+
 	ret = vldev->set_state(dev, true);
 	if (ret)
-		device_release(&vldev->dep);
+		goto delete;
 
+	return 0;
+
+delete:
+	system_vlan_del(dev);
+release:
+	device_release(&vldev->dep);
 	return ret;
 }
 
