@@ -410,7 +410,8 @@ interface_check_state(struct interface *iface)
 		if (!iface->available)
 			return;
 
-		if (iface->autostart && iface->enabled && link_state && !config_init)
+		if (iface->autostart && iface->enabled && link_state &&
+		    !config_init && iface->config_state != IFC_REMOVE)
 			__interface_set_up(iface);
 		break;
 	default:
