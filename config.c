@@ -241,7 +241,8 @@ config_insert_vlan_entry(const char *name, const char *dev_name, struct blob_att
 	char *dev_name_buf;
 
 	list_for_each_entry_safe(e, tmp, &config_vlans, list) {
-		if (strcmp(e->name, name) != 0)
+		if (strcmp(e->name, name) != 0 ||
+		    strcmp(e->dev_name, dev_name) != 0)
 			continue;
 
 		list_del(&e->list);
