@@ -839,14 +839,19 @@ __bridge_reload(struct extdev_bridge *ebr, struct blob_attr *config)
 	enum dev_change_type change = DEV_CONFIG_APPLIED;
 	struct device *dev;
 	unsigned long diff = 0;
+	bool empty;
 
 	if (config) {
 		config = blob_memdup(config);
 		blobmsg_parse_attr(brpol, __BRIDGE_MAX, tb, config);
 		ebr->edev.dep_name = blobmsg_get_string(tb[BRIDGE_DEPENDS_ON]);
 
-		if (tb[BRIDGE_EMPTY] && blobmsg_get_bool(tb[BRIDGE_EMPTY]))
-			ebr->empty = true;
+		empty = tb[BRIDGE_EMPTY] && blobmsg_get_bool(tb[BRIDGE_EMPTY]);
+		/* only revert the config driven force_active here; the hotplug
+		 * prepare path sets it independently of the empty option */
+		if (ebr->empty && !empty)
+			ebr->force_active = false;
+		ebr->empty = empty;
 
 		if (ebr->config) {
 			config_params = ebr->edev.dev.type->config_params;
