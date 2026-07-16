@@ -448,8 +448,10 @@ iprule_update_rule(struct vlist_tree *tree,
 	 */
 	if (node_new && node_old &&
 	    !(rule_new->flags & (IPRULE_IN | IPRULE_OUT)) &&
+	    rule_old->installed &&
 	    ((rule_new->flags & IPRULE_PRIORITY) ||
 	     rule_new->order == rule_old->order)) {
+		rule_new->installed = true;
 		free(rule_old);
 		return;
 	}
@@ -475,7 +477,7 @@ iprule_update_rule(struct vlist_tree *tree,
 		if (rule_new->flags & (IPRULE_IN | IPRULE_OUT)) {
 			register_interfaces(rule_new);
 		} else {
-			system_add_iprule(rule_new);
+			rule_new->installed = !system_add_iprule(rule_new);
 		}
 	}
 }

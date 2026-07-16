@@ -80,6 +80,7 @@ enum iprule_flags {
 struct iprule {
 	struct vlist_node node;
 	unsigned int order;
+	bool installed;
 
 	/* to receive interface events */
 	struct interface_user in_iface_user;
