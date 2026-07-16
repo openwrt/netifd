@@ -56,6 +56,7 @@ enum interface_update_flags {
 	IUF_ROUTE	= (1 << 1),
 	IUF_PREFIX	= (1 << 2),
 	IUF_DATA	= (1 << 3),
+	IUF_POLICY	= (1 << 4),
 };
 
 struct interface_error {
@@ -164,6 +165,8 @@ struct interface {
 	int dns_metric;
 	unsigned int ip4table;
 	unsigned int ip6table;
+	unsigned int stronghost_mark;
+	unsigned int stronghost_mask;
 
 	/* IPv6 assignment parameters */
 	enum interface_id_selection_type assignment_iface_id_selection;
