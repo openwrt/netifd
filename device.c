@@ -212,7 +212,12 @@ simple_device_set_state(struct device *dev, bool state)
 		if (ret < 0)
 			return ret;
 	}
-	return set_device_state(dev, state);
+
+	ret = set_device_state(dev, state);
+	if (ret && state && pdev)
+		device_release(&dev->parent);
+
+	return ret;
 }
 
 static struct device *
