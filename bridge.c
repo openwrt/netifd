@@ -1190,6 +1190,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 {
 	struct bridge_config *cfg = &bst->config;
 	struct blob_attr *cur;
+	bool was_empty = cfg->bridge_empty;
 
 	/* defaults */
 	memset(cfg, 0, sizeof(*cfg));
@@ -1267,6 +1268,11 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 
 	if ((cur = tb[BRIDGE_ATTR_BRIDGE_EMPTY]))
 		cfg->bridge_empty = blobmsg_get_bool(cur);
+
+	/* only revert the config driven force_active here; the hotplug
+	 * prepare path sets it independently of the empty option */
+	if (was_empty && !cfg->bridge_empty)
+		bst->force_active = false;
 
 	if ((cur = tb[BRIDGE_ATTR_VLAN_FILTERING]))
 		cfg->vlan_filtering = blobmsg_get_bool(cur);
