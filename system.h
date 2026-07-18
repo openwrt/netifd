@@ -325,6 +325,26 @@ int system_link_netns_move(struct device *dev, const pid_t target_ns, const char
 int system_netns_open(const pid_t target_ns);
 int system_netns_set(int netns_fd);
 
+#ifdef DEVLINK_PORT_SPLIT
+struct system_devlink_port {
+	char bus_name[32];
+	char dev_name[128];
+	uint32_t port_index;
+};
+
+int system_devlink_port_from_ifname(const char *ifname,
+				    struct system_devlink_port *port);
+int system_devlink_port_wait_ifname(const char *ifname,
+				    struct system_devlink_port *port,
+				    unsigned int timeout_ms);
+int system_devlink_port_split(const struct system_devlink_port *port,
+			      uint32_t count,
+			      struct system_devlink_port *member,
+			      uint32_t *split_group);
+int system_devlink_port_unsplit(const struct system_devlink_port *port);
+
+#endif
+
 #ifndef SYSTEM_IMPL
 #include "system-log.h"
 #endif

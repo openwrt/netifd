@@ -30,6 +30,10 @@
 #include "system.h"
 #include "ucode.h"
 
+#ifdef DEVLINK_PORT_SPLIT
+#include "port-split.h"
+#endif
+
 bool config_init = false;
 
 static struct uci_context *uci_ctx;
@@ -830,6 +834,9 @@ config_init_all(void)
 	config_init = true;
 
 	device_reset_config();
+#ifdef DEVLINK_PORT_SPLIT
+	port_split_config_init(uci_ctx, uci_network);
+#endif
 	config_load_vlans();
 	config_init_devices(true);
 	config_init_vlans();
