@@ -76,6 +76,9 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_GRO] = { .name = "gro", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MASTER] = { .name = "conduit", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_EEE] = { .name = "eee", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_EEE_TX_LPI] = { .name = "eee_tx_lpi", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_EEE_TX_LPI_TIMER] = { .name = "eee_tx_lpi_timer", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_EEE_ADVERTISE] = { .name = "eee_advertise", .type = BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_PSE] = { .name = "pse", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_PSE_PODL] = { .name = "pse_podl", .type = BLOBMSG_TYPE_BOOL },
@@ -333,6 +336,9 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->autoneg = s->flags & DEV_OPT_AUTONEG ? s->autoneg : os->autoneg;
 	n->gro = s->flags & DEV_OPT_GRO ? s->gro : os->gro;
 	n->eee = s->flags & DEV_OPT_EEE ? s->eee : os->eee;
+	n->eee_tx_lpi = s->flags & DEV_OPT_EEE_TX_LPI ? s->eee_tx_lpi : os->eee_tx_lpi;
+	n->eee_tx_lpi_timer = s->flags & DEV_OPT_EEE_TX_LPI_TIMER ?
+		s->eee_tx_lpi_timer : os->eee_tx_lpi_timer;
 	n->master_ifindex = s->flags & DEV_OPT_MASTER ? s->master_ifindex : os->master_ifindex;
 	n->pse = s->flags & DEV_OPT_PSE ? s->pse : os->pse;
 	n->pse_podl = s->flags & DEV_OPT_PSE_PODL ? s->pse_podl : os->pse_podl;
@@ -613,6 +619,19 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 		s->flags |= DEV_OPT_EEE;
 	}
 
+	if ((cur = tb[DEV_ATTR_EEE_TX_LPI])) {
+		s->eee_tx_lpi = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_EEE_TX_LPI;
+	}
+
+	if ((cur = tb[DEV_ATTR_EEE_TX_LPI_TIMER])) {
+		s->eee_tx_lpi_timer = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_EEE_TX_LPI_TIMER;
+	}
+
+	if (tb[DEV_ATTR_EEE_ADVERTISE])
+		s->flags |= DEV_OPT_EEE_ADVERTISE;
+
 	if ((cur = tb[DEV_ATTR_PSE])) {
 		s->pse = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_PSE;
@@ -643,6 +662,10 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	cur = tb[DEV_ATTR_TAGS];
 	free(dev->tags);
 	dev->tags = cur ? blob_memdup(cur) : NULL;
+
+	cur = tb[DEV_ATTR_EEE_ADVERTISE];
+	free(dev->eee_advertise);
+	dev->eee_advertise = cur ? blob_memdup(cur) : NULL;
 
 	device_set_extra_vlans(dev, tb[DEV_ATTR_VLAN]);
 	device_set_disabled(dev, disabled);
@@ -1146,6 +1169,7 @@ device_free(struct device *dev)
 	free(dev->hotplug_link);
 	device_cleanup(dev);
 	free(dev->tags);
+	free(dev->eee_advertise);
 	free(dev->config_auth_vlans);
 	free(dev->extra_vlan);
 	dev->type->free(dev);
@@ -1630,6 +1654,12 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "gro", st.gro);
 		if (st.flags & DEV_OPT_EEE)
 			blobmsg_add_u8(b, "eee", st.eee);
+		if (st.flags & DEV_OPT_EEE_TX_LPI)
+			blobmsg_add_u8(b, "eee_tx_lpi", st.eee_tx_lpi);
+		if (st.flags & DEV_OPT_EEE_TX_LPI_TIMER)
+			blobmsg_add_u32(b, "eee_tx_lpi_timer", st.eee_tx_lpi_timer);
+		if (dev->eee_advertise)
+			blobmsg_add_blob(b, dev->eee_advertise);
 	}
 
 	s = blobmsg_open_table(b, "statistics");
