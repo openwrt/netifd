@@ -89,6 +89,8 @@ enum {
 	DEV_ATTR_VLAN,
 	DEV_ATTR_AUTH_VLAN,
 	DEV_ATTR_TAGS,
+	DEV_ATTR_BRIDGE,
+	DEV_ATTR_BRIDGE_VLAN,
 
 	__DEV_ATTR_MAX,
 };
@@ -295,7 +297,9 @@ struct device {
 	struct kvlist vlan_aliases;
 	struct blob_attr *config_auth_vlans;
 	struct blob_attr *auth_vlans;
+	struct blob_attr *bridge_vlan;
 	struct blob_attr *tags;
+	char *bridge;
 
 	char ifname[IFNAMSIZ];
 	int ifindex;
@@ -377,6 +381,7 @@ struct bridge_vlan {
 	bool pending;
 };
 
+extern struct avl_tree devices;
 extern const struct uci_blob_param_list device_attr_list;
 extern struct device_type simple_device_type;
 extern struct device_type tunnel_device_type;
