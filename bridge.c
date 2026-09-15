@@ -1055,7 +1055,8 @@ bridge_free(struct device *dev)
 
 	system_bridge_delbr(dev);
 
-	kvlist_free(&dev->vlan_aliases);
+	if (dev->vlan_aliases.get_len)
+		kvlist_free(&dev->vlan_aliases);
 	free(bst->config_data);
 	free(bst);
 }
@@ -1157,11 +1158,66 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 }
 
 static void
+bridge_add_member_vlans(struct bridge_state *bst, const char *ifname,
+			struct blob_attr *vlans)
+{
+	struct bridge_vlan_hotplug_port *port;
+	struct bridge_vlan *vlan;
+	struct blob_attr *cur;
+	unsigned int vid;
+	uint16_t flags;
+	char *name_buf;
+	size_t rem;
+	char *end;
+
+	blobmsg_for_each_attr(cur, vlans, rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
+		    !blobmsg_check_attr(cur, false))
+			continue;
+
+		vid = strtoul(blobmsg_get_string(cur), &end, 0);
+		if (!vid || vid > 4095)
+			continue;
+
+		flags = BRVLAN_F_UNTAGGED;
+		if (*end == ':')
+			for (end++; *end; end++)
+				switch (*end) {
+				case 't':
+					flags &= ~BRVLAN_F_UNTAGGED;
+					break;
+				case '*':
+					flags |= BRVLAN_F_PVID;
+					break;
+				}
+
+		vlan = bridge_hotplug_get_vlan(bst, vid, true);
+		if (!vlan)
+			continue;
+
+		port = bridge_hotplug_get_vlan_port(vlan, ifname);
+		if (port) {
+			port->port.flags = flags;
+			continue;
+		}
+
+		port = calloc_a(sizeof(*port), &name_buf, strlen(ifname) + 1);
+		if (!port)
+			continue;
+
+		port->port.flags = flags;
+		port->port.ifname = strcpy(name_buf, ifname);
+		list_add_tail(&port->list, &vlan->hotplug_ports);
+	}
+}
+
+static void
 bridge_config_init(struct device *dev)
 {
 	struct bridge_state *bst;
 	struct bridge_vlan *vlan;
 	struct blob_attr *cur;
+	struct device *mdev;
 	size_t rem;
 	int i;
 
@@ -1183,6 +1239,16 @@ bridge_config_init(struct device *dev)
 	vlist_for_each_element(&bst->dev.vlans, vlan, node)
 		for (i = 0; i < vlan->n_ports; i++)
 			bridge_add_member(bst, vlan->ports[i].ifname);
+
+	avl_for_each_element(&devices, mdev, avl) {
+		if (mdev == dev || !mdev->bridge ||
+		    strcmp(mdev->bridge, dev->ifname) != 0)
+			continue;
+
+		bridge_add_member(bst, mdev->ifname);
+		if (bst->config.vlan_filtering && mdev->bridge_vlan)
+			bridge_add_member_vlans(bst, mdev->ifname, mdev->bridge_vlan);
+	}
 
 	vlist_flush(&bst->members);
 	bridge_check_retry(bst);

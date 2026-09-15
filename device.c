@@ -28,7 +28,7 @@
 #include "ubus.h"
 
 static struct list_head devtypes = LIST_HEAD_INIT(devtypes);
-static struct avl_tree devices;
+struct avl_tree devices;
 static struct blob_buf b;
 
 static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
@@ -77,6 +77,8 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_MASTER] = { .name = "conduit", .type = BLOBMSG_TYPE_STRING },
 	[DEV_ATTR_EEE] = { .name = "eee", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_TAGS] = { .name = "tags", .type = BLOBMSG_TYPE_ARRAY },
+	[DEV_ATTR_BRIDGE] = { .name = "bridge", .type = BLOBMSG_TYPE_STRING },
+	[DEV_ATTR_BRIDGE_VLAN] = { .name = "bridge_vlan", .type = BLOBMSG_TYPE_ARRAY },
 	[DEV_ATTR_PSE] = { .name = "pse", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_PSE_PODL] = { .name = "pse_podl", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_PSE_POWER_LIMIT] = { .name = "pse_power_limit", .type = BLOBMSG_TYPE_INT32 },
@@ -644,6 +646,14 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	free(dev->tags);
 	dev->tags = cur ? blob_memdup(cur) : NULL;
 
+	cur = tb[DEV_ATTR_BRIDGE];
+	free(dev->bridge);
+	dev->bridge = cur ? strdup(blobmsg_get_string(cur)) : NULL;
+
+	cur = tb[DEV_ATTR_BRIDGE_VLAN];
+	free(dev->bridge_vlan);
+	dev->bridge_vlan = cur ? blob_memdup(cur) : NULL;
+
 	device_set_extra_vlans(dev, tb[DEV_ATTR_VLAN]);
 	device_set_disabled(dev, disabled);
 }
@@ -1146,6 +1156,8 @@ device_free(struct device *dev)
 	free(dev->hotplug_link);
 	device_cleanup(dev);
 	free(dev->tags);
+	free(dev->bridge);
+	free(dev->bridge_vlan);
 	free(dev->config_auth_vlans);
 	free(dev->extra_vlan);
 	dev->type->free(dev);
