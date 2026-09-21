@@ -876,6 +876,8 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 		if (!iface->l3_dev.dev)
 			interface_set_l3_dev(iface, iface->main_dev.dev);
 
+		interface_write_resolv_conf(iface->jail);
+
 		interface_ip_set_enabled(&iface->config_ip, true);
 		interface_ip_set_enabled(&iface->proto_ip, true);
 		system_flush_routes();
@@ -883,7 +885,7 @@ interface_proto_event_cb(struct interface_proto_state *state, enum interface_pro
 		iface->start_time = system_get_rtime();
 		interface_event(iface, IFEV_UP);
 		netifd_log_message(L_NOTICE, "Interface '%s' is now up\n", iface->name);
-		break;
+		return;
 	case IFPEV_DOWN:
 		if (iface->state == IFS_DOWN)
 			return;
