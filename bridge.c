@@ -575,6 +575,7 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 	blobmsg_for_each_attr(cur, vlans, rem) {
 		unsigned int vid, vid_end;
 		uint16_t flags = 0;
+		bool tracked;
 		char *end;
 
 		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
@@ -607,8 +608,9 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 			}
 		}
 
-		vlan = bridge_hotplug_get_vlan(bst, vid, !!flags);
-		if (!vlan || vid_end > vid || untracked) {
+		tracked = !untracked && vid_end == vid;
+		vlan = bridge_hotplug_get_vlan(bst, vid, add && tracked && flags);
+		if (!vlan || !tracked) {
 			if (add && !untracked) {
 				r = &bm->extra_vlan[bm->n_extra_vlan++];
 				r->start = vid;
