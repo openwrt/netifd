@@ -88,6 +88,45 @@ const struct uci_blob_param_list device_attr_list = {
 	.params = dev_attrs,
 };
 
+enum {
+	DEV_BRIDGE_ATTR_BRIDGE,
+	DEV_BRIDGE_ATTR_BRIDGE_VLAN,
+	__DEV_BRIDGE_ATTR_MAX
+};
+
+/*
+ * Kept out of device_attr_list: only device sections set these, and a
+ * change must not restart the device.
+ */
+static const struct blobmsg_policy dev_bridge_attrs[__DEV_BRIDGE_ATTR_MAX] = {
+	[DEV_BRIDGE_ATTR_BRIDGE] = { .name = "bridge", .type = BLOBMSG_TYPE_STRING },
+	[DEV_BRIDGE_ATTR_BRIDGE_VLAN] = { .name = "bridge_vlan", .type = BLOBMSG_TYPE_ARRAY },
+};
+
+const struct uci_blob_param_list device_bridge_attr_list = {
+	.n_params = __DEV_BRIDGE_ATTR_MAX,
+	.params = dev_bridge_attrs,
+};
+
+void
+device_set_bridge_config(struct device *dev, struct blob_attr *config)
+{
+	struct blob_attr *tb[__DEV_BRIDGE_ATTR_MAX] = {};
+	struct blob_attr *cur;
+
+	if (config)
+		blobmsg_parse_attr(dev_bridge_attrs, __DEV_BRIDGE_ATTR_MAX, tb,
+				   config);
+
+	free(dev->bridge);
+	cur = tb[DEV_BRIDGE_ATTR_BRIDGE];
+	dev->bridge = cur ? strdup(blobmsg_get_string(cur)) : NULL;
+
+	free(dev->bridge_vlan);
+	cur = tb[DEV_BRIDGE_ATTR_BRIDGE_VLAN];
+	dev->bridge_vlan = cur ? blob_memdup(cur) : NULL;
+}
+
 int device_type_add(struct device_type *devtype)
 {
 	if (device_type_get(devtype->name)) {
@@ -1118,6 +1157,8 @@ device_free(struct device *dev)
 	free(dev->tags);
 	free(dev->config_auth_vlans);
 	free(dev->extra_vlan);
+	free(dev->bridge);
+	free(dev->bridge_vlan);
 	dev->type->free(dev);
 }
 
@@ -1413,8 +1454,11 @@ device_reset_config(void)
 {
 	struct device *dev;
 
-	avl_for_each_element(&devices, dev, avl)
+	/* not every device that leaves the config is replaced */
+	avl_for_each_element(&devices, dev, avl) {
 		dev->current_config = false;
+		device_set_bridge_config(dev, NULL);
+	}
 }
 
 /*

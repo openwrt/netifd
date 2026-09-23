@@ -149,6 +149,7 @@ config_device_add(const char *name, struct device_type *devtype,
 	}
 
 	dev->default_config = false;
+	device_set_bridge_config(dev, config);
 
 	return dev;
 }
@@ -399,6 +400,7 @@ config_init_devices(bool bridge)
 
 		blob_buf_init(&b, 0);
 		uci_to_blob(&b, s, params);
+		uci_to_blob(&b, s, &device_bridge_attr_list);
 		if (bridge)
 			config_bridge_add_vlans(&b, devtype, name, NULL);
 		config_device_add(name, devtype, b.head);

@@ -331,6 +331,9 @@ struct device {
 	struct device_vlan_range *extra_vlan;
 	int n_extra_vlan;
 
+	char *bridge;
+	struct blob_attr *bridge_vlan;
+
 	/* set interface up or down */
 	device_state_cb set_state;
 
@@ -397,6 +400,7 @@ bridge_port_vlan_find(const struct bridge_port_vlan *vlans, int n, uint16_t vid)
 }
 
 extern const struct uci_blob_param_list device_attr_list;
+extern const struct uci_blob_param_list device_bridge_attr_list;
 extern const struct uci_blob_param_list bridge_vlan_attr_list;
 extern struct device_type simple_device_type;
 extern struct device_type tunnel_device_type;
@@ -412,6 +416,7 @@ struct device *device_create(const char *name, struct device_type *type,
 			     struct blob_attr *config);
 void device_merge_settings(struct device *dev, struct device_settings *n);
 void device_init_settings(struct device *dev, struct blob_attr **tb);
+void device_set_bridge_config(struct device *dev, struct blob_attr *config);
 /*
  * Parse device-attr blob into tb_dev, seed dev->settings, and invoke the
  * type-specific reload hook for initial configuration during *_create().

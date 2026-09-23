@@ -816,11 +816,51 @@ bridge_member_ranges_set(struct bridge_member *bm, struct bridge_member_vlans *s
 	return deleted || written;
 }
 
-static bool
-bridge_vlan_entry_parse(struct blob_attr *attr, struct bridge_member_range *r)
+static uint16_t
+bridge_vlan_port_flags_parse(const char *s)
 {
-	unsigned int vid, vid_end;
+	uint16_t flags = BRVLAN_F_UNTAGGED;
+
+	for (; *s; s++) {
+		switch (*s) {
+		case '*':
+			flags |= BRVLAN_F_PVID;
+			break;
+		case 't':
+			flags &= ~BRVLAN_F_UNTAGGED;
+			break;
+		}
+	}
+
+	return flags;
+}
+
+static uint16_t
+bridge_vlan_hotplug_flags_parse(const char *s)
+{
 	uint16_t flags = 0;
+
+	for (; *s; s++) {
+		switch (*s) {
+		case 'u':
+			flags |= BRVLAN_F_UNTAGGED;
+			fallthrough;
+		case '*':
+			flags |= BRVLAN_F_PVID;
+			break;
+		}
+	}
+
+	return flags;
+}
+
+static bool
+bridge_vlan_entry_parse(struct blob_attr *attr, enum bridge_vlan_src src,
+			struct bridge_member_range *r)
+{
+	bool config = src == BRIDGE_VLAN_SRC_CONFIG;
+	unsigned int vid, vid_end;
+	uint16_t flags;
 	char *end;
 
 	if (blobmsg_type(attr) != BLOBMSG_TYPE_STRING)
@@ -837,31 +877,44 @@ bridge_vlan_entry_parse(struct blob_attr *attr, struct bridge_member_range *r)
 			return false;
 	}
 
-	if (end && *end) {
-		if (*end != ':')
-			return false;
+	if (*end == ':')
+		end++;
+	else if (*end)
+		return false;
 
-		for (end++; *end; end++) {
-			switch (*end) {
-			case 'u':
-				flags |= BRVLAN_F_UNTAGGED;
-				fallthrough;
-			case '*':
-				flags |= BRVLAN_F_PVID;
-				break;
-			}
-		}
-	}
+	if (config)
+		flags = bridge_vlan_port_flags_parse(end);
+	else
+		flags = bridge_vlan_hotplug_flags_parse(end);
 
 	/* the kernel rejects a pvid flag on a range */
-	if (vid_end > vid)
+	if (vid_end > vid && (flags & BRVLAN_F_PVID)) {
+		if (config)
+			return false;
+
 		flags &= ~BRVLAN_F_PVID;
+	}
 
 	r->start = vid;
 	r->end = vid_end;
 	r->flags = flags;
 
 	return true;
+}
+
+static struct blob_attr *
+bridge_vlan_entries_pvid(struct blob_attr *vlans)
+{
+	struct blob_attr *cur, *pvid = NULL;
+	struct bridge_member_range r;
+	size_t rem;
+
+	blobmsg_for_each_attr(cur, vlans, rem)
+		if (bridge_vlan_entry_parse(cur, BRIDGE_VLAN_SRC_CONFIG, &r) &&
+		    (r.flags & BRVLAN_F_PVID))
+			pvid = cur;
+
+	return pvid;
 }
 
 static void
@@ -871,8 +924,8 @@ bridge_member_vlans_set(struct bridge_member *bm, enum bridge_vlan_src src,
 	struct bridge_member_vlans *set = &bm->vlans[src];
 	struct bridge_member_range *ranges = NULL;
 	struct bridge_member_vlan *mv, *tmp;
+	struct blob_attr *cur, *pvid = NULL;
 	struct bridge_vlan *vlan;
-	struct blob_attr *cur;
 	bool changed = false;
 	bool written;
 	int n_ranges = 0;
@@ -891,6 +944,9 @@ bridge_member_vlans_set(struct bridge_member *bm, enum bridge_vlan_src src,
 			return;
 	}
 
+	if (src == BRIDGE_VLAN_SRC_CONFIG)
+		pvid = bridge_vlan_entries_pvid(vlans);
+
 	avl_for_each_element(&set->vlans, mv, node)
 		mv->seen = false;
 
@@ -898,8 +954,12 @@ bridge_member_vlans_set(struct bridge_member *bm, enum bridge_vlan_src src,
 		struct bridge_member_range range;
 		bool tracked;
 
-		if (!bridge_vlan_entry_parse(cur, &range))
+		if (!bridge_vlan_entry_parse(cur, src, &range))
 			continue;
+
+		/* as in the kernel, the last pvid entry wins */
+		if (pvid && cur != pvid)
+			range.flags &= ~BRVLAN_F_PVID;
 
 		tracked = range.end == range.start;
 		vlan = bridge_vlan_get(bm->bst, range.start,
@@ -939,7 +999,8 @@ bridge_member_auth_vlans_write(struct bridge_member *bm, struct blob_attr *vlans
 		return;
 
 	blobmsg_for_each_attr(cur, vlans, rem)
-		if (bridge_vlan_entry_parse(cur, &range))
+		if (bridge_vlan_entry_parse(cur, BRIDGE_VLAN_SRC_HOTPLUG,
+					    &range))
 			__bridge_member_range_write(bm, &range, add);
 }
 
@@ -1161,7 +1222,8 @@ bridge_member_check_cb(struct uloop_timeout *t)
 
 	if (n_auth) {
 		blobmsg_for_each_attr(cur, auth_vlans, rem)
-			if (bridge_vlan_entry_parse(cur, &r))
+			if (bridge_vlan_entry_parse(cur, BRIDGE_VLAN_SRC_HOTPLUG,
+						    &r))
 				bridge_member_check_range_cb(bm, &r, &c);
 	}
 
@@ -1408,6 +1470,9 @@ bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *
 		bm = bridge_alloc_member(bst, member->ifname, member);
 		if (!bm)
 			return UBUS_STATUS_UNKNOWN_ERROR;
+
+		bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_CONFIG,
+					member->bridge_vlan);
 	}
 	bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, vlan);
 	if (new_entry)
@@ -1579,6 +1644,18 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 }
 
 static void
+bridge_add_option_member(struct device *dev, void *ctx)
+{
+	struct bridge_state *bst = ctx;
+
+	if (dev == &bst->dev || !dev->bridge ||
+	    strcmp(dev->bridge, bst->dev.ifname) != 0)
+		return;
+
+	bridge_add_member(bst, dev->ifname);
+}
+
+static void
 bridge_config_init(struct device *dev)
 {
 	struct bridge_member *bm;
@@ -1610,11 +1687,18 @@ bridge_config_init(struct device *dev)
 		for (i = 0; i < vlan->n_ports; i++)
 			bridge_add_member(bst, vlan->ports[i].ifname);
 
+	device_for_each(NULL, bridge_add_option_member, bst);
+
 	vlist_for_each_element(&bst->members, bm, node)
 		if (bm->hp_owned)
 			bm->node.version = bst->members.version;
 
 	vlist_flush(&bst->members);
+
+	vlist_for_each_element(&bst->members, bm, node)
+		bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_CONFIG,
+					bm->dev.dev->bridge_vlan);
+
 	bridge_check_retry(bst);
 }
 
@@ -1681,15 +1765,8 @@ bridge_vlan_add(struct device *dev, struct blob_attr *data)
 
 		sep = strchr(name_buf, ':');
 		if (sep) {
-			for (*sep = 0, sep++; *sep; sep++)
-				switch (*sep) {
-				case '*':
-					port->flags |= BRVLAN_F_PVID;
-					break;
-				case 't':
-					port->flags &= ~BRVLAN_F_UNTAGGED;
-					break;
-				}
+			*sep = 0;
+			port->flags = bridge_vlan_port_flags_parse(sep + 1);
 		}
 
 		name_buf += strlen(name_buf) + 1;
