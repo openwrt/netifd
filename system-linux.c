@@ -3044,13 +3044,14 @@ int system_bridge_vlan_check(struct device *dev, const char *ifname,
 		.rta_len = RTA_LENGTH(sizeof(uint32_t)),
 	};
 	uint32_t filter = RTEXT_FILTER_BRVLAN;
-	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct nl_cb *cb;
 	struct nl_msg *msg;
 	int i;
 
 	if (!data.ifindex)
 		return 0;
 
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
 	msg = nlmsg_alloc_simple(RTM_GETLINK, NLM_F_DUMP);
 
 	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
