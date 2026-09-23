@@ -112,8 +112,8 @@ struct interface {
 	char *jail;
 	char *jail_device;
 	char *host_device;
+	/* the jail netns of a pending move, or -1 */
 	int netns_fd;
-	bool jail_pending;
 
 	bool available;
 	bool autostart;

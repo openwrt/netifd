@@ -492,11 +492,11 @@ interface_ext_dev_cb(struct device_user *dep, enum device_event ev)
 static void
 interface_jail_pending_clear(struct interface *iface)
 {
-	if (iface->netns_fd >= 0) {
-		close(iface->netns_fd);
-		iface->netns_fd = -1;
-	}
-	iface->jail_pending = false;
+	if (iface->netns_fd < 0)
+		return;
+
+	close(iface->netns_fd);
+	iface->netns_fd = -1;
 }
 
 static void
@@ -508,7 +508,7 @@ interface_main_dev_cb(struct device_user *dep, enum device_event ev)
 	switch (ev) {
 	case DEV_EVENT_ADD:
 		interface_set_available(iface, true);
-		if (iface->jail_pending &&
+		if (iface->netns_fd >= 0 &&
 		    !system_link_netns_move(iface->main_dev.dev, iface->netns_fd, iface->jail_device))
 			interface_jail_pending_clear(iface);
 		break;
@@ -805,8 +805,7 @@ void interface_free(struct interface *iface)
 	free(iface->jail);
 	free(iface->jail_device);
 	free(iface->host_device);
-	if (iface->netns_fd >= 0)
-		close(iface->netns_fd);
+	interface_jail_pending_clear(iface);
 	free(iface);
 }
 
@@ -1472,10 +1471,10 @@ interface_start_jail(int netns_fd, const char *jail)
 		if (!system_link_netns_move(iface->main_dev.dev, netns_fd, iface->jail_device))
 			continue;
 
-		/* device not present yet: keep a reference to the jail netns and
-		 * complete the move once the device shows up (DEV_EVENT_ADD). */
+		/* the move failed, for example because the device does not
+		 * exist yet: keep a reference to the jail netns and try again
+		 * when the device shows up (DEV_EVENT_ADD). */
 		iface->netns_fd = dup(netns_fd);
-		iface->jail_pending = iface->netns_fd >= 0;
 	}
 }
 
@@ -1486,7 +1485,7 @@ interface_stop_jail(int netns_fd)
 	char *orig_ifname;
 
 	vlist_for_each_element(&interfaces, iface, node) {
-		if (iface->jail_pending) {
+		if (iface->netns_fd >= 0) {
 			interface_jail_pending_clear(iface);
 			continue;
 		}
@@ -1615,6 +1614,9 @@ interface_change_config(struct interface *if_old, struct interface *if_new)
 
 	if_old->device_config = if_new->device_config;
 	if_old->config_autostart = if_new->config_autostart;
+
+	if (FIELD_CHANGED_STR(jail) || FIELD_CHANGED_STR(jail_device))
+		interface_jail_pending_clear(if_old);
 
 	free(if_old->jail);
 	if_old->jail = if_new->jail;
