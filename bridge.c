@@ -1342,10 +1342,30 @@ bridge_vlan_add(struct device *dev, struct blob_attr *data)
 	vlist_add(&dev->vlans, &vlan->node, &vlan->vid);
 }
 
+/*
+ * A config vlan that the new config no longer has, but that hotplug members
+ * still use, becomes a hotplug vlan instead of being flushed, so that the
+ * bridge's own vid is not removed and added again.
+ */
+static void
+bridge_vlan_keep_hotplug(struct bridge_state *bst, uint16_t vid)
+{
+	struct bridge_vlan *vlan;
+
+	vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
+	if (!vlan || vlan->node.version == -1 ||
+	    vlan->node.version == bst->dev.vlans.version)
+		return;
+
+	vlan->node.version = -1;
+	vlan->n_ports = 0;
+}
+
 static void
 bridge_vlans_set(struct bridge_state *bst, struct blob_attr *vlans)
 {
 	struct device *dev = &bst->dev;
+	struct bridge_member_vlan *mv;
 	struct bridge_member *bm;
 	struct blob_attr *cur;
 	size_t rem;
@@ -1355,6 +1375,11 @@ bridge_vlans_set(struct bridge_state *bst, struct blob_attr *vlans)
 	blobmsg_for_each_attr(cur, vlans, rem)
 		if (blobmsg_type(cur) == BLOBMSG_TYPE_TABLE)
 			bridge_vlan_add(dev, cur);
+
+	vlist_for_each_element(&bst->members, bm, node)
+		avl_for_each_element(&bm->hotplug_vlans, mv, node)
+			bridge_vlan_keep_hotplug(bst, mv->vid);
+
 	vlist_flush(&dev->vlans);
 
 	vlist_for_each_element(&bst->members, bm, node)
@@ -1530,22 +1555,6 @@ bridge_retry_members(struct uloop_timeout *timeout)
 }
 
 static void
-bridge_vlan_hotplug_drop(struct bridge_state *bst, uint16_t vid)
-{
-	struct bridge_member_vlan *mv;
-	struct bridge_member *bm;
-
-	vlist_for_each_element(&bst->members, bm, node) {
-		mv = avl_find_element(&bm->hotplug_vlans, &vid, mv, node);
-		if (!mv)
-			continue;
-
-		avl_delete(&bm->hotplug_vlans, &mv->node);
-		free(mv);
-	}
-}
-
-static void
 bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		   struct vlist_node *node_old)
 {
@@ -1557,9 +1566,6 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 		vlan_old = container_of(node_old, struct bridge_vlan, node);
 	if (node_new)
 		vlan_new = container_of(node_new, struct bridge_vlan, node);
-
-	if (vlan_old && !vlan_new)
-		bridge_vlan_hotplug_drop(bst, vlan_old->vid);
 
 	if (apply && vlan_old &&
 	    (!vlan_new || (vlan_old->local && !vlan_new->local)))
