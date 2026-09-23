@@ -1048,8 +1048,10 @@ bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *
 
 	bm = vlist_find(&bst->members, member->ifname, bm, node);
 	if (!bm) {
-	    new_entry = true;
-	    bm = bridge_alloc_member(bst, member->ifname, member, true);
+		new_entry = true;
+		bm = bridge_alloc_member(bst, member->ifname, member, true);
+		if (!bm)
+			return UBUS_STATUS_UNKNOWN_ERROR;
 	}
 	bridge_hotplug_set_member_vlans(bst, vlan, bm, true, false);
 	if (new_entry)
