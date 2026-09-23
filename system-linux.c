@@ -3073,6 +3073,8 @@ int system_bridge_vlan_check(struct device *dev, const char *ifname,
 
 	cb = nl_cb_alloc(NL_CB_DEFAULT);
 	msg = nlmsg_alloc_simple(RTM_GETLINK, NLM_F_DUMP);
+	if (!cb || !msg)
+		goto free;
 
 	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
 		nlmsg_append(msg, &ext_req, sizeof(ext_req), NLMSG_ALIGNTO) ||
