@@ -1408,6 +1408,32 @@ device_reset_config(void)
 		dev->current_config = false;
 }
 
+/*
+ * Without its section, a name like eth0.100 resolves to a vlan of its base
+ * device, as it does after a restart. The chain is only resolved on an
+ * existing base device, since resolving creates the devices on its way.
+ */
+static struct device *
+device_reset_vlan_get(struct device *dev)
+{
+	char base[IFNAMSIZ];
+	size_t len;
+
+	if (!dev->from_config)
+		return NULL;
+
+	len = strcspn(dev->ifname, ".");
+	if (!dev->ifname[len])
+		return NULL;
+
+	memcpy(base, dev->ifname, len);
+	base[len] = 0;
+	if (!device_find(base))
+		return NULL;
+
+	return get_vlan_device_chain(dev->ifname, true);
+}
+
 void
 device_reset_old(void)
 {
@@ -1417,10 +1443,12 @@ device_reset_old(void)
 		if (dev->current_config || dev->default_config)
 			continue;
 
-		if (dev->type != &simple_device_type)
+		if (dev->type != &simple_device_type && !dev->from_config)
 			continue;
 
-		ndev = device_create_default(dev->ifname, dev->external);
+		ndev = device_reset_vlan_get(dev);
+		if (!ndev || ndev == dev)
+			ndev = device_create_default(dev->ifname, dev->external);
 		if (!ndev)
 			continue;
 

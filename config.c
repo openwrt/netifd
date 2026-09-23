@@ -127,6 +127,32 @@ static void config_fixup_bridge_ports(struct uci_section *s)
 	uci_rename(uci_ctx, &ptr);
 }
 
+static struct device *
+config_device_add(const char *name, struct device_type *devtype,
+		  struct blob_attr *config)
+{
+	struct device *dev;
+
+	if (devtype) {
+		dev = device_create(name, devtype, config);
+		if (!dev)
+			return NULL;
+
+		dev->from_config = true;
+	} else {
+		dev = device_get(name, 1);
+		if (!dev)
+			return NULL;
+
+		dev->current_config = true;
+		device_apply_config(dev, dev->type, config);
+	}
+
+	dev->default_config = false;
+
+	return dev;
+}
+
 static int
 config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype)
 {
@@ -139,7 +165,7 @@ config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype
 	config_fixup_bridge_ports(s);
 	uci_to_blob(&b, s, devtype->config_params);
 	config_bridge_add_vlans(&b, devtype, name, NULL);
-	if (!device_create(name, devtype, b.head)) {
+	if (!config_device_add(name, devtype, b.head)) {
 		D(INTERFACE, "Failed to create '%s' device for interface '%s'",
 			devtype->name, s->e.name);
 	}
@@ -273,28 +299,6 @@ config_insert_vlan_entry(const char *name, const char *dev_name, struct blob_att
 }
 
 static void
-config_device_add(const char *name, struct device_type *devtype,
-		  struct blob_attr *config)
-{
-	struct device *dev;
-
-	if (devtype) {
-		dev = device_create(name, devtype, config);
-		if (!dev)
-			return;
-	} else {
-		dev = device_get(name, 1);
-		if (!dev)
-			return;
-
-		dev->current_config = true;
-		device_apply_config(dev, dev->type, config);
-	}
-
-	dev->default_config = false;
-}
-
-static void
 config_procd_device_cb(struct blob_attr *data)
 {
 	static const struct blobmsg_policy policy =
@@ -357,7 +361,7 @@ config_procd_bridge_cb(struct blob_attr *data)
 		data = b.head;
 	}
 
-	device_create(name, devtype, data);
+	config_device_add(name, devtype, data);
 }
 
 static void

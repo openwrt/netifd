@@ -317,6 +317,7 @@ struct device {
 	bool hidden;
 
 	bool current_config;
+	bool from_config;
 	bool iface_config;
 	bool default_config;
 	bool wireless;
