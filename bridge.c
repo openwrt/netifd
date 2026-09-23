@@ -494,6 +494,25 @@ bridge_hotplug_get_vlan(struct bridge_state *bst, uint16_t vid, bool create)
 	return vlan;
 }
 
+static void
+bridge_hotplug_del_member_vlan(struct bridge_member *bm,
+			       struct bridge_member_vlan *mv)
+{
+	struct bridge_state *bst = bm->bst;
+	struct bridge_vlan *vlan;
+	uint16_t vid = mv->vid;
+
+	avl_delete(&bm->hotplug_vlans, &mv->node);
+	free(mv);
+
+	vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
+	if (!vlan || vlan->n_ports || vlan->node.version != -1 ||
+	    bridge_vlan_hotplug_used(bst, vid))
+		return;
+
+	vlist_delete(&bst->dev.vlans, &vlan->node);
+}
+
 static bool
 bridge_hotplug_set_member_vlan(struct bridge_member *bm, uint16_t vid,
 			       uint16_t flags, bool add)
@@ -505,8 +524,7 @@ bridge_hotplug_set_member_vlan(struct bridge_member *bm, uint16_t vid,
 		if (!mv)
 			return false;
 
-		avl_delete(&bm->hotplug_vlans, &mv->node);
-		free(mv);
+		bridge_hotplug_del_member_vlan(bm, mv);
 		return true;
 	}
 
@@ -747,26 +765,14 @@ bridge_remove_member(struct bridge_member *bm)
 static void
 bridge_free_member(struct bridge_member *bm)
 {
-	struct bridge_state *bst = bm->bst;
 	struct device *dev = bm->dev.dev;
 	struct bridge_member_vlan *mv;
-	struct bridge_vlan *vlan;
-	uint16_t vid;
 
 	bridge_remove_member(bm);
 
 	while (!avl_is_empty(&bm->hotplug_vlans)) {
 		mv = avl_first_element(&bm->hotplug_vlans, mv, node);
-		vid = mv->vid;
-		avl_delete(&bm->hotplug_vlans, &mv->node);
-		free(mv);
-
-		vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
-		if (!vlan || vlan->n_ports || vlan->node.version != -1 ||
-		    bridge_vlan_hotplug_used(bst, vid))
-			continue;
-
-		vlist_delete(&bst->dev.vlans, &vlan->node);
+		bridge_hotplug_del_member_vlan(bm, mv);
 	}
 
 	device_remove_user(&bm->dev);
