@@ -499,6 +499,9 @@ bridge_hotplug_get_vlan(struct bridge_state *bst, uint16_t vid, bool create)
 		return vlan;
 
 	vlan = calloc(1, sizeof(*vlan));
+	if (!vlan)
+		return NULL;
+
 	vlan->vid = vid;
 	vlan->local = true;
 	vlist_add(&bst->dev.vlans, &vlan->node, &vlan->vid);
