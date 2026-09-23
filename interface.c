@@ -1234,8 +1234,16 @@ interface_add_link(struct interface *iface, struct device *dev,
 		return 0;
 	}
 
-	if (iface->main_dev.hotplug)
+	/* the new device replaces the link of the previous one */
+	if (iface->main_dev.hotplug) {
+		free(mdev->hotplug_link);
+		mdev->hotplug_link = NULL;
+		if (iface->ext_dev.dev == mdev)
+			device_remove_user(&iface->ext_dev);
+
 		interface_set_main_dev(iface, NULL);
+		mdev = NULL;
+	}
 
 	if (mdev) {
 		if (mdev->hotplug_ops)
