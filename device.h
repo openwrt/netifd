@@ -357,12 +357,6 @@ enum bridge_vlan_flags {
 struct bridge_vlan_port {
 	const char *ifname;
 	uint16_t flags;
-	int8_t check;
-};
-
-struct bridge_vlan_hotplug_port {
-	struct list_head list;
-	struct bridge_vlan_port port;
 };
 
 struct bridge_vlan {
@@ -371,12 +365,35 @@ struct bridge_vlan {
 	struct bridge_vlan_port *ports;
 	int n_ports;
 
-	struct list_head hotplug_ports;
-
 	uint16_t vid;
 	bool local;
-	bool pending;
 };
+
+/* one vlan of one bridge port, arrays of these are sorted by vid */
+struct bridge_port_vlan {
+	uint16_t vid;
+	uint16_t flags;
+};
+
+static inline const struct bridge_port_vlan *
+bridge_port_vlan_find(const struct bridge_port_vlan *vlans, int n, uint16_t vid)
+{
+	int lo = 0, hi = n - 1;
+
+	while (lo <= hi) {
+		int mid = (lo + hi) / 2;
+
+		if (vlans[mid].vid == vid)
+			return &vlans[mid];
+
+		if (vlans[mid].vid < vid)
+			lo = mid + 1;
+		else
+			hi = mid - 1;
+	}
+
+	return NULL;
+}
 
 extern const struct uci_blob_param_list device_attr_list;
 extern const struct uci_blob_param_list bridge_vlan_attr_list;
