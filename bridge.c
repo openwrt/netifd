@@ -144,6 +144,8 @@ struct bridge_state {
 	bool active;
 	bool force_active;
 	bool has_vlans;
+	bool vlan_filtering;
+	bool vlans_configured;
 
 	struct uloop_timeout retry;
 	struct bridge_member *primary_port;
@@ -255,7 +257,7 @@ bridge_member_vlans_enabled(struct bridge_member *bm)
 {
 	struct device *dev = bm->dev.dev;
 
-	if (!bm->present || !bm->active || !bm->bst->has_vlans)
+	if (!bm->present || !bm->active || !bm->bst->vlan_filtering)
 		return false;
 
 	return !dev->settings.auth || dev->auth_status;
@@ -435,12 +437,12 @@ bridge_enable_interface(struct bridge_state *bst)
 	if (ret < 0)
 		return ret;
 
-	if (bst->has_vlans) {
-		/* delete default VLAN 1 */
+	/* delete default VLAN 1 */
+	if (bst->has_vlans)
 		system_bridge_vlan(bst->dev.ifname, 1, -1, false, BRVLAN_F_SELF);
 
+	if (bst->vlan_filtering)
 		bridge_set_local_vlans(bst, true);
-	}
 
 	for (i = 0; i < dev->n_extra_vlan; i++)
 		system_bridge_vlan(dev->ifname, dev->extra_vlan[i].start,
@@ -694,9 +696,10 @@ bridge_enable_member(struct bridge_member *bm)
 		bm->active = true;
 	}
 
-	if (bst->has_vlans) {
+	if (bst->vlan_filtering) {
 		/* delete default VLAN 1 */
-		system_bridge_vlan(bm->dev.dev->ifname, 1, -1, false, 0);
+		if (bst->has_vlans)
+			system_bridge_vlan(bm->dev.dev->ifname, 1, -1, false, 0);
 
 		bridge_member_enable_vlans(bm);
 	}
@@ -899,7 +902,8 @@ bridge_set_up(struct bridge_state *bst)
 	struct bridge_member *bm;
 	int ret;
 
-	bst->has_vlans = !avl_is_empty(&bst->dev.vlans.avl);
+	bst->vlan_filtering = bst->config.vlan_filtering;
+	bst->has_vlans = bst->vlan_filtering && bst->vlans_configured;
 	if (!bst->n_present) {
 		if (!bst->force_active)
 			return -ENOENT;
@@ -1456,6 +1460,8 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 
 	if ((cur = tb[BRIDGE_ATTR_VLAN_FILTERING]))
 		cfg->vlan_filtering = blobmsg_get_bool(cur);
+
+	bst->vlans_configured = bridge_vlans_present(tb);
 }
 
 static enum dev_change_type
@@ -1545,7 +1551,7 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 {
 	struct bridge_state *bst = container_of(tree, struct bridge_state, dev.vlans);
 	struct bridge_vlan *vlan_new = NULL, *vlan_old = NULL;
-	bool apply = bst->has_vlans && bst->active;
+	bool apply = bst->vlan_filtering && bst->active;
 
 	if (node_old)
 		vlan_old = container_of(node_old, struct bridge_vlan, node);
