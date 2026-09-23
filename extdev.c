@@ -218,7 +218,7 @@ extdev_ext_ubus_obj_wait(struct ubus_event_handler *h)
 }
 
 static void
-extdev_dev_resync(struct device *dev)
+extdev_dev_resync(struct device *dev, void *ctx)
 {
 	struct extdev_bridge *ebr;
 	struct extdev_device *edev;
@@ -259,7 +259,7 @@ extdev_subscribe(struct extdev_type *etype)
 		netifd_log_message(L_NOTICE, "subscribed to external device handler '%s'\n",
 			etype->name);
 		etype->subscribed = true;
-		device_type_for_each(&etype->handler, extdev_dev_resync);
+		device_for_each(&etype->handler, extdev_dev_resync, NULL);
 	}
 
 	return ret;

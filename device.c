@@ -115,14 +115,14 @@ device_type_get(const char *tname)
 	return NULL;
 }
 
-void device_type_for_each(const struct device_type *type,
-			  void (*cb)(struct device *dev))
+void device_for_each(const struct device_type *type,
+		     void (*cb)(struct device *dev, void *ctx), void *ctx)
 {
 	struct device *dev, *tmp;
 
 	avl_for_each_element_safe(&devices, dev, avl, tmp) {
-		if (dev->type == type)
-			cb(dev);
+		if (!type || dev->type == type)
+			cb(dev, ctx);
 	}
 }
 
@@ -1395,6 +1395,11 @@ device_replace(struct device *dev, struct device *odev)
 
 	device_migrate_users(&odev->users.list, dev);
 	device_migrate_users(&odev->aliases.list, dev);
+
+	if (!dev->hotplug_link) {
+		dev->hotplug_link = odev->hotplug_link;
+		odev->hotplug_link = NULL;
+	}
 
 	device_free(odev);
 }

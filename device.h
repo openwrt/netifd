@@ -402,8 +402,9 @@ extern struct device_type simple_device_type;
 extern struct device_type tunnel_device_type;
 
 void device_stp_init(void);
-void device_type_for_each(const struct device_type *type,
-			  void (*cb)(struct device *dev));
+/* with type NULL, cb is called for all devices */
+void device_for_each(const struct device_type *type,
+		     void (*cb)(struct device *dev, void *ctx), void *ctx);
 
 int device_type_add(struct device_type *devtype);
 struct device_type *device_type_get(const char *tname);
