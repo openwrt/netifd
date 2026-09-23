@@ -146,6 +146,7 @@ vlandev_base_cb(struct device_user *dev, enum device_event ev)
 		device_set_present(&mvdev->dev, false);
 		break;
 	case DEV_EVENT_UPDATE_IFNAME:
+	case DEV_EVENT_VLAN_UPDATE:
 		vlandev_hotplug_check(mvdev);
 		break;
 	case DEV_EVENT_TOPO_CHANGE:
