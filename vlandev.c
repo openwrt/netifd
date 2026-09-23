@@ -376,6 +376,8 @@ vlandev_reload(struct device *dev, struct blob_attr *attr,
 
 	if (mvdev->config_data) {
 		struct blob_attr *otb_mv[__VLANDEV_ATTR_MAX];
+		uint16_t old_vid = mvdev->config.vid;
+		bool old_vid_invalid = mvdev->vid_invalid;
 
 		blobmsg_parse_attr(vlandev_attrs, __VLANDEV_ATTR_MAX, otb_mv,
 				   mvdev->config_data);
@@ -384,6 +386,11 @@ vlandev_reload(struct device *dev, struct blob_attr *attr,
 		    ret = DEV_CONFIG_RESTART;
 
 		vlandev_config_init(dev);
+
+		/* a vid alias can resolve differently while its name stays the same */
+		if (mvdev->config.vid != old_vid ||
+		    mvdev->vid_invalid != old_vid_invalid)
+			ret = DEV_CONFIG_RESTART;
 	}
 
 	free(mvdev->config_data);
