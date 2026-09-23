@@ -353,6 +353,20 @@ bridge_member_vlans_enabled(struct bridge_member *bm)
 }
 
 /*
+ * Without bridge-vlan sections, vlan 1 stays the default vlan that the
+ * kernel gives the bridge and its ports, so netifd does not change it.
+ */
+static bool
+bridge_vlan_range_owned(struct bridge_state *bst, uint16_t *start, uint16_t end)
+{
+	if (bst->has_vlans || *start > 1)
+		return true;
+
+	*start = 2;
+	return end >= 2;
+}
+
+/*
  * The last vlan with an explicit pvid flag wins, otherwise the first
  * untagged one. This is the result of adding all vlans in order.
  */
@@ -361,10 +375,14 @@ bridge_member_vlans_get(struct bridge_member *bm, struct bridge_port_vlan *vlans
 {
 	struct bridge_vlan *vlan;
 	uint16_t pvid = 0, untagged = 0;
-	uint16_t flags;
+	uint16_t flags, vid;
 	int i, n = 0;
 
 	vlist_for_each_element(&bm->bst->dev.vlans, vlan, node) {
+		vid = vlan->vid;
+		if (!bridge_vlan_range_owned(bm->bst, &vid, vid))
+			continue;
+
 		if (!bridge_member_vlan_flags(bm, vlan, &flags))
 			continue;
 
@@ -521,7 +539,9 @@ bridge_member_vlan_sync(struct bridge_member *bm)
 static void
 bridge_set_local_vlan(struct bridge_state *bst, struct bridge_vlan *vlan, bool add)
 {
-	if (!vlan->local && add)
+	uint16_t vid = vlan->vid;
+
+	if ((!vlan->local && add) || !bridge_vlan_range_owned(bst, &vid, vid))
 		return;
 
 	system_bridge_vlan(bst->dev.ifname, vlan->vid, -1, add, BRVLAN_F_SELF);
@@ -602,10 +622,15 @@ bridge_enable_interface(struct bridge_state *bst)
 	if (bst->vlan_filtering) {
 		bridge_set_local_vlans(bst, true);
 
-		for (i = 0; i < dev->n_extra_vlan; i++)
-			system_bridge_vlan(dev->ifname, dev->extra_vlan[i].start,
-					   dev->extra_vlan[i].end, true,
-					   BRVLAN_F_SELF);
+		for (i = 0; i < dev->n_extra_vlan; i++) {
+			uint16_t start = dev->extra_vlan[i].start;
+
+			if (bridge_vlan_range_owned(bst, &start,
+						    dev->extra_vlan[i].end))
+				system_bridge_vlan(dev->ifname, start,
+						   dev->extra_vlan[i].end, true,
+						   BRVLAN_F_SELF);
+		}
 	}
 
 	bst->active = true;
@@ -726,12 +751,15 @@ static bool
 __bridge_member_range_write(struct bridge_member *bm,
 			    const struct bridge_member_range *r, bool add)
 {
-	if (!bm->active || !bm->bst->vlan_filtering)
+	uint16_t start = r->start;
+
+	if (!bm->active || !bm->bst->vlan_filtering ||
+	    !bridge_vlan_range_owned(bm->bst, &start, r->end))
 		return false;
 
-	system_bridge_vlan(bm->dev.dev->ifname, r->start, r->end, add,
+	system_bridge_vlan(bm->dev.dev->ifname, start, r->end, add,
 			   add ? r->flags : 0);
-	bridge_member_vlans_invalidate(bm, r->start, r->end);
+	bridge_member_vlans_invalidate(bm, start, r->end);
 	return true;
 }
 
