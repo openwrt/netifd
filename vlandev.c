@@ -123,8 +123,8 @@ static void vlandev_hotplug_check(struct vlandev_device *mvdev)
 	};
 	struct device *dev = mvdev->parent.dev;
 
-	if (!dev || !dev->hotplug_ops || avl_is_empty(&dev->vlans.avl) ||
-		mvdev->dev.type != &vlan8021q_device_type) {
+	if (!dev || !dev->hotplug_ops || !dev->vlan_filtering ||
+	    mvdev->dev.type != &vlan8021q_device_type) {
 		mvdev->dev.hotplug_ops = NULL;
 		return;
 	}

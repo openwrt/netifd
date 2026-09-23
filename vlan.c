@@ -100,7 +100,7 @@ static void vlan_hotplug_check(struct vlan_device *vldev, struct device *dev)
 		.del = vlan_hotplug_del
 	};
 
-	if (!dev || !dev->hotplug_ops || avl_is_empty(&dev->vlans.avl)) {
+	if (!dev || !dev->hotplug_ops || !dev->vlan_filtering) {
 		vldev->dev.hotplug_ops = NULL;
 		return;
 	}

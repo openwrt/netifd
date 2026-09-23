@@ -292,6 +292,7 @@ struct device {
 	struct safe_list aliases;
 
 	struct vlist_tree vlans;
+	bool vlan_filtering;
 	struct kvlist vlan_aliases;
 	struct blob_attr *config_auth_vlans;
 	struct blob_attr *auth_vlans;

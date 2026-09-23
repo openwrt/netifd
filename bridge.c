@@ -1724,6 +1724,8 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 		cfg->vlan_filtering = blobmsg_get_bool(cur);
 
 	bst->vlans_configured = bridge_vlans_present(tb);
+
+	bst->dev.vlan_filtering = cfg->vlan_filtering;
 }
 
 static enum dev_change_type
