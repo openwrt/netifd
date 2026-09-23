@@ -725,6 +725,54 @@ bridge_member_ranges_set(struct bridge_member *bm,
 	return deleted || written;
 }
 
+static bool
+bridge_hotplug_vlan_parse(struct blob_attr *attr, struct bridge_member_range *r)
+{
+	unsigned int vid, vid_end;
+	uint16_t flags = 0;
+	char *end;
+
+	if (blobmsg_type(attr) != BLOBMSG_TYPE_STRING)
+		return false;
+
+	vid = strtoul(blobmsg_get_string(attr), &end, 0);
+	vid_end = vid;
+	if (!vid || vid > 4095)
+		return false;
+
+	if (*end == '-') {
+		vid_end = strtoul(end + 1, &end, 0);
+		if (vid_end < vid || vid_end > 4095)
+			return false;
+	}
+
+	if (end && *end) {
+		if (*end != ':')
+			return false;
+
+		for (end++; *end; end++) {
+			switch (*end) {
+			case 'u':
+				flags |= BRVLAN_F_UNTAGGED;
+				fallthrough;
+			case '*':
+				flags |= BRVLAN_F_PVID;
+				break;
+			}
+		}
+	}
+
+	/* the kernel rejects a pvid flag on a range */
+	if (vid_end > vid)
+		flags &= ~BRVLAN_F_PVID;
+
+	r->start = vid;
+	r->end = vid_end;
+	r->flags = flags;
+
+	return true;
+}
+
 /*
  * An add sets the complete list of hotplug vlans of the member. With
  * untracked set (auth vlans), entries are only written to the port.
@@ -766,44 +814,15 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 
 	blobmsg_for_each_attr(cur, vlans, rem) {
 		struct bridge_member_range range;
-		unsigned int vid, vid_end;
-		uint16_t flags = 0;
+		uint16_t vid, vid_end, flags;
 		bool tracked;
-		char *end;
 
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING)
+		if (!bridge_hotplug_vlan_parse(cur, &range))
 			continue;
 
-		vid = strtoul(blobmsg_get_string(cur), &end, 0);
-		vid_end = vid;
-		if (!vid || vid > 4095)
-			continue;
-
-		if (*end == '-') {
-			vid_end = strtoul(end + 1, &end, 0);
-			if (vid_end < vid || vid_end > 4095)
-				continue;
-		}
-
-		if (end && *end) {
-			if (*end != ':')
-				continue;
-
-			for (end++; *end; end++) {
-				switch (*end) {
-				case 'u':
-					flags |= BRVLAN_F_UNTAGGED;
-					fallthrough;
-				case '*':
-					flags |= BRVLAN_F_PVID;
-					break;
-				}
-			}
-		}
-
-		/* the kernel rejects a pvid flag on a range */
-		if (vid_end > vid)
-			flags &= ~BRVLAN_F_PVID;
+		vid = range.start;
+		vid_end = range.end;
+		flags = range.flags;
 
 		tracked = !untracked && vid_end == vid;
 		vlan = bridge_hotplug_get_vlan(bst, vid, add && tracked && flags);
@@ -819,9 +838,6 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 				continue;
 		}
 
-		range.start = vid;
-		range.end = vid_end;
-		range.flags = flags;
 		if (replace) {
 			ranges[n_ranges++] = range;
 			continue;
@@ -1019,11 +1035,14 @@ bridge_check_retry(struct bridge_state *bst)
 static void
 bridge_member_check_cb(struct uloop_timeout *t)
 {
+	struct blob_attr *auth_vlans = NULL, *cur;
 	struct device_vlan_range *ranges;
+	struct bridge_member_range r;
 	struct bridge_member *bm;
 	struct bridge_state *bst;
 	struct device *dev;
-	int i, n = 0;
+	int i, n = 0, n_auth = 0;
+	size_t rem;
 	int ret;
 
 	bm = container_of(t, struct bridge_member, check_timer);
@@ -1033,7 +1052,16 @@ bridge_member_check_cb(struct uloop_timeout *t)
 	if (!bm->active)
 		return;
 
-	ranges = calloc(dev->n_extra_vlan + bm->n_extra_vlan + 1, sizeof(*ranges));
+	if (dev->settings.auth)
+		auth_vlans = dev->auth_status ? dev->auth_vlans :
+			     dev->config_auth_vlans;
+	if (auth_vlans)
+		n_auth = blobmsg_check_array(auth_vlans, BLOBMSG_TYPE_STRING);
+	if (n_auth < 0)
+		n_auth = 0;
+
+	ranges = calloc(dev->n_extra_vlan + bm->n_extra_vlan + n_auth + 1,
+			sizeof(*ranges));
 	if (!ranges)
 		return;
 
@@ -1043,6 +1071,16 @@ bridge_member_check_cb(struct uloop_timeout *t)
 	for (i = 0; i < bm->n_extra_vlan; i++) {
 		ranges[n].start = bm->extra_vlan[i].start;
 		ranges[n++].end = bm->extra_vlan[i].end;
+	}
+
+	if (n_auth) {
+		blobmsg_for_each_attr(cur, auth_vlans, rem) {
+			if (!bridge_hotplug_vlan_parse(cur, &r))
+				continue;
+
+			ranges[n].start = r.start;
+			ranges[n++].end = r.end;
+		}
 	}
 
 	ret = system_bridge_vlan_check(&bst->dev, dev->ifname, bm->applied,
