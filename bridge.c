@@ -154,20 +154,11 @@ struct bridge_state {
 	int n_failed;
 };
 
-struct bridge_member {
-	struct vlist_node node;
-	struct bridge_state *bst;
-	struct device_user dev;
-	struct uloop_timeout check_timer;
-	struct bridge_member_range *extra_vlan;
-	int n_extra_vlan;
-	struct avl_tree hotplug_vlans;
-	struct bridge_port_vlan *applied;
-	int n_applied;
-	bool present;
-	bool active;
-	bool set_ipv6;
-	char name[];
+/* in order of precedence, the last source wins */
+enum bridge_vlan_src {
+	BRIDGE_VLAN_SRC_HOTPLUG,
+	BRIDGE_VLAN_SRC_CONFIG,
+	__BRIDGE_VLAN_SRC_MAX
 };
 
 struct bridge_member_vlan {
@@ -181,6 +172,26 @@ struct bridge_member_range {
 	uint16_t start;
 	uint16_t end;
 	uint16_t flags;
+};
+
+struct bridge_member_vlans {
+	struct avl_tree vlans;
+	struct bridge_member_range *ranges;
+	int n_ranges;
+};
+
+struct bridge_member {
+	struct vlist_node node;
+	struct bridge_state *bst;
+	struct device_user dev;
+	struct uloop_timeout check_timer;
+	struct bridge_member_vlans vlans[__BRIDGE_VLAN_SRC_MAX];
+	struct bridge_port_vlan *applied;
+	int n_applied;
+	bool present;
+	bool active;
+	bool set_ipv6;
+	char name[];
 };
 
 #define BRIDGE_VLAN_FLAGS_UNKNOWN	0xffff
@@ -221,11 +232,10 @@ bridge_reset_primary(struct bridge_state *bst)
 }
 
 static bool
-bridge_member_vlan_flags(struct bridge_member *bm, struct bridge_vlan *vlan,
-			 uint16_t *flags)
+bridge_vlan_port_flags(struct bridge_vlan *vlan, struct bridge_member *bm,
+		       uint16_t *flags)
 {
 	const char *ifname = bm->dev.dev->ifname;
-	struct bridge_member_vlan *mv;
 	int i;
 
 	for (i = 0; i < vlan->n_ports; i++) {
@@ -236,25 +246,89 @@ bridge_member_vlan_flags(struct bridge_member *bm, struct bridge_vlan *vlan,
 		return true;
 	}
 
-	mv = avl_find_element(&bm->hotplug_vlans, &vlan->vid, mv, node);
-	if (!mv)
-		return false;
+	return false;
+}
+
+static struct bridge_member_vlan *
+bridge_member_vlan_find(struct bridge_member *bm, enum bridge_vlan_src src,
+			uint16_t vid)
+{
+	struct bridge_member_vlan *mv;
+
+	return avl_find_element(&bm->vlans[src].vlans, &vid, mv, node);
+}
+
+static bool
+bridge_member_vid_tracked(struct bridge_member *bm, uint16_t vid)
+{
+	int i;
+
+	for (i = 0; i < __BRIDGE_VLAN_SRC_MAX; i++)
+		if (bridge_member_vlan_find(bm, i, vid))
+			return true;
+
+	return false;
+}
+
+static bool
+bridge_member_range_find_vid(struct bridge_member_vlans *set, uint16_t vid,
+			     uint16_t *flags)
+{
+	int i;
+
+	for (i = set->n_ranges - 1; i >= 0; i--) {
+		if (vid < set->ranges[i].start || vid > set->ranges[i].end)
+			continue;
+
+		*flags = set->ranges[i].flags;
+		return true;
+	}
+
+	return false;
+}
+
+/*
+ * The config source also wins over a hotplug vlan when it only has the vid
+ * through a range.
+ */
+static bool
+bridge_member_src_flags(struct bridge_member *bm, uint16_t vid, uint16_t *flags)
+{
+	struct bridge_member_vlan *mv;
+
+	mv = bridge_member_vlan_find(bm, BRIDGE_VLAN_SRC_CONFIG, vid);
+	if (!mv) {
+		mv = bridge_member_vlan_find(bm, BRIDGE_VLAN_SRC_HOTPLUG, vid);
+		if (!mv)
+			return false;
+
+		if (bridge_member_range_find_vid(&bm->vlans[BRIDGE_VLAN_SRC_CONFIG],
+						 vid, flags))
+			return true;
+	}
 
 	*flags = mv->flags;
 	return true;
 }
 
 static bool
-bridge_vlan_hotplug_used(struct bridge_state *bst, uint16_t vid)
+bridge_member_vlan_flags(struct bridge_member *bm, struct bridge_vlan *vlan,
+			 uint16_t *flags)
 {
-	struct bridge_member_vlan *mv;
+	if (bridge_vlan_port_flags(vlan, bm, flags))
+		return true;
+
+	return bridge_member_src_flags(bm, vlan->vid, flags);
+}
+
+static bool
+bridge_vlan_member_used(struct bridge_state *bst, uint16_t vid)
+{
 	struct bridge_member *bm;
 
-	vlist_for_each_element(&bst->members, bm, node) {
-		mv = avl_find_element(&bm->hotplug_vlans, &vid, mv, node);
-		if (mv)
+	vlist_for_each_element(&bst->members, bm, node)
+		if (bridge_member_vid_tracked(bm, vid))
 			return true;
-	}
 
 	return false;
 }
@@ -339,31 +413,61 @@ bridge_member_vlan_add(struct bridge_member *bm, const struct bridge_port_vlan *
 	system_bridge_vlan(bm->dev.dev->ifname, vlan->vid, -1, true, vlan->flags);
 }
 
+/* the ranges of the device, then of each source, the last one wins */
+static void
+bridge_member_ranges_walk(struct bridge_member *bm, int first_src,
+			  void (*cb)(struct bridge_member *bm,
+				     const struct bridge_member_range *r,
+				     void *ctx),
+			  void *ctx)
+{
+	struct device *dev = bm->dev.dev;
+	struct bridge_member_vlans *set;
+	struct bridge_member_range r = {};
+	int i, j;
+
+	for (i = 0; i < dev->n_extra_vlan && !first_src; i++) {
+		r.start = dev->extra_vlan[i].start;
+		r.end = dev->extra_vlan[i].end;
+		cb(bm, &r, ctx);
+	}
+
+	for (i = first_src; i < __BRIDGE_VLAN_SRC_MAX; i++) {
+		set = &bm->vlans[i];
+		for (j = 0; j < set->n_ranges; j++)
+			cb(bm, &set->ranges[j], ctx);
+	}
+}
+
+struct bridge_range_flags {
+	uint16_t vid;
+	uint16_t flags;
+	bool found;
+};
+
+static void
+bridge_member_range_flags_cb(struct bridge_member *bm,
+			     const struct bridge_member_range *r, void *ctx)
+{
+	struct bridge_range_flags *f = ctx;
+
+	if (f->vid < r->start || f->vid > r->end)
+		return;
+
+	f->flags = r->flags;
+	f->found = true;
+}
+
 static bool
 bridge_member_range_flags(struct bridge_member *bm, uint16_t vid,
 			  uint16_t *flags)
 {
-	struct device *dev = bm->dev.dev;
-	int i;
+	struct bridge_range_flags f = { .vid = vid };
 
-	/* match bridge_member_add_extra_vlans(), where the last range wins */
-	for (i = bm->n_extra_vlan - 1; i >= 0; i--) {
-		if (vid < bm->extra_vlan[i].start || vid > bm->extra_vlan[i].end)
-			continue;
+	bridge_member_ranges_walk(bm, 0, bridge_member_range_flags_cb, &f);
+	*flags = f.flags;
 
-		*flags = bm->extra_vlan[i].flags;
-		return true;
-	}
-
-	for (i = 0; i < dev->n_extra_vlan; i++) {
-		if (vid < dev->extra_vlan[i].start || vid > dev->extra_vlan[i].end)
-			continue;
-
-		*flags = 0;
-		return true;
-	}
-
-	return false;
+	return f.found;
 }
 
 /* a range of the port can still need a vlan that is no longer tracked */
@@ -530,8 +634,12 @@ bridge_disable_interface(struct bridge_state *bst)
 	bst->active = false;
 }
 
+/*
+ * A dynamic vlan (vlist version -1) is not part of the config. It exists
+ * as long as member vlans of a source use it.
+ */
 static struct bridge_vlan *
-bridge_hotplug_get_vlan(struct bridge_state *bst, uint16_t vid, bool create)
+bridge_vlan_get(struct bridge_state *bst, uint16_t vid, bool create)
 {
 	struct bridge_vlan *vlan;
 
@@ -552,31 +660,32 @@ bridge_hotplug_get_vlan(struct bridge_state *bst, uint16_t vid, bool create)
 }
 
 static void
-bridge_hotplug_del_member_vlan(struct bridge_member *bm,
-			       struct bridge_member_vlan *mv)
+bridge_member_vlan_untrack(struct bridge_member *bm,
+			   struct bridge_member_vlans *set,
+			   struct bridge_member_vlan *mv)
 {
 	struct bridge_state *bst = bm->bst;
 	struct bridge_vlan *vlan;
 	uint16_t vid = mv->vid;
 
-	avl_delete(&bm->hotplug_vlans, &mv->node);
+	avl_delete(&set->vlans, &mv->node);
 	free(mv);
 
 	vlan = vlist_find(&bst->dev.vlans, &vid, vlan, node);
 	if (!vlan || vlan->n_ports || vlan->node.version != -1 ||
-	    bridge_vlan_hotplug_used(bst, vid))
+	    bridge_vlan_member_used(bst, vid))
 		return;
 
 	vlist_delete(&bst->dev.vlans, &vlan->node);
 }
 
 static bool
-bridge_hotplug_set_member_vlan(struct bridge_member *bm, uint16_t vid,
-			       uint16_t flags)
+bridge_member_vlan_track(struct bridge_member_vlans *set, uint16_t vid,
+			 uint16_t flags)
 {
 	struct bridge_member_vlan *mv;
 
-	mv = avl_find_element(&bm->hotplug_vlans, &vid, mv, node);
+	mv = avl_find_element(&set->vlans, &vid, mv, node);
 	if (mv) {
 		mv->seen = true;
 		if (mv->flags == flags)
@@ -594,7 +703,7 @@ bridge_hotplug_set_member_vlan(struct bridge_member *bm, uint16_t vid,
 	mv->flags = flags;
 	mv->seen = true;
 	mv->node.key = &mv->vid;
-	avl_insert(&bm->hotplug_vlans, &mv->node);
+	avl_insert(&set->vlans, &mv->node);
 	return true;
 }
 
@@ -635,34 +744,33 @@ bridge_member_range_write(struct bridge_member *bm,
 	return __bridge_member_range_write(bm, r, add);
 }
 
+static void
+bridge_member_range_add_cb(struct bridge_member *bm,
+			   const struct bridge_member_range *r, void *ctx)
+{
+	bool *written = ctx;
+
+	if (bridge_member_range_write(bm, r, true) && written)
+		*written = true;
+}
+
 /*
  * Deleting a range can also remove vlans that another range of the port
  * still needs, so all of them are written again after a delete.
  */
 static void
-bridge_member_add_extra_vlans(struct bridge_member *bm)
+bridge_member_ranges_add(struct bridge_member *bm)
 {
-	struct device *dev = bm->dev.dev;
-	struct bridge_member_range r = {};
-	int i;
-
-	for (i = 0; i < dev->n_extra_vlan; i++) {
-		r.start = dev->extra_vlan[i].start;
-		r.end = dev->extra_vlan[i].end;
-		bridge_member_range_write(bm, &r, true);
-	}
-
-	for (i = 0; i < bm->n_extra_vlan; i++)
-		bridge_member_range_write(bm, &bm->extra_vlan[i], true);
+	bridge_member_ranges_walk(bm, 0, bridge_member_range_add_cb, NULL);
 }
 
 static bool
-bridge_member_ranges_set(struct bridge_member *bm,
+bridge_member_ranges_set(struct bridge_member *bm, struct bridge_member_vlans *set,
 			 struct bridge_member_range *ranges, int n)
 {
-	struct bridge_member_range *old = bm->extra_vlan;
-	int i, n_old = bm->n_extra_vlan;
-	bool deleted = false, written = false;
+	struct bridge_member_range *old = set->ranges;
+	int i, n_old = set->n_ranges;
+	bool deleted = false, added = false, written = false;
 	uint16_t vid;
 
 	for (i = 0; i < n_old; i++) {
@@ -671,8 +779,7 @@ bridge_member_ranges_set(struct bridge_member *bm,
 
 		/* a single vlan that is now tracked is rewritten by the sync */
 		vid = old[i].start;
-		if (old[i].end == vid &&
-		    avl_find(&bm->hotplug_vlans, &vid)) {
+		if (old[i].end == vid && bridge_member_vid_tracked(bm, vid)) {
 			bridge_member_vlans_invalidate(bm, vid, vid);
 			written = true;
 			continue;
@@ -681,29 +788,34 @@ bridge_member_ranges_set(struct bridge_member *bm,
 		deleted |= bridge_member_range_write(bm, &old[i], false);
 	}
 
-	for (i = 0; i < n && !deleted; i++) {
+	for (i = 0; i < n && !deleted && !added; i++) {
 		struct bridge_member_range *prev;
 
 		prev = bridge_member_range_find(old, n_old, ranges[i].start,
 						ranges[i].end);
-		if (prev && prev->flags == ranges[i].flags)
-			continue;
-
-		written |= bridge_member_range_write(bm, &ranges[i], true);
+		added = !prev || prev->flags != ranges[i].flags;
 	}
 
 	free(old);
-	bm->extra_vlan = ranges;
-	bm->n_extra_vlan = n;
+	set->ranges = ranges;
+	set->n_ranges = n;
 
+	/*
+	 * A new range must not win over a later range of the same source or
+	 * over a source that wins over this one, so all of them are written
+	 * again in order.
+	 */
 	if (deleted)
-		bridge_member_add_extra_vlans(bm);
+		bridge_member_ranges_add(bm);
+	else if (added)
+		bridge_member_ranges_walk(bm, set - bm->vlans,
+					  bridge_member_range_add_cb, &written);
 
 	return deleted || written;
 }
 
 static bool
-bridge_hotplug_vlan_parse(struct blob_attr *attr, struct bridge_member_range *r)
+bridge_vlan_entry_parse(struct blob_attr *attr, struct bridge_member_range *r)
 {
 	unsigned int vid, vid_end;
 	uint16_t flags = 0;
@@ -750,14 +862,11 @@ bridge_hotplug_vlan_parse(struct blob_attr *attr, struct bridge_member_range *r)
 	return true;
 }
 
-/*
- * Sets the complete list of hotplug vlans of the member. With untracked set
- * (auth vlans), entries are only written to the port or deleted from it.
- */
 static void
-bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlans,
-				struct bridge_member *bm, bool add, bool untracked)
+bridge_member_vlans_set(struct bridge_member *bm, enum bridge_vlan_src src,
+			struct blob_attr *vlans)
 {
+	struct bridge_member_vlans *set = &bm->vlans[src];
 	struct bridge_member_range *ranges = NULL;
 	struct bridge_member_vlan *mv, *tmp;
 	struct bridge_vlan *vlan;
@@ -772,73 +881,76 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 		n_vlans = blobmsg_check_array(vlans, BLOBMSG_TYPE_STRING);
 		if (n_vlans < 0)
 			return;
-	} else if (untracked) {
-		return;
 	}
 
-	if (!untracked) {
-		if (n_vlans) {
-			ranges = calloc(n_vlans, sizeof(*ranges));
-			if (!ranges)
-				return;
-		}
-
-		avl_for_each_element(&bm->hotplug_vlans, mv, node)
-			mv->seen = false;
+	if (n_vlans) {
+		ranges = calloc(n_vlans, sizeof(*ranges));
+		if (!ranges)
+			return;
 	}
+
+	avl_for_each_element(&set->vlans, mv, node)
+		mv->seen = false;
 
 	blobmsg_for_each_attr(cur, vlans, rem) {
 		struct bridge_member_range range;
 		bool tracked;
 
-		if (!bridge_hotplug_vlan_parse(cur, &range))
+		if (!bridge_vlan_entry_parse(cur, &range))
 			continue;
-
-		if (untracked) {
-			__bridge_member_range_write(bm, &range, add);
-			continue;
-		}
 
 		tracked = range.end == range.start;
-		vlan = bridge_hotplug_get_vlan(bst, range.start,
-					       tracked && range.flags);
+		vlan = bridge_vlan_get(bm->bst, range.start,
+				       tracked && range.flags);
 		if (vlan && tracked) {
-			changed |= bridge_hotplug_set_member_vlan(bm, range.start,
-								  range.flags);
+			changed |= bridge_member_vlan_track(set, range.start,
+							    range.flags);
 			continue;
 		}
 
 		ranges[n_ranges++] = range;
 	}
 
-	/* with untracked set, the caller syncs after all its changes */
-	if (untracked)
-		return;
-
-	avl_for_each_element_safe(&bm->hotplug_vlans, mv, node, tmp) {
+	avl_for_each_element_safe(&set->vlans, mv, node, tmp) {
 		if (mv->seen)
 			continue;
 
-		bridge_hotplug_del_member_vlan(bm, mv);
+		bridge_member_vlan_untrack(bm, set, mv);
 		changed = true;
 	}
 
-	written = bridge_member_ranges_set(bm, ranges, n_ranges);
+	written = bridge_member_ranges_set(bm, set, ranges, n_ranges);
 	if (changed || written)
 		bridge_member_vlan_sync(bm);
+}
+
+/* the caller syncs after all its changes */
+static void
+bridge_member_auth_vlans_write(struct bridge_member *bm, struct blob_attr *vlans,
+			       bool add)
+{
+	struct bridge_member_range range;
+	struct blob_attr *cur;
+	size_t rem;
+
+	if (!vlans || blobmsg_check_array(vlans, BLOBMSG_TYPE_STRING) < 0)
+		return;
+
+	blobmsg_for_each_attr(cur, vlans, rem)
+		if (bridge_vlan_entry_parse(cur, &range))
+			__bridge_member_range_write(bm, &range, add);
 }
 
 static void
 bridge_member_enable_vlans(struct bridge_member *bm)
 {
-	struct bridge_state *bst = bm->bst;
 	struct device *dev = bm->dev.dev;
 
 	if (dev->settings.auth) {
-		bridge_hotplug_set_member_vlans(bst, dev->config_auth_vlans, bm,
-						!dev->auth_status, true);
-		bridge_hotplug_set_member_vlans(bst, dev->auth_vlans, bm,
-						dev->auth_status, true);
+		bridge_member_auth_vlans_write(bm, dev->config_auth_vlans,
+					       !dev->auth_status);
+		bridge_member_auth_vlans_write(bm, dev->auth_vlans,
+					       dev->auth_status);
 	}
 
 	if (dev->settings.auth && !dev->auth_status) {
@@ -846,7 +958,7 @@ bridge_member_enable_vlans(struct bridge_member *bm)
 		return;
 	}
 
-	bridge_member_add_extra_vlans(bm);
+	bridge_member_ranges_add(bm);
 
 	/*
 	 * Enabling deleted vlan 1 and wrote the ranges again, which can
@@ -948,13 +1060,18 @@ static void
 bridge_free_member(struct bridge_member *bm)
 {
 	struct device *dev = bm->dev.dev;
+	struct bridge_member_vlans *set;
 	struct bridge_member_vlan *mv;
+	int i;
 
 	bridge_remove_member(bm);
 
-	while (!avl_is_empty(&bm->hotplug_vlans)) {
-		mv = avl_first_element(&bm->hotplug_vlans, mv, node);
-		bridge_hotplug_del_member_vlan(bm, mv);
+	for (i = 0; i < __BRIDGE_VLAN_SRC_MAX; i++) {
+		set = &bm->vlans[i];
+		while (!avl_is_empty(&set->vlans)) {
+			mv = avl_first_element(&set->vlans, mv, node);
+			bridge_member_vlan_untrack(bm, set, mv);
+		}
 	}
 
 	device_remove_user(&bm->dev);
@@ -973,7 +1090,8 @@ bridge_free_member(struct bridge_member *bm)
 	}
 
 	free(bm->applied);
-	free(bm->extra_vlan);
+	for (i = 0; i < __BRIDGE_VLAN_SRC_MAX; i++)
+		free(bm->vlans[i].ranges);
 	free(bm);
 }
 
@@ -986,16 +1104,31 @@ bridge_check_retry(struct bridge_state *bst)
 	uloop_timeout_set(&bst->retry, 100);
 }
 
+struct bridge_check_ranges {
+	struct device_vlan_range *ranges;
+	int n;
+};
+
+static void
+bridge_member_check_range_cb(struct bridge_member *bm,
+			     const struct bridge_member_range *r, void *ctx)
+{
+	struct bridge_check_ranges *c = ctx;
+
+	c->ranges[c->n].start = r->start;
+	c->ranges[c->n++].end = r->end;
+}
+
 static void
 bridge_member_check_cb(struct uloop_timeout *t)
 {
 	struct blob_attr *auth_vlans = NULL, *cur;
-	struct device_vlan_range *ranges;
+	struct bridge_check_ranges c = {};
 	struct bridge_member_range r;
 	struct bridge_member *bm;
 	struct bridge_state *bst;
 	struct device *dev;
-	int i, n = 0, n_auth = 0;
+	int i, n_auth = 0, n_ranges;
 	size_t rem;
 	int ret;
 
@@ -1014,32 +1147,25 @@ bridge_member_check_cb(struct uloop_timeout *t)
 	if (n_auth < 0)
 		n_auth = 0;
 
-	ranges = calloc(dev->n_extra_vlan + bm->n_extra_vlan + n_auth + 1,
-			sizeof(*ranges));
-	if (!ranges)
+	n_ranges = dev->n_extra_vlan + n_auth + 1;
+	for (i = 0; i < __BRIDGE_VLAN_SRC_MAX; i++)
+		n_ranges += bm->vlans[i].n_ranges;
+
+	c.ranges = calloc(n_ranges, sizeof(*c.ranges));
+	if (!c.ranges)
 		return;
 
-	for (i = 0; i < dev->n_extra_vlan; i++)
-		ranges[n++] = dev->extra_vlan[i];
-
-	for (i = 0; i < bm->n_extra_vlan; i++) {
-		ranges[n].start = bm->extra_vlan[i].start;
-		ranges[n++].end = bm->extra_vlan[i].end;
-	}
+	bridge_member_ranges_walk(bm, 0, bridge_member_check_range_cb, &c);
 
 	if (n_auth) {
-		blobmsg_for_each_attr(cur, auth_vlans, rem) {
-			if (!bridge_hotplug_vlan_parse(cur, &r))
-				continue;
-
-			ranges[n].start = r.start;
-			ranges[n++].end = r.end;
-		}
+		blobmsg_for_each_attr(cur, auth_vlans, rem)
+			if (bridge_vlan_entry_parse(cur, &r))
+				bridge_member_check_range_cb(bm, &r, &c);
 	}
 
 	ret = system_bridge_vlan_check(&bst->dev, dev->ifname, bm->applied,
-				       bm->n_applied, ranges, n);
-	free(ranges);
+				       bm->n_applied, c.ranges, c.n);
+	free(c.ranges);
 	if (ret <= 0)
 		return;
 
@@ -1180,6 +1306,7 @@ bridge_alloc_member(struct bridge_state *bst, const char *name,
 		    struct device *dev, bool hotplug)
 {
 	struct bridge_member *bm;
+	int i;
 
 	bm = calloc(1, sizeof(*bm) + strlen(name) + 1);
 	if (!bm)
@@ -1189,7 +1316,8 @@ bridge_alloc_member(struct bridge_state *bst, const char *name,
 	bm->dev.cb = bridge_member_cb;
 	bm->dev.hotplug = hotplug;
 	bm->check_timer.cb = bridge_member_check_cb;
-	avl_init(&bm->hotplug_vlans, bridge_avl_cmp_u16, false, NULL);
+	for (i = 0; i < __BRIDGE_VLAN_SRC_MAX; i++)
+		avl_init(&bm->vlans[i].vlans, bridge_avl_cmp_u16, false, NULL);
 	strcpy(bm->name, name);
 	bm->dev.dev = dev;
 
@@ -1286,7 +1414,7 @@ bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *
 		if (!bm)
 			return UBUS_STATUS_UNKNOWN_ERROR;
 	}
-	bridge_hotplug_set_member_vlans(bst, vlan, bm, true, false);
+	bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, vlan);
 	if (new_entry)
 		bridge_insert_member(bm, member->ifname);
 
@@ -1306,7 +1434,7 @@ bridge_hotplug_del(struct device *dev, struct device *member, struct blob_attr *
 	if (bm->dev.hotplug)
 		vlist_delete(&bst->members, &bm->node);
 	else
-		bridge_hotplug_set_member_vlans(bst, NULL, bm, true, false);
+		bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, NULL);
 
 	return 0;
 }
@@ -1365,8 +1493,8 @@ static void
 bridge_dump_vlan(struct blob_buf *b, struct bridge_state *bst,
 		 struct bridge_vlan *vlan)
 {
-	struct bridge_member_vlan *mv;
 	struct bridge_member *bm;
+	uint16_t flags;
 	void *c, *p;
 	int i;
 
@@ -1381,9 +1509,11 @@ bridge_dump_vlan(struct blob_buf *b, struct bridge_state *bst,
 		bridge_dump_port(b, vlan->ports[i].ifname, vlan->ports[i].flags);
 
 	vlist_for_each_element(&bst->members, bm, node) {
-		mv = avl_find_element(&bm->hotplug_vlans, &vlan->vid, mv, node);
-		if (mv)
-			bridge_dump_port(b, bm->name, mv->flags);
+		if (bridge_vlan_port_flags(vlan, bm, &flags) ||
+		    !bridge_member_src_flags(bm, vlan->vid, &flags))
+			continue;
+
+		bridge_dump_port(b, bm->name, flags);
 	}
 
 	blobmsg_close_array(b, p);
@@ -1572,12 +1702,12 @@ bridge_vlan_add(struct device *dev, struct blob_attr *data)
 }
 
 /*
- * A config vlan that the new config no longer has, but that hotplug members
- * still use, becomes a hotplug vlan instead of being flushed, so that the
- * bridge's own vid is not removed and added again.
+ * A config vlan that the new config no longer has, but that member vlans
+ * of a source still use, becomes a dynamic vlan instead of being flushed,
+ * so that the bridge's own vid is not removed and added again.
  */
 static void
-bridge_vlan_keep_hotplug(struct bridge_state *bst, uint16_t vid)
+bridge_vlan_keep_dynamic(struct bridge_state *bst, uint16_t vid)
 {
 	struct bridge_vlan *vlan;
 
@@ -1598,6 +1728,7 @@ bridge_vlans_set(struct bridge_state *bst, struct blob_attr *vlans)
 	struct bridge_member *bm;
 	struct blob_attr *cur;
 	size_t rem;
+	int i;
 
 	kvlist_free(&dev->vlan_aliases);
 	vlist_update(&dev->vlans);
@@ -1606,8 +1737,9 @@ bridge_vlans_set(struct bridge_state *bst, struct blob_attr *vlans)
 			bridge_vlan_add(dev, cur);
 
 	vlist_for_each_element(&bst->members, bm, node)
-		avl_for_each_element(&bm->hotplug_vlans, mv, node)
-			bridge_vlan_keep_hotplug(bst, mv->vid);
+		for (i = 0; i < __BRIDGE_VLAN_SRC_MAX; i++)
+			avl_for_each_element(&bm->vlans[i].vlans, mv, node)
+				bridge_vlan_keep_dynamic(bst, mv->vid);
 
 	vlist_flush(&dev->vlans);
 
