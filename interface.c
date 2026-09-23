@@ -754,8 +754,9 @@ interface_claim_device(struct interface *iface)
 		dev = device_get(iface->device, true);
 		if (!(iface->proto_handler->flags & PROTO_FLAG_NODEV_CONFIG))
 			interface_set_device_config(iface, dev);
-	} else {
-		dev = iface->ext_dev.dev;
+	} else if (iface->ext_dev.dev) {
+		interface_set_main_dev(iface, iface->ext_dev.dev);
+		iface->main_dev.hotplug = true;
 	}
 
 	if (dev)
