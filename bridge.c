@@ -339,6 +339,46 @@ bridge_member_vlan_add(struct bridge_member *bm, const struct bridge_port_vlan *
 	system_bridge_vlan(bm->dev.dev->ifname, vlan->vid, -1, true, vlan->flags);
 }
 
+static bool
+bridge_member_range_flags(struct bridge_member *bm, uint16_t vid,
+			  uint16_t *flags)
+{
+	struct device *dev = bm->dev.dev;
+	int i;
+
+	/* match bridge_member_add_extra_vlans(), where the last range wins */
+	for (i = bm->n_extra_vlan - 1; i >= 0; i--) {
+		if (vid < bm->extra_vlan[i].start || vid > bm->extra_vlan[i].end)
+			continue;
+
+		*flags = bm->extra_vlan[i].flags;
+		return true;
+	}
+
+	for (i = 0; i < dev->n_extra_vlan; i++) {
+		if (vid < dev->extra_vlan[i].start || vid > dev->extra_vlan[i].end)
+			continue;
+
+		*flags = 0;
+		return true;
+	}
+
+	return false;
+}
+
+/* a range of the port can still need a vlan that is no longer tracked */
+static void
+bridge_member_vlan_del(struct bridge_member *bm, uint16_t vid)
+{
+	const char *ifname = bm->dev.dev->ifname;
+	uint16_t flags;
+
+	if (bm->active && bridge_member_range_flags(bm, vid, &flags))
+		system_bridge_vlan(ifname, vid, -1, true, flags);
+	else
+		system_bridge_vlan(ifname, vid, -1, false, 0);
+}
+
 static void
 bridge_member_vlan_sync(struct bridge_member *bm)
 {
@@ -365,8 +405,7 @@ bridge_member_vlan_sync(struct bridge_member *bm)
 
 	for (i = 0; i < bm->n_applied; i++)
 		if (!bridge_port_vlan_find(vlans, n, bm->applied[i].vid))
-			system_bridge_vlan(bm->dev.dev->ifname, bm->applied[i].vid,
-					   -1, false, 0);
+			bridge_member_vlan_del(bm, bm->applied[i].vid);
 
 	free(bm->applied);
 	bm->applied = vlans;
