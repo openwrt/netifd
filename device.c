@@ -115,36 +115,6 @@ device_type_get(const char *tname)
 	return NULL;
 }
 
-static int device_vlan_len(struct kvlist *kv, const void *data)
-{
-	return sizeof(unsigned int);
-}
-
-void device_vlan_update(bool done)
-{
-	struct device *dev;
-
-	avl_for_each_element(&devices, dev, avl) {
-		if (!dev->vlans.update)
-			continue;
-
-		if (!done) {
-			if (dev->vlan_aliases.get_len)
-				kvlist_free(&dev->vlan_aliases);
-			else
-				kvlist_init(&dev->vlan_aliases, device_vlan_len);
-			vlist_update(&dev->vlans);
-		} else {
-			vlist_flush(&dev->vlans);
-
-			if (dev->type->vlan_update)
-				dev->type->vlan_update(dev);
-
-			device_broadcast_event(dev, DEV_EVENT_VLAN_UPDATE);
-		}
-	}
-}
-
 void device_type_for_each(const struct device_type *type,
 			  void (*cb)(struct device *dev))
 {

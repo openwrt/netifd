@@ -40,7 +40,7 @@ enum {
 	BRIDGE_ATTR_QUERY_RESPONSE_INTERVAL,
 	BRIDGE_ATTR_LAST_MEMBER_INTERVAL,
 	BRIDGE_ATTR_VLAN_FILTERING,
-	BRIDGE_ATTR_HAS_VLANS,
+	BRIDGE_ATTR_VLANS,
 	BRIDGE_ATTR_STP_KERNEL,
 	BRIDGE_ATTR_STP_PROTO,
 	__BRIDGE_ATTR_MAX
@@ -63,7 +63,7 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_QUERY_RESPONSE_INTERVAL] = { "query_response_interval", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_LAST_MEMBER_INTERVAL] = { "last_member_interval", BLOBMSG_TYPE_INT32 },
 	[BRIDGE_ATTR_VLAN_FILTERING] = { "vlan_filtering", BLOBMSG_TYPE_BOOL },
-	[BRIDGE_ATTR_HAS_VLANS] = { "__has_vlans", BLOBMSG_TYPE_BOOL }, /* internal */
+	[BRIDGE_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_TABLE },
 	[BRIDGE_ATTR_STP_KERNEL] = { "stp_kernel", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_STP_PROTO] = { "stp_proto", BLOBMSG_TYPE_STRING },
 };
@@ -79,6 +79,32 @@ static const struct uci_blob_param_list bridge_attr_list = {
 
 	.n_next = 1,
 	.next = { &device_attr_list },
+};
+
+enum {
+	BRVLAN_ATTR_VID,
+	BRVLAN_ATTR_LOCAL,
+	BRVLAN_ATTR_PORTS,
+	BRVLAN_ATTR_ALIAS,
+	__BRVLAN_ATTR_MAX,
+};
+
+static const struct blobmsg_policy bridge_vlan_attrs[__BRVLAN_ATTR_MAX] = {
+	[BRVLAN_ATTR_VID] = { "vlan", BLOBMSG_TYPE_INT32 },
+	[BRVLAN_ATTR_LOCAL] = { "local", BLOBMSG_TYPE_BOOL },
+	[BRVLAN_ATTR_PORTS] = { "ports", BLOBMSG_TYPE_ARRAY },
+	[BRVLAN_ATTR_ALIAS] = { "alias", BLOBMSG_TYPE_ARRAY },
+};
+
+static const struct uci_blob_param_info bridge_vlan_attr_info[__BRVLAN_ATTR_MAX] = {
+	[BRVLAN_ATTR_PORTS] = { .type = BLOBMSG_TYPE_STRING },
+	[BRVLAN_ATTR_ALIAS] = { .type = BLOBMSG_TYPE_STRING },
+};
+
+const struct uci_blob_param_list bridge_vlan_attr_list = {
+	.n_params = __BRVLAN_ATTR_MAX,
+	.params = bridge_vlan_attrs,
+	.info = bridge_vlan_attr_info,
 };
 
 static struct blob_buf b;
@@ -98,11 +124,11 @@ static struct device_type bridge_device_type = {
 	.config_params = &bridge_attr_list,
 
 	.bridge_capability = true,
+	.bridge_vlans = true,
 	.name_prefix = "br",
 
 	.create = bridge_create,
 	.config_init = bridge_config_init,
-	.vlan_update = bridge_dev_vlan_update,
 	.reload = bridge_reload,
 	.free = bridge_free,
 	.dump_info = bridge_dump_info,
@@ -1188,6 +1214,119 @@ bridge_config_init(struct device *dev)
 	bridge_check_retry(bst);
 }
 
+static int
+bridge_vlan_alias_len(struct kvlist *kv, const void *data)
+{
+	return sizeof(unsigned int);
+}
+
+static void
+bridge_vlan_add(struct device *dev, struct blob_attr *data)
+{
+	struct blob_attr *tb[__BRVLAN_ATTR_MAX];
+	struct blob_attr *cur;
+	struct bridge_vlan_port *port;
+	struct bridge_vlan *vlan;
+	unsigned int vid;
+	char *name_buf;
+	int name_len = 0;
+	int n_ports = 0;
+	size_t rem;
+
+	blobmsg_parse_attr(bridge_vlan_attrs, __BRVLAN_ATTR_MAX, tb, data);
+
+	if (!tb[BRVLAN_ATTR_VID])
+		return;
+
+	vid = blobmsg_get_u32(tb[BRVLAN_ATTR_VID]);
+	if (!vid || vid > 4095)
+		return;
+
+	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
+		    !blobmsg_check_attr(cur, false))
+			continue;
+
+		name_len += strlen(blobmsg_get_string(cur)) + 1;
+		n_ports++;
+	}
+
+	vlan = calloc(1, sizeof(*vlan) + n_ports * sizeof(*port) + name_len);
+	if (!vlan)
+		return;
+
+	vlan->vid = vid;
+	vlan->local = true;
+	if (tb[BRVLAN_ATTR_LOCAL])
+		vlan->local = blobmsg_get_bool(tb[BRVLAN_ATTR_LOCAL]);
+
+	vlan->n_ports = n_ports;
+	vlan->ports = port = (struct bridge_vlan_port *)&vlan[1];
+	INIT_LIST_HEAD(&vlan->hotplug_ports);
+	name_buf = (char *)&port[n_ports];
+
+	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
+		char *sep;
+
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
+		    !blobmsg_check_attr(cur, false))
+			continue;
+
+		port->ifname = name_buf;
+		port->flags = BRVLAN_F_UNTAGGED;
+		strcpy(name_buf, blobmsg_get_string(cur));
+
+		sep = strchr(name_buf, ':');
+		if (sep) {
+			for (*sep = 0, sep++; *sep; sep++)
+				switch (*sep) {
+				case '*':
+					port->flags |= BRVLAN_F_PVID;
+					break;
+				case 't':
+					port->flags &= ~BRVLAN_F_UNTAGGED;
+					break;
+				}
+		}
+
+		name_buf += strlen(name_buf) + 1;
+		port++;
+	}
+
+	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_ALIAS], rem) {
+		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
+		    !blobmsg_check_attr(cur, false))
+			continue;
+
+		kvlist_set(&dev->vlan_aliases, blobmsg_get_string(cur), &vid);
+	}
+
+	vlist_add(&dev->vlans, &vlan->node, &vlan->vid);
+}
+
+static void
+bridge_vlans_set(struct device *dev, struct blob_attr *vlans)
+{
+	struct blob_attr *cur;
+	size_t rem;
+
+	kvlist_free(&dev->vlan_aliases);
+	vlist_update(&dev->vlans);
+	blobmsg_for_each_attr(cur, vlans, rem)
+		if (blobmsg_type(cur) == BLOBMSG_TYPE_TABLE)
+			bridge_vlan_add(dev, cur);
+	vlist_flush(&dev->vlans);
+
+	bridge_dev_vlan_update(dev);
+	device_broadcast_event(dev, DEV_EVENT_VLAN_UPDATE);
+}
+
+static bool
+bridge_vlans_present(struct blob_attr **tb)
+{
+	return blobmsg_data_len(tb[BRIDGE_ATTR_VLANS]) > 0;
+}
+
 static void
 bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 {
@@ -1208,7 +1347,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->hash_max = 512;
 	cfg->bridge_empty = false;
 	cfg->priority = 0x7FFF;
-	cfg->vlan_filtering = false;
+	cfg->vlan_filtering = bridge_vlans_present(tb);
 
 	cfg->forward_delay = 8;
 	cfg->max_age = 10;
@@ -1309,7 +1448,8 @@ bridge_reload(struct device *dev, struct blob_attr *attr,
 		blobmsg_parse_attr(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br, bst->config_data);
 
 		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, diff);
-		if (diff[0] & ~(1 << BRIDGE_ATTR_PORTS)) {
+		if ((diff[0] & ~((1 << BRIDGE_ATTR_PORTS) | (1 << BRIDGE_ATTR_VLANS))) ||
+		    bridge_vlans_present(tb_br) != bridge_vlans_present(otb_br)) {
 			ret = DEV_CONFIG_RESTART;
 			D(DEVICE, "Bridge %s attributes have changed, diff=[%lx %lx]",
 			  dev->ifname, diff[1], diff[0]);
@@ -1317,6 +1457,8 @@ bridge_reload(struct device *dev, struct blob_attr *attr,
 
 		dev->config_pending = true;
 	}
+
+	bridge_vlans_set(dev, tb_br[BRIDGE_ATTR_VLANS]);
 
 	free(bst->config_data);
 	bst->config_data = attr;
@@ -1466,6 +1608,7 @@ bridge_create(const char *name, struct device_type *devtype,
 	bst->members.keep_old = true;
 
 	vlist_init(&dev->vlans, bridge_avl_cmp_u16, bridge_vlan_update);
+	kvlist_init(&dev->vlan_aliases, bridge_vlan_alias_len);
 
 	device_init_config(dev, attr);
 

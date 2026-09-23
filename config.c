@@ -58,21 +58,48 @@ config_bridge_has_vlans(const char *br_name)
 	return false;
 }
 
-static void
-config_fixup_bridge_var(struct uci_section *s, const char *name, const char *val)
+static bool
+config_vlans_has_name(struct blob_attr *vlans, const char *name)
 {
-	struct uci_ptr ptr = {
-		.p = s->package,
-		.s = s,
-		.option = name,
-		.value = val,
-	};
+	struct blob_attr *cur;
+	size_t rem;
 
-	uci_lookup_ptr(uci_ctx, &ptr, NULL, false);
-	if (ptr.o)
+	blobmsg_for_each_attr(cur, vlans, rem)
+		if (!strcmp(blobmsg_name(cur), name))
+			return true;
+
+	return false;
+}
+
+/*
+ * Entries in inline_vlans replace bridge-vlan entries with the same name, and
+ * come last so that they also win on a duplicate vid.
+ */
+static void
+config_bridge_add_vlans(struct blob_buf *buf, struct device_type *devtype,
+			const char *br_name, struct blob_attr *inline_vlans)
+{
+	struct vlan_config_entry *e;
+	struct blob_attr *cur;
+	size_t rem;
+	void *c;
+
+	if (!devtype->bridge_vlans || !config_bridge_has_vlans(br_name))
 		return;
 
-	uci_set(uci_ctx, &ptr);
+	c = blobmsg_open_table(buf, "vlans");
+	list_for_each_entry(e, &config_vlans, list) {
+		if (strcmp(e->dev_name, br_name) != 0 ||
+		    config_vlans_has_name(inline_vlans, e->name))
+			continue;
+
+		blobmsg_add_field(buf, BLOBMSG_TYPE_TABLE, e->name,
+				  blobmsg_data(e->data), blobmsg_data_len(e->data));
+	}
+
+	blobmsg_for_each_attr(cur, inline_vlans, rem)
+		blobmsg_add_blob(buf, cur);
+	blobmsg_close_table(buf, c);
 }
 
 /**
@@ -100,19 +127,6 @@ static void config_fixup_bridge_ports(struct uci_section *s)
 	uci_rename(uci_ctx, &ptr);
 }
 
-static void
-config_fixup_bridge_vlan_filtering(struct uci_section *s, const char *name)
-{
-	bool has_vlans = config_bridge_has_vlans(name);
-
-	config_fixup_bridge_var(s, "__has_vlans", has_vlans ? "1" : "0");
-
-	if (!has_vlans)
-		return;
-
-	config_fixup_bridge_var(s, "vlan_filtering", "1");
-}
-
 static int
 config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype)
 {
@@ -123,8 +137,8 @@ config_parse_bridge_interface(struct uci_section *s, struct device_type *devtype
 	blobmsg_add_string(&b, "name", name);
 
 	config_fixup_bridge_ports(s);
-	config_fixup_bridge_vlan_filtering(s, name);
 	uci_to_blob(&b, s, devtype->config_params);
+	config_bridge_add_vlans(&b, devtype, name, NULL);
 	if (!device_create(name, devtype, b.head)) {
 		D(INTERFACE, "Failed to create '%s' device for interface '%s'",
 			devtype->name, s->e.name);
@@ -317,10 +331,8 @@ config_procd_bridge_cb(struct blob_attr *data)
 		[PROCD_DEV_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_TABLE },
 	};
 	const char *name = blobmsg_name(data);
-	struct blob_attr *tb[__PROCD_DEV_ATTR_MAX], *attr, *cur;
+	struct blob_attr *tb[__PROCD_DEV_ATTR_MAX], *vlans, *cur;
 	struct device_type *devtype;
-	struct device *dev;
-	int len = 0;
 	size_t rem;
 
 	blobmsg_parse_attr(policy, ARRAY_SIZE(policy), tb, data);
@@ -332,25 +344,20 @@ config_procd_bridge_cb(struct blob_attr *data)
 	if (!devtype)
 		return;
 
-	attr = tb[PROCD_DEV_ATTR_VLANS];
-	if (attr)
-		len = blobmsg_check_array(attr, BLOBMSG_TYPE_TABLE);
-	if (len < 0)
+	vlans = tb[PROCD_DEV_ATTR_VLANS];
+	if (vlans && blobmsg_check_array(vlans, BLOBMSG_TYPE_TABLE) < 0)
 		return;
 
-	if (len > 0 || config_bridge_has_vlans(name)) {
+	if (config_bridge_has_vlans(name)) {
 		blob_buf_init(&b, 0);
-		blob_put_raw(&b, blobmsg_data(data), blobmsg_len(data));
-		blobmsg_add_u8(&b, "vlan_filtering", 1);
+		blobmsg_for_each_attr(cur, data, rem)
+			if (strcmp(blobmsg_name(cur), "vlans") != 0)
+				blobmsg_add_blob(&b, cur);
+		config_bridge_add_vlans(&b, devtype, name, vlans);
 		data = b.head;
 	}
 
-	dev = device_create(name, devtype, data);
-	if (!dev || !dev->vlans.update || !len)
-		return;
-
-	blobmsg_for_each_attr(cur, attr, rem)
-		config_insert_vlan_entry(blobmsg_name(cur), name, cur);
+	device_create(name, devtype, data);
 }
 
 static void
@@ -383,13 +390,13 @@ config_init_devices(bool bridge)
 		if (!params)
 			params = simple_device_type.config_params;
 
-		if (devtype && devtype->bridge_capability) {
+		if (bridge)
 			config_fixup_bridge_ports(s);
-			config_fixup_bridge_vlan_filtering(s, name);
-		}
 
 		blob_buf_init(&b, 0);
 		uci_to_blob(&b, s, params);
+		if (bridge)
+			config_bridge_add_vlans(&b, devtype, name, NULL);
 		config_device_add(name, devtype, b.head);
 	}
 
@@ -397,125 +404,11 @@ config_init_devices(bool bridge)
 		bridge ? config_procd_bridge_cb : config_procd_device_cb);
 }
 
-enum {
-	BRVLAN_ATTR_VID,
-	BRVLAN_ATTR_LOCAL,
-	BRVLAN_ATTR_PORTS,
-	BRVLAN_ATTR_ALIAS,
-	__BRVLAN_ATTR_MAX,
-};
-
-static const struct blobmsg_policy vlan_attrs[__BRVLAN_ATTR_MAX] = {
-	[BRVLAN_ATTR_VID] = { "vlan", BLOBMSG_TYPE_INT32 },
-	[BRVLAN_ATTR_LOCAL] = { "local", BLOBMSG_TYPE_BOOL },
-	[BRVLAN_ATTR_PORTS] = { "ports", BLOBMSG_TYPE_ARRAY },
-	[BRVLAN_ATTR_ALIAS] = { "alias", BLOBMSG_TYPE_ARRAY },
-};
-
-static void
-config_init_vlan_entry(struct vlan_config_entry *e)
-{
-	struct blob_attr *tb[__BRVLAN_ATTR_MAX];
-	struct blob_attr *cur;
-	struct bridge_vlan_port *port;
-	struct bridge_vlan *vlan;
-	struct device *dev;
-	unsigned int vid;
-	char *name_buf;
-	int name_len = 0;
-	int n_ports = 0;
-	size_t rem;
-
-	dev = device_get(e->dev_name, 0);
-	if (!dev || !dev->vlans.update)
-		return;
-
-	blobmsg_parse_attr(vlan_attrs, __BRVLAN_ATTR_MAX, tb, e->data);
-
-	if (!tb[BRVLAN_ATTR_VID])
-		return;
-
-	vid = blobmsg_get_u32(tb[BRVLAN_ATTR_VID]);
-	if (!vid || vid > 4095)
-		return;
-
-	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
-		    !blobmsg_check_attr(cur, false))
-			continue;
-
-		name_len += strlen(blobmsg_get_string(cur)) + 1;
-		n_ports++;
-	}
-
-	vlan = calloc(1, sizeof(*vlan) + n_ports * sizeof(*port) + name_len);
-	if (!vlan)
-		return;
-
-	vlan->vid = vid;
-	vlan->local = true;
-	if (tb[BRVLAN_ATTR_LOCAL])
-		vlan->local = blobmsg_get_bool(tb[BRVLAN_ATTR_LOCAL]);
-
-	vlan->n_ports = n_ports;
-	vlan->ports = port = (struct bridge_vlan_port *)&vlan[1];
-	INIT_LIST_HEAD(&vlan->hotplug_ports);
-	name_buf = (char *)&port[n_ports];
-
-	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_PORTS], rem) {
-		char *sep;
-
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
-		    !blobmsg_check_attr(cur, false))
-			continue;
-
-		port->ifname = name_buf;
-		port->flags = BRVLAN_F_UNTAGGED;
-		strcpy(name_buf, blobmsg_get_string(cur));
-
-		sep = strchr(name_buf, ':');
-		if (sep) {
-			for (*sep = 0, sep++; *sep; sep++)
-				switch (*sep) {
-				case '*':
-					port->flags |= BRVLAN_F_PVID;
-					break;
-				case 't':
-					port->flags &= ~BRVLAN_F_UNTAGGED;
-					break;
-				}
-		}
-
-		name_buf += strlen(name_buf) + 1;
-		port++;
-	}
-
-	blobmsg_for_each_attr(cur, tb[BRVLAN_ATTR_ALIAS], rem) {
-		if (blobmsg_type(cur) != BLOBMSG_TYPE_STRING ||
-		    !blobmsg_check_attr(cur, false))
-			continue;
-
-		kvlist_set(&dev->vlan_aliases, blobmsg_get_string(cur), &vid);
-	}
-
-	vlist_add(&dev->vlans, &vlan->node, &vlan->vid);
-}
-
 static void
 config_load_vlan(const char *dev_name, struct uci_section *s)
 {
-	static const struct uci_blob_param_info vlan_attr_info[__BRVLAN_ATTR_MAX] = {
-		[BRVLAN_ATTR_PORTS] = { .type = BLOBMSG_TYPE_STRING },
-		[BRVLAN_ATTR_ALIAS] = { .type = BLOBMSG_TYPE_STRING },
-	};
-	static const struct uci_blob_param_list vlan_attr_list = {
-		.n_params = __BRVLAN_ATTR_MAX,
-		.params = vlan_attrs,
-		.info = vlan_attr_info,
-	};
-
 	blob_buf_init(&b, 0);
-	uci_to_blob(&b, s, &vlan_attr_list);
+	uci_to_blob(&b, s, &bridge_vlan_attr_list);
 	config_insert_vlan_entry(s->e.name, dev_name, b.head);
 }
 
@@ -553,17 +446,6 @@ config_load_vlans(void)
 	}
 
 	netifd_ubus_get_procd_data("bridge-vlan", config_procd_vlan_cb);
-}
-
-static void
-config_init_vlans(void)
-{
-	struct vlan_config_entry *e;
-
-	device_vlan_update(false);
-	list_for_each_entry(e, &config_vlans, list)
-		config_init_vlan_entry(e);
-	device_vlan_update(true);
 }
 
 static void
@@ -832,7 +714,6 @@ config_init_all(void)
 	device_reset_config();
 	config_load_vlans();
 	config_init_devices(true);
-	config_init_vlans();
 	config_init_devices(false);
 	netifd_ucode_config_load(false);
 	config_init_interfaces();

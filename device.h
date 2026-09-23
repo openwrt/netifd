@@ -105,6 +105,7 @@ struct device_type {
 	const char *name;
 
 	bool bridge_capability;
+	bool bridge_vlans;
 	const char *name_prefix;
 
 	const struct uci_blob_param_list *config_params;
@@ -114,7 +115,6 @@ struct device_type {
 	void (*config_init)(struct device *);
 	enum dev_change_type (*reload)(struct device *, struct blob_attr *,
 				       struct blob_attr **tb_dev);
-	void (*vlan_update)(struct device *);
 	void (*dump_info)(struct device *, struct blob_buf *buf);
 	void (*dump_stats)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
@@ -378,10 +378,10 @@ struct bridge_vlan {
 };
 
 extern const struct uci_blob_param_list device_attr_list;
+extern const struct uci_blob_param_list bridge_vlan_attr_list;
 extern struct device_type simple_device_type;
 extern struct device_type tunnel_device_type;
 
-void device_vlan_update(bool done);
 void device_stp_init(void);
 void device_type_for_each(const struct device_type *type,
 			  void (*cb)(struct device *dev));
