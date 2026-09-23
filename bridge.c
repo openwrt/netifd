@@ -1017,17 +1017,36 @@ bridge_check_retry(struct bridge_state *bst)
 static void
 bridge_member_check_cb(struct uloop_timeout *t)
 {
+	struct device_vlan_range *ranges;
 	struct bridge_member *bm;
 	struct bridge_state *bst;
+	struct device *dev;
+	int i, n = 0;
+	int ret;
 
 	bm = container_of(t, struct bridge_member, check_timer);
 	bst = bm->bst;
+	dev = bm->dev.dev;
 
 	if (!bm->active)
 		return;
 
-	if (system_bridge_vlan_check(&bst->dev, bm->dev.dev->ifname,
-				     bm->applied, bm->n_applied) <= 0)
+	ranges = calloc(dev->n_extra_vlan + bm->n_extra_vlan + 1, sizeof(*ranges));
+	if (!ranges)
+		return;
+
+	for (i = 0; i < dev->n_extra_vlan; i++)
+		ranges[n++] = dev->extra_vlan[i];
+
+	for (i = 0; i < bm->n_extra_vlan; i++) {
+		ranges[n].start = bm->extra_vlan[i].start;
+		ranges[n++].end = bm->extra_vlan[i].end;
+	}
+
+	ret = system_bridge_vlan_check(&bst->dev, dev->ifname, bm->applied,
+				       bm->n_applied, ranges, n);
+	free(ranges);
+	if (ret <= 0)
 		return;
 
 	bridge_disable_member(bm, true);

@@ -2925,8 +2925,10 @@ static int cb_if_check_error(struct sockaddr_nl *nla, struct nlmsgerr *err, void
 struct bridge_vlan_check_data {
 	struct device *check_dev;
 	const struct bridge_port_vlan *vlans;
+	const struct device_vlan_range *ranges;
 	bool *seen;
 	int n_vlans;
+	int n_ranges;
 	int ifindex;
 	int ret;
 	bool pending;
@@ -2956,6 +2958,18 @@ static void bridge_vlan_check_port(struct bridge_vlan_check_data *data,
 		bridge_vlan_check_mismatch(data);
 }
 
+static bool bridge_vlan_check_in_range(struct bridge_vlan_check_data *data,
+				       uint16_t vid)
+{
+	int i;
+
+	for (i = 0; i < data->n_ranges; i++)
+		if (vid >= data->ranges[i].start && vid <= data->ranges[i].end)
+			return true;
+
+	return false;
+}
+
 static void bridge_vlan_check_attr(struct bridge_vlan_check_data *data,
 				   struct rtattr *attr)
 {
@@ -2972,6 +2986,9 @@ static void bridge_vlan_check_attr(struct bridge_vlan_check_data *data,
 		vinfo = RTA_DATA(cur);
 		bvlan = vlist_find(&data->check_dev->vlans, &vinfo->vid, bvlan, node);
 		if (!bvlan) {
+			if (bridge_vlan_check_in_range(data, vinfo->vid))
+				continue;
+
 			bridge_vlan_check_mismatch(data);
 			return;
 		}
@@ -3026,12 +3043,15 @@ static int bridge_vlan_error_cb(struct sockaddr_nl *nla, struct nlmsgerr *err, v
 }
 
 int system_bridge_vlan_check(struct device *dev, const char *ifname,
-			     const struct bridge_port_vlan *vlans, int n_vlans)
+			     const struct bridge_port_vlan *vlans, int n_vlans,
+			     const struct device_vlan_range *ranges, int n_ranges)
 {
 	struct bridge_vlan_check_data data = {
 		.check_dev = dev,
 		.vlans = vlans,
 		.n_vlans = n_vlans,
+		.ranges = ranges,
+		.n_ranges = n_ranges,
 		.ifindex = if_nametoindex(ifname),
 		.ret = -1,
 		.pending = true,

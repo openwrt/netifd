@@ -248,7 +248,8 @@ int system_bridge_addif(struct device *bridge, struct device *dev);
 int system_bridge_delif(struct device *bridge, struct device *dev);
 int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags);
 int system_bridge_vlan_check(struct device *dev, const char *ifname,
-			     const struct bridge_port_vlan *vlans, int n_vlans);
+			     const struct bridge_port_vlan *vlans, int n_vlans,
+			     const struct device_vlan_range *ranges, int n_ranges);
 void system_bridge_set_stp_state(struct device *dev, bool val);
 
 int system_vrf_addvrf(struct device *vrf, unsigned int table);
