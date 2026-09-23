@@ -731,6 +731,8 @@ config_init_all(void)
 	device_reset_old();
 	device_init_pending();
 	vlist_flush(&interfaces);
+	/* a recreated bridge lost its hotplug members without any claim */
+	interface_relink_hotplug();
 	interface_refresh_assignments(false);
 	interface_start_pending();
 	netifd_ucode_config_load(true);

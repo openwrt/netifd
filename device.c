@@ -1132,6 +1132,10 @@ __device_free_unused(struct uloop_timeout *timeout)
 			dev->current_config)
 			continue;
 
+		/* its stored link is applied again, for example to a new master */
+		if (dev->hotplug_link && dev->sys_present)
+			continue;
+
 		device_free(dev);
 	}
 }

@@ -764,6 +764,8 @@ interface_claim_device(struct interface *iface)
 
 	if (iface->proto_handler->flags & PROTO_FLAG_INIT_AVAILABLE)
 		interface_set_available(iface, true);
+
+	interface_relink_hotplug();
 }
 
 static void
@@ -1260,6 +1262,44 @@ interface_add_link(struct interface *iface, struct device *dev,
 	return 0;
 }
 
+static bool
+interface_link_ext(struct blob_attr **tb)
+{
+	return tb[LINK_ATTR_LINK_EXT] && blobmsg_get_bool(tb[LINK_ATTR_LINK_EXT]);
+}
+
+/*
+ * The master is the interface's configured device, or none when the device
+ * is hotplug-assigned directly as the interface's main device (unbridged
+ * interface without a configured device) or is the configured device itself.
+ */
+static struct device *
+interface_link_master(struct interface *iface, struct device *dev)
+{
+	struct device *mdev = iface->main_dev.dev;
+
+	if (!mdev || mdev == dev || iface->main_dev.hotplug)
+		return NULL;
+
+	return mdev;
+}
+
+static struct interface *
+interface_link_network(struct blob_attr **tb)
+{
+	struct interface *iface;
+
+	if (!tb[LINK_ATTR_NETWORK])
+		return NULL;
+
+	iface = vlist_find(&interfaces, blobmsg_get_string(tb[LINK_ATTR_NETWORK]),
+			   iface, node);
+	if (!iface || iface->config_state == IFC_REMOVE)
+		return NULL;
+
+	return iface;
+}
+
 /*
  * Attach or drop a hotplug member to/from the master described by a stored
  * assignment (master ifname + vlan), so it can be released or restored even
@@ -1290,15 +1330,12 @@ interface_hotplug_link_op(struct device *dev, struct blob_attr *link, bool add)
 		else
 			mdev->hotplug_ops->del(mdev, dev, vlan);
 	} else if (tb[LINK_ATTR_NETWORK]) {
-		bool link_ext = tb[LINK_ATTR_LINK_EXT] &&
-				blobmsg_get_bool(tb[LINK_ATTR_LINK_EXT]);
-
 		iface = vlist_find(&interfaces, blobmsg_get_string(tb[LINK_ATTR_NETWORK]), iface, node);
 		if (!iface)
 			return;
 
 		if (add)
-			interface_add_link(iface, dev, vlan, link_ext);
+			interface_add_link(iface, dev, vlan, interface_link_ext(tb));
 		else
 			interface_remove_link(iface, dev, vlan);
 	}
@@ -1326,50 +1363,48 @@ interface_link_same_target(struct blob_attr *link1, struct blob_attr *link2)
 	return blob_attr_equal(tb1[LINK_ATTR_NETWORK], tb2[LINK_ATTR_NETWORK]);
 }
 
-int
-interface_handle_link(struct interface *iface, const char *name,
-		      struct blob_attr *vlan, bool add, bool link_ext)
+/*
+ * A device linked to several networks of the same master keeps the network
+ * that it was added to first, as long as that network exists.
+ */
+static const char *
+interface_link_network_name(struct interface *iface, struct device *dev,
+			    struct device *mdev, bool link_ext)
 {
-	struct device *dev, *mdev;
-	const char *master;
+	struct blob_attr *tb[__LINK_ATTR_MAX];
+
+	if (!mdev || !dev->hotplug_link)
+		return iface->name;
+
+	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb, dev->hotplug_link);
+	if (!tb[LINK_ATTR_DEVICE] ||
+	    strcmp(blobmsg_get_string(tb[LINK_ATTR_DEVICE]), mdev->ifname) != 0 ||
+	    interface_link_ext(tb) != link_ext ||
+	    !interface_link_network(tb))
+		return iface->name;
+
+	return blobmsg_get_string(tb[LINK_ATTR_NETWORK]);
+}
+
+static int
+__interface_update_link(struct interface *iface, struct device *dev,
+			struct blob_attr *vlan, bool link_ext)
+{
 	struct blob_attr *link = NULL, *old_link = NULL;
+	struct device *mdev = interface_link_master(iface, dev);
 	int ret;
 
-	dev = device_get(name, add ? (link_ext ? 2 : 1) : 0);
-	if (!dev)
-		return UBUS_STATUS_NOT_FOUND;
-
-	if (!add) {
-		ret = interface_remove_link(iface, dev, vlan);
-		if (!ret) {
-			free(dev->hotplug_link);
-			dev->hotplug_link = NULL;
-		}
-		return ret;
-	}
-
-	interface_set_device_config(iface, dev);
-	if (!link_ext)
-		device_set_present(dev, true);
-
-	/*
-	 * The master is the interface's configured device, or none when the
-	 * device is hotplug-assigned directly as the interface's main device
-	 * (unbridged interface without a configured device).
-	 */
-	mdev = iface->main_dev.dev;
-	master = (mdev && !iface->main_dev.hotplug) ? mdev->ifname : NULL;
-
 	blob_buf_init(&b, 0);
-	blobmsg_add_string(&b, "network", iface->name);
-	if (master)
-		blobmsg_add_string(&b, "device", master);
+	blobmsg_add_string(&b, "network",
+			   interface_link_network_name(iface, dev, mdev, link_ext));
+	if (mdev)
+		blobmsg_add_string(&b, "device", mdev->ifname);
 	if (vlan)
 		blobmsg_add_field(&b, blobmsg_type(vlan), "vlan",
 				  blobmsg_data(vlan), blobmsg_data_len(vlan));
 	if (link_ext)
 		blobmsg_add_u8(&b, "link-ext", true);
-	if (!dev->hotplug_link || !blob_attr_equal(dev->hotplug_link, b.head)) {
+	if (!blob_attr_equal(dev->hotplug_link, b.head)) {
 		link = blob_memdup(b.head);
 		if (!link)
 			return UBUS_STATUS_UNKNOWN_ERROR;
@@ -1401,6 +1436,117 @@ interface_handle_link(struct interface *iface, const char *name,
 	}
 
 	return 0;
+}
+
+int
+interface_handle_link(struct interface *iface, const char *name,
+		      struct blob_attr *vlan, bool add, bool link_ext)
+{
+	struct device *dev;
+	int ret;
+
+	dev = device_get(name, add ? (link_ext ? 2 : 1) : 0);
+	if (!dev)
+		return UBUS_STATUS_NOT_FOUND;
+
+	if (!add) {
+		ret = interface_remove_link(iface, dev, vlan);
+		if (!ret) {
+			free(dev->hotplug_link);
+			dev->hotplug_link = NULL;
+		}
+		return ret;
+	}
+
+	interface_set_device_config(iface, dev);
+	if (!link_ext)
+		device_set_present(dev, true);
+
+	return __interface_update_link(iface, dev, vlan, link_ext);
+}
+
+static struct interface *
+interface_link_master_user(struct device *dev, const char *master)
+{
+	struct interface *iface;
+	struct device *mdev;
+
+	vlist_for_each_element(&interfaces, iface, node) {
+		if (iface->config_state == IFC_REMOVE)
+			continue;
+
+		mdev = interface_link_master(iface, dev);
+		if (mdev && !strcmp(mdev->ifname, master))
+			return iface;
+	}
+
+	return NULL;
+}
+
+/*
+ * Apply a stored link again, so that the device follows its network to a
+ * new master and returns to a master that was recreated. When the network
+ * is gone, the link moves to another network of the same master, or is
+ * released.
+ */
+static void
+interface_relink_device(struct device *dev, void *ctx)
+{
+	struct blob_attr *tb[__LINK_ATTR_MAX];
+	struct interface *iface;
+	struct blob_attr *link;
+	bool moved;
+
+	if (!dev->hotplug_link || !dev->sys_present)
+		return;
+
+	/* the update replaces the stored link, which tb points into */
+	link = blob_memdup(dev->hotplug_link);
+	if (!link)
+		return;
+
+	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb, link);
+	iface = interface_link_network(tb);
+	moved = !iface;
+	if (moved && tb[LINK_ATTR_DEVICE])
+		iface = interface_link_master_user(dev,
+				blobmsg_get_string(tb[LINK_ATTR_DEVICE]));
+
+	/* a link attached directly as main device stays as it is */
+	if (iface && !moved && !tb[LINK_ATTR_DEVICE] && iface->main_dev.dev == dev) {
+		free(link);
+		return;
+	}
+
+	/* a link that cannot be applied any more is released, not retried */
+	if (!iface || __interface_update_link(iface, dev, tb[LINK_ATTR_VLAN],
+					      interface_link_ext(tb))) {
+		free(dev->hotplug_link);
+		dev->hotplug_link = NULL;
+		interface_hotplug_link_op(dev, link, false);
+	}
+
+	free(link);
+}
+
+static void
+interface_relink_hotplug_cb(struct uloop_timeout *timeout)
+{
+	device_for_each(NULL, interface_relink_device, NULL);
+}
+
+/*
+ * Deferred, since the link operations can reload interfaces, which calls
+ * this again.
+ */
+void
+interface_relink_hotplug(void)
+{
+	static struct uloop_timeout relink_timer = {
+		.cb = interface_relink_hotplug_cb,
+	};
+
+	uloop_timeout_set(&relink_timer, 1);
 }
 
 void
