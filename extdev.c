@@ -662,6 +662,10 @@ extdev_hotplug_add(struct device *ebr_dev, struct device *ebm_dev, struct blob_a
 	if (!ebr->edev.etype->subscribed)
 		return UBUS_STATUS_NOT_FOUND;
 
+	/* the vlans are not passed on, so adding a member again changes nothing */
+	if (vlist_find(&ebr->members, ebm_dev->ifname, ubm, node))
+		return 0;
+
 	ubm = extdev_bridge_create_member(ebr, ebm_dev);
 	if (!ubm)
 		return UBUS_STATUS_UNKNOWN_ERROR;
