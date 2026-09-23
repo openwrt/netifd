@@ -493,12 +493,14 @@ bridge_enable_interface(struct bridge_state *bst)
 	if (bst->has_vlans)
 		system_bridge_vlan(bst->dev.ifname, 1, -1, false, BRVLAN_F_SELF);
 
-	if (bst->vlan_filtering)
+	if (bst->vlan_filtering) {
 		bridge_set_local_vlans(bst, true);
 
-	for (i = 0; i < dev->n_extra_vlan; i++)
-		system_bridge_vlan(dev->ifname, dev->extra_vlan[i].start,
-				   dev->extra_vlan[i].end, true, BRVLAN_F_SELF);
+		for (i = 0; i < dev->n_extra_vlan; i++)
+			system_bridge_vlan(dev->ifname, dev->extra_vlan[i].start,
+					   dev->extra_vlan[i].end, true,
+					   BRVLAN_F_SELF);
+	}
 
 	bst->active = true;
 	return 0;
