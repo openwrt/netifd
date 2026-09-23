@@ -1295,6 +1295,28 @@ interface_hotplug_link_op(struct device *dev, struct blob_attr *link, bool add)
 	}
 }
 
+static bool
+interface_link_same_target(struct blob_attr *link1, struct blob_attr *link2)
+{
+	struct blob_attr *tb1[__LINK_ATTR_MAX], *tb2[__LINK_ATTR_MAX];
+
+	if (!link1 || !link2)
+		return false;
+
+	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb1, link1);
+	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb2, link2);
+
+	if (!blob_attr_equal(tb1[LINK_ATTR_DEVICE], tb2[LINK_ATTR_DEVICE]) ||
+	    !blob_attr_equal(tb1[LINK_ATTR_LINK_EXT], tb2[LINK_ATTR_LINK_EXT]))
+		return false;
+
+	/* with a master device, the network does not change the membership */
+	if (tb1[LINK_ATTR_DEVICE])
+		return true;
+
+	return blob_attr_equal(tb1[LINK_ATTR_NETWORK], tb2[LINK_ATTR_NETWORK]);
+}
+
 int
 interface_handle_link(struct interface *iface, const char *name,
 		      struct blob_attr *vlan, bool add, bool link_ext)
@@ -1343,9 +1365,12 @@ interface_handle_link(struct interface *iface, const char *name,
 		if (!link)
 			return UBUS_STATUS_UNKNOWN_ERROR;
 
-		old_link = dev->hotplug_link;
-		dev->hotplug_link = NULL;
-		interface_hotplug_link_op(dev, old_link, false);
+		/* the add replaces the vlans, so a vlan change keeps the member */
+		if (!interface_link_same_target(dev->hotplug_link, link)) {
+			old_link = dev->hotplug_link;
+			dev->hotplug_link = NULL;
+			interface_hotplug_link_op(dev, old_link, false);
+		}
 	}
 
 	ret = interface_add_link(iface, dev, vlan, link_ext);
@@ -1361,8 +1386,10 @@ interface_handle_link(struct interface *iface, const char *name,
 	}
 
 	free(old_link);
-	if (link)
+	if (link) {
+		free(dev->hotplug_link);
 		dev->hotplug_link = link;
+	}
 
 	return 0;
 }
