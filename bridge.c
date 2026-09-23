@@ -572,19 +572,11 @@ bridge_hotplug_del_member_vlan(struct bridge_member *bm,
 
 static bool
 bridge_hotplug_set_member_vlan(struct bridge_member *bm, uint16_t vid,
-			       uint16_t flags, bool add)
+			       uint16_t flags)
 {
 	struct bridge_member_vlan *mv;
 
 	mv = avl_find_element(&bm->hotplug_vlans, &vid, mv, node);
-	if (!add) {
-		if (!mv)
-			return false;
-
-		bridge_hotplug_del_member_vlan(bm, mv);
-		return true;
-	}
-
 	if (mv) {
 		mv->seen = true;
 		if (mv->flags == flags)
@@ -641,21 +633,6 @@ bridge_member_range_write(struct bridge_member *bm,
 		return false;
 
 	return __bridge_member_range_write(bm, r, add);
-}
-
-static bool
-bridge_member_range_del(struct bridge_member *bm, uint16_t start, uint16_t end)
-{
-	struct bridge_member_range *r;
-	bool found = false;
-
-	while ((r = bridge_member_range_find(bm->extra_vlan, bm->n_extra_vlan,
-					     start, end)) != NULL) {
-		*r = bm->extra_vlan[--bm->n_extra_vlan];
-		found = true;
-	}
-
-	return found;
 }
 
 /*
@@ -774,21 +751,19 @@ bridge_hotplug_vlan_parse(struct blob_attr *attr, struct bridge_member_range *r)
 }
 
 /*
- * An add sets the complete list of hotplug vlans of the member. With
- * untracked set (auth vlans), entries are only written to the port.
+ * Sets the complete list of hotplug vlans of the member. With untracked set
+ * (auth vlans), entries are only written to the port or deleted from it.
  */
 static void
 bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlans,
 				struct bridge_member *bm, bool add, bool untracked)
 {
-	bool replace = add && !untracked;
 	struct bridge_member_range *ranges = NULL;
 	struct bridge_member_vlan *mv, *tmp;
 	struct bridge_vlan *vlan;
 	struct blob_attr *cur;
-	bool range_deleted = false;
 	bool changed = false;
-	bool written = false;
+	bool written;
 	int n_ranges = 0;
 	int n_vlans = 0;
 	size_t rem;
@@ -797,11 +772,11 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 		n_vlans = blobmsg_check_array(vlans, BLOBMSG_TYPE_STRING);
 		if (n_vlans < 0)
 			return;
-	} else if (!replace) {
+	} else if (untracked) {
 		return;
 	}
 
-	if (replace) {
+	if (!untracked) {
 		if (n_vlans) {
 			ranges = calloc(n_vlans, sizeof(*ranges));
 			if (!ranges)
@@ -814,63 +789,42 @@ bridge_hotplug_set_member_vlans(struct bridge_state *bst, struct blob_attr *vlan
 
 	blobmsg_for_each_attr(cur, vlans, rem) {
 		struct bridge_member_range range;
-		uint16_t vid, vid_end, flags;
 		bool tracked;
 
 		if (!bridge_hotplug_vlan_parse(cur, &range))
 			continue;
-
-		vid = range.start;
-		vid_end = range.end;
-		flags = range.flags;
-
-		tracked = !untracked && vid_end == vid;
-		vlan = bridge_hotplug_get_vlan(bst, vid, add && tracked && flags);
-		if (vlan && tracked) {
-			if (bridge_hotplug_set_member_vlan(bm, vid, flags, add)) {
-				changed = true;
-				continue;
-			}
-
-			/* added as a range before its vlan existed */
-			if (add || !bridge_member_range_find(bm->extra_vlan,
-							     bm->n_extra_vlan, vid, vid))
-				continue;
-		}
-
-		if (replace) {
-			ranges[n_ranges++] = range;
-			continue;
-		}
 
 		if (untracked) {
 			__bridge_member_range_write(bm, &range, add);
 			continue;
 		}
 
-		if (!add)
-			range_deleted |= bridge_member_range_del(bm, vid, vid_end);
-
-		written |= bridge_member_range_write(bm, &range, add);
-	}
-
-	if (range_deleted)
-		bridge_member_add_extra_vlans(bm);
-
-	if (replace) {
-		avl_for_each_element_safe(&bm->hotplug_vlans, mv, node, tmp) {
-			if (mv->seen)
-				continue;
-
-			bridge_hotplug_del_member_vlan(bm, mv);
-			changed = true;
+		tracked = range.end == range.start;
+		vlan = bridge_hotplug_get_vlan(bst, range.start,
+					       tracked && range.flags);
+		if (vlan && tracked) {
+			changed |= bridge_hotplug_set_member_vlan(bm, range.start,
+								  range.flags);
+			continue;
 		}
 
-		written |= bridge_member_ranges_set(bm, ranges, n_ranges);
+		ranges[n_ranges++] = range;
 	}
 
 	/* with untracked set, the caller syncs after all its changes */
-	if (!untracked && (changed || written))
+	if (untracked)
+		return;
+
+	avl_for_each_element_safe(&bm->hotplug_vlans, mv, node, tmp) {
+		if (mv->seen)
+			continue;
+
+		bridge_hotplug_del_member_vlan(bm, mv);
+		changed = true;
+	}
+
+	written = bridge_member_ranges_set(bm, ranges, n_ranges);
+	if (changed || written)
 		bridge_member_vlan_sync(bm);
 }
 
@@ -1349,11 +1303,11 @@ bridge_hotplug_del(struct device *dev, struct device *member, struct blob_attr *
 	if (!bm)
 		return UBUS_STATUS_NOT_FOUND;
 
-	bridge_hotplug_set_member_vlans(bst, vlan, bm, false, false);
-	if (!bm->dev.hotplug)
-		return 0;
+	if (bm->dev.hotplug)
+		vlist_delete(&bst->members, &bm->node);
+	else
+		bridge_hotplug_set_member_vlans(bst, NULL, bm, true, false);
 
-	vlist_delete(&bst->members, &bm->node);
 	return 0;
 }
 
