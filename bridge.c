@@ -191,6 +191,8 @@ struct bridge_member {
 	bool present;
 	bool active;
 	bool set_ipv6;
+	bool cfg_owned;
+	bool hp_owned;
 	char name[];
 };
 
@@ -1221,7 +1223,7 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		bridge_disable_member(bm, true);
 		break;
 	case DEV_EVENT_REMOVE:
-		if (dep->hotplug && !dev->sys_present) {
+		if (bm->hp_owned && !bm->cfg_owned && !dev->sys_present) {
 			vlist_delete(&bst->members, &bm->node);
 			return;
 		}
@@ -1303,7 +1305,7 @@ bridge_set_state(struct device *dev, bool up)
 
 static struct bridge_member *
 bridge_alloc_member(struct bridge_state *bst, const char *name,
-		    struct device *dev, bool hotplug)
+		    struct device *dev)
 {
 	struct bridge_member *bm;
 	int i;
@@ -1314,7 +1316,6 @@ bridge_alloc_member(struct bridge_state *bst, const char *name,
 
 	bm->bst = bst;
 	bm->dev.cb = bridge_member_cb;
-	bm->dev.hotplug = hotplug;
 	bm->check_timer.cb = bridge_member_check_cb;
 	for (i = 0; i < __BRIDGE_VLAN_SRC_MAX; i++)
 		avl_init(&bm->vlans[i].vlans, bridge_avl_cmp_u16, false, NULL);
@@ -1324,10 +1325,10 @@ bridge_alloc_member(struct bridge_state *bst, const char *name,
 	return bm;
 }
 
-static void bridge_insert_member(struct bridge_member *bm, const char *name)
+static struct bridge_member *
+bridge_insert_member(struct bridge_member *bm, const char *name)
 {
 	struct bridge_state *bst = bm->bst;
-	bool hotplug = bm->dev.hotplug;
 
 	vlist_add(&bst->members, &bm->node, bm->name);
 	/*
@@ -1335,20 +1336,7 @@ static void bridge_insert_member(struct bridge_member *bm, const char *name)
 	 * created pointer will be freed in case the bridge member
 	 * already existed
 	 */
-	bm = vlist_find(&bst->members, name, bm, node);
-	if (hotplug && bm)
-		bm->node.version = -1;
-}
-
-static void
-bridge_create_member(struct bridge_state *bst, const char *name,
-		     struct device *dev, bool hotplug)
-{
-	struct bridge_member *bm;
-
-	bm = bridge_alloc_member(bst, name, dev, hotplug);
-	if (bm)
-		bridge_insert_member(bm, name);
+	return vlist_find(&bst->members, name, bm, node);
 }
 
 static void
@@ -1391,13 +1379,20 @@ bridge_member_update(struct vlist_tree *tree, struct vlist_node *node_new,
 static void
 bridge_add_member(struct bridge_state *bst, const char *name)
 {
+	struct bridge_member *bm;
 	struct device *dev;
 
 	dev = device_get(name, true);
 	if (!dev)
 		return;
 
-	bridge_create_member(bst, name, dev, false);
+	bm = bridge_alloc_member(bst, name, dev);
+	if (!bm)
+		return;
+
+	bm = bridge_insert_member(bm, name);
+	if (bm)
+		bm->cfg_owned = true;
 }
 
 static int
@@ -1410,13 +1405,15 @@ bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *
 	bm = vlist_find(&bst->members, member->ifname, bm, node);
 	if (!bm) {
 		new_entry = true;
-		bm = bridge_alloc_member(bst, member->ifname, member, true);
+		bm = bridge_alloc_member(bst, member->ifname, member);
 		if (!bm)
 			return UBUS_STATUS_UNKNOWN_ERROR;
 	}
 	bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, vlan);
 	if (new_entry)
-		bridge_insert_member(bm, member->ifname);
+		bm = bridge_insert_member(bm, member->ifname);
+	if (bm)
+		bm->hp_owned = true;
 
 	return 0;
 }
@@ -1431,10 +1428,11 @@ bridge_hotplug_del(struct device *dev, struct device *member, struct blob_attr *
 	if (!bm)
 		return UBUS_STATUS_NOT_FOUND;
 
-	if (bm->dev.hotplug)
-		vlist_delete(&bst->members, &bm->node);
-	else
+	bm->hp_owned = false;
+	if (bm->cfg_owned)
 		bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, NULL);
+	else
+		vlist_delete(&bst->members, &bm->node);
 
 	return 0;
 }
@@ -1583,6 +1581,7 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 static void
 bridge_config_init(struct device *dev)
 {
+	struct bridge_member *bm;
 	struct bridge_state *bst;
 	struct bridge_vlan *vlan;
 	struct blob_attr *cur;
@@ -1597,6 +1596,9 @@ bridge_config_init(struct device *dev)
 	}
 
 	bst->n_failed = 0;
+	vlist_for_each_element(&bst->members, bm, node)
+		bm->cfg_owned = false;
+
 	vlist_update(&bst->members);
 	if (bst->ports) {
 		blobmsg_for_each_attr(cur, bst->ports, rem) {
@@ -1607,6 +1609,10 @@ bridge_config_init(struct device *dev)
 	vlist_for_each_element(&bst->dev.vlans, vlan, node)
 		for (i = 0; i < vlan->n_ports; i++)
 			bridge_add_member(bst, vlan->ports[i].ifname);
+
+	vlist_for_each_element(&bst->members, bm, node)
+		if (bm->hp_owned)
+			bm->node.version = bst->members.version;
 
 	vlist_flush(&bst->members);
 	bridge_check_retry(bst);
