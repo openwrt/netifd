@@ -365,6 +365,8 @@ vlandev_reload(struct device *dev, struct blob_attr *attr,
 
 	mvdev = container_of(dev, struct vlandev_device, dev);
 	attr = blob_memdup(attr);
+	if (!attr)
+		return DEV_CONFIG_NO_CHANGE;
 
 	blobmsg_parse_attr(vlandev_attrs, __VLANDEV_ATTR_MAX, tb_mv, attr);
 
