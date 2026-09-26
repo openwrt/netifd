@@ -1828,6 +1828,43 @@ int system_veth_del(struct device *veth)
 	return system_link_del(veth->ifname);
 }
 
+/*
+ * Linux "dummy" netdev (drivers/net/dummy.c). The kind takes no
+ * IFLA_INFO_DATA; MTU, MAC etc. are applied later by the generic
+ * device settings path in set_device_state().
+ */
+int system_dummy_add(struct device *dummy)
+{
+	struct nlattr *linkinfo;
+	struct nl_msg *msg;
+	int rv;
+
+	msg = system_ifinfo_msg(dummy->ifname, RTM_NEWLINK, NLM_F_CREATE | NLM_F_EXCL);
+	if (!msg)
+		return -1;
+
+	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
+		goto nla_put_failure;
+
+	nla_put_string(msg, IFLA_INFO_KIND, "dummy");
+	nla_nest_end(msg, linkinfo);
+
+	rv = system_rtnl_call(msg);
+	if (rv)
+		D(SYSTEM, "Error adding dummy '%s': %d", dummy->ifname, rv);
+
+	return rv;
+
+nla_put_failure:
+	nlmsg_free(msg);
+	return -ENOMEM;
+}
+
+int system_dummy_del(struct device *dummy)
+{
+	return system_link_del(dummy->ifname);
+}
+
 static int system_vlan(struct device *dev, int id)
 {
 	struct vlan_ioctl_args ifr = {
