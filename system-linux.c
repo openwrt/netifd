@@ -777,7 +777,17 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 		return 0;
 
 	flags = (nh->nlmsg_type == RTM_DELLINK) ? 0 : ifi->ifi_flags;
-	system_device_update_state(dev, flags);
+
+	/*
+	 * A queued event can be earlier than netifd's last read of the state,
+	 * so read the state again and use the event only as a trigger. The
+	 * event flags apply only to a link that is gone, which has no flags
+	 * to read, and when the read applies no state.
+	 */
+	if ((nh->nlmsg_type == RTM_DELLINK && !system_if_resolve(dev)) ||
+	    system_if_check(dev) > 0)
+		system_device_update_state(dev, flags);
+
 	return 0;
 }
 
@@ -3138,15 +3148,15 @@ int system_if_check(struct device *dev)
 	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, cb_if_check_ack, &chk);
 	nl_cb_err(cb, NL_CB_CUSTOM, cb_if_check_error, &chk);
 
-	ret = nl_send_auto_complete(sock_rtnl, msg);
-	if (ret < 0)
+	if (nl_send_auto_complete(sock_rtnl, msg) < 0)
 		goto free;
 
 	while (chk.pending > 0)
 		if (nl_recvmsgs(sock_rtnl, cb) < 0)
 			break;
 
-	ret = chk.pending;
+	/* a positive result tells the caller that no state was applied */
+	ret = chk.valid ? 0 : chk.pending;
 
 	/*
 	 * The state change notifies the device users, which can send their
