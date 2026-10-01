@@ -2888,6 +2888,8 @@ struct if_check_data {
 	struct device *dev;
 	int pending;
 	int ret;
+	unsigned int flags;
+	bool valid;
 };
 
 static int cb_if_check_valid(struct nl_msg *msg, void *arg)
@@ -2899,7 +2901,8 @@ static int cb_if_check_valid(struct nl_msg *msg, void *arg)
 	if (nh->nlmsg_type != RTM_NEWLINK)
 		return NL_SKIP;
 
-	system_device_update_state(chk->dev, ifi->ifi_flags);
+	chk->flags = ifi->ifi_flags;
+	chk->valid = true;
 	return NL_OK;
 }
 
@@ -2914,9 +2917,6 @@ static int cb_if_check_error(struct sockaddr_nl *nla, struct nlmsgerr *err, void
 {
 	struct if_check_data *chk = (struct if_check_data *)arg;
 
-	if (chk->dev->type == &simple_device_type)
-		device_set_present(chk->dev, false);
-	device_set_link(chk->dev, false);
 	chk->pending = err->error;
 
 	return NL_STOP;
@@ -3147,6 +3147,19 @@ int system_if_check(struct device *dev)
 			break;
 
 	ret = chk.pending;
+
+	/*
+	 * The state change notifies the device users, which can send their
+	 * own requests on sock_rtnl, so it must wait until this exchange
+	 * has been read completely.
+	 */
+	if (chk.valid) {
+		system_device_update_state(dev, chk.flags);
+	} else if (ret < 0) {
+		if (dev->type == &simple_device_type)
+			device_set_present(dev, false);
+		device_set_link(dev, false);
+	}
 
 free:
 	nlmsg_free(msg);
