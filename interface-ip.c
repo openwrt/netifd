@@ -973,6 +973,53 @@ interface_update_host_route(struct vlist_tree *tree,
 	__interface_update_route(&iface->proto_ip, node_new, node_old);
 }
 
+void
+interface_ip_del_host_route(struct interface *iface, union if_addr *addr, bool v6)
+{
+	struct device_route *route, *tmp, *r_next = NULL;
+	struct interface *cur;
+	int addrsize = v6 ? sizeof(addr->in6) : sizeof(addr->in);
+
+	/*
+	 * Routes are installed with NLM_F_REPLACE, so a configured route to the
+	 * same host is the same kernel route; deleting ours would remove it
+	 */
+	vlist_for_each_element(&interfaces, cur, node)
+		interface_ip_find_route_target(cur, addr, v6, &r_next);
+
+	if (r_next && r_next->mask == (v6 ? 128 : 32))
+		return;
+
+	vlist_for_each_element_safe(&iface->host_routes, route, node, tmp) {
+		if (v6 != ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
+			continue;
+
+		if (memcmp(&route->addr, addr, addrsize))
+			continue;
+
+		vlist_delete(&iface->host_routes, &route->node);
+	}
+
+	/*
+	 * A host route to the same address on another interface may have been
+	 * the same kernel route, replaced by ours; install it again
+	 */
+	vlist_for_each_element(&interfaces, cur, node) {
+		if (cur == iface)
+			continue;
+
+		vlist_for_each_element(&cur->host_routes, route, node) {
+			if (v6 != ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
+				continue;
+
+			if (memcmp(&route->addr, addr, addrsize) || !route->enabled)
+				continue;
+
+			route->failed = !!system_add_route(cur->l3_dev.dev, route);
+		}
+	}
+}
+
 static void
 random_ifaceid(struct in6_addr *addr)
 {
