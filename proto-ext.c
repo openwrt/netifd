@@ -78,16 +78,65 @@ out:
 	proto_ext_check_dependencies(dep->proto);
 }
 
+/*
+ * Remove the host route created for a dependency, unless another
+ * dependency on the same interface still needs it
+ */
 static void
-proto_ext_clear_host_dep(struct proto_ext_state *state)
+proto_ext_del_host_route(struct proto_ext_dep *dep)
+{
+	struct interface *iface = dep->dep.iface;
+	struct interface_user *user;
+	struct proto_ext_dep *other;
+	int addrsize = dep->v6 ? sizeof(dep->host.in6) : sizeof(dep->host.in);
+
+	if (!iface || dep->any)
+		return;
+
+	list_for_each_entry(user, &iface->users, list) {
+		if (user == &dep->dep || user->cb != proto_ext_if_down_cb)
+			continue;
+
+		other = container_of(user, struct proto_ext_dep, dep);
+		if (!other->any && other->v6 == dep->v6 &&
+		    !memcmp(&other->host, &dep->host, addrsize))
+			return;
+	}
+
+	interface_ip_del_host_route(iface, &dep->host, dep->v6);
+}
+
+static void
+__proto_ext_clear_host_dep(struct proto_ext_state *state, bool resolved_only)
 {
 	struct proto_ext_dep *dep, *tmp;
 
 	list_for_each_entry_safe(dep, tmp, &state->deps, list) {
+		if (resolved_only && !dep->dep.iface)
+			continue;
+
+		proto_ext_del_host_route(dep);
 		interface_remove_user(&dep->dep);
 		list_del(&dep->list);
 		free(dep);
 	}
+}
+
+static void
+proto_ext_clear_host_dep(struct proto_ext_state *state)
+{
+	__proto_ext_clear_host_dep(state, false);
+}
+
+/*
+ * On teardown, drop the dependencies that hold a host route. Unresolved
+ * ones are kept: they keep the interface unavailable until their target
+ * comes up, which then triggers the autostart
+ */
+static void
+proto_ext_release_host_dep(struct proto_ext_state *state)
+{
+	__proto_ext_clear_host_dep(state, true);
 }
 
 static void
@@ -166,6 +215,7 @@ proto_ext_task_finish(struct proto_ext_state *state,
 
 		uloop_timeout_cancel(&state->teardown_timeout);
 		uloop_timeout_cancel(&state->checkup_timeout);
+		proto_ext_release_host_dep(state);
 		state->sm = S_IDLE;
 		state->proto.cb(&state->proto, PROTO_CMD_TEARDOWN, false);
 		break;
@@ -182,6 +232,7 @@ proto_ext_task_finish(struct proto_ext_state *state,
 
 		uloop_timeout_cancel(&state->teardown_timeout);
 		uloop_timeout_cancel(&state->checkup_timeout);
+		proto_ext_release_host_dep(state);
 		state->sm = S_IDLE;
 		state->proto.proto_event(&state->proto, IFPEV_DOWN);
 		break;

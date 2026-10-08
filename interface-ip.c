@@ -973,6 +973,68 @@ interface_update_host_route(struct vlist_tree *tree,
 	__interface_update_route(&iface->proto_ip, node_new, node_old);
 }
 
+static bool
+host_route_match(struct device_route *route, union if_addr *addr, bool v6)
+{
+	int addrsize = v6 ? sizeof(addr->in6) : sizeof(addr->in);
+
+	if (v6 != ((route->flags & DEVADDR_FAMILY) == DEVADDR_INET6))
+		return false;
+
+	if (route->mask != (v6 ? 128 : 32))
+		return false;
+
+	return !memcmp(&route->addr, addr, addrsize);
+}
+
+static void
+host_route_restore(struct vlist_tree *routes, struct device *dev,
+		   union if_addr *addr, bool v6)
+{
+	struct device_route *route;
+
+	vlist_for_each_element(routes, route, node) {
+		if (!route->enabled || (route->flags & DEVADDR_EXTERNAL))
+			continue;
+
+		if (!host_route_match(route, addr, v6))
+			continue;
+
+		route->failed = !!system_add_route(dev, route);
+	}
+}
+
+void
+interface_ip_del_host_route(struct interface *iface, union if_addr *addr, bool v6)
+{
+	struct device_route *route, *tmp;
+	struct interface *cur;
+	bool deleted = false;
+
+	vlist_for_each_element_safe(&iface->host_routes, route, node, tmp) {
+		if (!host_route_match(route, addr, v6))
+			continue;
+
+		vlist_delete(&iface->host_routes, &route->node);
+		deleted = true;
+	}
+
+	if (!deleted)
+		return;
+
+	/*
+	 * Routes are installed with NLM_F_REPLACE, so another route to the same
+	 * host may have been the kernel route that was just deleted
+	 */
+	vlist_for_each_element(&interfaces, cur, node) {
+		struct device *dev = cur->l3_dev.dev;
+
+		host_route_restore(&cur->host_routes, dev, addr, v6);
+		host_route_restore(&cur->proto_ip.route, dev, addr, v6);
+		host_route_restore(&cur->config_ip.route, dev, addr, v6);
+	}
+}
+
 static void
 random_ifaceid(struct in6_addr *addr)
 {
