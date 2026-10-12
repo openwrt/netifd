@@ -1897,7 +1897,8 @@ bridge_vlan_add(struct device *dev, struct blob_attr *data)
 /*
  * A config vlan that the new config no longer has, but that member vlans
  * of a source still use, becomes a dynamic vlan instead of being flushed,
- * so that the bridge's own vid is not removed and added again.
+ * so that the bridge's own vid is not removed and added again. The pvid of
+ * the bridge belongs to the config, so the bridge stays a tagged member.
  */
 static void
 bridge_vlan_keep_dynamic(struct bridge_state *bst, uint16_t vid)
@@ -1911,6 +1912,13 @@ bridge_vlan_keep_dynamic(struct bridge_state *bst, uint16_t vid)
 
 	vlan->node.version = -1;
 	vlan->n_ports = 0;
+
+	if (!vlan->local_pvid)
+		return;
+
+	vlan->local_pvid = false;
+	if (bst->vlan_filtering && bst->active)
+		bridge_set_local_vlan(bst, vlan, true);
 }
 
 static void
