@@ -33,26 +33,35 @@ int system_init(void)
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
+	D(SYSTEM, "ip link add %s type bridge", bridge->ifname);
 	return 0;
 }
 
 int system_bridge_delbr(struct device *bridge)
 {
+	D(SYSTEM, "ip link del %s", bridge->ifname);
 	return 0;
 }
 
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
+	D(SYSTEM, "ip link set %s master %s", dev->ifname, bridge->ifname);
 	return 0;
 }
 
 int system_bridge_delif(struct device *bridge, struct device *dev)
 {
+	D(SYSTEM, "ip link set %s nomaster", dev->ifname);
 	return 0;
 }
 
 int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags)
 {
+	D(SYSTEM, "bridge vlan %s dev %s vid %d-%d%s%s%s", add ? "add" : "del", iface, vid,
+	  vid_end > vid ? vid_end : vid,
+	  (vflags & BRVLAN_F_PVID) ? " pvid" : "",
+	  (vflags & BRVLAN_F_UNTAGGED) ? " untagged" : "",
+	  (vflags & BRVLAN_F_SELF) ? " self" : "");
 	return 0;
 }
 
