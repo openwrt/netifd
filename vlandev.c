@@ -82,7 +82,7 @@ __vlandev_hotplug_op(struct device *dev, struct device *member, struct blob_attr
 	blobmsg_close_array(&b, a);
 
 	if (add)
-		ret = dev->hotplug_ops->add(dev, member, blobmsg_data(b.head));
+		ret = device_hotplug_add_vlan(dev, member, blobmsg_data(b.head));
 	else
 		ret = dev->hotplug_ops->del(dev, member, blobmsg_data(b.head));
 

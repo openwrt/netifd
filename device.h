@@ -349,8 +349,22 @@ struct device {
 struct device_hotplug_ops {
 	int (*prepare)(struct device *dev, struct device **bridge_dev);
 	int (*add)(struct device *main, struct device *member, struct blob_attr *vlan);
+	/* add of a member that joins through a vlan device on top of main */
+	int (*add_vlan)(struct device *main, struct device *member, struct blob_attr *vlan);
 	int (*del)(struct device *main, struct device *member, struct blob_attr *vlan);
 };
+
+static inline int
+device_hotplug_add_vlan(struct device *main, struct device *member,
+			struct blob_attr *vlan)
+{
+	const struct device_hotplug_ops *ops = main->hotplug_ops;
+
+	if (ops->add_vlan)
+		return ops->add_vlan(main, member, vlan);
+
+	return ops->add(main, member, vlan);
+}
 
 enum bridge_vlan_flags {
 	BRVLAN_F_SELF =		(1 << 0),
@@ -371,6 +385,7 @@ struct bridge_vlan {
 
 	uint16_t vid;
 	bool local;
+	bool local_pvid;
 };
 
 /* one vlan of one bridge port, arrays of these are sorted by vid */

@@ -84,6 +84,7 @@ static const struct uci_blob_param_list bridge_attr_list = {
 enum {
 	BRVLAN_ATTR_VID,
 	BRVLAN_ATTR_LOCAL,
+	BRVLAN_ATTR_LOCAL_PVID,
 	BRVLAN_ATTR_PORTS,
 	BRVLAN_ATTR_ALIAS,
 	__BRVLAN_ATTR_MAX,
@@ -92,6 +93,7 @@ enum {
 static const struct blobmsg_policy bridge_vlan_attrs[__BRVLAN_ATTR_MAX] = {
 	[BRVLAN_ATTR_VID] = { "vlan", BLOBMSG_TYPE_INT32 },
 	[BRVLAN_ATTR_LOCAL] = { "local", BLOBMSG_TYPE_BOOL },
+	[BRVLAN_ATTR_LOCAL_PVID] = { "local_pvid", BLOBMSG_TYPE_BOOL },
 	[BRVLAN_ATTR_PORTS] = { "ports", BLOBMSG_TYPE_ARRAY },
 	[BRVLAN_ATTR_ALIAS] = { "alias", BLOBMSG_TYPE_ARRAY },
 };
@@ -193,6 +195,7 @@ struct bridge_member {
 	bool set_ipv6;
 	bool cfg_owned;
 	bool hp_owned;
+	bool hp_local;
 	char name[];
 };
 
@@ -366,6 +369,37 @@ bridge_vlan_range_owned(struct bridge_state *bst, uint16_t *start, uint16_t end)
 	return end >= 2;
 }
 
+/* the vlan that the bridge's own port is the untagged pvid member of */
+static struct bridge_vlan *
+bridge_local_pvid_vlan(struct bridge_state *bst)
+{
+	struct bridge_vlan *vlan;
+
+	vlist_for_each_element(&bst->dev.vlans, vlan, node)
+		if (vlan->local && vlan->local_pvid)
+			return vlan;
+
+	return NULL;
+}
+
+/*
+ * A member hotplugged into the bridge itself that a bridge-vlan section does
+ * not name joins the vlan of the bridge's own pvid untagged, as it would
+ * through an 8021q device on top of the bridge, and the vlan is its pvid
+ * unless a vlan of its own has an explicit pvid flag. A member that joins
+ * through a vlan device has the vlan of that device only.
+ */
+static bool
+bridge_member_local_flags(struct bridge_member *bm, struct bridge_vlan *vlan,
+			  uint16_t *flags)
+{
+	if (!bm->hp_local || vlan != bridge_local_pvid_vlan(bm->bst))
+		return false;
+
+	*flags = BRVLAN_F_UNTAGGED;
+	return true;
+}
+
 /*
  * The last vlan with an explicit pvid flag wins, otherwise the first
  * untagged one. This is the result of adding all vlans in order.
@@ -374,7 +408,7 @@ static int
 bridge_member_vlans_get(struct bridge_member *bm, struct bridge_port_vlan *vlans)
 {
 	struct bridge_vlan *vlan;
-	uint16_t pvid = 0, untagged = 0;
+	uint16_t pvid = 0, untagged = 0, local = 0;
 	uint16_t flags, vid;
 	int i, n = 0;
 
@@ -383,8 +417,12 @@ bridge_member_vlans_get(struct bridge_member *bm, struct bridge_port_vlan *vlans
 		if (!bridge_vlan_range_owned(bm->bst, &vid, vid))
 			continue;
 
-		if (!bridge_member_vlan_flags(bm, vlan, &flags))
-			continue;
+		if (!bridge_member_vlan_flags(bm, vlan, &flags)) {
+			if (!bridge_member_local_flags(bm, vlan, &flags))
+				continue;
+
+			local = vlan->vid;
+		}
 
 		if (flags & BRVLAN_F_PVID)
 			pvid = vlan->vid;
@@ -397,7 +435,7 @@ bridge_member_vlans_get(struct bridge_member *bm, struct bridge_port_vlan *vlans
 	}
 
 	if (!pvid)
-		pvid = untagged;
+		pvid = local ? local : untagged;
 
 	for (i = 0; i < n; i++)
 		if (vlans[i].vid == pvid)
@@ -650,12 +688,16 @@ bridge_member_vlan_sync(struct bridge_member *bm)
 static void
 bridge_set_local_vlan(struct bridge_state *bst, struct bridge_vlan *vlan, bool add)
 {
+	unsigned int flags = BRVLAN_F_SELF;
 	uint16_t vid = vlan->vid;
 
 	if ((!vlan->local && add) || !bridge_vlan_range_owned(bst, &vid, vid))
 		return;
 
-	system_bridge_vlan(bst->dev.ifname, vlan->vid, -1, add, BRVLAN_F_SELF);
+	if (add && vlan->local_pvid)
+		flags |= BRVLAN_F_PVID | BRVLAN_F_UNTAGGED;
+
+	system_bridge_vlan(bst->dev.ifname, vlan->vid, -1, add, flags);
 }
 
 static void
@@ -1498,11 +1540,13 @@ bridge_add_member(struct bridge_state *bst, const char *name)
 }
 
 static int
-bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
+__bridge_hotplug_add(struct device *dev, struct device *member,
+		     struct blob_attr *vlan, bool local)
 {
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
 	struct bridge_member *bm;
 	bool new_entry = false;
+	bool was_owned;
 
 	bm = vlist_find(&bst->members, member->ifname, bm, node);
 	if (!bm) {
@@ -1514,13 +1558,31 @@ bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *
 		bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_CONFIG,
 					member->bridge_vlan);
 	}
+
+	/* set before the first sync, which gives a hotplug member its local vlan */
+	was_owned = bm->hp_owned;
+	bm->hp_owned = true;
+	bm->hp_local = local;
+
 	bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, vlan);
 	if (new_entry)
-		bm = bridge_insert_member(bm, member->ifname);
-	if (bm)
-		bm->hp_owned = true;
+		bridge_insert_member(bm, member->ifname);
+	else if (!was_owned)
+		bridge_member_vlan_sync(bm);
 
 	return 0;
+}
+
+static int
+bridge_hotplug_add(struct device *dev, struct device *member, struct blob_attr *vlan)
+{
+	return __bridge_hotplug_add(dev, member, vlan, true);
+}
+
+static int
+bridge_hotplug_add_vlan(struct device *dev, struct device *member, struct blob_attr *vlan)
+{
+	return __bridge_hotplug_add(dev, member, vlan, false);
 }
 
 static int
@@ -1534,6 +1596,7 @@ bridge_hotplug_del(struct device *dev, struct device *member, struct blob_attr *
 		return UBUS_STATUS_NOT_FOUND;
 
 	bm->hp_owned = false;
+	bm->hp_local = false;
 	if (bm->cfg_owned)
 		bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, NULL);
 	else
@@ -1560,6 +1623,7 @@ bridge_hotplug_prepare(struct device *dev, struct device **bridge_dev)
 static const struct device_hotplug_ops bridge_ops = {
 	.prepare = bridge_hotplug_prepare,
 	.add = bridge_hotplug_add,
+	.add_vlan = bridge_hotplug_add_vlan,
 	.del = bridge_hotplug_del
 };
 
@@ -1605,6 +1669,7 @@ bridge_dump_vlan(struct blob_buf *b, struct bridge_state *bst,
 
 	blobmsg_add_u32(b, "id", vlan->vid);
 	blobmsg_add_u8(b, "local", vlan->local);
+	blobmsg_add_u8(b, "local_pvid", vlan->local_pvid);
 
 	p = blobmsg_open_array(b, "ports");
 
@@ -1612,8 +1677,11 @@ bridge_dump_vlan(struct blob_buf *b, struct bridge_state *bst,
 		bridge_dump_port(b, vlan->ports[i].ifname, vlan->ports[i].flags);
 
 	vlist_for_each_element(&bst->members, bm, node) {
-		if (bridge_vlan_port_flags(vlan, bm, &flags) ||
-		    !bridge_member_src_flags(bm, vlan->vid, &flags))
+		if (bridge_vlan_port_flags(vlan, bm, &flags))
+			continue;
+
+		if (!bridge_member_src_flags(bm, vlan->vid, &flags) &&
+		    !bridge_member_local_flags(bm, vlan, &flags))
 			continue;
 
 		bridge_dump_port(b, bm->name, flags);
@@ -1787,6 +1855,8 @@ bridge_vlan_add(struct device *dev, struct blob_attr *data)
 	vlan->local = true;
 	if (tb[BRVLAN_ATTR_LOCAL])
 		vlan->local = blobmsg_get_bool(tb[BRVLAN_ATTR_LOCAL]);
+	if (tb[BRVLAN_ATTR_LOCAL_PVID])
+		vlan->local_pvid = blobmsg_get_bool(tb[BRVLAN_ATTR_LOCAL_PVID]);
 
 	vlan->n_ports = n_ports;
 	vlan->ports = port = (struct bridge_vlan_port *)&vlan[1];
@@ -2057,7 +2127,9 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 	    (!vlan_new || (vlan_old->local && !vlan_new->local)))
 		bridge_set_local_vlan(bst, vlan_old, false);
 
-	if (apply && vlan_new && (!vlan_old || !vlan_old->local))
+	/* the kernel updates the flags of a vlan that the bridge already has */
+	if (apply && vlan_new &&
+	    (!vlan_old || !vlan_old->local || vlan_old->local_pvid != vlan_new->local_pvid))
 		bridge_set_local_vlan(bst, vlan_new, true);
 
 	bst->dev.config_pending = true;
