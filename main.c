@@ -270,15 +270,21 @@ error:
 	return -1;
 }
 
-void
-netifd_kill_process(struct netifd_process *proc)
+static void
+__netifd_kill_process(struct netifd_process *proc, int signo)
 {
 	if (!proc->uloop.pending)
 		return;
 
-	kill(proc->uloop.pid, SIGKILL);
+	kill(proc->uloop.pid, signo);
 	uloop_process_delete(&proc->uloop);
 	netifd_delete_process(proc);
+}
+
+void
+netifd_kill_process(struct netifd_process *proc)
+{
+	__netifd_kill_process(proc, SIGKILL);
 }
 
 static void netifd_do_restart(struct uloop_timeout *timeout)
@@ -351,8 +357,9 @@ netifd_kill_processes(void)
 {
 	struct netifd_process *proc, *tmp;
 
+	/* SIGTERM lets a DHCP client release its lease */
 	list_for_each_entry_safe(proc, tmp, &process_list, list)
-		netifd_kill_process(proc);
+		__netifd_kill_process(proc, SIGTERM);
 }
 
 int main(int argc, char **argv)
