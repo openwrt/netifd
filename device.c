@@ -51,6 +51,12 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_RTRSOLICITS] = { .name = "rtrsolicits", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_RTRSOLICITINTERVAL] = { .name = "rtrsolicitinterval", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_NEIGH6RETRANSTIME] = { .name = "neigh6retranstime", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_NEIGH4REACHABLETIME] = { .name = "neigh4reachabletime", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_NEIGH6REACHABLETIME] = { .name = "neigh6reachabletime", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_NEIGH4RETRANSTIME] = { .name = "neigh4retranstime", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_NEIGH4MCASTSOLICIT] = { .name = "neigh4mcastsolicit", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_PROXY_ARP] = { .name = "proxy_arp", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_ARP] = { .name = "arp", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MULTICAST_TO_UNICAST] = { .name = "multicast_to_unicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_MULTICAST_ROUTER] = { .name = "multicast_router", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_MULTICAST_FAST_LEAVE] = { .name = "multicast_fast_leave", . type = BLOBMSG_TYPE_BOOL },
@@ -303,9 +309,9 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->acceptlocal = s->flags & DEV_OPT_ACCEPTLOCAL ? s->acceptlocal : os->acceptlocal;
 	n->igmpversion = s->flags & DEV_OPT_IGMPVERSION ? s->igmpversion : os->igmpversion;
 	n->mldversion = s->flags & DEV_OPT_MLDVERSION ? s->mldversion : os->mldversion;
-	n->neigh4reachabletime = s->flags & DEV_OPT_NEIGHREACHABLETIME ?
+	n->neigh4reachabletime = s->flags & (DEV_OPT_NEIGHREACHABLETIME | DEV_OPT_NEIGH4REACHABLETIME) ?
 		s->neigh4reachabletime : os->neigh4reachabletime;
-	n->neigh6reachabletime = s->flags & DEV_OPT_NEIGHREACHABLETIME ?
+	n->neigh6reachabletime = s->flags & (DEV_OPT_NEIGHREACHABLETIME | DEV_OPT_NEIGH6REACHABLETIME) ?
 		s->neigh6reachabletime : os->neigh6reachabletime;
 	n->neigh4gcstaletime = s->flags & DEV_OPT_NEIGHGCSTALETIME ?
 		s->neigh4gcstaletime : os->neigh4gcstaletime;
@@ -321,6 +327,12 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		s->rtrsolicitinterval : os->rtrsolicitinterval;
 	n->neigh6retranstime = s->flags & DEV_OPT_NEIGH6RETRANSTIME ?
 		s->neigh6retranstime : os->neigh6retranstime;
+	n->neigh4retranstime = s->flags & DEV_OPT_NEIGH4RETRANSTIME ?
+		s->neigh4retranstime : os->neigh4retranstime;
+	n->neigh4mcastsolicit = s->flags & DEV_OPT_NEIGH4MCASTSOLICIT ?
+		s->neigh4mcastsolicit : os->neigh4mcastsolicit;
+	n->proxy_arp = s->flags & DEV_OPT_PROXY_ARP ? s->proxy_arp : os->proxy_arp;
+	n->arp = s->flags & DEV_OPT_ARP ? s->arp : os->arp;
 	n->multicast = s->flags & DEV_OPT_MULTICAST ?
 		s->multicast : os->multicast;
 	n->multicast_to_unicast = s->multicast_to_unicast;
@@ -529,6 +541,37 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_NEIGH6RETRANSTIME])) {
 		s->neigh6retranstime = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_NEIGH6RETRANSTIME;
+	}
+
+	/* The per-family options take precedence over neighreachabletime. */
+	if ((cur = tb[DEV_ATTR_NEIGH4REACHABLETIME])) {
+		s->neigh4reachabletime = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGH4REACHABLETIME;
+	}
+
+	if ((cur = tb[DEV_ATTR_NEIGH6REACHABLETIME])) {
+		s->neigh6reachabletime = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGH6REACHABLETIME;
+	}
+
+	if ((cur = tb[DEV_ATTR_NEIGH4RETRANSTIME])) {
+		s->neigh4retranstime = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGH4RETRANSTIME;
+	}
+
+	if ((cur = tb[DEV_ATTR_NEIGH4MCASTSOLICIT])) {
+		s->neigh4mcastsolicit = blobmsg_get_u32(cur);
+		s->flags |= DEV_OPT_NEIGH4MCASTSOLICIT;
+	}
+
+	if ((cur = tb[DEV_ATTR_PROXY_ARP])) {
+		s->proxy_arp = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_PROXY_ARP;
+	}
+
+	if ((cur = tb[DEV_ATTR_ARP])) {
+		s->arp = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_ARP;
 	}
 
 	if ((cur = tb[DEV_ATTR_MULTICAST_TO_UNICAST])) {
@@ -1703,6 +1746,14 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u32(b, "rtrsolicitinterval", st.rtrsolicitinterval);
 		if (st.flags & DEV_OPT_NEIGH6RETRANSTIME)
 			blobmsg_add_u32(b, "neigh6retranstime", st.neigh6retranstime);
+		if (st.flags & DEV_OPT_NEIGH4RETRANSTIME)
+			blobmsg_add_u32(b, "neigh4retranstime", st.neigh4retranstime);
+		if (st.flags & DEV_OPT_NEIGH4MCASTSOLICIT)
+			blobmsg_add_u32(b, "neigh4mcastsolicit", st.neigh4mcastsolicit);
+		if (st.flags & DEV_OPT_PROXY_ARP)
+			blobmsg_add_u8(b, "proxy_arp", st.proxy_arp);
+		if (st.flags & DEV_OPT_ARP)
+			blobmsg_add_u8(b, "arp", st.arp);
 		if (st.flags & DEV_OPT_MULTICAST_TO_UNICAST)
 			blobmsg_add_u8(b, "multicast_to_unicast", st.multicast_to_unicast);
 		if (st.flags & DEV_OPT_MULTICAST_ROUTER)

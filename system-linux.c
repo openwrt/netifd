@@ -544,6 +544,21 @@ static void system_set_neigh6retranstime(struct device *dev, const char *val)
 	system_set_dev_sysctl("ipv6/neigh", "retrans_time_ms", dev->ifname, val);
 }
 
+static void system_set_neigh4retranstime(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/neigh", "retrans_time_ms", dev->ifname, val);
+}
+
+static void system_set_neigh4mcastsolicit(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/neigh", "mcast_solicit", dev->ifname, val);
+}
+
+static void system_set_proxy_arp(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv4/conf", "proxy_arp", dev->ifname, val);
+}
+
 static void system_set_sendredirects(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("ipv4/conf", "send_redirects", dev->ifname, val);
@@ -718,6 +733,24 @@ static int system_get_rtrsolicitinterval(struct device *dev, char *buf, const si
 static int system_get_neigh6retranstime(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/neigh", "retrans_time_ms",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_neigh4retranstime(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("ipv4/neigh", "retrans_time_ms",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_neigh4mcastsolicit(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("ipv4/neigh", "mcast_solicit",
+			dev->ifname, buf, buf_sz);
+}
+
+static int system_get_proxy_arp(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("ipv4/conf", "proxy_arp",
 			dev->ifname, buf, buf_sz);
 }
 
@@ -2839,6 +2872,9 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 
 		s->multicast = ifr.ifr_flags & IFF_MULTICAST;
 		s->flags |= DEV_OPT_MULTICAST;
+
+		s->arp = !(ifr.ifr_flags & IFF_NOARP);
+		s->flags |= DEV_OPT_ARP;
 	}
 
 	if (!system_get_rpfilter(dev, buf, sizeof(buf))) {
@@ -2904,6 +2940,21 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 	if (!system_get_neigh6retranstime(dev, buf, sizeof(buf))) {
 		s->neigh6retranstime = strtoul(buf, NULL, 0);
 		s->flags |= DEV_OPT_NEIGH6RETRANSTIME;
+	}
+
+	if (!system_get_neigh4retranstime(dev, buf, sizeof(buf))) {
+		s->neigh4retranstime = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_NEIGH4RETRANSTIME;
+	}
+
+	if (!system_get_neigh4mcastsolicit(dev, buf, sizeof(buf))) {
+		s->neigh4mcastsolicit = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_NEIGH4MCASTSOLICIT;
+	}
+
+	if (!system_get_proxy_arp(dev, buf, sizeof(buf))) {
+		s->proxy_arp = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_PROXY_ARP;
 	}
 
 	if (!system_get_sendredirects(dev, buf, sizeof(buf))) {
@@ -3020,9 +3071,11 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 		snprintf(buf, sizeof(buf), "%u", s->mldversion);
 		system_set_mldversion(dev, buf);
 	}
-	if (apply_mask & DEV_OPT_NEIGHREACHABLETIME) {
+	if (apply_mask & (DEV_OPT_NEIGHREACHABLETIME | DEV_OPT_NEIGH4REACHABLETIME)) {
 		snprintf(buf, sizeof(buf), "%u", s->neigh4reachabletime);
 		system_set_neigh4reachabletime(dev, buf);
+	}
+	if (apply_mask & (DEV_OPT_NEIGHREACHABLETIME | DEV_OPT_NEIGH6REACHABLETIME)) {
 		snprintf(buf, sizeof(buf), "%u", s->neigh6reachabletime);
 		system_set_neigh6reachabletime(dev, buf);
 	}
@@ -3051,6 +3104,22 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 	if (apply_mask & DEV_OPT_NEIGH6RETRANSTIME) {
 		snprintf(buf, sizeof(buf), "%u", s->neigh6retranstime);
 		system_set_neigh6retranstime(dev, buf);
+	}
+	if (apply_mask & DEV_OPT_NEIGH4RETRANSTIME) {
+		snprintf(buf, sizeof(buf), "%u", s->neigh4retranstime);
+		system_set_neigh4retranstime(dev, buf);
+	}
+	if (apply_mask & DEV_OPT_NEIGH4MCASTSOLICIT) {
+		snprintf(buf, sizeof(buf), "%u", s->neigh4mcastsolicit);
+		system_set_neigh4mcastsolicit(dev, buf);
+	}
+	if (apply_mask & DEV_OPT_PROXY_ARP)
+		system_set_proxy_arp(dev, s->proxy_arp ? "1" : "0");
+	/* IFF_NOARP also turns off IPv6 neighbour discovery on the device. */
+	if (apply_mask & DEV_OPT_ARP) {
+		if (system_if_flags(dev->ifname, !s->arp ? IFF_NOARP : 0,
+				    s->arp ? IFF_NOARP : 0) < 0)
+			s->flags &= ~DEV_OPT_ARP;
 	}
 	if (apply_mask & DEV_OPT_MULTICAST) {
 		if (system_if_flags(dev->ifname, s->multicast ? IFF_MULTICAST : 0,
