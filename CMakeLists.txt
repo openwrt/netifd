@@ -52,10 +52,11 @@ ENDIF()
 
 ADD_CUSTOM_COMMAND(
 	OUTPUT ethtool-modes.h
-	COMMAND ./make_ethtool_modes_h.sh ${CMAKE_C_COMPILER} > ./ethtool-modes.h
-	DEPENDS ./make_ethtool_modes_h.sh
+	COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/make_ethtool_modes_h.sh ${CMAKE_C_COMPILER} > ./ethtool-modes.h
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/make_ethtool_modes_h.sh
 )
 ADD_CUSTOM_TARGET(ethtool-modes-h DEPENDS ethtool-modes.h)
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 
 IF("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" AND NOT DUMMY_MODE)
 	SET(SOURCES ${SOURCES} system-linux.c)
