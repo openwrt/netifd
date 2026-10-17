@@ -19,6 +19,8 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <errno.h>
+#include <unistd.h>
+#include <sys/prctl.h>
 
 #include "netifd.h"
 #include "ubus.h"
@@ -208,6 +210,7 @@ netifd_add_process(struct netifd_process *proc, int fd, int pid)
 int
 netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 {
+	pid_t parent = getpid();
 	int pfds[2];
 	int pid;
 
@@ -221,6 +224,15 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 
 	if (!pid) {
 		int i;
+
+		/*
+		 * The netifd that procd starts after a crash runs the protocol
+		 * helpers again, so a helper of the dead one must end with it.
+		 */
+		signal(SIGTERM, SIG_DFL);
+		prctl(PR_SET_PDEATHSIG, SIGTERM);
+		if (getppid() != parent)
+			_exit(127);
 
 		if (env) {
 			while (*env) {
