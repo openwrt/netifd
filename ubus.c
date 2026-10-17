@@ -1291,11 +1291,20 @@ netifd_ubus_remove_interface(struct interface *iface)
 static void
 netifd_ubus_data_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 {
-	struct blob_attr *srv, *in, *t, *data;
+	struct blob_attr *srv, *in, *t, *data, *copy;
 	procd_data_cb cb = req->priv;
 	size_t rem, rem2, rem3, rem4;
 
-	blobmsg_for_each_attr(srv, msg, rem) {
+	/*
+	 * msg lives in libubus' receive buffer, and a synchronous ubus request
+	 * made from a callback receives into that buffer while the walk below
+	 * still reads it.
+	 */
+	copy = blob_memdup(msg);
+	if (!copy)
+		return;
+
+	blobmsg_for_each_attr(srv, copy, rem) {
 		if (!blobmsg_check_attr(srv, true) ||
 		    blobmsg_type(srv) != BLOBMSG_TYPE_TABLE)
 			continue;
@@ -1316,6 +1325,8 @@ netifd_ubus_data_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 			}
 		}
 	}
+
+	free(copy);
 }
 
 void netifd_ubus_get_procd_data(const char *type, procd_data_cb cb)
