@@ -642,6 +642,34 @@ route_cmp(const void *k1, const void *k2, void *ptr)
 	return memcmp(&r1->addr, &r2->addr, sizeof(r1->addr));
 }
 
+static struct device_route *
+interface_route_find_current(struct vlist_tree *tree, struct device_route *r_old)
+{
+	struct device_route *r;
+
+	if (tree->version == -1)
+		return NULL;
+
+	vlist_for_each_element(tree, r, node) {
+		if (r == r_old || r->node.version != tree->version)
+			continue;
+
+		if (!r->enabled || r->failed || (r->flags & DEVADDR_EXTERNAL))
+			continue;
+
+		if ((r->flags & DEVADDR_FAMILY) != (r_old->flags & DEVADDR_FAMILY) ||
+		    r->mask != r_old->mask || r->metric != r_old->metric ||
+		    r->table != r_old->table || r->sourcemask != r_old->sourcemask ||
+		    memcmp(&r->addr, &r_old->addr, sizeof(r->addr)) ||
+		    memcmp(&r->source, &r_old->source, sizeof(r->source)))
+			continue;
+
+		return r;
+	}
+
+	return NULL;
+}
+
 static int
 prefix_cmp(const void *k1, const void *k2, void *ptr)
 {
@@ -911,6 +939,7 @@ interface_update_proto_neighbor(struct vlist_tree *tree,
 
 static void
 __interface_update_route(struct interface_ip_settings *ip,
+			 struct vlist_tree *tree,
 			 struct vlist_node *node_new,
 			 struct vlist_node *node_old)
 {
@@ -933,6 +962,9 @@ __interface_update_route(struct interface_ip_settings *ip,
 			(route_old->proto == route_new->proto) && !route_old->failed;
 
 	if (node_old) {
+		if (!node_new && interface_route_find_current(tree, route_old))
+			keep = true;
+
 		if (!(route_old->flags & DEVADDR_EXTERNAL) && route_old->enabled && !keep)
 			system_del_route(dev, route_old);
 
@@ -959,7 +991,7 @@ interface_update_proto_route(struct vlist_tree *tree,
 	struct interface_ip_settings *ip;
 
 	ip = container_of(tree, struct interface_ip_settings, route);
-	__interface_update_route(ip, node_new, node_old);
+	__interface_update_route(ip, tree, node_new, node_old);
 }
 
 static void
@@ -970,7 +1002,7 @@ interface_update_host_route(struct vlist_tree *tree,
 	struct interface *iface;
 
 	iface = container_of(tree, struct interface, host_routes);
-	__interface_update_route(&iface->proto_ip, node_new, node_old);
+	__interface_update_route(&iface->proto_ip, tree, node_new, node_old);
 }
 
 static void
