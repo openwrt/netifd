@@ -74,6 +74,8 @@ run_cmd(const char *ifname, const char *device, enum interface_event event,
 			setenv("IFUPDATE_PREFIXES", "1", 1);
 		if (updated & IUF_DATA)
 			setenv("IFUPDATE_DATA", "1", 1);
+		if (updated & IUF_POLICY)
+			setenv("IFUPDATE_POLICY", "1", 1);
 	}
 
 	argv[0] = hotplug_cmd_path;
