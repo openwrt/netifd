@@ -392,6 +392,20 @@ device_set_extra_vlans(struct device *dev, struct blob_attr *data)
 			dev->n_extra_vlan++;
 }
 
+static void
+device_fill_default_pse(struct device *dev)
+{
+	struct device_settings *s = &dev->settings;
+	int ret;
+
+	ret = config_get_default_pse(dev->ifname);
+	if (ret < 0)
+		return;
+
+	s->pse = ret;
+	s->flags |= DEV_OPT_PSE;
+}
+
 void
 device_init_settings(struct device *dev, struct blob_attr **tb)
 {
@@ -625,6 +639,12 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_PSE])) {
 		s->pse = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_PSE;
+	} else {
+		/*
+		 * Kept like the settings from UCI, so that a restart of the
+		 * device applies it again
+		 */
+		device_fill_default_pse(dev);
 	}
 
 	if ((cur = tb[DEV_ATTR_PSE_PODL])) {
@@ -777,6 +797,10 @@ device_fill_default_settings(struct device *dev)
 			s->flags |= DEV_OPT_MASTER;
 		}
 	}
+
+	/* Devices without a section in UCI */
+	if (!(s->flags & DEV_OPT_PSE))
+		device_fill_default_pse(dev);
 }
 
 int device_claim(struct device_user *dep)

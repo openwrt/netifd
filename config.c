@@ -678,6 +678,24 @@ int config_get_default_gro(const char *ifname)
 	return blobmsg_get_bool(cur);
 }
 
+int config_get_default_pse(const char *ifname)
+{
+	struct blob_attr *cur;
+
+	if (!board_netdevs)
+		return -1;
+
+	cur = config_find_blobmsg_attr(board_netdevs, ifname, BLOBMSG_TYPE_TABLE);
+	if (!cur)
+		return -1;
+
+	cur = config_find_blobmsg_attr(cur, "pse", BLOBMSG_TYPE_BOOL);
+	if (!cur)
+		return -1;
+
+	return blobmsg_get_bool(cur);
+}
+
 const char *config_get_default_conduit(const char *ifname)
 {
 	struct blob_attr *cur;
