@@ -38,6 +38,7 @@ static struct blob_attr *board_netdevs;
 static struct blob_buf b;
 static LIST_HEAD(config_vlans);
 static LIST_HEAD(config_ifaces);
+static KVLIST(config_procd_devices, kvlist_blob_len);
 
 struct vlan_config_entry {
 	struct list_head list;
@@ -300,70 +301,81 @@ config_insert_vlan_entry(const char *name, const char *dev_name, struct blob_att
 }
 
 static void
-config_procd_device_cb(struct blob_attr *data)
+config_procd_device_store(struct blob_attr *data)
 {
-	static const struct blobmsg_policy policy =
-		{ "type", BLOBMSG_TYPE_STRING };
-	const char *name = blobmsg_name(data);
-	struct device_type *devtype = NULL;
-	struct blob_attr *attr;
+	kvlist_set(&config_procd_devices, blobmsg_name(data), data);
+}
 
-	blobmsg_parse_attr(&policy, 1, &attr, data);
-	if (attr) {
-		devtype = device_type_get(blobmsg_get_string(attr));
-		if (!devtype || devtype->bridge_capability)
-			return;
+enum {
+	PROCD_DEV_ATTR_TYPE,
+	PROCD_DEV_ATTR_VLANS,
+	__PROCD_DEV_ATTR_MAX
+};
+
+static const struct blobmsg_policy procd_dev_attrs[__PROCD_DEV_ATTR_MAX] = {
+	[PROCD_DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
+	[PROCD_DEV_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_TABLE },
+};
+
+static bool
+config_procd_device_type(struct blob_attr *data, bool bridge,
+			 struct device_type **devtype)
+{
+	struct blob_attr *tb[__PROCD_DEV_ATTR_MAX], *vlans;
+
+	blobmsg_parse_attr(procd_dev_attrs, __PROCD_DEV_ATTR_MAX, tb, data);
+
+	*devtype = NULL;
+	if (tb[PROCD_DEV_ATTR_TYPE]) {
+		*devtype = device_type_get(blobmsg_get_string(tb[PROCD_DEV_ATTR_TYPE]));
+		if (!*devtype)
+			return false;
 	}
 
-	config_device_add(name, devtype, data);
+	if (bridge != (*devtype && (*devtype)->bridge_capability))
+		return false;
+
+	vlans = tb[PROCD_DEV_ATTR_VLANS];
+	if (bridge && (*devtype)->bridge_vlans && vlans &&
+	    blobmsg_check_array(vlans, BLOBMSG_TYPE_TABLE) < 0)
+		return false;
+
+	return true;
 }
 
 static void
-config_procd_bridge_cb(struct blob_attr *data)
+config_procd_bridge_add(const char *name, struct device_type *devtype,
+			struct blob_attr *data)
 {
-	enum {
-		PROCD_DEV_ATTR_TYPE,
-		PROCD_DEV_ATTR_VLANS,
-		__PROCD_DEV_ATTR_MAX
-	};
-	static const struct blobmsg_policy policy[] = {
-		[PROCD_DEV_ATTR_TYPE] = { "type", BLOBMSG_TYPE_STRING },
-		[PROCD_DEV_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_TABLE },
-	};
-	const char *name = blobmsg_name(data);
-	struct blob_attr *tb[__PROCD_DEV_ATTR_MAX], *vlans, *cur;
-	struct device_type *devtype;
+	struct blob_attr *tb[__PROCD_DEV_ATTR_MAX], *cur;
 	size_t rem;
 
-	blobmsg_parse_attr(policy, ARRAY_SIZE(policy), tb, data);
-	if (!tb[PROCD_DEV_ATTR_TYPE])
-		return;
-
-	devtype = device_type_get(blobmsg_get_string(tb[PROCD_DEV_ATTR_TYPE]));
-	if (!devtype || !devtype->bridge_capability)
-		return;
-
-	vlans = tb[PROCD_DEV_ATTR_VLANS];
-	if (devtype->bridge_vlans && vlans &&
-	    blobmsg_check_array(vlans, BLOBMSG_TYPE_TABLE) < 0)
-		return;
-
 	if (devtype->bridge_vlans && config_bridge_has_vlans(name)) {
+		blobmsg_parse_attr(procd_dev_attrs, __PROCD_DEV_ATTR_MAX, tb, data);
 		blob_buf_init(&b, 0);
 		blobmsg_for_each_attr(cur, data, rem)
 			if (strcmp(blobmsg_name(cur), "vlans") != 0)
 				blobmsg_add_blob(&b, cur);
-		config_bridge_add_vlans(&b, devtype, name, vlans);
+		config_bridge_add_vlans(&b, devtype, name, tb[PROCD_DEV_ATTR_VLANS]);
 		data = b.head;
 	}
 
 	config_device_add(name, devtype, data);
 }
 
+/*
+ * A procd entry replaces the uci section of the same name, so the section is
+ * not added first, which would apply its config to the device in between.
+ * An entry without a type does not name the device to create, so a typed
+ * section still creates it.
+ */
 static void
 config_init_devices(bool bridge)
 {
+	struct device_type *procd_devtype;
 	struct uci_element *e;
+	struct blob_attr *data;
+	const char *procd_name;
 
 	uci_foreach_element(&uci_network->sections, e) {
 		const struct uci_blob_param_list *params = NULL;
@@ -385,6 +397,11 @@ config_init_devices(bool bridge)
 		if (bridge != (devtype && devtype->bridge_capability))
 			continue;
 
+		data = kvlist_get(&config_procd_devices, name);
+		if (data && config_procd_device_type(data, bridge, &procd_devtype) &&
+		    (procd_devtype || !devtype))
+			continue;
+
 		if (devtype)
 			params = devtype->config_params;
 		if (!params)
@@ -401,8 +418,15 @@ config_init_devices(bool bridge)
 		config_device_add(name, devtype, b.head);
 	}
 
-	netifd_ubus_get_procd_data("network-device",
-		bridge ? config_procd_bridge_cb : config_procd_device_cb);
+	kvlist_for_each(&config_procd_devices, procd_name, data) {
+		if (!config_procd_device_type(data, bridge, &procd_devtype))
+			continue;
+
+		if (bridge)
+			config_procd_bridge_add(procd_name, procd_devtype, data);
+		else
+			config_device_add(procd_name, procd_devtype, data);
+	}
 }
 
 static void
@@ -714,8 +738,10 @@ config_init_all(void)
 
 	device_reset_config();
 	config_load_vlans();
+	netifd_ubus_get_procd_data("network-device", config_procd_device_store);
 	config_init_devices(true);
 	config_init_devices(false);
+	kvlist_free(&config_procd_devices);
 	netifd_ucode_config_load(false);
 	config_init_interfaces();
 	config_free_vlans();
