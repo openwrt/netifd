@@ -310,13 +310,8 @@ config_procd_device_cb(struct blob_attr *data)
 
 	blobmsg_parse_attr(&policy, 1, &attr, data);
 	if (attr) {
-		const char *type_name = blobmsg_get_string(attr);
-
-		if (!strcmp(type_name, "bridge"))
-			return;
-
-		devtype = device_type_get(type_name);
-		if (!devtype)
+		devtype = device_type_get(blobmsg_get_string(attr));
+		if (!devtype || devtype->bridge_capability)
 			return;
 	}
 
@@ -341,19 +336,19 @@ config_procd_bridge_cb(struct blob_attr *data)
 	size_t rem;
 
 	blobmsg_parse_attr(policy, ARRAY_SIZE(policy), tb, data);
-	if (!tb[PROCD_DEV_ATTR_TYPE] ||
-	    strcmp(blobmsg_get_string(tb[PROCD_DEV_ATTR_TYPE]), "bridge") != 0)
+	if (!tb[PROCD_DEV_ATTR_TYPE])
 		return;
 
-	devtype = device_type_get("bridge");
-	if (!devtype)
+	devtype = device_type_get(blobmsg_get_string(tb[PROCD_DEV_ATTR_TYPE]));
+	if (!devtype || !devtype->bridge_capability)
 		return;
 
 	vlans = tb[PROCD_DEV_ATTR_VLANS];
-	if (vlans && blobmsg_check_array(vlans, BLOBMSG_TYPE_TABLE) < 0)
+	if (devtype->bridge_vlans && vlans &&
+	    blobmsg_check_array(vlans, BLOBMSG_TYPE_TABLE) < 0)
 		return;
 
-	if (config_bridge_has_vlans(name)) {
+	if (devtype->bridge_vlans && config_bridge_has_vlans(name)) {
 		blob_buf_init(&b, 0);
 		blobmsg_for_each_attr(cur, data, rem)
 			if (strcmp(blobmsg_name(cur), "vlans") != 0)
