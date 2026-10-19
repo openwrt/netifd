@@ -754,11 +754,38 @@ static void bridge_stp_notify(struct bridge_state *bst)
 	netifd_ubus_device_notify("stp_init", b.head, 1000);
 }
 
+static void
+bridge_set_extra_vlans(struct bridge_state *bst, bool add)
+{
+	struct device *dev = &bst->dev;
+	int i;
+
+	for (i = 0; i < dev->n_extra_vlan; i++) {
+		uint16_t start = dev->extra_vlan[i].start;
+
+		if (bridge_vlan_range_owned(bst, &start, dev->extra_vlan[i].end))
+			system_bridge_vlan(dev->ifname, start,
+					   dev->extra_vlan[i].end, add,
+					   BRVLAN_F_SELF);
+	}
+}
+
+static void
+bridge_enable_vlans(struct bridge_state *bst)
+{
+	/* delete default VLAN 1 */
+	if (bst->has_vlans)
+		system_bridge_vlan(bst->dev.ifname, 1, -1, false, BRVLAN_F_SELF);
+
+	bridge_set_local_vlans(bst, true);
+	bridge_set_extra_vlans(bst, true);
+}
+
 static int
 bridge_enable_interface(struct bridge_state *bst)
 {
 	struct device *dev = &bst->dev;
-	int i, ret;
+	int ret;
 
 	if (bst->active)
 		return 0;
@@ -768,23 +795,8 @@ bridge_enable_interface(struct bridge_state *bst)
 	if (ret < 0)
 		return ret;
 
-	/* delete default VLAN 1 */
-	if (bst->has_vlans)
-		system_bridge_vlan(bst->dev.ifname, 1, -1, false, BRVLAN_F_SELF);
-
-	if (bst->vlan_filtering) {
-		bridge_set_local_vlans(bst, true);
-
-		for (i = 0; i < dev->n_extra_vlan; i++) {
-			uint16_t start = dev->extra_vlan[i].start;
-
-			if (bridge_vlan_range_owned(bst, &start,
-						    dev->extra_vlan[i].end))
-				system_bridge_vlan(dev->ifname, start,
-						   dev->extra_vlan[i].end, true,
-						   BRVLAN_F_SELF);
-		}
-	}
+	if (bst->vlan_filtering)
+		bridge_enable_vlans(bst);
 
 	bst->active = true;
 	return 0;
@@ -1104,6 +1116,10 @@ bridge_member_enable_vlans(struct bridge_member *bm)
 {
 	struct device *dev = bm->dev.dev;
 
+	/* delete default VLAN 1 */
+	if (bm->bst->has_vlans)
+		system_bridge_vlan(dev->ifname, 1, -1, false, 0);
+
 	if (dev->settings.auth && !dev->auth_status) {
 		bridge_member_auth_vlans_write(bm, dev->config_auth_vlans, true);
 		bridge_member_vlan_sync(bm);
@@ -1164,13 +1180,8 @@ bridge_enable_member(struct bridge_member *bm)
 		bm->active = true;
 	}
 
-	if (bst->vlan_filtering) {
-		/* delete default VLAN 1 */
-		if (bst->has_vlans)
-			system_bridge_vlan(bm->dev.dev->ifname, 1, -1, false, 0);
-
+	if (bst->vlan_filtering)
 		bridge_member_enable_vlans(bm);
-	}
 
 	device_set_present(&bst->dev, true);
 	if (!dev->settings.auth || dev->auth_status)
