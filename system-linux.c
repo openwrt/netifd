@@ -1686,6 +1686,41 @@ nla_put_failure:
 	return -ENOMEM;
 }
 
+int system_bridge_set_vlan_filtering(struct device *bridge, bool val)
+{
+	struct nlattr *linkinfo, *data;
+	struct nl_msg *msg;
+	int rv;
+
+	msg = system_ifinfo_msg(bridge->ifname, RTM_NEWLINK, 0);
+	if (!msg)
+		return -1;
+
+	if (!(linkinfo = nla_nest_start(msg, IFLA_LINKINFO)))
+		goto nla_put_failure;
+
+	nla_put_string(msg, IFLA_INFO_KIND, "bridge");
+
+	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
+		goto nla_put_failure;
+
+	nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, val);
+
+	nla_nest_end(msg, data);
+	nla_nest_end(msg, linkinfo);
+
+	rv = system_rtnl_call(msg);
+	if (rv)
+		D(SYSTEM, "Error setting vlan_filtering of bridge '%s': %d",
+		  bridge->ifname, rv);
+
+	return rv;
+
+nla_put_failure:
+	nlmsg_free(msg);
+	return -ENOMEM;
+}
+
 int system_macvlan_add(struct device *macvlan, struct device *dev, struct macvlan_config *cfg)
 {
 	struct nl_msg *msg;

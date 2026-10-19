@@ -43,6 +43,13 @@ int system_bridge_delbr(struct device *bridge)
 	return 0;
 }
 
+int system_bridge_set_vlan_filtering(struct device *bridge, bool val)
+{
+	D(SYSTEM, "ip link set %s type bridge vlan_filtering %d",
+	  bridge->ifname, val);
+	return 0;
+}
+
 int system_bridge_addif(struct device *bridge, struct device *dev)
 {
 	D(SYSTEM, "ip link set %s master %s", dev->ifname, bridge->ifname);

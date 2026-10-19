@@ -646,7 +646,8 @@ bridge_member_vlan_del(struct bridge_member *bm, uint16_t vid)
 	const char *ifname = bm->dev.dev->ifname;
 	uint16_t flags;
 
-	if (bm->active && bridge_member_range_flags(bm, vid, &flags))
+	if (bm->active && bm->bst->vlan_filtering &&
+	    bridge_member_range_flags(bm, vid, &flags))
 		system_bridge_vlan(ifname, vid, -1, true, flags);
 	else
 		system_bridge_vlan(ifname, vid, -1, false, 0);
@@ -1301,7 +1302,7 @@ bridge_member_check_cb(struct uloop_timeout *t)
 	bst = bm->bst;
 	dev = bm->dev.dev;
 
-	if (!bm->active)
+	if (!bm->active || !bst->has_vlans)
 		return;
 
 	auth_vlans = bridge_member_auth_vlans(bm);
@@ -1443,6 +1444,80 @@ bridge_set_up(struct bridge_state *bst)
 		bridge_set_down(bst);
 
 	return ret;
+}
+
+static void
+bridge_member_range_del_cb(struct bridge_member *bm,
+			   const struct bridge_member_range *r, void *ctx)
+{
+	bridge_member_range_write(bm, r, false);
+}
+
+/* the vlans of a bridge created without filtering */
+static void
+bridge_disable_vlans(struct bridge_state *bst)
+{
+	bool has_vlans = bst->has_vlans;
+	struct bridge_member *bm;
+
+	vlist_for_each_element(&bst->members, bm, node)
+		bridge_member_ranges_walk(bm, 0, bridge_member_range_del_cb, NULL);
+
+	bridge_set_local_vlans(bst, false);
+	bridge_set_extra_vlans(bst, false);
+
+	bst->vlan_filtering = false;
+	bst->has_vlans = false;
+
+	vlist_for_each_element(&bst->members, bm, node) {
+		bridge_member_vlan_sync(bm);
+		if (has_vlans && bm->active)
+			system_bridge_vlan(bm->dev.dev->ifname, 1, -1, true,
+					   BRVLAN_F_PVID | BRVLAN_F_UNTAGGED);
+	}
+
+	if (has_vlans)
+		system_bridge_vlan(bst->dev.ifname, 1, -1, true,
+				   BRVLAN_F_SELF | BRVLAN_F_PVID | BRVLAN_F_UNTAGGED);
+}
+
+static int
+bridge_set_vlan_filtering(struct bridge_state *bst, bool val)
+{
+	struct bridge_member *bm;
+	int ret;
+
+	ret = system_bridge_set_vlan_filtering(&bst->dev, val);
+	if (ret)
+		return ret;
+
+	D(DEVICE, "Bridge %s vlan_filtering set to %d", bst->dev.ifname, val);
+	if (!val) {
+		bridge_disable_vlans(bst);
+		return 0;
+	}
+
+	bst->vlan_filtering = true;
+	bst->has_vlans = bst->vlans_configured;
+	bridge_enable_vlans(bst);
+
+	vlist_for_each_element(&bst->members, bm, node)
+		if (bm->active)
+			bridge_member_enable_vlans(bm);
+
+	return 0;
+}
+
+static bool
+bridge_has_auth_member(struct bridge_state *bst)
+{
+	struct bridge_member *bm;
+
+	vlist_for_each_element(&bst->members, bm, node)
+		if (bm->dev.dev->settings.auth)
+			return true;
+
+	return false;
 }
 
 static int
@@ -2070,6 +2145,8 @@ bridge_reload(struct device *dev, struct blob_attr *attr,
 {
 	struct blob_attr *tb_br[__BRIDGE_ATTR_MAX];
 	enum dev_change_type ret = DEV_CONFIG_APPLIED;
+	unsigned long live = (1 << BRIDGE_ATTR_PORTS) | (1 << BRIDGE_ATTR_VLANS) |
+			     (1 << BRIDGE_ATTR_VLAN_FILTERING);
 	struct bridge_state *bst;
 	unsigned long diff[2] = {};
 
@@ -2092,11 +2169,17 @@ bridge_reload(struct device *dev, struct blob_attr *attr,
 		blobmsg_parse_attr(bridge_attrs, __BRIDGE_ATTR_MAX, otb_br, bst->config_data);
 
 		uci_blob_diff(tb_br, otb_br, &bridge_attr_list, diff);
-		if ((diff[0] & ~((1 << BRIDGE_ATTR_PORTS) | (1 << BRIDGE_ATTR_VLANS))) ||
+		if ((diff[0] & ~live) ||
 		    bridge_vlans_present(tb_br) != bridge_vlans_present(otb_br)) {
 			ret = DEV_CONFIG_RESTART;
 			D(DEVICE, "Bridge %s attributes have changed, diff=[%lx %lx]",
 			  dev->ifname, diff[1], diff[0]);
+		} else if (bst->active &&
+			   bst->vlan_filtering != bst->config.vlan_filtering &&
+			   (bridge_has_auth_member(bst) ||
+			    bridge_set_vlan_filtering(bst, bst->config.vlan_filtering))) {
+			ret = DEV_CONFIG_RESTART;
+			D(DEVICE, "Bridge %s vlan_filtering has changed", dev->ifname);
 		}
 
 		dev->config_pending = true;
