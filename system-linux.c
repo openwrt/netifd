@@ -90,6 +90,11 @@ struct event_socket {
 	int bufsize;
 };
 
+struct ethtool_link_settings_buf {
+	struct ethtool_link_settings req;
+	__u32 link_mode_data[3 * 127];
+};
+
 static int sock_ioctl = -1;
 static struct nl_sock *sock_rtnl = NULL;
 static struct nl_sock *sock_genl = NULL;
@@ -2553,19 +2558,59 @@ static int system_pse_set(struct device *dev, struct device_settings *s)
 	return 0;
 }
 
+static int
+system_ethtool_link_settings_get(struct device *dev,
+				 struct ethtool_link_settings_buf *ecmd)
+{
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)ecmd,
+	};
+
+	memset(ecmd, 0, sizeof(*ecmd));
+	ecmd->req.cmd = ETHTOOL_GLINKSETTINGS;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	/* The first call only negotiates the bitmap size and is answered by
+	 * the ethtool core, the second one reaches the driver.
+	 */
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0)
+		return -errno;
+
+	if (ecmd->req.link_mode_masks_nwords >= 0 ||
+	    ecmd->req.cmd != ETHTOOL_GLINKSETTINGS)
+		return -EOPNOTSUPP;
+
+	ecmd->req.link_mode_masks_nwords = -ecmd->req.link_mode_masks_nwords;
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0)
+		return -errno;
+
+	if (ecmd->req.link_mode_masks_nwords <= 0 ||
+	    ecmd->req.cmd != ETHTOOL_GLINKSETTINGS)
+		return -EOPNOTSUPP;
+
+	return 0;
+}
+
 static void
 system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 {
-	struct {
-		struct ethtool_link_settings req;
-		__u32 link_mode_data[3 * 127];
-	} ecmd;
-	struct ifreq ifr = {
-		.ifr_data = (caddr_t)&ecmd,
-	};
-	size_t i;
-	__s8 nwords;
+	struct ethtool_link_settings_buf ecmd;
 	__u32 *supported, *advertising;
+	struct ifreq ifr;
+	__s8 nwords;
+	size_t i;
+	int err;
+
+	ifr.ifr_data = (caddr_t)&ecmd;
+
+	/* Drivers that attach the PHY in ndo_open(), r8169 among them, fail
+	 * every phylib ethtool operation while the interface is down.
+	 */
+	err = system_ethtool_link_settings_get(dev, &ecmd);
+	dev->ethtool_pending = err == -ENODEV;
+	if (dev->ethtool_pending)
+		return;
 
 	system_set_ethtool_pause(dev, s);
 
@@ -2576,25 +2621,13 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	if (s->flags & (DEV_OPT_PSE | DEV_OPT_PSE_PODL | DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
 		system_pse_set(dev, s);
 
-	/* Avoid a rmw ioctl call if nothing needs to be changed. */
+	if (err)
+		return;
+
 	if (!(s->flags & (DEV_OPT_AUTONEG | DEV_OPT_SPEED | DEV_OPT_DUPLEX | DEV_OPT_PAUSE | DEV_OPT_ASYM_PAUSE)))
 		return;
 
-	memset(&ecmd, 0, sizeof(ecmd));
-	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
-
-	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
-	    ecmd.req.link_mode_masks_nwords >= 0 ||
-	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
-		return;
-
-	ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
-
-	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
-	    ecmd.req.link_mode_masks_nwords <= 0 ||
-	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
-		return;
 
 	nwords = ecmd.req.link_mode_masks_nwords;
 	supported = &ecmd.link_mode_data[0];
@@ -2642,6 +2675,9 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 static void
 system_set_ethtool_settings_after_up(struct device *dev, struct device_settings *s)
 {
+	if (dev->ethtool_pending)
+		system_set_ethtool_settings(dev, s);
+
 	if (s->flags & DEV_OPT_GRO)
 		system_set_ethtool_gro(dev, s);
 }
