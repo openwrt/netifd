@@ -174,6 +174,24 @@ static const struct netdev_type netdev_types[] = {
 };
 
 static void
+event_socket_drain(struct event_socket *ev)
+{
+	char c;
+	int ret;
+
+	for (;;) {
+		/* the peek can return a new overrun, the queue is then full */
+		if (recv(ev->uloop.fd, &c, sizeof(c), MSG_PEEK | MSG_DONTWAIT) < 0 &&
+		    errno != ENOBUFS)
+			return;
+
+		ret = nl_recvmsgs_default(ev->sock);
+		if (ret < 0 && ret != -NLE_NOMEM)
+			return;
+	}
+}
+
+static void
 handler_nl_event(struct uloop_fd *u, unsigned int events)
 {
 	struct event_socket *ev = container_of(u, struct event_socket, uloop);
@@ -189,6 +207,10 @@ handler_nl_event(struct uloop_fd *u, unsigned int events)
 		ev->bufsize *= 2;
 		if (nl_socket_set_buffer_size(ev->sock, ev->bufsize, 0))
 			goto abort;
+
+		/* until the queue is empty, the kernel drops messages without
+		 * reporting another overrun */
+		event_socket_drain(ev);
 
 		/* Request full dump since some info got dropped */
 		struct rtgenmsg msg = { .rtgen_family = AF_UNSPEC };
