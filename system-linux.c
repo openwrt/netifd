@@ -48,6 +48,10 @@
 #include <linux/veth.h>
 #include <linux/version.h>
 
+#ifdef DEVLINK_PORT_SPLIT
+#include <linux/devlink.h>
+#endif
+
 #include <sched.h>
 
 #include "ethtool-modes.h"
@@ -69,6 +73,7 @@
 #include <glob.h>
 #include <time.h>
 #include <unistd.h>
+#include <poll.h>
 
 #include <netlink/msg.h>
 #include <netlink/attr.h>
@@ -94,6 +99,9 @@ static int sock_ioctl = -1;
 static struct nl_sock *sock_rtnl = NULL;
 static struct nl_sock *sock_genl = NULL;
 static int ethtool_family = -1;
+#ifdef DEVLINK_PORT_SPLIT
+static int devlink_family_id = -1;
+#endif
 
 static int cb_rtnl_event(struct nl_msg *msg, void *arg);
 static void handle_hotplug_event(struct uloop_fd *u, unsigned int events);
@@ -235,6 +243,599 @@ create_socket(int protocol, int groups)
 
 	return sock;
 }
+
+#ifdef DEVLINK_PORT_SPLIT
+struct system_devlink_split_group {
+	uint32_t group;
+	struct system_devlink_port member;
+};
+
+struct system_devlink_lookup_data {
+	struct system_devlink_port *port;
+	int pending;
+	int ret;
+};
+
+struct system_devlink_ifname_wait {
+	const char *ifname;
+	struct system_devlink_port *port;
+	bool done;
+	int ret;
+};
+
+struct system_devlink_group_dump {
+	const struct system_devlink_port *parent;
+	struct system_devlink_split_group *groups;
+	size_t len;
+	size_t count;
+	int pending;
+	int ret;
+};
+
+static int
+system_devlink_get_family(void)
+{
+	if (devlink_family_id >= 0)
+		return devlink_family_id;
+
+	if (!sock_genl) {
+		sock_genl = create_socket(NETLINK_GENERIC, 0);
+		if (!sock_genl)
+			return -1;
+	}
+
+	devlink_family_id = genl_ctrl_resolve(sock_genl, DEVLINK_GENL_NAME);
+	return devlink_family_id;
+}
+
+static struct nl_msg *
+system_devlink_msg(int cmd, uint16_t flags)
+{
+	struct nl_msg *msg;
+	int family;
+
+	family = system_devlink_get_family();
+	if (family < 0)
+		return NULL;
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return NULL;
+
+	if (!genlmsg_put(msg, 0, 0, family, 0, flags, cmd,
+			 DEVLINK_GENL_VERSION)) {
+		nlmsg_free(msg);
+		return NULL;
+	}
+
+	return msg;
+}
+
+static int
+system_devlink_call(struct nl_msg *msg)
+{
+	int ret;
+
+	ret = nl_send_auto_complete(sock_genl, msg);
+	nlmsg_free(msg);
+	if (ret < 0)
+		return ret;
+
+	return nl_wait_for_ack(sock_genl);
+}
+
+static int
+system_devlink_copy_string(char *dst, size_t dst_len, struct nlattr *attr)
+{
+	const char *str = nla_get_string(attr);
+
+	if (strlen(str) >= dst_len)
+		return -ENAMETOOLONG;
+
+	snprintf(dst, dst_len, "%s", str);
+	return 0;
+}
+
+static int
+system_devlink_parse_handle(struct nlattr **tb,
+			    struct system_devlink_port *port)
+{
+	int ret;
+
+	if (!tb[DEVLINK_ATTR_BUS_NAME] || !tb[DEVLINK_ATTR_DEV_NAME] ||
+	    !tb[DEVLINK_ATTR_PORT_INDEX])
+		return -ENOENT;
+
+	ret = system_devlink_copy_string(port->bus_name, sizeof(port->bus_name),
+					 tb[DEVLINK_ATTR_BUS_NAME]);
+	if (ret)
+		return ret;
+
+	ret = system_devlink_copy_string(port->dev_name, sizeof(port->dev_name),
+					 tb[DEVLINK_ATTR_DEV_NAME]);
+	if (ret)
+		return ret;
+
+	port->port_index = nla_get_u32(tb[DEVLINK_ATTR_PORT_INDEX]);
+	return 0;
+}
+
+static int
+system_devlink_lookup_valid(struct nl_msg *msg, void *arg)
+{
+	struct system_devlink_lookup_data *data = arg;
+	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
+	struct nlattr *tb[__IFLA_MAX];
+	struct nlattr *dl[DEVLINK_ATTR_MAX + 1];
+
+	if (nh->nlmsg_type != RTM_NEWLINK)
+		return NL_SKIP;
+
+	if (ifi->ifi_family != AF_UNSPEC)
+		return NL_SKIP;
+
+	memset(tb, 0, sizeof(tb));
+	nlmsg_parse(nh, sizeof(struct ifinfomsg), tb, __IFLA_MAX - 1, NULL);
+	if (!tb[IFLA_DEVLINK_PORT]) {
+		data->ret = -EOPNOTSUPP;
+		return NL_OK;
+	}
+
+	memset(dl, 0, sizeof(dl));
+	if (nla_parse_nested(dl, DEVLINK_ATTR_MAX, tb[IFLA_DEVLINK_PORT], NULL)) {
+		data->ret = -EINVAL;
+		return NL_OK;
+	}
+
+	data->ret = system_devlink_parse_handle(dl, data->port);
+	return NL_OK;
+}
+
+static int
+system_devlink_lookup_ack(struct nl_msg *msg, void *arg)
+{
+	struct system_devlink_lookup_data *data = arg;
+
+	data->pending = 0;
+	return NL_STOP;
+}
+
+static int
+system_devlink_lookup_error(struct sockaddr_nl *nla, struct nlmsgerr *err,
+			    void *arg)
+{
+	struct system_devlink_lookup_data *data = arg;
+
+	data->ret = err->error;
+	data->pending = 0;
+	return NL_STOP;
+}
+
+int
+system_devlink_port_from_ifname(const char *ifname,
+				struct system_devlink_port *port)
+{
+	struct system_devlink_lookup_data data = {
+		.port = port,
+		.pending = 1,
+		.ret = -ENOENT,
+	};
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct ifinfomsg ifi = {
+		.ifi_family = AF_UNSPEC,
+		.ifi_index = 0,
+	};
+	struct nl_msg *msg;
+	int ret;
+
+	if (!cb || !ifname || !port)
+		goto out;
+
+	msg = nlmsg_alloc_simple(RTM_GETLINK, NLM_F_REQUEST);
+	if (!msg)
+		goto out;
+
+	if (nlmsg_append(msg, &ifi, sizeof(ifi), 0) ||
+	    nla_put_string(msg, IFLA_IFNAME, ifname))
+		goto free;
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM,
+		  system_devlink_lookup_valid, &data);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM,
+		  system_devlink_lookup_ack, &data);
+	nl_cb_err(cb, NL_CB_CUSTOM, system_devlink_lookup_error, &data);
+
+	ret = nl_send_auto_complete(sock_rtnl, msg);
+	if (ret < 0) {
+		data.ret = ret;
+		goto free;
+	}
+
+	while (data.pending > 0) {
+		ret = nl_recvmsgs(sock_rtnl, cb);
+		if (ret < 0) {
+			data.ret = ret;
+			break;
+		}
+	}
+
+free:
+	nlmsg_free(msg);
+out:
+	if (cb)
+		nl_cb_put(cb);
+	return data.ret;
+}
+
+static unsigned int
+system_devlink_elapsed_ms(const struct timespec *start)
+{
+	struct timespec now;
+	uint64_t elapsed;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	elapsed = (uint64_t)(now.tv_sec - start->tv_sec) * 1000;
+	elapsed += (now.tv_nsec - start->tv_nsec) / 1000000;
+
+	return elapsed > UINT_MAX ? UINT_MAX : elapsed;
+}
+
+static int
+system_devlink_wait_valid(struct nl_msg *msg, void *arg)
+{
+	struct system_devlink_ifname_wait *data = arg;
+	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct ifinfomsg *ifi = NLMSG_DATA(nh);
+	struct nlattr *tb[__IFLA_MAX];
+	struct nlattr *dl[DEVLINK_ATTR_MAX + 1];
+	const char *ifname;
+	int ret;
+
+	if (nh->nlmsg_type != RTM_NEWLINK)
+		return NL_SKIP;
+
+	if (ifi->ifi_family != AF_UNSPEC)
+		return NL_SKIP;
+
+	memset(tb, 0, sizeof(tb));
+	nlmsg_parse(nh, sizeof(struct ifinfomsg), tb, __IFLA_MAX - 1, NULL);
+	if (!tb[IFLA_IFNAME])
+		return NL_SKIP;
+
+	ifname = nla_get_string(tb[IFLA_IFNAME]);
+	if (strcmp(ifname, data->ifname))
+		return NL_SKIP;
+
+	if (tb[IFLA_DEVLINK_PORT]) {
+		memset(dl, 0, sizeof(dl));
+		if (nla_parse_nested(dl, DEVLINK_ATTR_MAX, tb[IFLA_DEVLINK_PORT], NULL))
+			data->ret = -EINVAL;
+		else
+			data->ret = system_devlink_parse_handle(dl, data->port);
+	} else {
+		ret = system_devlink_port_from_ifname(data->ifname, data->port);
+		if (ret && ret != -EOPNOTSUPP)
+			return NL_OK;
+
+		data->ret = ret;
+	}
+
+	data->done = true;
+	return NL_STOP;
+}
+
+static int
+system_devlink_wait_error(struct sockaddr_nl *nla, struct nlmsgerr *err,
+			  void *arg)
+{
+	struct system_devlink_ifname_wait *data = arg;
+
+	data->ret = err->error;
+	data->done = true;
+	return NL_STOP;
+}
+
+static int
+system_devlink_wait_seq_check(struct nl_msg *msg, void *arg)
+{
+	return NL_OK;
+}
+
+int
+system_devlink_port_wait_ifname(const char *ifname,
+				struct system_devlink_port *port,
+				unsigned int timeout_ms)
+{
+	struct system_devlink_ifname_wait data = {
+		.ifname = ifname,
+		.port = port,
+		.ret = -ETIMEDOUT,
+	};
+	struct pollfd pfd = { .events = POLLIN };
+	struct timespec start;
+	struct nl_sock *sock;
+	struct nl_cb *cb;
+	unsigned int elapsed;
+	int ret;
+
+	if (!ifname || !port)
+		return -EINVAL;
+
+	sock = create_socket(NETLINK_ROUTE, 0);
+	if (!sock)
+		return system_devlink_port_from_ifname(ifname, port);
+
+	ret = nl_socket_add_membership(sock, RTNLGRP_LINK);
+	if (ret < 0) {
+		nl_socket_free(sock);
+		return ret;
+	}
+
+	cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!cb) {
+		nl_socket_free(sock);
+		return -ENOMEM;
+	}
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM,
+		  system_devlink_wait_valid, &data);
+	nl_cb_set(cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM,
+		  system_devlink_wait_seq_check, NULL);
+	nl_cb_err(cb, NL_CB_CUSTOM, system_devlink_wait_error, &data);
+
+	ret = system_devlink_port_from_ifname(ifname, port);
+	if (!ret || ret == -EOPNOTSUPP) {
+		data.ret = ret;
+		goto out;
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &start);
+	pfd.fd = nl_socket_get_fd(sock);
+
+	while (!data.done) {
+		elapsed = system_devlink_elapsed_ms(&start);
+		if (elapsed >= timeout_ms)
+			break;
+
+		ret = poll(&pfd, 1, timeout_ms - elapsed);
+		if (ret < 0) {
+			if (errno == EINTR)
+				continue;
+
+			data.ret = -errno;
+			break;
+		}
+
+		if (!ret)
+			break;
+
+		ret = nl_recvmsgs(sock, cb);
+		if (ret < 0) {
+			data.ret = ret;
+			break;
+		}
+	}
+
+out:
+	nl_cb_put(cb);
+	nl_socket_free(sock);
+	return data.ret;
+}
+
+static bool
+system_devlink_group_seen(struct system_devlink_split_group *groups,
+			  size_t count, uint32_t group)
+{
+	size_t i;
+
+	for (i = 0; i < count; i++)
+		if (groups[i].group == group)
+			return true;
+
+	return false;
+}
+
+static int
+system_devlink_group_valid(struct nl_msg *msg, void *arg)
+{
+	struct system_devlink_group_dump *data = arg;
+	struct system_devlink_port port;
+	struct nlmsghdr *nh = nlmsg_hdr(msg);
+	struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
+	uint32_t group;
+	int ret;
+
+	memset(tb, 0, sizeof(tb));
+	if (genlmsg_parse(nh, 0, tb, DEVLINK_ATTR_MAX, NULL))
+		return NL_SKIP;
+
+	if (!tb[DEVLINK_ATTR_PORT_SPLIT_GROUP])
+		return NL_SKIP;
+
+	ret = system_devlink_parse_handle(tb, &port);
+	if (ret)
+		return NL_SKIP;
+
+	if (strcmp(port.bus_name, data->parent->bus_name) ||
+	    strcmp(port.dev_name, data->parent->dev_name))
+		return NL_SKIP;
+
+	group = nla_get_u32(tb[DEVLINK_ATTR_PORT_SPLIT_GROUP]);
+	if (system_devlink_group_seen(data->groups, data->count, group))
+		return NL_SKIP;
+
+	if (data->count >= data->len) {
+		data->ret = -ENOSPC;
+		data->pending = 0;
+		return NL_STOP;
+	}
+
+	data->groups[data->count].group = group;
+	data->groups[data->count].member = port;
+	data->count++;
+	return NL_OK;
+}
+
+static int
+system_devlink_group_done(struct nl_msg *msg, void *arg)
+{
+	struct system_devlink_group_dump *data = arg;
+
+	data->pending = 0;
+	return NL_STOP;
+}
+
+static int
+system_devlink_group_error(struct sockaddr_nl *nla, struct nlmsgerr *err,
+			   void *arg)
+{
+	struct system_devlink_group_dump *data = arg;
+
+	data->ret = err->error;
+	data->pending = 0;
+	return NL_STOP;
+}
+
+static int
+system_devlink_dump_split_groups(const struct system_devlink_port *parent,
+				 struct system_devlink_split_group *groups,
+				 size_t *count)
+{
+	struct system_devlink_group_dump data = {
+		.parent = parent,
+		.groups = groups,
+		.len = *count,
+		.pending = 1,
+	};
+	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+	struct nl_msg *msg;
+	int ret;
+
+	*count = 0;
+	if (!cb)
+		return -ENOMEM;
+
+	msg = system_devlink_msg(DEVLINK_CMD_PORT_GET,
+				  NLM_F_REQUEST | NLM_F_DUMP);
+	if (!msg) {
+		ret = -1;
+		goto out;
+	}
+
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM,
+		  system_devlink_group_valid, &data);
+	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM,
+		  system_devlink_group_done, &data);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM,
+		  system_devlink_group_done, &data);
+	nl_cb_err(cb, NL_CB_CUSTOM, system_devlink_group_error, &data);
+
+	ret = nl_send_auto_complete(sock_genl, msg);
+	nlmsg_free(msg);
+	if (ret < 0)
+		goto out;
+
+	while (data.pending > 0) {
+		ret = nl_recvmsgs(sock_genl, cb);
+		if (ret < 0) {
+			data.ret = ret;
+			break;
+		}
+	}
+
+	*count = data.count;
+	ret = data.ret;
+
+out:
+	nl_cb_put(cb);
+	return ret;
+}
+
+static int
+system_devlink_port_cmd(const struct system_devlink_port *port, int cmd,
+			uint32_t count)
+{
+	struct nl_msg *msg;
+
+	msg = system_devlink_msg(cmd, NLM_F_REQUEST | NLM_F_ACK);
+	if (!msg)
+		return -1;
+
+	if (nla_put_string(msg, DEVLINK_ATTR_BUS_NAME, port->bus_name) ||
+	    nla_put_string(msg, DEVLINK_ATTR_DEV_NAME, port->dev_name) ||
+	    nla_put_u32(msg, DEVLINK_ATTR_PORT_INDEX, port->port_index)) {
+		nlmsg_free(msg);
+		return -ENOMEM;
+	}
+
+	if (count && nla_put_u32(msg, DEVLINK_ATTR_PORT_SPLIT_COUNT, count)) {
+		nlmsg_free(msg);
+		return -ENOMEM;
+	}
+
+	return system_devlink_call(msg);
+}
+
+int
+system_devlink_port_split(const struct system_devlink_port *port,
+			  uint32_t count,
+			  struct system_devlink_port *member,
+			  uint32_t *split_group)
+{
+	struct system_devlink_split_group *before, *after;
+	size_t before_count = 256;
+	size_t after_count = 256;
+	size_t i;
+	int ret = -ENOMEM;
+
+	if (!port || !member || !split_group || count < 2)
+		return -EINVAL;
+
+	before = calloc(before_count, sizeof(*before));
+	after = calloc(after_count, sizeof(*after));
+	if (!before || !after)
+		goto out;
+
+	ret = system_devlink_dump_split_groups(port, before, &before_count);
+	if (ret)
+		goto out;
+
+	ret = system_devlink_port_cmd(port, DEVLINK_CMD_PORT_SPLIT, count);
+	if (ret)
+		goto out;
+
+	ret = system_devlink_dump_split_groups(port, after, &after_count);
+	if (ret)
+		goto out;
+
+	ret = -ENOENT;
+	for (i = 0; i < after_count; i++) {
+		if (system_devlink_group_seen(before, before_count, after[i].group))
+			continue;
+
+		*member = after[i].member;
+		*split_group = after[i].group;
+		ret = 0;
+		break;
+	}
+
+out:
+	free(before);
+	free(after);
+	return ret;
+}
+
+int
+system_devlink_port_unsplit(const struct system_devlink_port *port)
+{
+	if (!port)
+		return -EINVAL;
+
+	return system_devlink_port_cmd(port, DEVLINK_CMD_PORT_UNSPLIT, 0);
+}
+
+#endif
 
 static bool
 create_raw_event_socket(struct event_socket *ev, int protocol, int groups,
