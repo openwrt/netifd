@@ -270,6 +270,9 @@ int system_macvlan_del(struct device *macvlan);
 int system_veth_add(struct device *veth, struct veth_config *cfg);
 int system_veth_del(struct device *veth);
 
+int system_dummy_add(struct device *dummy);
+int system_dummy_del(struct device *dummy);
+
 int system_vlan_add(struct device *dev, int id);
 int system_vlan_del(struct device *dev);
 

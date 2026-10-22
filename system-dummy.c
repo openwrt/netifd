@@ -393,6 +393,16 @@ int system_veth_del(struct device *veth)
 	return 0;
 }
 
+int system_dummy_add(struct device *dummy)
+{
+	return 0;
+}
+
+int system_dummy_del(struct device *dummy)
+{
+	return 0;
+}
+
 int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlandev_config *cfg)
 {
 	return 0;
