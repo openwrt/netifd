@@ -1730,5 +1730,8 @@ void device_hotplug_event(const char *name, bool add)
 	if (!dev || dev->type != &simple_device_type)
 		return;
 
+	if (add && !system_if_resolve(dev))
+		return;
+
 	device_set_present(dev, add);
 }
