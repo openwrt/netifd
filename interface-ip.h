@@ -185,6 +185,7 @@ void interface_ip_update_start(struct interface_ip_settings *ip);
 void interface_ip_update_complete(struct interface_ip_settings *ip);
 void interface_ip_flush(struct interface_ip_settings *ip);
 void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled);
+void interface_ip_set_stronghost_policy(struct interface *iface, bool enabled);
 void interface_ip_update_metric(struct interface_ip_settings *ip, int metric);
 
 struct interface *interface_ip_add_target_route(union if_addr *addr, bool v6, struct interface *iface,

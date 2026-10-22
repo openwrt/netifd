@@ -867,6 +867,8 @@ netifd_dump_status(struct interface *iface)
 				blobmsg_add_string(&b, NULL, "prefixes");
 			if (iface->updated & IUF_DATA)
 				blobmsg_add_string(&b, NULL, "data");
+			if (iface->updated & IUF_POLICY)
+				blobmsg_add_string(&b, NULL, "policy");
 
 			blobmsg_close_array(&b, a);
 		}
@@ -875,6 +877,13 @@ netifd_dump_status(struct interface *iface)
 			blobmsg_add_u32(&b, "ip4table", iface->ip4table);
 		if (iface->ip6table)
 			blobmsg_add_u32(&b, "ip6table", iface->ip6table);
+		if (iface->stronghost_mask) {
+			void *mark = blobmsg_open_table(&b, "stronghost_mark");
+
+			blobmsg_add_u32(&b, "value", iface->stronghost_mark);
+			blobmsg_add_u32(&b, "mask", iface->stronghost_mask);
+			blobmsg_close_table(&b, mark);
+		}
 		blobmsg_add_u32(&b, "metric", iface->metric);
 		blobmsg_add_u32(&b, "dns_metric", iface->dns_metric);
 		blobmsg_add_u8(&b, "delegation", !iface->proto_ip.no_delegation);
