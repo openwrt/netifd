@@ -2566,6 +2566,7 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	size_t i;
 	__s8 nwords;
 	__u32 *supported, *advertising;
+	uint64_t filter_flags;
 
 	system_set_ethtool_pause(dev, s);
 
@@ -2599,16 +2600,22 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	nwords = ecmd.req.link_mode_masks_nwords;
 	supported = &ecmd.link_mode_data[0];
 	advertising = &ecmd.link_mode_data[nwords];
-	memcpy(advertising, supported, sizeof(__u32) * nwords);
+	filter_flags = s->use_link_filter_flags ? s->link_filter_flags :
+		(s == &dev->orig_settings ? 0 : s->flags);
+	if ((s == &dev->orig_settings || s->restore_link_advertising) &&
+	    s->link_advertising_nwords == nwords)
+		memcpy(advertising, s->link_advertising, sizeof(__u32) * nwords);
+	else
+		memcpy(advertising, supported, sizeof(__u32) * nwords);
 
 	for (i = 0; i < ARRAY_SIZE(ethtool_modes); i++) {
-		if (s->flags & DEV_OPT_DUPLEX) {
+		if (filter_flags & DEV_OPT_DUPLEX) {
 			if (s->duplex)
 				ethtool_link_mode_clear_bit(nwords, ethtool_modes[i].bit_half, advertising);
 			else
 				ethtool_link_mode_clear_bit(nwords, ethtool_modes[i].bit_full, advertising);
 		}
-		if (!(s->flags & DEV_OPT_SPEED) ||
+		if (!(filter_flags & DEV_OPT_SPEED) ||
 		    s->speed == ethtool_modes[i].speed)
 			continue;
 
@@ -2616,13 +2623,30 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 		ethtool_link_mode_clear_bit(nwords, ethtool_modes[i].bit_half, advertising);
 	}
 
-	if (s->flags & DEV_OPT_PAUSE)
-		if (!s->pause)
-			ethtool_link_mode_clear_bit(nwords, ETHTOOL_LINK_MODE_Pause_BIT, advertising);
+	/* Pause modes must follow their own UCI options, not the speed mask. */
+	if (ETHTOOL_LINK_MODE_Pause_BIT < nwords * 32) {
+		size_t word = ETHTOOL_LINK_MODE_Pause_BIT / 32;
+		__u32 bit = 1U << (ETHTOOL_LINK_MODE_Pause_BIT % 32);
 
-	if (s->flags & DEV_OPT_ASYM_PAUSE)
-		if (!s->asym_pause)
-			ethtool_link_mode_clear_bit(nwords, ETHTOOL_LINK_MODE_Asym_Pause_BIT, advertising);
+		if (filter_flags & DEV_OPT_PAUSE)
+			advertising[word] = (advertising[word] & ~bit) |
+				(s->pause ? supported[word] & bit : 0);
+		else if (s->link_advertising_nwords == nwords)
+			advertising[word] = (advertising[word] & ~bit) |
+				(s->link_advertising[word] & bit);
+	}
+
+	if (ETHTOOL_LINK_MODE_Asym_Pause_BIT < nwords * 32) {
+		size_t word = ETHTOOL_LINK_MODE_Asym_Pause_BIT / 32;
+		__u32 bit = 1U << (ETHTOOL_LINK_MODE_Asym_Pause_BIT % 32);
+
+		if (filter_flags & DEV_OPT_ASYM_PAUSE)
+			advertising[word] = (advertising[word] & ~bit) |
+				(s->asym_pause ? supported[word] & bit : 0);
+		else if (s->link_advertising_nwords == nwords)
+			advertising[word] = (advertising[word] & ~bit) |
+				(s->link_advertising[word] & bit);
+	}
 
 	if (s->flags & DEV_OPT_AUTONEG) {
 		ecmd.req.autoneg = s->autoneg ? AUTONEG_ENABLE : AUTONEG_DISABLE;
@@ -2646,6 +2670,54 @@ system_set_ethtool_settings_after_up(struct device *dev, struct device_settings 
 		system_set_ethtool_gro(dev, s);
 }
 
+static void
+system_get_ethtool_settings(struct device *dev, struct device_settings *s)
+{
+	struct {
+		struct ethtool_link_settings req;
+		__u32 link_mode_data[3 * 127];
+	} ecmd;
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&ecmd,
+	};
+	__s8 nwords;
+
+	memset(&ecmd, 0, sizeof(ecmd));
+	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
+	    ecmd.req.link_mode_masks_nwords >= 0 ||
+	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		return;
+
+	ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0 ||
+	    ecmd.req.link_mode_masks_nwords <= 0 ||
+	    ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+		return;
+
+	nwords = ecmd.req.link_mode_masks_nwords;
+	memcpy(s->link_advertising, &ecmd.link_mode_data[nwords],
+	       sizeof(__u32) * nwords);
+	s->link_advertising_nwords = nwords;
+
+	if (ecmd.req.autoneg == AUTONEG_ENABLE ||
+	    ecmd.req.autoneg == AUTONEG_DISABLE) {
+		s->autoneg = ecmd.req.autoneg == AUTONEG_ENABLE;
+		s->flags |= DEV_OPT_AUTONEG;
+	}
+	if (ethtool_validate_speed(ecmd.req.speed) &&
+	    ecmd.req.speed != (__u32)SPEED_UNKNOWN && ecmd.req.speed) {
+		s->speed = ecmd.req.speed;
+		s->flags |= DEV_OPT_SPEED;
+	}
+	if (ecmd.req.duplex == DUPLEX_FULL || ecmd.req.duplex == DUPLEX_HALF) {
+		s->duplex = ecmd.req.duplex == DUPLEX_FULL;
+		s->flags |= DEV_OPT_DUPLEX;
+	}
+}
+
 void
 system_if_get_settings(struct device *dev, struct device_settings *s)
 {
@@ -2655,6 +2727,7 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+	system_get_ethtool_settings(dev, s);
 
 	if (ioctl(sock_ioctl, SIOCGIFMTU, &ifr) == 0) {
 		s->mtu = ifr.ifr_mtu;
