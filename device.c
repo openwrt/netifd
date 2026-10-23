@@ -1284,20 +1284,50 @@ device_apply_live_settings(struct device *dev, uint64_t apply_mask)
 	struct device_settings *os = &dev->orig_settings;
 	uint64_t added   = apply_mask &  s->flags;
 	uint64_t removed = apply_mask & ~s->flags;
+	const uint64_t link_mask = DEV_OPT_SPEED | DEV_OPT_DUPLEX |
+		DEV_OPT_PAUSE | DEV_OPT_ASYM_PAUSE | DEV_OPT_RXPAUSE |
+		DEV_OPT_TXPAUSE | DEV_OPT_AUTONEG;
+	uint64_t link_changed = apply_mask & link_mask;
 
-	if (added)
-		system_if_apply_settings(dev, s, added);
+	if (added & ~link_mask)
+		system_if_apply_settings(dev, s, added & ~link_mask);
 
 	/*
 	 * For attrs dropped from UCI, restore the value captured at bringup.
 	 * orig_settings.flags still holds these bits because the previous
 	 * settings.flags did, and set_device_state() intersects the two.
 	 */
-	if (removed) {
-		uint64_t restore = removed & os->valid_flags & os->flags;
+	if (removed & ~link_mask) {
+		uint64_t restore = (removed & ~link_mask) & os->valid_flags & os->flags;
 
 		if (restore)
 			system_if_apply_settings(dev, os, restore);
+	}
+
+	if (link_changed) {
+		uint64_t restore = (removed & link_mask) & os->valid_flags & os->flags;
+		struct device_settings merged;
+
+		if ((s->flags & link_mask) || restore ||
+		    ((removed & link_mask) && os->link_advertising_nwords)) {
+			device_merge_settings(dev, &merged);
+			merged.flags = (s->flags & link_mask) | restore |
+				(os->valid_flags & DEV_OPT_AUTONEG);
+			if ((merged.flags & DEV_OPT_AUTONEG) && !merged.autoneg)
+				merged.flags |= os->valid_flags &
+					(DEV_OPT_SPEED | DEV_OPT_DUPLEX);
+			merged.link_filter_flags = s->flags & link_mask;
+			merged.use_link_filter_flags = true;
+			merged.restore_link_advertising = (removed & link_mask) &&
+				!(s->flags & DEV_OPT_SPEED) &&
+				!(s->flags & DEV_OPT_AUTONEG && s->autoneg &&
+				  !os->autoneg);
+			merged.link_advertising_nwords = os->link_advertising_nwords;
+			memcpy(merged.link_advertising, os->link_advertising,
+			       sizeof(merged.link_advertising));
+			system_if_apply_settings(dev, &merged,
+					 merged.flags & link_mask);
+		}
 	}
 
 	/*
