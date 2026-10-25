@@ -114,6 +114,7 @@ enum bridge_opt {
 	BRIDGE_OPT_QUERY_INTERVAL	    = (1 << 2),
 	BRIDGE_OPT_QUERY_RESPONSE_INTERVAL  = (1 << 3),
 	BRIDGE_OPT_LAST_MEMBER_INTERVAL	    = (1 << 4),
+	BRIDGE_OPT_PRIORITY		    = (1 << 5),
 };
 
 struct bridge_config {

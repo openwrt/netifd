@@ -752,6 +752,8 @@ static void bridge_stp_notify(struct bridge_state *bst)
 	blobmsg_add_u32(&b, "max_age", cfg->max_age);
 	if (cfg->flags & BRIDGE_OPT_AGEING_TIME)
 		blobmsg_add_u32(&b, "ageing_time", cfg->ageing_time);
+	if (cfg->flags & BRIDGE_OPT_PRIORITY)
+		blobmsg_add_u32(&b, "priority", cfg->priority);
 	netifd_ubus_device_notify("stp_init", b.head, 1000);
 }
 
@@ -2080,8 +2082,10 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	if ((cur = tb[BRIDGE_ATTR_FORWARD_DELAY]))
 		cfg->forward_delay = blobmsg_get_u32(cur);
 
-	if ((cur = tb[BRIDGE_ATTR_PRIORITY]))
+	if ((cur = tb[BRIDGE_ATTR_PRIORITY])) {
 		cfg->priority = blobmsg_get_u32(cur);
+		cfg->flags |= BRIDGE_OPT_PRIORITY;
+	}
 
 	if ((cur = tb[BRIDGE_ATTR_IGMP_SNOOP]))
 		cfg->multicast_querier = cfg->igmp_snoop = blobmsg_get_bool(cur);
