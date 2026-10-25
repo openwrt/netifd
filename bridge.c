@@ -783,6 +783,7 @@ static void bridge_stp_notify(struct bridge_state *bst)
 	blobmsg_add_u32(&b, "max_age", cfg->max_age);
 	if (cfg->flags & BRIDGE_OPT_AGEING_TIME)
 		blobmsg_add_u32(&b, "ageing_time", cfg->ageing_time);
+	blobmsg_add_u32(&b, "priority", cfg->priority);
 	netifd_ubus_device_notify("stp_init", b.head, 1000);
 }
 
