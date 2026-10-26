@@ -91,6 +91,8 @@ macvlan_set_up(struct macvlan_device *mvdev)
 	if (ret < 0)
 		return ret;
 
+	system_macvlan_del(&mvdev->dev);
+
 	ret = system_macvlan_add(&mvdev->dev, mvdev->parent.dev, &mvdev->config);
 	if (ret < 0)
 		goto release;
