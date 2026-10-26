@@ -38,6 +38,7 @@ const char *resolv_conf = DEFAULT_RESOLV_CONF;
 static char **global_argv;
 
 static struct list_head process_list = LIST_HEAD_INIT(process_list);
+static bool exiting;
 static struct udebug ud;
 static struct udebug_buf udb_log;
 struct udebug_buf udb_nl;
@@ -90,6 +91,7 @@ netifd_delete_process(struct netifd_process *proc)
 	list_del(&proc->list);
 	ustream_free(&proc->log.stream);
 	close(proc->log.fd.fd);
+	netifd_exit_check();
 }
 
 static void __attribute__((format (printf, 1, 0)))
@@ -215,6 +217,9 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 	int pid;
 
 	netifd_kill_process(proc);
+
+	if (exiting)
+		return -1;
 
 	if (pipe(pfds) < 0)
 		return -1;
@@ -352,14 +357,48 @@ netifd_setup_signals(void)
 	sigaction(SIGPIPE, &s, NULL);
 }
 
+static bool
+netifd_exit_busy(void)
+{
+	return !list_empty(&process_list) || interface_event_running();
+}
+
+void
+netifd_exit_check(void)
+{
+	if (exiting && !netifd_exit_busy())
+		uloop_end();
+}
+
+static void
+netifd_exit_process_cb(struct uloop_process *proc, int ret)
+{
+	struct netifd_process *np;
+
+	np = container_of(proc, struct netifd_process, uloop);
+	netifd_delete_process(np);
+}
+
 static void
 netifd_kill_processes(void)
 {
-	struct netifd_process *proc, *tmp;
+	struct netifd_process *proc;
 
-	/* SIGTERM lets a DHCP client release its lease */
-	list_for_each_entry_safe(proc, tmp, &process_list, list)
-		__netifd_kill_process(proc, SIGTERM);
+	/*
+	 * SIGTERM lets a DHCP client release its lease and pppd end its
+	 * session. Wait for them and for a running hotplug call, since
+	 * procd kills what is left in the cgroup of netifd as soon as
+	 * netifd exits, and bounds this wait with its term_timeout.
+	 */
+	interface_event_stop();
+	list_for_each_entry(proc, &process_list, list) {
+		proc->uloop.cb = netifd_exit_process_cb;
+		kill(proc->uloop.pid, SIGTERM);
+	}
+
+	exiting = true;
+	if (netifd_exit_busy())
+		uloop_run();
 }
 
 int main(int argc, char **argv)
