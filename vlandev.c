@@ -180,6 +180,8 @@ vlandev_set_up(struct vlandev_device *mvdev)
 	if (ret < 0)
 		return ret;
 
+	system_vlandev_del(&mvdev->dev);
+
 	ret = system_vlandev_add(&mvdev->dev, mvdev->parent.dev, &mvdev->config);
 	if (ret < 0)
 		goto release;
