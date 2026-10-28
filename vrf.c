@@ -149,6 +149,8 @@ vrf_enable_interface(struct vrf_state *vst)
 	if (vst->active)
 		return 0;
 
+	system_vrf_delvrf(&vst->dev);
+
 	ret = system_vrf_addvrf(&vst->dev, vst->table);
 	if (ret < 0)
 		return ret;
