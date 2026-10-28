@@ -1739,17 +1739,23 @@ bridge_hotplug_del(struct device *dev, struct device *member, struct blob_attr *
 {
 	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
 	struct bridge_member *bm;
+	bool was_local;
 
 	bm = vlist_find(&bst->members, member->ifname, bm, node);
 	if (!bm)
 		return UBUS_STATUS_NOT_FOUND;
 
+	was_local = bm->hp_local;
 	bm->hp_owned = false;
 	bm->hp_local = false;
-	if (bm->cfg_owned)
-		bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, NULL);
-	else
+	if (!bm->cfg_owned) {
 		vlist_delete(&bst->members, &bm->node);
+		return 0;
+	}
+
+	bridge_member_vlans_set(bm, BRIDGE_VLAN_SRC_HOTPLUG, NULL);
+	if (was_local)
+		bridge_member_vlan_sync(bm);
 
 	return 0;
 }
