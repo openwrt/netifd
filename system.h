@@ -114,6 +114,8 @@ enum bridge_opt {
 	BRIDGE_OPT_QUERY_INTERVAL	    = (1 << 2),
 	BRIDGE_OPT_QUERY_RESPONSE_INTERVAL  = (1 << 3),
 	BRIDGE_OPT_LAST_MEMBER_INTERVAL	    = (1 << 4),
+	BRIDGE_OPT_IGMP_VERSION		    = (1 << 5),
+	BRIDGE_OPT_MLD_VERSION		    = (1 << 6),
 };
 
 struct bridge_config {
@@ -124,10 +126,13 @@ struct bridge_config {
 
 	bool igmp_snoop;
 	bool multicast_querier;
+	bool multicast_vlan_snooping;
 	int robustness;
 	int query_interval;
 	int query_response_interval;
 	int last_member_interval;
+	int igmp_version;
+	int mld_version;
 
 	unsigned short priority;
 	int forward_delay;
@@ -244,13 +249,15 @@ int system_init(void);
 
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg);
 int system_bridge_delbr(struct device *bridge);
-int system_bridge_set_vlan_filtering(struct device *bridge, bool val);
+int system_bridge_set_vlan_filtering(struct device *bridge, const struct bridge_config *cfg);
 int system_bridge_addif(struct device *bridge, struct device *dev);
 int system_bridge_delif(struct device *bridge, struct device *dev);
 int system_bridge_vlan(const char *iface, uint16_t vid, int16_t vid_end, bool add, unsigned int vflags);
 int system_bridge_vlan_check(struct device *dev, const char *ifname,
 			     const struct bridge_port_vlan *vlans, int n_vlans,
 			     const struct device_vlan_range *ranges, int n_ranges);
+int system_bridge_vlan_mcast(const char *iface, uint16_t vid, const struct bridge_config *cfg,
+			     int8_t snooping, int8_t querier);
 void system_bridge_set_stp_state(struct device *dev, bool val);
 
 int system_vrf_addvrf(struct device *vrf, unsigned int table);
