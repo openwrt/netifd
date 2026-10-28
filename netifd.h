@@ -110,6 +110,7 @@ void netifd_log_message(int priority, const char *format, ...)
 void netifd_add_process(struct netifd_process *proc, int fd, int pid);
 int netifd_start_process(const char **argv, char **env, struct netifd_process *proc);
 void netifd_kill_process(struct netifd_process *proc);
+bool netifd_exiting(void);
 void netifd_exit_check(void);
 
 struct device;

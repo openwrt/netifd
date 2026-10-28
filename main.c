@@ -218,10 +218,10 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 	int pfds[2];
 	int pid;
 
-	netifd_kill_process(proc);
-
 	if (exiting)
 		return -1;
+
+	netifd_kill_process(proc);
 
 	if (pipe(pfds) < 0)
 		return -1;
@@ -365,6 +365,12 @@ static bool
 netifd_exit_busy(void)
 {
 	return !list_empty(&process_list) || interface_event_running();
+}
+
+bool
+netifd_exiting(void)
+{
+	return exiting;
 }
 
 void

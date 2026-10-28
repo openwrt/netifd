@@ -429,7 +429,7 @@ uc_netifd_process(uc_vm_t *vm, size_t nargs)
 	const char *prefix_str;
 	int pid, fd;
 
-	if (ucv_type(args) != UC_OBJECT)
+	if (ucv_type(args) != UC_OBJECT || netifd_exiting())
 		return NULL;
 
 	arg = ucv_object_get(args, "argv", NULL);
