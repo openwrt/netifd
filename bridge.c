@@ -2111,7 +2111,7 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	cfg->last_member_interval = 100;
 	cfg->hash_max = 512;
 	cfg->bridge_empty = false;
-	cfg->priority = 0x7FFF;
+	cfg->priority = 0x7000;
 	cfg->vlan_filtering = bridge_vlans_present(tb);
 
 	cfg->forward_delay = 8;
