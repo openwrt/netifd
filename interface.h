@@ -209,6 +209,7 @@ void interface_remove_user(struct interface_user *dep);
 
 int interface_handle_link(struct interface *iface, const char *name, struct blob_attr *vlan, bool add, bool link_ext);
 void interface_relink_hotplug(void);
+void interface_link_master_release(struct device *dev, void *ctx);
 void interface_event_stop(void);
 bool interface_event_running(void);
 

@@ -1341,6 +1341,28 @@ interface_hotplug_link_op(struct device *dev, struct blob_attr *link, bool add)
 	}
 }
 
+/*
+ * Called before the master in ctx is freed, since a later release finds
+ * no master. The stored link stays, so that a relink can apply it to a
+ * new master.
+ */
+void
+interface_link_master_release(struct device *dev, void *ctx)
+{
+	struct blob_attr *tb[__LINK_ATTR_MAX];
+	struct device *mdev = ctx;
+
+	if (!dev->hotplug_link || !dev->sys_present || !mdev->hotplug_ops)
+		return;
+
+	blobmsg_parse_attr(link_policy, __LINK_ATTR_MAX, tb, dev->hotplug_link);
+	if (!tb[LINK_ATTR_DEVICE] ||
+	    strcmp(blobmsg_get_string(tb[LINK_ATTR_DEVICE]), mdev->ifname) != 0)
+		return;
+
+	mdev->hotplug_ops->del(mdev, dev, tb[LINK_ATTR_VLAN]);
+}
+
 static bool
 interface_link_same_target(struct blob_attr *link1, struct blob_attr *link2)
 {

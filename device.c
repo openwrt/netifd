@@ -24,6 +24,7 @@
 #include "netifd.h"
 #include "system.h"
 #include "config.h"
+#include "interface.h"
 #include "ucode.h"
 #include "ubus.h"
 
@@ -1263,6 +1264,7 @@ void device_add_user(struct device_user *dep, struct device *dev)
 static void
 device_free(struct device *dev)
 {
+	device_for_each(NULL, interface_link_master_release, dev);
 	free(dev->auth_vlans);
 	free(dev->config);
 	free(dev->hotplug_link);
