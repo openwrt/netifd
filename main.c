@@ -20,7 +20,9 @@
 #include <syslog.h>
 #include <errno.h>
 #include <unistd.h>
+#ifdef linux
 #include <sys/prctl.h>
+#endif
 
 #include "netifd.h"
 #include "ubus.h"
@@ -230,7 +232,9 @@ netifd_start_process(const char **argv, char **env, struct netifd_process *proc)
 		 * helpers again, so a helper of the dead one must end with it.
 		 */
 		signal(SIGTERM, SIG_DFL);
+#ifdef linux
 		prctl(PR_SET_PDEATHSIG, SIGTERM);
+#endif
 		if (getppid() != parent)
 			_exit(127);
 
