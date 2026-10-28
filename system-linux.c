@@ -876,6 +876,11 @@ static int cb_rtnl_event(struct nl_msg *msg, void *arg)
 	    system_if_check(dev) > 0)
 		system_device_update_state(dev, flags);
 
+	/* a link of the same name can exist again before netifd reads the event */
+	if (nh->nlmsg_type == RTM_DELLINK &&
+	    (ifi->ifi_index == dev->ifindex || !system_if_resolve(dev)))
+		device_link_deleted(dev);
+
 	return 0;
 }
 
@@ -3477,6 +3482,8 @@ int system_if_check(struct device *dev)
 		if (dev->type == &simple_device_type)
 			device_set_present(dev, false);
 		device_set_link(dev, false);
+		if (!system_if_resolve(dev))
+			device_link_deleted(dev);
 	}
 
 free:

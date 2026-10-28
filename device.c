@@ -932,6 +932,28 @@ int device_check_state(struct device *dev)
 	return dev->type->check_state(dev);
 }
 
+int device_restart(struct device *dev)
+{
+	int ret = 0;
+
+	device_set_present(dev, false);
+	if (dev->active) {
+		ret = dev->set_state(dev, false);
+		if (!ret)
+			ret = dev->set_state(dev, true);
+	}
+	if (!ret)
+		device_set_present(dev, true);
+
+	return ret;
+}
+
+void device_link_deleted(struct device *dev)
+{
+	if (dev->type->link_deleted)
+		dev->type->link_deleted(dev);
+}
+
 int device_init_virtual(struct device *dev, struct device_type *type, const char *name)
 {
 	assert(dev);
@@ -1488,18 +1510,8 @@ device_apply_config(struct device *dev, struct device_type *type,
 			config = blob_memdup(config);
 			free(dev->config);
 			dev->config = config;
-			if (change == DEV_CONFIG_RESTART && dev->present) {
-				int ret = 0;
-
-				device_set_present(dev, false);
-				if (dev->active) {
-					ret = dev->set_state(dev, false);
-					if (!ret)
-						ret = dev->set_state(dev, true);
-				}
-				if (!ret)
-					device_set_present(dev, true);
-			}
+			if (change == DEV_CONFIG_RESTART && dev->present)
+				device_restart(dev);
 			break;
 		case DEV_CONFIG_NO_CHANGE:
 			D(DEVICE, "Device '%s': no configuration change", dev->ifname);

@@ -125,6 +125,7 @@ static struct device *bridge_create(const char *name, struct device_type *devtyp
 static void bridge_config_init(struct device *dev);
 static void bridge_free(struct device *dev);
 static void bridge_stp_init(struct device *dev);
+static void bridge_link_deleted(struct device *dev);
 static void bridge_dump_info(struct device *dev, struct blob_buf *b);
 static enum dev_change_type
 bridge_reload(struct device *dev, struct blob_attr *attr,
@@ -144,6 +145,7 @@ static struct device_type bridge_device_type = {
 	.free = bridge_free,
 	.dump_info = bridge_dump_info,
 	.stp_init = bridge_stp_init,
+	.link_deleted = bridge_link_deleted,
 };
 
 struct bridge_state {
@@ -850,6 +852,20 @@ bridge_stp_init(struct device *dev)
 }
 
 static void
+bridge_link_deleted(struct device *dev)
+{
+	struct bridge_state *bst = container_of(dev, struct bridge_state, dev);
+
+	if (!bst->active)
+		return;
+
+	D(DEVICE, "Bridge '%s' was deleted by another process, restarting it", dev->ifname);
+	/* bridge_set_down() must not delete a new bridge of this name; bridge_set_up() takes it over */
+	bst->active = false;
+	device_restart(dev);
+}
+
+static void
 bridge_disable_interface(struct bridge_state *bst)
 {
 	if (!bst->active)
@@ -1441,6 +1457,17 @@ bridge_set_down(struct bridge_state *bst)
 	return 0;
 }
 
+static bool
+bridge_member_restore(struct bridge_member *bm)
+{
+	if (bm->present || !bm->dev.dev->present)
+		return false;
+
+	bm->present = true;
+	bm->bst->n_present++;
+	return true;
+}
+
 static int
 bridge_set_up(struct bridge_state *bst)
 {
@@ -1449,6 +1476,9 @@ bridge_set_up(struct bridge_state *bst)
 
 	bst->vlan_filtering = bst->config.vlan_filtering;
 	bst->has_vlans = bst->vlan_filtering && bst->vlans_configured;
+	vlist_for_each_element(&bst->members, bm, node)
+		bridge_member_restore(bm);
+
 	if (!bst->n_present) {
 		if (!bst->force_active)
 			return -ENOENT;
@@ -2274,17 +2304,9 @@ bridge_retry_members(struct uloop_timeout *timeout)
 	struct bridge_member *bm;
 
 	bst->n_failed = 0;
-	vlist_for_each_element(&bst->members, bm, node) {
-		if (bm->present)
-			continue;
-
-		if (!bm->dev.dev->present)
-			continue;
-
-		bm->present = true;
-		bst->n_present++;
-		bridge_enable_member(bm);
-	}
+	vlist_for_each_element(&bst->members, bm, node)
+		if (bridge_member_restore(bm))
+			bridge_enable_member(bm);
 }
 
 static void

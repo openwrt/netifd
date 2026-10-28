@@ -128,6 +128,7 @@ struct device_type {
 	void (*dump_stats)(struct device *, struct blob_buf *buf);
 	int (*check_state)(struct device *);
 	void (*stp_init)(struct device *);
+	void (*link_deleted)(struct device *);
 	void (*free)(struct device *);
 };
 
@@ -531,6 +532,8 @@ void device_refresh_present(struct device *dev);
 int device_claim(struct device_user *dep);
 void device_release(struct device_user *dep);
 int device_check_state(struct device *dev);
+int device_restart(struct device *dev);
+void device_link_deleted(struct device *dev);
 void device_dump_status(struct blob_buf *b, struct device *dev);
 
 void device_free_unused(void);
