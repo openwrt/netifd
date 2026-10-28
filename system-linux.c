@@ -2833,7 +2833,9 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	}
 
 	ecmd.req.cmd = ETHTOOL_SLINKSETTINGS;
-	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0)
+		netifd_log_message(L_WARNING, "%s: setting link modes failed: %s",
+				   dev->ifname, strerror(errno));
 }
 
 static void
