@@ -1150,6 +1150,131 @@ failure:
 	return ret;
 }
 
+/* The bridge and each VLAN context take the same multicast settings, under
+ * different netlink attributes. */
+struct bridge_mcast_attrs {
+	int startup_query_cnt;
+	int last_member_cnt;
+	int query_intvl;
+	int query_response_intvl;
+	int last_member_intvl;
+	int membership_intvl;
+	int querier_intvl;
+	int startup_query_intvl;
+	int igmp_version;
+	int mld_version;
+};
+
+static const struct bridge_mcast_attrs bridge_mcast_link_attrs = {
+	.startup_query_cnt = IFLA_BR_MCAST_STARTUP_QUERY_CNT,
+	.last_member_cnt = IFLA_BR_MCAST_LAST_MEMBER_CNT,
+	.query_intvl = IFLA_BR_MCAST_QUERY_INTVL,
+	.query_response_intvl = IFLA_BR_MCAST_QUERY_RESPONSE_INTVL,
+	.last_member_intvl = IFLA_BR_MCAST_LAST_MEMBER_INTVL,
+	.membership_intvl = IFLA_BR_MCAST_MEMBERSHIP_INTVL,
+	.querier_intvl = IFLA_BR_MCAST_QUERIER_INTVL,
+	.startup_query_intvl = IFLA_BR_MCAST_STARTUP_QUERY_INTVL,
+	.igmp_version = IFLA_BR_MCAST_IGMP_VERSION,
+	.mld_version = IFLA_BR_MCAST_MLD_VERSION,
+};
+
+static const struct bridge_mcast_attrs bridge_mcast_vlan_attrs = {
+	.startup_query_cnt = BRIDGE_VLANDB_GOPTS_MCAST_STARTUP_QUERY_CNT,
+	.last_member_cnt = BRIDGE_VLANDB_GOPTS_MCAST_LAST_MEMBER_CNT,
+	.query_intvl = BRIDGE_VLANDB_GOPTS_MCAST_QUERY_INTVL,
+	.query_response_intvl = BRIDGE_VLANDB_GOPTS_MCAST_QUERY_RESPONSE_INTVL,
+	.last_member_intvl = BRIDGE_VLANDB_GOPTS_MCAST_LAST_MEMBER_INTVL,
+	.membership_intvl = BRIDGE_VLANDB_GOPTS_MCAST_MEMBERSHIP_INTVL,
+	.querier_intvl = BRIDGE_VLANDB_GOPTS_MCAST_QUERIER_INTVL,
+	.startup_query_intvl = BRIDGE_VLANDB_GOPTS_MCAST_STARTUP_QUERY_INTVL,
+	.igmp_version = BRIDGE_VLANDB_GOPTS_MCAST_IGMP_VERSION,
+	.mld_version = BRIDGE_VLANDB_GOPTS_MCAST_MLD_VERSION,
+};
+
+static void system_bridge_mcast_put(struct nl_msg *msg, const struct bridge_config *cfg,
+				    const struct bridge_mcast_attrs *attrs)
+{
+	uint64_t val;
+
+	if (cfg->flags & BRIDGE_OPT_ROBUSTNESS) {
+		nla_put_u32(msg, attrs->startup_query_cnt, cfg->robustness);
+		nla_put_u32(msg, attrs->last_member_cnt, cfg->robustness);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_QUERY_INTERVAL)
+		nla_put_u64(msg, attrs->query_intvl, cfg->query_interval);
+
+	if (cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL)
+		nla_put_u64(msg, attrs->query_response_intvl, cfg->query_response_interval);
+
+	if (cfg->flags & BRIDGE_OPT_LAST_MEMBER_INTERVAL)
+		nla_put_u64(msg, attrs->last_member_intvl, cfg->last_member_interval);
+
+	if (cfg->flags & BRIDGE_OPT_ROBUSTNESS ||
+	    cfg->flags & BRIDGE_OPT_QUERY_INTERVAL ||
+	    cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL) {
+		val = cfg->robustness * cfg->query_interval +
+			cfg->query_response_interval;
+
+		nla_put_u64(msg, attrs->membership_intvl, val);
+
+		val -= cfg->query_response_interval / 2;
+
+		nla_put_u64(msg, attrs->querier_intvl, val);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_QUERY_INTERVAL) {
+		val = cfg->query_interval / 4;
+
+		nla_put_u64(msg, attrs->startup_query_intvl, val);
+	}
+
+	if (cfg->flags & BRIDGE_OPT_SNOOP_IGMP_VERSION)
+		nla_put_u8(msg, attrs->igmp_version, cfg->snoop_igmp_version);
+
+	if (cfg->flags & BRIDGE_OPT_SNOOP_MLD_VERSION)
+		nla_put_u8(msg, attrs->mld_version, cfg->snoop_mld_version);
+}
+
+int system_bridge_vlan_mcast(const char *iface, uint16_t vid, const struct bridge_config *cfg,
+			     bool snooping, bool querier)
+{
+	struct br_vlan_msg bvm = { .family = AF_BRIDGE, };
+	struct nlattr *opts;
+	struct nl_msg *nlm;
+	int ret;
+
+	bvm.ifindex = if_nametoindex(iface);
+	if (!bvm.ifindex)
+		return -1;
+
+	nlm = nlmsg_alloc_simple(RTM_NEWVLAN, NLM_F_REQUEST);
+	if (!nlm)
+		return -1;
+
+	nlmsg_append(nlm, &bvm, sizeof(bvm), 0);
+
+	opts = nla_nest_start(nlm, BRIDGE_VLANDB_GLOBAL_OPTIONS);
+	if (!opts) {
+		nlmsg_free(nlm);
+		return -ENOMEM;
+	}
+
+	nla_put_u16(nlm, BRIDGE_VLANDB_GOPTS_ID, vid);
+	nla_put_u8(nlm, BRIDGE_VLANDB_GOPTS_MCAST_SNOOPING, snooping);
+	nla_put_u8(nlm, BRIDGE_VLANDB_GOPTS_MCAST_QUERIER, querier);
+	system_bridge_mcast_put(nlm, cfg, &bridge_mcast_vlan_attrs);
+
+	nla_nest_end(nlm, opts);
+
+	ret = system_rtnl_call(nlm);
+	if (ret)
+		D(SYSTEM, "Error setting multicast options of VLAN %d on '%s': %d",
+		  vid, iface, ret);
+
+	return ret;
+}
+
 int system_vrf_addvrf(struct device *vrf, unsigned int table)
 {
 	struct nlattr *linkinfo, *data;
@@ -1636,11 +1761,24 @@ sec_to_jiffies(int val)
 	return (unsigned long) val * 100;
 }
 
+static void system_bridge_vlan_snooping_put(struct nl_msg *msg, const struct bridge_config *cfg)
+{
+	struct br_boolopt_multi bm = {
+		.optmask = 1 << BR_BOOLOPT_MCAST_VLAN_SNOOPING,
+		.optval = 1 << BR_BOOLOPT_MCAST_VLAN_SNOOPING,
+	};
+
+	/* the kernel refuses per-VLAN snooping without VLAN filtering */
+	if (!cfg->vlan_filtering || !cfg->multicast_vlan_snooping)
+		return;
+
+	nla_put(msg, IFLA_BR_MULTI_BOOLOPT, sizeof(bm), &bm);
+}
+
 int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 {
 	struct nlattr *linkinfo, *data;
 	struct nl_msg *msg;
-	uint64_t val;
 	int rv;
 
 	msg = system_ifinfo_msg(bridge->ifname, RTM_NEWLINK, NLM_F_CREATE | NLM_F_EXCL);
@@ -1664,40 +1802,10 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	if (bridge->settings.flags & DEV_OPT_MULTICAST_ROUTER)
 		nla_put_u8(msg, IFLA_BR_MCAST_ROUTER, !!bridge->settings.multicast_router);
 
-	if (cfg->flags & BRIDGE_OPT_ROBUSTNESS) {
-		nla_put_u32(msg, IFLA_BR_MCAST_STARTUP_QUERY_CNT, cfg->robustness);
-		nla_put_u32(msg, IFLA_BR_MCAST_LAST_MEMBER_CNT, cfg->robustness);
-	}
-
-	if (cfg->flags & BRIDGE_OPT_QUERY_INTERVAL)
-		nla_put_u64(msg, IFLA_BR_MCAST_QUERY_INTVL, cfg->query_interval);
-
-	if (cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL)
-		nla_put_u64(msg, IFLA_BR_MCAST_QUERY_RESPONSE_INTVL, cfg->query_response_interval);
-
-	if (cfg->flags & BRIDGE_OPT_LAST_MEMBER_INTERVAL)
-		nla_put_u64(msg, IFLA_BR_MCAST_LAST_MEMBER_INTVL, cfg->last_member_interval);
-
-	if (cfg->flags & BRIDGE_OPT_ROBUSTNESS ||
-	    cfg->flags & BRIDGE_OPT_QUERY_INTERVAL ||
-	    cfg->flags & BRIDGE_OPT_QUERY_RESPONSE_INTERVAL) {
-		val = cfg->robustness * cfg->query_interval +
-			cfg->query_response_interval;
-
-		nla_put_u64(msg, IFLA_BR_MCAST_MEMBERSHIP_INTVL, val);
-
-		val -= cfg->query_response_interval / 2;
-
-		nla_put_u64(msg, IFLA_BR_MCAST_QUERIER_INTVL, val);
-	}
-
-	if (cfg->flags & BRIDGE_OPT_QUERY_INTERVAL) {
-		val = cfg->query_interval / 4;
-
-		nla_put_u64(msg, IFLA_BR_MCAST_STARTUP_QUERY_INTVL, val);
-	}
+	system_bridge_mcast_put(msg, cfg, &bridge_mcast_link_attrs);
 
 	nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, !!cfg->vlan_filtering);
+	system_bridge_vlan_snooping_put(msg, cfg);
 	nla_put_u16(msg, IFLA_BR_PRIORITY, cfg->priority);
 	nla_put_u32(msg, IFLA_BR_HELLO_TIME, sec_to_jiffies(cfg->hello_time));
 	nla_put_u32(msg, IFLA_BR_MAX_AGE, sec_to_jiffies(cfg->max_age));
@@ -1719,7 +1827,7 @@ nla_put_failure:
 	return -ENOMEM;
 }
 
-int system_bridge_set_vlan_filtering(struct device *bridge, bool val)
+int system_bridge_set_vlan_filtering(struct device *bridge, const struct bridge_config *cfg)
 {
 	struct nlattr *linkinfo, *data;
 	struct nl_msg *msg;
@@ -1737,7 +1845,8 @@ int system_bridge_set_vlan_filtering(struct device *bridge, bool val)
 	if (!(data = nla_nest_start(msg, IFLA_INFO_DATA)))
 		goto nla_put_failure;
 
-	nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, val);
+	nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, !!cfg->vlan_filtering);
+	system_bridge_vlan_snooping_put(msg, cfg);
 
 	nla_nest_end(msg, data);
 	nla_nest_end(msg, linkinfo);

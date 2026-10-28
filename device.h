@@ -395,6 +395,10 @@ struct bridge_vlan {
 	uint16_t vid;
 	bool local;
 	bool local_pvid;
+
+	/* -1: not configured */
+	int8_t mcast_snooping;
+	int8_t mcast_querier;
 };
 
 /* one vlan of one bridge port, arrays of these are sorted by vid */

@@ -43,6 +43,9 @@ enum {
 	BRIDGE_ATTR_VLANS,
 	BRIDGE_ATTR_STP_KERNEL,
 	BRIDGE_ATTR_STP_PROTO,
+	BRIDGE_ATTR_MULTICAST_VLAN_SNOOPING,
+	BRIDGE_ATTR_SNOOP_IGMP_VERSION,
+	BRIDGE_ATTR_SNOOP_MLD_VERSION,
 	__BRIDGE_ATTR_MAX
 };
 
@@ -66,6 +69,9 @@ static const struct blobmsg_policy bridge_attrs[__BRIDGE_ATTR_MAX] = {
 	[BRIDGE_ATTR_VLANS] = { "vlans", BLOBMSG_TYPE_TABLE },
 	[BRIDGE_ATTR_STP_KERNEL] = { "stp_kernel", BLOBMSG_TYPE_BOOL },
 	[BRIDGE_ATTR_STP_PROTO] = { "stp_proto", BLOBMSG_TYPE_STRING },
+	[BRIDGE_ATTR_MULTICAST_VLAN_SNOOPING] = { "multicast_vlan_snooping", BLOBMSG_TYPE_BOOL },
+	[BRIDGE_ATTR_SNOOP_IGMP_VERSION] = { "snoop_igmp_version", BLOBMSG_TYPE_INT32 },
+	[BRIDGE_ATTR_SNOOP_MLD_VERSION] = { "snoop_mld_version", BLOBMSG_TYPE_INT32 },
 };
 
 static const struct uci_blob_param_info bridge_attr_info[__BRIDGE_ATTR_MAX] = {
@@ -87,6 +93,8 @@ enum {
 	BRVLAN_ATTR_LOCAL_PVID,
 	BRVLAN_ATTR_PORTS,
 	BRVLAN_ATTR_ALIAS,
+	BRVLAN_ATTR_MCAST_SNOOPING,
+	BRVLAN_ATTR_MCAST_QUERIER,
 	__BRVLAN_ATTR_MAX,
 };
 
@@ -96,6 +104,8 @@ static const struct blobmsg_policy bridge_vlan_attrs[__BRVLAN_ATTR_MAX] = {
 	[BRVLAN_ATTR_LOCAL_PVID] = { "local_pvid", BLOBMSG_TYPE_BOOL },
 	[BRVLAN_ATTR_PORTS] = { "ports", BLOBMSG_TYPE_ARRAY },
 	[BRVLAN_ATTR_ALIAS] = { "alias", BLOBMSG_TYPE_ARRAY },
+	[BRVLAN_ATTR_MCAST_SNOOPING] = { "mcast_snooping", BLOBMSG_TYPE_BOOL },
+	[BRVLAN_ATTR_MCAST_QUERIER] = { "mcast_querier", BLOBMSG_TYPE_BOOL },
 };
 
 static const struct uci_blob_param_info bridge_vlan_attr_info[__BRVLAN_ATTR_MAX] = {
@@ -687,6 +697,24 @@ bridge_member_vlan_sync(struct bridge_member *bm)
 }
 
 static void
+bridge_set_local_vlan_mcast(struct bridge_state *bst, struct bridge_vlan *vlan)
+{
+	struct bridge_config *cfg = &bst->config;
+	bool snooping = true;
+	bool querier = cfg->multicast_querier;
+
+	if (!cfg->multicast_vlan_snooping)
+		return;
+
+	if (vlan->mcast_snooping >= 0)
+		snooping = vlan->mcast_snooping;
+	if (vlan->mcast_querier >= 0)
+		querier = vlan->mcast_querier;
+
+	system_bridge_vlan_mcast(bst->dev.ifname, vlan->vid, cfg, snooping, querier);
+}
+
+static void
 bridge_set_local_vlan(struct bridge_state *bst, struct bridge_vlan *vlan, bool add)
 {
 	unsigned int flags = BRVLAN_F_SELF;
@@ -699,6 +727,9 @@ bridge_set_local_vlan(struct bridge_state *bst, struct bridge_vlan *vlan, bool a
 		flags |= BRVLAN_F_PVID | BRVLAN_F_UNTAGGED;
 
 	system_bridge_vlan(bst->dev.ifname, vlan->vid, -1, add, flags);
+
+	if (add)
+		bridge_set_local_vlan_mcast(bst, vlan);
 }
 
 static void
@@ -1482,12 +1513,13 @@ bridge_disable_vlans(struct bridge_state *bst)
 }
 
 static int
-bridge_set_vlan_filtering(struct bridge_state *bst, bool val)
+bridge_set_vlan_filtering(struct bridge_state *bst)
 {
+	bool val = bst->config.vlan_filtering;
 	struct bridge_member *bm;
 	int ret;
 
-	ret = system_bridge_set_vlan_filtering(&bst->dev, val);
+	ret = system_bridge_set_vlan_filtering(&bst->dev, &bst->config);
 	if (ret)
 		return ret;
 
@@ -1756,6 +1788,10 @@ bridge_dump_vlan(struct blob_buf *b, struct bridge_state *bst,
 	blobmsg_add_u32(b, "id", vlan->vid);
 	blobmsg_add_u8(b, "local", vlan->local);
 	blobmsg_add_u8(b, "local_pvid", vlan->local_pvid);
+	if (vlan->mcast_snooping >= 0)
+		blobmsg_add_u8(b, "mcast_snooping", vlan->mcast_snooping);
+	if (vlan->mcast_querier >= 0)
+		blobmsg_add_u8(b, "mcast_querier", vlan->mcast_querier);
 
 	p = blobmsg_open_array(b, "ports");
 
@@ -1814,11 +1850,16 @@ bridge_dump_info(struct device *dev, struct blob_buf *b)
 	blobmsg_add_u8(b, "igmp_snooping", cfg->igmp_snoop);
 	blobmsg_add_u8(b, "bridge_empty", cfg->bridge_empty);
 	blobmsg_add_u8(b, "multicast_querier", cfg->multicast_querier);
+	blobmsg_add_u8(b, "multicast_vlan_snooping", cfg->multicast_vlan_snooping);
 	blobmsg_add_u32(b, "hash_max", cfg->hash_max);
 	blobmsg_add_u32(b, "robustness", cfg->robustness);
 	blobmsg_add_u32(b, "query_interval", cfg->query_interval);
 	blobmsg_add_u32(b, "query_response_interval", cfg->query_response_interval);
 	blobmsg_add_u32(b, "last_member_interval", cfg->last_member_interval);
+	if (cfg->flags & BRIDGE_OPT_SNOOP_IGMP_VERSION)
+		blobmsg_add_u32(b, "snoop_igmp_version", cfg->snoop_igmp_version);
+	if (cfg->flags & BRIDGE_OPT_SNOOP_MLD_VERSION)
+		blobmsg_add_u32(b, "snoop_mld_version", cfg->snoop_mld_version);
 	blobmsg_add_u8(b, "vlan_filtering", cfg->vlan_filtering);
 	blobmsg_add_u8(b, "stp_kernel", cfg->stp_kernel);
 	if (cfg->stp_proto)
@@ -1943,6 +1984,14 @@ bridge_vlan_add(struct device *dev, struct blob_attr *data)
 		vlan->local = blobmsg_get_bool(tb[BRVLAN_ATTR_LOCAL]);
 	if (tb[BRVLAN_ATTR_LOCAL_PVID])
 		vlan->local_pvid = blobmsg_get_bool(tb[BRVLAN_ATTR_LOCAL_PVID]);
+
+	vlan->mcast_snooping = -1;
+	if (tb[BRVLAN_ATTR_MCAST_SNOOPING])
+		vlan->mcast_snooping = blobmsg_get_bool(tb[BRVLAN_ATTR_MCAST_SNOOPING]);
+
+	vlan->mcast_querier = -1;
+	if (tb[BRVLAN_ATTR_MCAST_QUERIER])
+		vlan->mcast_querier = blobmsg_get_bool(tb[BRVLAN_ATTR_MCAST_QUERIER]);
 
 	vlan->n_ports = n_ports;
 	vlan->ports = port = (struct bridge_vlan_port *)&vlan[1];
@@ -2089,6 +2138,9 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	if ((cur = tb[BRIDGE_ATTR_MULTICAST_QUERIER]))
 		cfg->multicast_querier = blobmsg_get_bool(cur);
 
+	if ((cur = tb[BRIDGE_ATTR_MULTICAST_VLAN_SNOOPING]))
+		cfg->multicast_vlan_snooping = blobmsg_get_bool(cur);
+
 	if ((cur = tb[BRIDGE_ATTR_HASH_MAX]))
 		cfg->hash_max = blobmsg_get_u32(cur);
 
@@ -2110,6 +2162,22 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	if ((cur = tb[BRIDGE_ATTR_LAST_MEMBER_INTERVAL])) {
 		cfg->last_member_interval = blobmsg_get_u32(cur);
 		cfg->flags |= BRIDGE_OPT_LAST_MEMBER_INTERVAL;
+	}
+
+	if ((cur = tb[BRIDGE_ATTR_SNOOP_IGMP_VERSION])) {
+		cfg->snoop_igmp_version = blobmsg_get_u32(cur);
+		if (cfg->snoop_igmp_version == 2 || cfg->snoop_igmp_version == 3)
+			cfg->flags |= BRIDGE_OPT_SNOOP_IGMP_VERSION;
+		else
+			D(DEVICE, "Bridge snoop_igmp_version %d not supported", cfg->snoop_igmp_version);
+	}
+
+	if ((cur = tb[BRIDGE_ATTR_SNOOP_MLD_VERSION])) {
+		cfg->snoop_mld_version = blobmsg_get_u32(cur);
+		if (cfg->snoop_mld_version == 1 || cfg->snoop_mld_version == 2)
+			cfg->flags |= BRIDGE_OPT_SNOOP_MLD_VERSION;
+		else
+			D(DEVICE, "Bridge snoop_mld_version %d not supported", cfg->snoop_mld_version);
 	}
 
 	if ((cur = tb[BRIDGE_ATTR_AGEING_TIME])) {
@@ -2177,7 +2245,7 @@ bridge_reload(struct device *dev, struct blob_attr *attr,
 		} else if (bst->active &&
 			   bst->vlan_filtering != bst->config.vlan_filtering &&
 			   (bridge_has_auth_member(bst) ||
-			    bridge_set_vlan_filtering(bst, bst->config.vlan_filtering))) {
+			    bridge_set_vlan_filtering(bst))) {
 			ret = DEV_CONFIG_RESTART;
 			D(DEVICE, "Bridge %s vlan_filtering has changed", dev->ifname);
 		}
@@ -2231,7 +2299,9 @@ bridge_vlan_update(struct vlist_tree *tree, struct vlist_node *node_new,
 
 	/* the kernel updates the flags of a vlan that the bridge already has */
 	if (apply && vlan_new &&
-	    (!vlan_old || !vlan_old->local || vlan_old->local_pvid != vlan_new->local_pvid))
+	    (!vlan_old || !vlan_old->local || vlan_old->local_pvid != vlan_new->local_pvid ||
+	     vlan_old->mcast_snooping != vlan_new->mcast_snooping ||
+	     vlan_old->mcast_querier != vlan_new->mcast_querier))
 		bridge_set_local_vlan(bst, vlan_new, true);
 
 	bst->dev.config_pending = true;

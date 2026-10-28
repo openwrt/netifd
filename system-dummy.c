@@ -43,10 +43,10 @@ int system_bridge_delbr(struct device *bridge)
 	return 0;
 }
 
-int system_bridge_set_vlan_filtering(struct device *bridge, bool val)
+int system_bridge_set_vlan_filtering(struct device *bridge, const struct bridge_config *cfg)
 {
 	D(SYSTEM, "ip link set %s type bridge vlan_filtering %d",
-	  bridge->ifname, val);
+	  bridge->ifname, cfg->vlan_filtering);
 	return 0;
 }
 
@@ -80,6 +80,14 @@ int system_bridge_vlan_check(struct device *dev, const char *ifname,
 			     const struct bridge_port_vlan *vlans, int n_vlans,
 			     const struct device_vlan_range *ranges, int n_ranges)
 {
+	return 0;
+}
+
+int system_bridge_vlan_mcast(const char *iface, uint16_t vid, const struct bridge_config *cfg,
+			     bool snooping, bool querier)
+{
+	D(SYSTEM, "bridge vlan global set dev %s vid %d mcast_snooping %d mcast_querier %d",
+	  iface, vid, snooping, querier);
 	return 0;
 }
 
