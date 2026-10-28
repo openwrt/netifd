@@ -2130,8 +2130,14 @@ bridge_apply_settings(struct bridge_state *bst, struct blob_attr **tb)
 	if ((cur = tb[BRIDGE_ATTR_FORWARD_DELAY]))
 		cfg->forward_delay = blobmsg_get_u32(cur);
 
-	if ((cur = tb[BRIDGE_ATTR_PRIORITY]))
-		cfg->priority = blobmsg_get_u32(cur);
+	if ((cur = tb[BRIDGE_ATTR_PRIORITY])) {
+		uint32_t priority = blobmsg_get_u32(cur);
+
+		if (priority <= 0xffff)
+			cfg->priority = priority;
+		else
+			D(DEVICE, "Bridge priority %u not supported", priority);
+	}
 
 	if ((cur = tb[BRIDGE_ATTR_IGMP_SNOOP]))
 		cfg->multicast_querier = cfg->igmp_snoop = blobmsg_get_bool(cur);
