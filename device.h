@@ -292,6 +292,12 @@ struct device_settings {
 	bool rxpause;
 	bool txpause;
 	bool autoneg;
+	/* Original advertised modes are needed to undo a forced link setting. */
+	uint8_t link_advertising_nwords;
+	uint32_t link_advertising[127];
+	uint64_t link_filter_flags;
+	bool use_link_filter_flags;
+	bool restore_link_advertising;
 	bool gro;
 	int master_ifindex;
 	bool eee;
