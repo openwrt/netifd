@@ -1830,13 +1830,13 @@ static void system_bridge_vlan_snooping_put(struct nl_msg *msg, const struct bri
 	nla_put(msg, IFLA_BR_MULTI_BOOLOPT, sizeof(bm), &bm);
 }
 
-int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
+static int system_bridge_link_set(struct device *bridge, struct bridge_config *cfg,
+				  uint16_t flags)
 {
 	struct nlattr *linkinfo, *data;
 	struct nl_msg *msg;
-	int rv;
 
-	msg = system_ifinfo_msg(bridge->ifname, RTM_NEWLINK, NLM_F_CREATE | NLM_F_EXCL);
+	msg = system_ifinfo_msg(bridge->ifname, RTM_NEWLINK, flags);
 	if (!msg)
 		return -1;
 
@@ -1871,15 +1871,28 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 	nla_nest_end(msg, data);
 	nla_nest_end(msg, linkinfo);
 
-	rv = system_rtnl_call(msg);
-	if (rv)
-		D(SYSTEM, "Error adding bridge '%s': %d", bridge->ifname, rv);
-
-	return rv;
+	return system_rtnl_call(msg);
 
 nla_put_failure:
 	nlmsg_free(msg);
 	return -ENOMEM;
+}
+
+int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
+{
+	int rv;
+
+	rv = system_bridge_link_set(bridge, cfg, NLM_F_CREATE | NLM_F_EXCL);
+	/* another process (hostapd) can create the bridge while netifd has none */
+	if (rv == -NLE_EXIST) {
+		D(SYSTEM, "Bridge '%s' exists, applying its configuration", bridge->ifname);
+		rv = system_bridge_link_set(bridge, cfg, NLM_F_CREATE);
+	}
+
+	if (rv)
+		D(SYSTEM, "Error adding bridge '%s': %d", bridge->ifname, rv);
+
+	return rv;
 }
 
 int system_bridge_set_vlan_filtering(struct device *bridge, const struct bridge_config *cfg)
