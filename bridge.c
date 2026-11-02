@@ -1384,8 +1384,15 @@ bridge_member_cb(struct device_user *dep, enum device_event ev)
 		if (!bst->dev.active)
 			break;
 
-		if (bridge_enable_member(bm))
+		if (bridge_enable_member(bm)) {
+			/*
+			 * A member that netifd creates can fail to come up
+			 * while a device it depends on is set up again, e.g.
+			 * a vxlan whose lower device is being created anew
+			 */
+			bridge_check_retry(bst);
 			break;
+		}
 
 		/*
 		 * Adding a bridge member can overwrite the bridge mtu

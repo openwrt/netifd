@@ -1812,8 +1812,26 @@ void device_hotplug_event(const char *name, bool add)
 	netifd_ucode_hotplug_event(name, add);
 
 	dev = device_find(name);
-	if (!dev || dev->type != &simple_device_type)
+	if (!dev)
 		return;
 
-	device_set_present(dev, add);
+	if (dev->type == &simple_device_type) {
+		device_set_present(dev, add);
+		return;
+	}
+
+	/*
+	 * The kernel also deletes devices that netifd created: a vxlan, vlan
+	 * or macvlan device goes with its lower device, e.g. when netifd sets
+	 * up a bridge's vlan device again. netifd would keep such a device as
+	 * present and in use, and nothing would create it again. Cycle its
+	 * presence, so that its users release it and claim it again, which
+	 * creates it anew.
+	 */
+	if (!add && dev->present && dev->active && !system_if_resolve(dev)) {
+		D(DEVICE, "%s '%s' was deleted, setting it up again",
+		  dev->type->name, dev->ifname);
+		device_set_present(dev, false);
+		device_set_present(dev, true);
+	}
 }
