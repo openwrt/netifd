@@ -607,6 +607,66 @@ interface_addr_find_current(struct vlist_tree *tree, struct device_addr *a_old)
 	return NULL;
 }
 
+/*
+ * Two interfaces on one device can hold the same address, say two
+ * interfaces that lease on one bridge. The kernel keeps one copy of it,
+ * so removing it for one interface also takes it, and every route that
+ * uses it, from the other. With main_only, only an interface that relies
+ * on the kernel's prefix route in the main table counts.
+ */
+static struct interface *
+interface_addr_holder(struct interface *iface, struct device *dev,
+		      struct device_addr *addr, bool main_only)
+{
+	struct interface *other;
+	struct device_addr *a;
+
+	vlist_for_each_element(&interfaces, other, node) {
+		struct interface_ip_settings *ip;
+		int i;
+
+		if (other == iface || other->l3_dev.dev != dev)
+			continue;
+
+		for (i = 0; i < 2; i++) {
+			ip = i ? &other->config_ip : &other->proto_ip;
+			if (!ip->enabled)
+				continue;
+
+			vlist_for_each_element(&ip->addr, a, node) {
+				if (!a->enabled || (a->flags & DEVADDR_EXTERNAL))
+					continue;
+
+				if ((a->flags & DEVADDR_FAMILY) != (addr->flags & DEVADDR_FAMILY) ||
+				    a->mask != addr->mask ||
+				    memcmp(&a->addr, &addr->addr, sizeof(a->addr)))
+					continue;
+
+				if (main_only && (other->metric || a->policy_table))
+					continue;
+
+				return other;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+/*
+ * An interface that relies on the kernel's prefix route joins an address
+ * that only interfaces with their own table or metric hold: the address
+ * is there already, so the kernel adds no prefix route, and the others
+ * removed theirs
+ */
+static bool
+interface_addr_needs_subnet_route(struct interface *iface, struct device *dev,
+				  struct device_addr *addr)
+{
+	return interface_addr_holder(iface, dev, addr, false) &&
+	       !interface_addr_holder(iface, dev, addr, true);
+}
+
 static int
 neighbor_cmp(const void *k1, const void *k2, void *ptr)
 {
@@ -677,12 +737,38 @@ interface_handle_subnet_route(struct interface *iface, struct device_addr *addr,
 		return;
 
 	r->flags |= DEVROUTE_PROTO;
-	system_del_route(dev, r);
+	if (!interface_addr_holder(iface, dev, addr, true))
+		system_del_route(dev, r);
 
 	r->flags &= ~DEVROUTE_PROTO;
 	interface_set_route_info(iface, r);
 
 	system_add_route(dev, r);
+}
+
+/*
+ * The last interface that relied on the kernel's prefix route lets go of an
+ * address that others keep in their own tables: take the route away as they
+ * did when they took the address
+ */
+static void
+interface_drop_kernel_subnet_route(struct interface *iface, struct device *dev,
+				   struct device_addr *addr)
+{
+	struct device_route r;
+
+	if (addr->subnet.iface || addr_is_offlink(dev, addr) ||
+	    interface_addr_holder(iface, dev, addr, true))
+		return;
+
+	memset(&r, 0, sizeof(r));
+	r.flags = addr->flags | DEVROUTE_PROTO;
+	r.mask = addr->mask;
+	memcpy(&r.addr, &addr->addr, sizeof(r.addr));
+	clear_if_addr(&r.addr, r.mask);
+
+	if (system_resolve_rt_proto("kernel", &r.proto))
+		system_del_route(dev, &r);
 }
 
 static void
@@ -784,8 +870,12 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				if (!a_kept || !a_kept->subnet.iface)
 					interface_handle_subnet_route(iface, a_old, false);
 
-				if (!a_kept)
-					system_del_address(dev, a_old);
+				if (!a_kept) {
+					if (!interface_addr_holder(iface, dev, a_old, false))
+						system_del_address(dev, a_old);
+					else
+						interface_drop_kernel_subnet_route(iface, dev, a_old);
+				}
 
 				if (!(a_kept && addr_is_offlink(dev, a_kept)) &&
 				    addr_is_offlink(dev, a_old) && (a_old->mask < (v6 ? 128 : 32))) {
@@ -830,7 +920,8 @@ interface_update_proto_addr(struct vlist_tree *tree,
 				if (system_add_address(dev, a_new))
 					a_new->failed = true;
 
-				if (iface->metric || a_new->policy_table)
+				if (iface->metric || a_new->policy_table ||
+				    interface_addr_needs_subnet_route(iface, dev, a_new))
 					interface_handle_subnet_route(iface, a_new, true);
 			}
 
@@ -1847,7 +1938,8 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 			system_add_address(dev, addr);
 
 			addr->policy_table = (v6) ? iface->ip6table : iface->ip4table;
-			if (iface->metric || addr->policy_table)
+			if (iface->metric || addr->policy_table ||
+			    interface_addr_needs_subnet_route(iface, dev, addr))
 				interface_handle_subnet_route(iface, addr, true);
 
 			if (addr_is_offlink(dev, addr) && (addr->mask < (v6 ? 128 : 32))) {
@@ -1872,7 +1964,10 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 				interface_add_addr_rules(addr, true);
 		} else {
 			interface_handle_subnet_route(iface, addr, false);
-			system_del_address(dev, addr);
+			if (!interface_addr_holder(iface, dev, addr, false))
+				system_del_address(dev, addr);
+			else
+				interface_drop_kernel_subnet_route(iface, dev, addr);
 
 			if (addr_is_offlink(dev, addr) && (addr->mask < (v6 ? 128 : 32))) {
 				struct device_route route;
