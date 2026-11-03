@@ -56,6 +56,7 @@ enum interface_update_flags {
 	IUF_ROUTE	= (1 << 1),
 	IUF_PREFIX	= (1 << 2),
 	IUF_DATA	= (1 << 3),
+	IUF_DNS		= (1 << 4),
 };
 
 struct interface_error {
@@ -86,6 +87,7 @@ struct interface_ip_settings {
 
 	struct vlist_simple_tree dns_servers;
 	struct vlist_simple_tree dns_search;
+	uint32_t dns_hash;
 };
 
 struct interface_data {

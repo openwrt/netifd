@@ -1992,11 +1992,64 @@ interface_host_routes_refresh(struct interface *iface)
 	}
 }
 
+static uint32_t
+interface_ip_dns_hash(struct interface_ip_settings *ip)
+{
+	struct dns_server *s;
+	struct dns_search_domain *d;
+	uint32_t h = 0;
+	const uint8_t *p;
+	size_t i, len;
+
+	/* FNV-1a over the ordered list of servers and search domains */
+#define DNS_HASH_BYTE(b) (h = (h ^ (uint8_t)(b)) * 16777619u)
+	if (vlist_simple_empty(&ip->dns_servers) &&
+	    vlist_simple_empty(&ip->dns_search))
+		return 0;
+
+	h = 2166136261u;
+
+	vlist_simple_for_each_element(&ip->dns_servers, s, node) {
+		DNS_HASH_BYTE(s->af);
+		p = (const uint8_t *)&s->addr;
+		len = s->af == AF_INET6 ? sizeof(s->addr.in6) : sizeof(s->addr.in);
+		for (i = 0; i < len; i++)
+			DNS_HASH_BYTE(p[i]);
+	}
+
+	DNS_HASH_BYTE(0xff);
+
+	vlist_simple_for_each_element(&ip->dns_search, d, node) {
+		for (p = (const uint8_t *)d->name; *p; p++)
+			DNS_HASH_BYTE(*p);
+		DNS_HASH_BYTE(0);
+	}
+#undef DNS_HASH_BYTE
+
+	return h ? h : 1;
+}
+
 void
 interface_ip_update_complete(struct interface_ip_settings *ip)
 {
+	uint32_t hash;
+
 	vlist_simple_flush(&ip->dns_servers);
 	vlist_simple_flush(&ip->dns_search);
+
+	/*
+	 * Changes of DNS servers or search domains of the protocol settings
+	 * must be visible to ifupdate handlers, otherwise they have no way to
+	 * notice that the data they have read earlier is outdated.
+	 */
+	if (ip == &ip->iface->proto_ip) {
+		hash = interface_ip_dns_hash(ip);
+		if (hash != ip->dns_hash) {
+			ip->dns_hash = hash;
+			ip->iface->updated |= IUF_DNS;
+		}
+	}
+
 	vlist_flush(&ip->route);
 	vlist_flush(&ip->addr);
 	vlist_flush(&ip->prefix);
@@ -2015,6 +2068,7 @@ interface_ip_flush(struct interface_ip_settings *ip)
 		vlist_flush_all(&ip->iface->host_routes);
 	vlist_simple_flush_all(&ip->dns_servers);
 	vlist_simple_flush_all(&ip->dns_search);
+	ip->dns_hash = 0;
 	vlist_flush_all(&ip->route);
 	vlist_flush_all(&ip->addr);
 	vlist_flush_all(&ip->neighbor);

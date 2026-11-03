@@ -867,6 +867,8 @@ netifd_dump_status(struct interface *iface)
 				blobmsg_add_string(&b, NULL, "prefixes");
 			if (iface->updated & IUF_DATA)
 				blobmsg_add_string(&b, NULL, "data");
+			if (iface->updated & IUF_DNS)
+				blobmsg_add_string(&b, NULL, "dns");
 
 			blobmsg_close_array(&b, a);
 		}
