@@ -230,7 +230,8 @@ netifd_parse_extdev_handler(const char *path_to_file, create_extdev_handler_cb c
 	fclose(file);
 }
 
-void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
+void netifd_init_script_handlers(int dir_fd, script_dump_cb cb,
+				 script_skip_cb skip)
 {
 	glob_t g;
 	int prev_fd;
@@ -242,8 +243,12 @@ void netifd_init_script_handlers(int dir_fd, script_dump_cb cb)
 		return;
 	}
 
-	for (i = 0; i < g.gl_pathc; i++)
+	for (i = 0; i < g.gl_pathc; i++) {
+		if (skip && skip(g.gl_pathv[i]))
+			continue;
+
 		netifd_parse_script_handler(g.gl_pathv[i], cb);
+	}
 	netifd_dir_pop(prev_fd);
 
 	globfree(&g);

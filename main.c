@@ -307,6 +307,9 @@ static void netifd_do_restart(struct uloop_timeout *timeout)
 
 int netifd_reload(void)
 {
+	/* handler scripts installed since the start */
+	proto_shell_init();
+
 	return config_init_all();
 }
 
