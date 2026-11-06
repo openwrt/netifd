@@ -69,7 +69,7 @@ enum {
 	DEBUG_WIRELESS	= 3,
 };
 
-#ifdef DEBUG
+#if 1 // def DEBUG
 #define DPRINTF(format, ...) fprintf(stderr, "%s(%d): " format, __func__, __LINE__, ## __VA_ARGS__)
 #define D(level, format, ...) do { \
 		netifd_udebug_printf("[" #level "] %s(%d): " format,  __func__, __LINE__, ## __VA_ARGS__); \
