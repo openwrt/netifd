@@ -18,6 +18,8 @@ ENDIF()
 
 SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 
+OPTION(DEVLINK_PORT_SPLIT "Enable devlink port split support" OFF)
+
 SET(SOURCES
 	main.c utils.c system.c tunnel.c handler.c
 	interface.c interface-ip.c interface-event.c
@@ -40,6 +42,11 @@ FIND_PATH(ubox_include_dir libubox/usock.h)
 FIND_PATH(ucode_include_dir ucode/vm.h)
 FIND_PATH(udebug_include_dir udebug.h)
 INCLUDE_DIRECTORIES(${ubox_include_dir} ${ucode_include_dir})
+
+IF(DEVLINK_PORT_SPLIT)
+	ADD_DEFINITIONS(-DDEVLINK_PORT_SPLIT)
+	SET(SOURCES ${SOURCES} port-split.c)
+ENDIF()
 
 IF (NOT DEFINED LIBNL_LIBS)
 	include(FindPkgConfig)
