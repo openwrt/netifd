@@ -1859,7 +1859,9 @@ int system_bridge_addbr(struct device *bridge, struct bridge_config *cfg)
 
 	system_bridge_mcast_put(msg, cfg, &bridge_mcast_link_attrs);
 
-	nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, !!cfg->vlan_filtering);
+	/* a new bridge starts without it, and kernels built without it refuse even 0 */
+	if (cfg->vlan_filtering)
+		nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, 1);
 	system_bridge_vlan_snooping_put(msg, cfg);
 	nla_put_u16(msg, IFLA_BR_PRIORITY, cfg->priority);
 	nla_put_u32(msg, IFLA_BR_HELLO_TIME, sec_to_jiffies(cfg->hello_time));
