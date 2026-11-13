@@ -196,6 +196,12 @@ system_if_dump_stats(struct device *dev, struct blob_buf *b)
 	return 0;
 }
 
+int
+system_if_dump_ipv6_linklocal(struct device *dev, struct blob_buf *b)
+{
+	return 0;
+}
+
 void
 system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t apply_mask)
 {
