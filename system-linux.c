@@ -501,6 +501,11 @@ static void system_set_ip6segmentrouting(struct device *dev, const char *val)
 	system_set_dev_sysctl("ipv6/conf", "seg6_enabled", dev->ifname, val);
 }
 
+static void system_set_ip6addrgenmode(struct device *dev, const char *val)
+{
+	system_set_dev_sysctl("ipv6/conf", "addr_gen_mode", dev->ifname, val);
+}
+
 static void system_set_rpfilter(struct device *dev, const char *val)
 {
 	system_set_dev_sysctl("ipv4/conf", "rp_filter", dev->ifname, val);
@@ -677,6 +682,12 @@ static int system_get_disable_ipv6(struct device *dev, char *buf, const size_t b
 static int system_get_ip6segmentrouting(struct device *dev, char *buf, const size_t buf_sz)
 {
 	return system_get_dev_sysctl("ipv6/conf", "seg6_enabled",
+				     dev->ifname, buf, buf_sz);
+}
+
+static int system_get_ip6addrgenmode(struct device *dev, char *buf, const size_t buf_sz)
+{
+	return system_get_dev_sysctl("ipv6/conf", "addr_gen_mode",
 				     dev->ifname, buf, buf_sz);
 }
 
@@ -2882,6 +2893,12 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->flags |= DEV_OPT_IP6SEGMENTROUTING;
 	}
 
+	/* The current mode (whatever it is) is what gets restored */
+	if (!system_get_ip6addrgenmode(dev, buf, sizeof(buf))) {
+		s->ip6addrgenmode = strtoul(buf, NULL, 0);
+		s->flags |= DEV_OPT_IP6LINKLOCAL;
+	}
+
 	if (ioctl(sock_ioctl, SIOCGIFFLAGS, &ifr) == 0) {
 		s->promisc = ifr.ifr_flags & IFF_PROMISC;
 		s->flags |= DEV_OPT_PROMISC;
@@ -3067,6 +3084,12 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 
 		system_set_ip6segmentrouting(dev, s->ip6segmentrouting ? "1" : "0");
 		system_set_ip6segmentrouting(&dummy, ip6segmentrouting ? "1" : "0");
+	}
+	if (apply_mask & DEV_OPT_IP6LINKLOCAL) {
+		/* Only affects addresses generated later, so this is applied
+		 * before the device is brought up (and isn't live-applicable) */
+		snprintf(buf, sizeof(buf), "%u", s->ip6addrgenmode);
+		system_set_ip6addrgenmode(dev, buf);
 	}
 	if (apply_mask & DEV_OPT_PROMISC) {
 		if (system_if_flags(dev->ifname, s->promisc ? IFF_PROMISC : 0,

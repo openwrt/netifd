@@ -91,6 +91,7 @@ enum {
 	DEV_ATTR_PSE_PODL,
 	DEV_ATTR_PSE_POWER_LIMIT,
 	DEV_ATTR_PSE_PRIORITY,
+	DEV_ATTR_IP6LINKLOCAL,
 
 	/* No DEV_OPT_* counterpart; carry data consumed outside flags. */
 	DEV_ATTR_TYPE,
@@ -194,6 +195,7 @@ enum {
 	DEV_OPT_PSE_PODL			= 1ULL << DEV_ATTR_PSE_PODL,
 	DEV_OPT_PSE_POWER_LIMIT			= 1ULL << DEV_ATTR_PSE_POWER_LIMIT,
 	DEV_OPT_PSE_PRIORITY			= 1ULL << DEV_ATTR_PSE_PRIORITY,
+	DEV_OPT_IP6LINKLOCAL			= 1ULL << DEV_ATTR_IP6LINKLOCAL,
 
 	DEV_OPT_DEFAULT_MACADDR			= 1ULL << 63,
 };
@@ -243,6 +245,9 @@ struct device_user {
 	void (*cb)(struct device_user *, enum device_event);
 };
 
+/* IN6_ADDR_GEN_MODE_NONE: the kernel doesn't generate a link-local address */
+#define DEV_IP6_ADDR_GEN_MODE_NONE	1
+
 struct device_settings {
 	uint64_t flags;
 	uint64_t valid_flags;
@@ -278,6 +283,7 @@ struct device_settings {
 	bool broadcast_flood;
 	bool sendredirects;
 	bool ip6segmentrouting;
+	unsigned int ip6addrgenmode;	/* kernel addr_gen_mode (DEV_OPT_IP6LINKLOCAL) */
 	bool isolate;
 	bool drop_v4_unicast_in_l2_multicast;
 	bool drop_v6_unicast_in_l2_multicast;

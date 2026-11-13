@@ -90,6 +90,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_PSE_PODL] = { .name = "pse_podl", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_PSE_POWER_LIMIT] = { .name = "pse_power_limit", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_PSE_PRIORITY] = { .name = "pse_priority", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_IP6LINKLOCAL] = { .name = "ip6linklocal", .type = BLOBMSG_TYPE_BOOL },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -304,6 +305,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 		sizeof(n->macaddr));
 	n->ipv6 = s->flags & DEV_OPT_IPV6 ? s->ipv6 : os->ipv6;
 	n->ip6segmentrouting = s->flags & DEV_OPT_IP6SEGMENTROUTING ? s->ip6segmentrouting : os->ip6segmentrouting;
+	n->ip6addrgenmode = s->flags & DEV_OPT_IP6LINKLOCAL ? s->ip6addrgenmode : os->ip6addrgenmode;
 	n->promisc = s->flags & DEV_OPT_PROMISC ? s->promisc : os->promisc;
 	n->rpfilter = s->flags & DEV_OPT_RPFILTER ? s->rpfilter : os->rpfilter;
 	n->acceptlocal = s->flags & DEV_OPT_ACCEPTLOCAL ? s->acceptlocal : os->acceptlocal;
@@ -473,6 +475,17 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_IP6SEGMENTROUTING])) {
 		s->ip6segmentrouting = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_IP6SEGMENTROUTING;
+	}
+
+	/*
+	 * Only "0" does something: it stops the kernel from generating an IPv6
+	 * link-local address (addr_gen_mode "none"), e.g. so that a fixed one
+	 * like fe80::1 can be configured via ip6addr instead. Unlike the other
+	 * addr_gen_mode values, this doesn't affect SLAAC addresses.
+	 */
+	if ((cur = tb[DEV_ATTR_IP6LINKLOCAL]) && !blobmsg_get_bool(cur)) {
+		s->ip6addrgenmode = DEV_IP6_ADDR_GEN_MODE_NONE;
+		s->flags |= DEV_OPT_IP6LINKLOCAL;
 	}
 
 	if ((cur = tb[DEV_ATTR_PROMISC])) {
@@ -1722,6 +1735,9 @@ device_dump_status(struct blob_buf *b, struct device *dev)
 			blobmsg_add_u8(b, "ipv6", st.ipv6);
 		if (st.flags & DEV_OPT_IP6SEGMENTROUTING)
 			blobmsg_add_u8(b, "ip6segmentrouting", st.ip6segmentrouting);
+		if (st.flags & DEV_OPT_IP6LINKLOCAL)
+			blobmsg_add_u8(b, "ip6linklocal",
+				       st.ip6addrgenmode != DEV_IP6_ADDR_GEN_MODE_NONE);
 		if (st.flags & DEV_OPT_PROMISC)
 			blobmsg_add_u8(b, "promisc", st.promisc);
 		if (st.flags & DEV_OPT_RPFILTER)
