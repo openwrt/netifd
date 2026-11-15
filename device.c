@@ -67,6 +67,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_SENDREDIRECTS] = { .name = "sendredirects", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_NEIGHLOCKTIME] = { .name = "neighlocktime", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_ISOLATE] = { .name = "isolate", .type = BLOBMSG_TYPE_BOOL },
+	[DEV_ATTR_BPDU_FILTER] = { .name = "bpdu_filter", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DROP_V4_UNICAST_IN_L2_MULTICAST] = { .name = "drop_v4_unicast_in_l2_multicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DROP_V6_UNICAST_IN_L2_MULTICAST] = { .name = "drop_v6_unicast_in_l2_multicast", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_DROP_GRATUITOUS_ARP] = { .name = "drop_gratuitous_arp", .type = BLOBMSG_TYPE_BOOL },
@@ -620,6 +621,11 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_ISOLATE])) {
 		s->isolate = blobmsg_get_bool(cur);
 		s->flags |= DEV_OPT_ISOLATE;
+	}
+
+	if ((cur = tb[DEV_ATTR_BPDU_FILTER])) {
+		s->bpdu_filter = blobmsg_get_bool(cur);
+		s->flags |= DEV_OPT_BPDU_FILTER;
 	}
 
 	if ((cur = tb[DEV_ATTR_DROP_V4_UNICAST_IN_L2_MULTICAST])) {
