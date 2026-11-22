@@ -64,6 +64,7 @@ enum {
 	DEV_ATTR_TXQUEUELEN,
 	DEV_ATTR_PROMISC,
 	DEV_ATTR_MULTICAST,
+	DEV_ATTR_WOL,
 	__DEV_ATTR_LIVE_APPLY_MAX,
 
 	/* Have a DEV_OPT_* flag but require teardown to re-apply. */
@@ -170,6 +171,7 @@ enum {
 	DEV_OPT_TXQUEUELEN			= 1ULL << DEV_ATTR_TXQUEUELEN,
 	DEV_OPT_PROMISC				= 1ULL << DEV_ATTR_PROMISC,
 	DEV_OPT_MULTICAST			= 1ULL << DEV_ATTR_MULTICAST,
+	DEV_OPT_WOL				= 1ULL << DEV_ATTR_WOL,
 
 	DEV_OPT_MTU				= 1ULL << DEV_ATTR_MTU,
 	DEV_OPT_MACADDR				= 1ULL << DEV_ATTR_MACADDR,
@@ -244,6 +246,16 @@ struct device_user {
 	void (*cb)(struct device_user *, enum device_event);
 };
 
+enum {
+	DEV_WOL_PHY	= (1 << 0),
+	DEV_WOL_UCAST	= (1 << 1),
+	DEV_WOL_MCAST	= (1 << 2),
+	DEV_WOL_BCAST	= (1 << 3),
+	DEV_WOL_ARP	= (1 << 4),
+	DEV_WOL_MAGIC	= (1 << 5),
+	DEV_WOL_RAW	= (1 << 31),
+};
+
 struct device_settings {
 	uint64_t flags;
 	uint64_t valid_flags;
@@ -300,6 +312,7 @@ struct device_settings {
 	bool pse_podl;
 	unsigned int pse_power_limit;
 	unsigned int pse_priority;
+	unsigned int wol;
 };
 
 struct device_vlan_range {
