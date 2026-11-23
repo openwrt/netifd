@@ -1030,6 +1030,36 @@ netifd_iface_handle_device(struct ubus_context *ctx, struct ubus_object *obj,
 }
 
 
+static const struct blobmsg_policy notify_proto_action_policy = {
+	.name = "action", .type = BLOBMSG_TYPE_INT32,
+};
+
+static bool
+netifd_notify_proto_allowed(struct ubus_request_data *req, struct blob_attr *msg)
+{
+	struct blob_attr *cur;
+	uint32_t action;
+
+	/*
+	 * ubusd exempts uid 0 from its ACLs, so a non-root caller only gets
+	 * here because an acl.d entry lets it report its protocol state.
+	 */
+	if (!req->acl.user || !strcmp(req->acl.user, "root"))
+		return true;
+
+	blobmsg_parse_attr(&notify_proto_action_policy, 1, &cur, msg);
+	if (!cur)
+		return true;
+
+	/*
+	 * Actions 1 and 2 make netifd run a command or signal it, as root.
+	 * Allowing a jailed protocol daemon to report its state must not
+	 * also allow it to start a process outside its jail.
+	 */
+	action = blobmsg_get_u32(cur);
+	return action != 1 && action != 2;
+}
+
 static int
 netifd_iface_notify_proto(struct ubus_context *ctx, struct ubus_object *obj,
 			  struct ubus_request_data *req, const char *method,
@@ -1041,6 +1071,9 @@ netifd_iface_notify_proto(struct ubus_context *ctx, struct ubus_object *obj,
 
 	if (!iface->proto || !iface->proto->notify)
 		return UBUS_STATUS_NOT_SUPPORTED;
+
+	if (!netifd_notify_proto_allowed(req, msg))
+		return UBUS_STATUS_PERMISSION_DENIED;
 
 	return iface->proto->notify(iface->proto, msg);
 }
