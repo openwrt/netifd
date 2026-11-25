@@ -888,6 +888,11 @@ netifd_dump_status(struct interface *iface)
 		interface_ip_dump_address_list(&iface->config_ip, true, true);
 		interface_ip_dump_address_list(&iface->proto_ip, true, true);
 		blobmsg_close_array(&b, a);
+		if (iface->l3_dev.dev) {
+			a = blobmsg_open_array(&b, "ipv6-link-local-address");
+			system_if_dump_ipv6_linklocal(iface->l3_dev.dev, &b);
+			blobmsg_close_array(&b, a);
+		}
 		a = blobmsg_open_array(&b, "ipv6-prefix");
 		interface_ip_dump_prefix_list(&iface->config_ip);
 		interface_ip_dump_prefix_list(&iface->proto_ip);
