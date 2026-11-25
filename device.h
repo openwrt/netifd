@@ -76,6 +76,7 @@ enum {
 	DEV_ATTR_UNICAST_FLOOD,
 	DEV_ATTR_BROADCAST_FLOOD,
 	DEV_ATTR_ISOLATE,
+	DEV_ATTR_BPDU_FILTER,
 	DEV_ATTR_AUTH,
 	DEV_ATTR_SPEED,
 	DEV_ATTR_DUPLEX,
@@ -180,6 +181,7 @@ enum {
 	DEV_OPT_UNICAST_FLOOD			= 1ULL << DEV_ATTR_UNICAST_FLOOD,
 	DEV_OPT_BROADCAST_FLOOD			= 1ULL << DEV_ATTR_BROADCAST_FLOOD,
 	DEV_OPT_ISOLATE				= 1ULL << DEV_ATTR_ISOLATE,
+	DEV_OPT_BPDU_FILTER			= 1ULL << DEV_ATTR_BPDU_FILTER,
 	DEV_OPT_AUTH				= 1ULL << DEV_ATTR_AUTH,
 	DEV_OPT_SPEED				= 1ULL << DEV_ATTR_SPEED,
 	DEV_OPT_DUPLEX				= 1ULL << DEV_ATTR_DUPLEX,
@@ -280,6 +282,7 @@ struct device_settings {
 	bool sendredirects;
 	bool ip6segmentrouting;
 	bool isolate;
+	bool bpdu_filter;
 	bool drop_v4_unicast_in_l2_multicast;
 	bool drop_v6_unicast_in_l2_multicast;
 	bool drop_gratuitous_arp;

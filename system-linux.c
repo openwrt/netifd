@@ -1143,8 +1143,9 @@ int system_bridge_addif(struct device *bridge, struct device *dev)
 	    dev->settings.isolate)
 		system_bridge_set_isolated(dev, "1");
 
-	if (dev->bpdu_filter)
-		system_bridge_set_bpdu_filter(dev, dev->bpdu_filter ? "1" : "0");
+	if (dev->bpdu_filter ||
+	    (dev->settings.flags & DEV_OPT_BPDU_FILTER && dev->settings.bpdu_filter))
+		system_bridge_set_bpdu_filter(dev, "1");
 
 	return ret;
 }
