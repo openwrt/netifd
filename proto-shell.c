@@ -17,12 +17,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <libubox/avl-cmp.h>
+
 #include "netifd.h"
 #include "proto.h"
 #include "handler.h"
 #include "proto-ext.h"
 
 static int proto_fd = -1;
+
+struct proto_shell_script {
+	struct avl_node avl;
+};
+
+static AVL_TREE(proto_shell_scripts, avl_strcmp, false, NULL);
 
 struct proto_shell_handler {
 	struct list_head list;
@@ -148,11 +156,36 @@ proto_shell_add_handler(const char *script, const char *name, json_object *obj)
 	add_proto_handler(proto);
 }
 
+/*
+ * Each handler script is parsed once: at start, or at the first reload that
+ * finds it, so that a protocol package installed at run time is usable
+ * without a restart.
+ */
+static bool
+proto_shell_script_seen(const char *script)
+{
+	struct proto_shell_script *s;
+	char *name;
+
+	if (avl_find(&proto_shell_scripts, script))
+		return true;
+
+	s = calloc_a(sizeof(*s), &name, strlen(script) + 1);
+	if (s) {
+		s->avl.key = strcpy(name, script);
+		avl_insert(&proto_shell_scripts, &s->avl);
+	}
+
+	return false;
+}
+
 void proto_shell_init(void)
 {
-	proto_fd = netifd_open_subdir("proto");
+	if (proto_fd < 0)
+		proto_fd = netifd_open_subdir("proto");
 	if (proto_fd < 0)
 		return;
 
-	netifd_init_script_handlers(proto_fd, proto_shell_add_handler);
+	netifd_init_script_handlers(proto_fd, proto_shell_add_handler,
+				    proto_shell_script_seen);
 }
