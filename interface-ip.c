@@ -1100,9 +1100,169 @@ generate_ifaceid(struct interface *iface, struct in6_addr *addr)
 	return ret;
 }
 
+/* Still valid LAN address of a prefix its uplink lost */
+struct released_addr {
+	struct list_head head;
+	struct device_addr addr;
+	struct in6_addr prefix;
+	uint8_t prefix_len;
+	char *uplink;
+	char iface[];
+};
+
+static LIST_HEAD(released_addrs);
+static void released_addrs_check(struct uloop_timeout *t);
+static struct uloop_timeout released_addrs_timeout = { .cb = released_addrs_check };
+
+static void
+released_addr_add(const struct device_addr *addr, const struct device_prefix *prefix,
+		const struct interface *iface)
+{
+	const char *uplink_name = prefix->iface ? prefix->iface->name : "";
+	struct released_addr *r;
+	char *uplink_buf;
+
+	r = calloc_a(sizeof(*r) + strlen(iface->name) + 1,
+		     &uplink_buf, strlen(uplink_name) + 1);
+	if (!r)
+		return;
+
+	r->addr = *addr;
+	r->prefix = prefix->addr;
+	r->prefix_len = prefix->length;
+	r->uplink = strcpy(uplink_buf, uplink_name);
+	strcpy(r->iface, iface->name);
+	list_add_tail(&r->head, &released_addrs);
+	uloop_timeout_set(&released_addrs_timeout, 0);
+}
+
+/* Return true if a released address still holds the delegated prefix */
+static bool
+released_prefix_held(const struct in6_addr *prefix, uint8_t len)
+{
+	struct released_addr *r;
+
+	list_for_each_entry(r, &released_addrs, head)
+		if (r->prefix_len == len && IN6_ARE_ADDR_EQUAL(&r->prefix, prefix))
+			return true;
+
+	return false;
+}
+
+/* Return the prefix of uplink that contains addr, or NULL */
+static struct device_prefix *
+uplink_prefix_find(const char *uplink, union if_addr *addr)
+{
+	struct device_prefix *p;
+
+	list_for_each_entry(p, &prefixes, head)
+		if (!strcmp(p->iface ? p->iface->name : "", uplink) &&
+		    match_if_addr((union if_addr *)&p->addr, addr, p->length))
+			return p;
+
+	return NULL;
+}
+
+/* Return true if iface has an address from a prefix of uplink */
+static bool
+uplink_assigned(const char *uplink, const char *iface)
+{
+	struct device_prefix_assignment *a;
+	struct device_prefix *p;
+
+	list_for_each_entry(p, &prefixes, head) {
+		if (strcmp(p->iface ? p->iface->name : "", uplink))
+			continue;
+
+		list_for_each_entry(a, &p->assignments, head)
+			if (a->enabled && !strcmp(a->name, iface))
+				return true;
+	}
+
+	return false;
+}
+
+/* Drop a released address and the null route of its prefix once nothing holds it */
+static void
+released_addr_drop(struct released_addr *r)
+{
+	struct device_route route = {
+		.flags = DEVADDR_INET6,
+		.metric = INT32_MAX,
+		.mask = r->prefix_len,
+		.addr.in6 = r->prefix,
+	};
+
+	list_del(&r->head);
+
+	if (!released_prefix_held(&r->prefix, r->prefix_len) &&
+	    !uplink_prefix_find(r->uplink, (union if_addr *)&r->prefix))
+		system_del_route(NULL, &route);
+
+	free(r);
+}
+
+/* Deprecate a released address (see L-14 RFC 7084) and drop it */
+static void
+released_addr_deprecate(struct released_addr *r, struct interface *iface, time_t now)
+{
+	if (iface && iface->l3_dev.dev) {
+		r->addr.preferred_until = now;
+		if (r->addr.valid_until > now + 7200)
+			r->addr.valid_until = now + 7200;
+		system_add_address(iface->l3_dev.dev, &r->addr);
+	}
+	released_addr_drop(r);
+}
+
+/* Deprecate the released addresses of an interface that goes down */
+static void
+released_addrs_flush(struct interface *iface)
+{
+	struct released_addr *r, *tmp;
+	time_t now = system_get_rtime();
+
+	list_for_each_entry_safe(r, tmp, &released_addrs, head)
+		if (!strcmp(r->iface, iface->name))
+			released_addr_deprecate(r, iface, now);
+}
+
+/* Deprecate released addresses once their uplink has assigned other prefixes (RFC 7084 L-13) */
+static void
+released_addrs_check(struct uloop_timeout *t)
+{
+	struct released_addr *r, *tmp;
+	struct interface *iface;
+	time_t now = system_get_rtime();
+	time_t next = 0;
+
+	list_for_each_entry_safe(r, tmp, &released_addrs, head) {
+		if (r->addr.valid_until - 1 <= now ||
+		    uplink_prefix_find(r->uplink, &r->addr.addr)) {
+			released_addr_drop(r);
+			continue;
+		}
+
+		if (!uplink_assigned(r->uplink, r->iface)) {
+			if (!next || r->addr.valid_until < next)
+				next = r->addr.valid_until;
+			continue;
+		}
+
+		iface = vlist_find(&interfaces, r->iface, iface, node);
+		released_addr_deprecate(r, iface, now);
+	}
+
+	/* Cap the timeout at INT_MAX ms (~24.8 days) */
+	if (next)
+		uloop_timeout_set(&released_addrs_timeout,
+				  next - now > INT_MAX / 1000 ? INT_MAX : (next - now) * 1000);
+}
+
 static void
 interface_set_prefix_address(struct device_prefix_assignment *assignment,
-		const struct device_prefix *prefix, struct interface *iface, bool add)
+		const struct device_prefix *prefix, struct interface *iface, bool add,
+		bool uplink_lost)
 {
 	const struct interface *uplink = prefix->iface;
 	if (!iface->l3_dev.dev)
@@ -1131,6 +1291,11 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 		if (addr.valid_until && addr.valid_until - 1 <= now) {
 			addr.valid_until = 0;
 			addr.preferred_until = 0;
+		} else if (uplink_lost && addr.valid_until) {
+			/* Keep the lifetimes until it's known whether the prefix comes back */
+			if (!addr.preferred_until || addr.preferred_until > addr.valid_until)
+				addr.preferred_until = addr.valid_until;
+			released_addr_add(&addr, prefix, iface);
 		} else {
 			/* Address is still valid; pass its ownership to kernel (see L-14 RFC 7084). */
 			addr.preferred_until = now;
@@ -1179,6 +1344,9 @@ interface_set_prefix_address(struct device_prefix_assignment *assignment,
 			return;
 
 		if (!assignment->enabled) {
+			if (!list_empty(&released_addrs))
+				uloop_timeout_set(&released_addrs_timeout, 0);
+
 			if (iface->ip6table)
 				set_ip_source_policy(true, true, IPRULE_PRIORITY_ADDR_MASK, &addr.addr,
 						addr.mask < 64 ? 64 : addr.mask, iface->ip6table, NULL, NULL, false);
@@ -1271,7 +1439,8 @@ static int prefix_assignment_cmp(const void *k1, const void *k2, void *ptr)
 	return strcmp(a1->name, a2->name);
 }
 
-static void interface_update_prefix_assignments(struct device_prefix *prefix, bool setup)
+static void interface_update_prefix_assignments(struct device_prefix *prefix, bool setup,
+		bool uplink_lost)
 {
 	struct device_prefix_assignment *c;
 	struct interface *iface;
@@ -1281,7 +1450,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 		c = list_first_entry(&prefix->assignments,
 				struct device_prefix_assignment, head);
 		if ((iface = vlist_find(&interfaces, c->name, iface, node)))
-			interface_set_prefix_address(c, prefix, iface, false);
+			interface_set_prefix_address(c, prefix, iface, false, uplink_lost);
 		list_del(&c->head);
 		free(c);
 	}
@@ -1404,7 +1573,7 @@ static void interface_update_prefix_assignments(struct device_prefix *prefix, bo
 
 	list_for_each_entry(c, &prefix->assignments, head)
 		if ((iface = vlist_find(&interfaces, c->name, iface, node)))
-			interface_set_prefix_address(c, prefix, iface, true);
+			interface_set_prefix_address(c, prefix, iface, true, false);
 
 	if (!assigned_any)
 		netifd_log_message(L_WARNING, "You have delegated IPv6-prefixes but haven't assigned them "
@@ -1422,7 +1591,7 @@ void interface_refresh_assignments(bool hint)
 		list_for_each_entry(p, &prefixes, head) {
 			bool valid = !(p->valid_until && p->valid_until - 1 <= now);
 
-			interface_update_prefix_assignments(p, valid);
+			interface_update_prefix_assignments(p, valid, false);
 		}
 	}
 	refresh = hint;
@@ -1436,7 +1605,7 @@ void interface_update_prefix_delegation(struct interface_ip_settings *ip)
 	vlist_for_each_element(&ip->prefix, prefix, node) {
 		bool valid = !(prefix->valid_until && prefix->valid_until - 1 <= now);
 
-		interface_update_prefix_assignments(prefix, !ip->no_delegation && valid);
+		interface_update_prefix_assignments(prefix, !ip->no_delegation && valid, false);
 
 		if (ip->no_delegation) {
 			if (prefix->head.next)
@@ -1476,7 +1645,7 @@ interface_update_prefix(struct vlist_tree *tree,
 
 		list_for_each_entry(c, &prefix_new->assignments, head)
 			if ((iface = vlist_find(&interfaces, c->name, iface, node)))
-				interface_set_prefix_address(c, prefix_new, iface, new_valid);
+				interface_set_prefix_address(c, prefix_new, iface, new_valid, false);
 
 		if (prefix_new->preferred_until != prefix_old->preferred_until ||
 				prefix_new->valid_until != prefix_old->valid_until)
@@ -1486,11 +1655,12 @@ interface_update_prefix(struct vlist_tree *tree,
 		system_add_route(NULL, &route);
 
 		if (!prefix_new->iface || !prefix_new->iface->proto_ip.no_delegation)
-			interface_update_prefix_assignments(prefix_new, new_valid);
+			interface_update_prefix_assignments(prefix_new, new_valid, false);
 	} else if (node_old) {
-		/* Remove null-route */
-		interface_update_prefix_assignments(prefix_old, false);
-		system_del_route(NULL, &route);
+		/* Remove null-route, unless released LAN addresses still hold the prefix */
+		interface_update_prefix_assignments(prefix_old, false, true);
+		if (!released_prefix_held(&prefix_old->addr, prefix_old->length))
+			system_del_route(NULL, &route);
 	}
 
 	if (node_old) {
@@ -1830,6 +2000,9 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 
 	ip->enabled = enabled;
 	iface = ip->iface;
+	if (!enabled)
+		released_addrs_flush(iface);
+
 	dev = iface->l3_dev.dev;
 	if (!dev)
 		return;
@@ -1919,7 +2092,7 @@ void interface_ip_set_enabled(struct interface_ip_settings *ip, bool enabled)
 	list_for_each_entry(c, &prefixes, head)
 		list_for_each_entry(a, &c->assignments, head)
 			if (!strcmp(a->name, ip->iface->name))
-				interface_set_prefix_address(a, c, ip->iface, enabled);
+				interface_set_prefix_address(a, c, ip->iface, enabled, false);
 
 	if (ip->iface->policy_rules_set != enabled &&
 	    ip->iface->l3_dev.dev) {
