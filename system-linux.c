@@ -2428,6 +2428,112 @@ system_set_ethtool_gro(struct device *dev, struct device_settings *s)
 	ioctl(sock_ioctl, SIOCETHTOOL, &ifr);
 }
 
+_Static_assert(DEV_WOL_PHY == WAKE_PHY, "DEV_WOL_PHY must match WAKE_PHY");
+_Static_assert(DEV_WOL_UCAST == WAKE_UCAST, "DEV_WOL_UCAST must match WAKE_UCAST");
+_Static_assert(DEV_WOL_MCAST == WAKE_MCAST, "DEV_WOL_MCAST must match WAKE_MCAST");
+_Static_assert(DEV_WOL_BCAST == WAKE_BCAST, "DEV_WOL_BCAST must match WAKE_BCAST");
+_Static_assert(DEV_WOL_ARP == WAKE_ARP, "DEV_WOL_ARP must match WAKE_ARP");
+_Static_assert(DEV_WOL_MAGIC == WAKE_MAGIC, "DEV_WOL_MAGIC must match WAKE_MAGIC");
+_Static_assert(!(DEV_WOL_RAW & (WAKE_PHY | WAKE_UCAST | WAKE_MCAST | WAKE_BCAST | WAKE_ARP | WAKE_MAGIC | WAKE_MAGICSECURE | WAKE_FILTER)), "DEV_WOL_RAW must not collide with ethtool WAKE_* flags");
+
+static const struct {
+	unsigned int dev_flag;
+	__u32 ethtool_flag;
+	const char *name;
+} wol_modes[] = {
+	{ DEV_WOL_PHY,   WAKE_PHY,   "p" },
+	{ DEV_WOL_UCAST, WAKE_UCAST, "u" },
+	{ DEV_WOL_MCAST, WAKE_MCAST, "m" },
+	{ DEV_WOL_BCAST, WAKE_BCAST, "b" },
+	{ DEV_WOL_ARP,   WAKE_ARP,   "a" },
+	{ DEV_WOL_MAGIC, WAKE_MAGIC, "g" },
+};
+
+static int
+system_get_ethtool_wol(struct device *dev, unsigned int *wolopts)
+{
+	struct ethtool_wolinfo wol = {
+		.cmd = ETHTOOL_GWOL,
+	};
+	struct ifreq ifr = {
+		.ifr_data = (void *)&wol,
+	};
+
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0)
+		return -1;
+
+	*wolopts = wol.wolopts | DEV_WOL_RAW;
+	return 0;
+}
+
+static void
+system_set_ethtool_wol(struct device *dev, struct device_settings *s)
+{
+	struct ethtool_wolinfo wol = {
+		.cmd = ETHTOOL_GWOL,
+	};
+	struct ifreq ifr = {
+		.ifr_data = (caddr_t)&wol,
+	};
+	unsigned int opts = 0;
+
+	strncpy(ifr.ifr_name, dev->ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0)
+		return;
+
+	if (s->wol & DEV_WOL_RAW) {
+		opts = s->wol & ~DEV_WOL_RAW;
+	} else {
+		for (size_t i = 0; i < ARRAY_SIZE(wol_modes); i++) {
+			if (s->wol & wol_modes[i].dev_flag)
+				opts |= wol_modes[i].ethtool_flag;
+		}
+	}
+
+	wol.cmd = ETHTOOL_SWOL;
+	wol.wolopts = opts & wol.supported;
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) < 0)
+		netifd_log_message(L_WARNING, "%s: failed to set wol: %m\n", dev->ifname);
+}
+
+static void
+system_add_wol_info(struct blob_buf *b, const char *ifname)
+{
+	struct ethtool_wolinfo wol = {
+		.cmd = ETHTOOL_GWOL,
+	};
+	struct ifreq ifr = {
+		.ifr_data = (void *)&wol,
+	};
+	void *c, *a;
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+
+	if (ioctl(sock_ioctl, SIOCETHTOOL, &ifr) != 0 || !wol.supported)
+		return;
+
+	c = blobmsg_open_table(b, "wol");
+
+	a = blobmsg_open_array(b, "supported");
+	for (size_t i = 0; i < ARRAY_SIZE(wol_modes); i++) {
+		if (wol.supported & wol_modes[i].ethtool_flag)
+			blobmsg_add_string(b, NULL, wol_modes[i].name);
+	}
+	blobmsg_close_array(b, a);
+
+	a = blobmsg_open_array(b, "selected");
+	for (size_t i = 0; i < ARRAY_SIZE(wol_modes); i++) {
+		if (wol.wolopts & wol_modes[i].ethtool_flag)
+			blobmsg_add_string(b, NULL, wol_modes[i].name);
+	}
+	blobmsg_close_array(b, a);
+
+	blobmsg_close_table(b, c);
+}
+
 static void
 system_set_ethtool_pause(struct device *dev, struct device_settings *s)
 {
@@ -2787,6 +2893,9 @@ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
 	if (s->flags & DEV_OPT_EEE)
 		system_set_ethtool_eee_settings(dev, s);
 
+	if (dev->active && (s->flags & DEV_OPT_WOL))
+		system_set_ethtool_wol(dev, s);
+
 	/* Apply PSE (PoE) settings if configured */
 	if (s->flags & (DEV_OPT_PSE | DEV_OPT_PSE_PODL | DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
 		system_pse_set(dev, s);
@@ -2859,6 +2968,9 @@ system_set_ethtool_settings_after_up(struct device *dev, struct device_settings 
 {
 	if (s->flags & DEV_OPT_GRO)
 		system_set_ethtool_gro(dev, s);
+
+	if (s->flags & DEV_OPT_WOL)
+		system_set_ethtool_wol(dev, s);
 }
 
 void
@@ -3027,6 +3139,9 @@ system_if_get_settings(struct device *dev, struct device_settings *s)
 		s->flags |= DEV_OPT_GRO;
 	}
 
+	if (system_get_ethtool_wol(dev, &s->wol) == 0)
+		s->flags |= DEV_OPT_WOL;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
 	ret = system_if_get_master_ifindex(dev);
 	if (ret >= 0) {
@@ -3177,7 +3292,8 @@ system_if_apply_settings(struct device *dev, struct device_settings *s, uint64_t
 			  DEV_OPT_RXPAUSE | DEV_OPT_TXPAUSE |
 			  DEV_OPT_AUTONEG | DEV_OPT_EEE |
 			  DEV_OPT_PSE | DEV_OPT_PSE_PODL |
-			  DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY))
+			  DEV_OPT_PSE_POWER_LIMIT | DEV_OPT_PSE_PRIORITY |
+			  DEV_OPT_WOL))
 		system_set_ethtool_settings(dev, s);
 }
 
@@ -3862,6 +3978,7 @@ system_if_dump_info(struct device *dev, struct blob_buf *b)
 	char *s;
 
 	system_get_ethtool_pause(dev, &rx_pause, &tx_pause, &pause_autoneg);
+	system_add_wol_info(b, dev->ifname);
 
 	memset(&ecmd, 0, sizeof(ecmd));
 	ecmd.req.cmd = ETHTOOL_GLINKSETTINGS;

@@ -91,6 +91,7 @@ static const struct blobmsg_policy dev_attrs[__DEV_ATTR_MAX] = {
 	[DEV_ATTR_PSE_PODL] = { .name = "pse_podl", .type = BLOBMSG_TYPE_BOOL },
 	[DEV_ATTR_PSE_POWER_LIMIT] = { .name = "pse_power_limit", .type = BLOBMSG_TYPE_INT32 },
 	[DEV_ATTR_PSE_PRIORITY] = { .name = "pse_priority", .type = BLOBMSG_TYPE_INT32 },
+	[DEV_ATTR_WOL] = { .name = "wol", .type = BLOBMSG_TYPE_ARRAY },
 };
 
 const struct uci_blob_param_list device_attr_list = {
@@ -369,6 +370,7 @@ device_merge_settings(struct device *dev, struct device_settings *n)
 	n->pse_podl = s->flags & DEV_OPT_PSE_PODL ? s->pse_podl : os->pse_podl;
 	n->pse_power_limit = s->flags & DEV_OPT_PSE_POWER_LIMIT ? s->pse_power_limit : os->pse_power_limit;
 	n->pse_priority = s->flags & DEV_OPT_PSE_PRIORITY ? s->pse_priority : os->pse_priority;
+	n->wol = s->flags & DEV_OPT_WOL ? s->wol : os->wol;
 	n->flags = s->flags | os->flags | os->valid_flags;
 }
 
@@ -728,6 +730,68 @@ device_init_settings(struct device *dev, struct blob_attr **tb)
 	if ((cur = tb[DEV_ATTR_PSE_PRIORITY])) {
 		s->pse_priority = blobmsg_get_u32(cur);
 		s->flags |= DEV_OPT_PSE_PRIORITY;
+	}
+
+	if ((cur = tb[DEV_ATTR_WOL])) {
+		static const struct {
+			const char *name;
+			unsigned int flag;
+		} wol_modes[] = {
+			{ "d", 0 },
+			{ "p", DEV_WOL_PHY },
+			{ "u", DEV_WOL_UCAST },
+			{ "m", DEV_WOL_MCAST },
+			{ "b", DEV_WOL_BCAST },
+			{ "a", DEV_WOL_ARP },
+			{ "g", DEV_WOL_MAGIC },
+		};
+		struct blob_attr *attr;
+		unsigned int wol = 0;
+		bool has_disabled = false;
+		bool valid = false;
+		size_t rem;
+
+		blobmsg_for_each_attr(attr, cur, rem) {
+			const char *val;
+			bool found = false;
+			size_t i;
+
+			if (blobmsg_type(attr) != BLOBMSG_TYPE_STRING) {
+				valid = false;
+				break;
+			}
+
+			val = blobmsg_get_string(attr);
+			for (i = 0; i < ARRAY_SIZE(wol_modes); i++) {
+				if (strcmp(val, wol_modes[i].name))
+					continue;
+
+				if (!wol_modes[i].flag)
+					has_disabled = true;
+				else
+					wol |= wol_modes[i].flag;
+
+				found = true;
+				break;
+			}
+
+			if (!found) {
+				valid = false;
+				break;
+			}
+
+			valid = true;
+		}
+
+		if (has_disabled && wol != 0)
+			valid = false;
+
+		if (valid) {
+			s->wol = wol;
+			s->flags |= DEV_OPT_WOL;
+		} else {
+			D(DEVICE, "Invalid wol configuration");
+		}
 	}
 
 	/* Remember the settings present in UCI */
@@ -1167,7 +1231,10 @@ void device_set_link(struct device *dev, bool state)
 	netifd_log_message(L_NOTICE, "%s '%s' link is %s\n", dev->type->name, dev->ifname, state ? "up" : "down" );
 
 	dev->link_active = state;
-	if (!state)
+	if (state) {
+		if (dev->settings.flags & DEV_OPT_WOL)
+			system_if_apply_settings(dev, &dev->settings, DEV_OPT_WOL);
+	} else
 		dev->auth_status = false;
 	device_broadcast_event(dev, state ? DEV_EVENT_LINK_UP : DEV_EVENT_LINK_DOWN);
 }
@@ -1512,8 +1579,13 @@ device_apply_config(struct device *dev, struct device_type *type,
 			config = blob_memdup(config);
 			free(dev->config);
 			dev->config = config;
-			if (change == DEV_CONFIG_RESTART && dev->present)
+			if (change == DEV_CONFIG_RESTART && dev->present) {
 				device_restart(dev);
+
+				if (dev->active && dev->link_active &&
+				    (dev->settings.flags & DEV_OPT_WOL))
+					system_if_apply_settings(dev, &dev->settings, DEV_OPT_WOL);
+			}
 			break;
 		case DEV_CONFIG_NO_CHANGE:
 			D(DEVICE, "Device '%s': no configuration change", dev->ifname);
