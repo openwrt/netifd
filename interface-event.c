@@ -24,6 +24,7 @@
 char *hotplug_cmd_path = DEFAULT_HOTPLUG_PATH;
 static struct interface *current;
 static enum interface_event current_ev;
+static bool stopped;
 static struct list_head pending = LIST_HEAD_INIT(pending);
 
 static void task_complete(struct uloop_process *proc, int ret);
@@ -87,7 +88,7 @@ static void
 call_hotplug(void)
 {
 	const char *device = NULL;
-	if (list_empty(&pending))
+	if (stopped || list_empty(&pending))
 		return;
 
 	current = list_first_entry(&pending, struct interface, hotplug_list);
@@ -108,7 +109,24 @@ task_complete(struct uloop_process *proc, int ret)
 	if (current)
 		D(SYSTEM, "Complete hotplug handler for interface '%s'", current->name);
 	current = NULL;
+	if (stopped) {
+		netifd_exit_check();
+		return;
+	}
+
 	call_hotplug();
+}
+
+void
+interface_event_stop(void)
+{
+	stopped = true;
+}
+
+bool
+interface_event_running(void)
+{
+	return task.pending;
 }
 
 /*
